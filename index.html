@@ -105,6 +105,12 @@ var _praesidiumName = '';
 var _isMaster       = false;
 var _praesidienList = [];
 
+/* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
+function isStandalone(){
+  return window.navigator.standalone===true ||
+         window.matchMedia('(display-mode: standalone)').matches;
+}
+
 function sb(){
   if(!_sb && window.supabaseLib && window.supabaseLib.createClient){
     _sb = window.supabaseLib.createClient(SUPA_URL, SUPA_KEY, {
@@ -189,17 +195,23 @@ function extractInviteToken(){
 }
 async function validateInviteToken(token){
   var client=sb(); if(!client) return null;
+  var clean=token.replace(/[\s\-]/g,'').toUpperCase();
+  var fields='token,praesidium_id,is_master,label,short_code,praesidien(id,name)';
   try{
-    /* Neues System: access_tokens Tabelle */
-    var r=await client.from('access_tokens')
-      .select('token,praesidium_id,is_master,label,praesidien(id,name)')
-      .eq('token',token).single();
+    /* Short Code (8 Zeichen, z.B. ABCD-1234 → ABCD-1234) */
+    if(clean.length===8){
+      var sc=clean.slice(0,4)+'-'+clean.slice(4);
+      var rs=await client.from('access_tokens').select(fields).eq('short_code',sc).single();
+      if(rs.data) return rs.data;
+    }
+    /* Vollständiger Token (32+ Zeichen) */
+    var r=await client.from('access_tokens').select(fields).eq('token',token.trim()).single();
     if(r.data) return r.data;
   }catch(e){}
   /* Fallback: alter join_token auf ccps */
   try{
-    var r2=await client.from('ccps').select('id,kennung').eq('join_token',token).single();
-    if(r2.data) return {praesidium_id:null,is_master:false,praesidien:null};
+    var r2=await client.from('ccps').select('id,kennung').eq('join_token',token.trim()).single();
+    if(r2.data) return {praesidium_id:null,is_master:false,praesidien:null,short_code:null};
   }catch(e){}
   return null;
 }
@@ -228,10 +240,35 @@ function vLocked(){
   h+='<button class="prim" data-action="newccp" style="margin-bottom:14px">＋ Neuen CCP eröffnen</button>';
   h+='<div class="card" style="padding:16px 14px">';
   h+='<label class="fieldlab">Einladungscode eingeben</label>';
-  h+='<input id="inv-input" placeholder="32-stelliger Code…" style="font-family:monospace;font-size:13px">';
+  h+='<input id="inv-input" placeholder="XXXX-XXXX (8-stelliger Code)" style="font-family:monospace;font-size:15px;letter-spacing:2px;text-transform:uppercase">';
   h+='<button class="prim" data-action="checkinvite" style="margin-top:10px">Zugang prüfen</button>';
   h+='</div>';
   h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">Argus Beta · Nur für autorisierte Nutzer</p>';
+  return h;
+}
+function vInstall(){
+  var sc=state.installShortCode||'—';
+  var h='<div style="text-align:center;padding:36px 0 20px">';
+  h+='<img src="./icon-180.png" alt="Argus" style="width:80px;height:80px;border-radius:18px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
+  h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">Argus installieren</div>';
+  h+='<div class="hint" style="margin-bottom:20px">Folge diesen Schritten:</div></div>';
+  var steps=[
+    ['1','Tippe unten auf das <b>Teilen-Symbol</b> ↑<br><span class="hint">(Rechteck mit Pfeil nach oben)</span>'],
+    ['2','Wähle <b>„Zum Home-Bildschirm"</b>'],
+    ['3','Tippe auf <b>„Hinzufügen"</b>'],
+    ['4','Öffne <b>Argus</b> vom Homescreen']
+  ];
+  steps.forEach(function(s){
+    h+='<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">';
+    h+='<span class="mono" style="background:var(--acc);color:#fff;border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-weight:700;flex:none">'+s[0]+'</span>';
+    h+='<div style="padding-top:4px">'+s[1]+'</div></div>';
+  });
+  h+='<div class="card" style="margin-top:20px;text-align:center;padding:18px">';
+  h+='<div class="hint" style="margin-bottom:8px">Dein Einladungscode für die App:</div>';
+  h+='<div class="mono" style="font-size:32px;font-weight:700;letter-spacing:4px;color:var(--acc);margin:8px 0">'+esc(sc)+'</div>';
+  h+='<div class="hint">Nach der Installation in der App eingeben</div>';
+  h+='</div>';
+  h+='<p class="hint" style="text-align:center;margin-top:14px;font-size:11px">Dieser Code ist dein persönlicher Zugang · nicht weitergeben</p>';
   return h;
 }
 function vPraesidium(){
@@ -334,7 +371,7 @@ var FLOW={
   cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
 };
 
-var state = {view:"start", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -524,11 +561,12 @@ function countGpa(){return patients.filter(function(p){return p.status==="gpa";}
 function countPrio(){return patients.filter(function(p){return p.status==="active"&&p.prio;}).length;}
 
 function render(){
-  $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"Argus",praesidium:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
+  $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
+  var titles={locked:"Argus",install:"Argus installieren",praesidium:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
   $("title").textContent=titles[state.view]||"Argus";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
+  else if(v==="install")h=vInstall();
   else if(v==="praesidium")h=vPraesidium();
   else if(v==="start")h=vStart();
   else if(v==="home")h=vHome();
@@ -901,8 +939,9 @@ document.addEventListener("click",async function(e){
   if(a==="shareinvite"){await copyInviteLink();return;}
   if(a==="checkinvite"){
     var inp=document.getElementById('inv-input');
-    var code=inp?inp.value.trim():'';
-    if(!code||code.length<32){toast("Bitte vollständigen Code eingeben");return;}
+    var code=inp?inp.value.trim().toUpperCase():'';
+    var codeClean=code.replace(/[\s\-]/g,'');
+    if(!code||codeClean.length<8){toast("Bitte Code eingeben (Format: XXXX-XXXX)");return;}
     toast("Prüfe Code…");
     var valid=await validateInviteToken(code);
     if(valid){
@@ -1092,6 +1131,13 @@ setInterval(async function(){
     /* Einladungslink: einmalig validieren und Zugang dauerhaft freischalten */
     var tokenData=await validateInviteToken(urlToken);
     if(tokenData){
+      /* Browser (nicht PWA): Installationsseite zeigen */
+      if(!isStandalone()){
+        state.installShortCode=tokenData.short_code||urlToken.slice(0,8).toUpperCase();
+        state.installTokenFull=urlToken;
+        $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+        state.view='install'; render(); return;
+      }
       localStorage.setItem('argus_verified','true');
       localStorage.setItem('argus_invite',urlToken);
       history.replaceState(null,'',window.location.pathname);
