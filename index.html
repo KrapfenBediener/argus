@@ -851,16 +851,18 @@ document.addEventListener("click",async function(e){
     toast("Prüfe Code…");
     var valid=await validateInviteToken(code);
     if(valid){
-      _ccpId=valid.id;
-      localStorage.setItem('argus_ccp_id',_ccpId);
+      /* Dauerhaften Zugang freischalten */
+      localStorage.setItem('argus_verified','true');
       localStorage.setItem('argus_invite',code);
+      if(!localStorage.getItem('argus_ccp_id')) localStorage.setItem('argus_ccp_id',valid.id);
+      _ccpId=localStorage.getItem('argus_ccp_id');
       await loadMeta();await loadPatients();await loadChecklist();
       subscribeRealtime();
       if(!operator){
         var voinv=await promptModal("Dein Kürzel:","");
         if(voinv&&voinv.trim()){operator=voinv.trim();await setOperatorStore(operator);}
       }
-      go("home");
+      go("start");
     }else{toast("Ungültiger Code");}
     return;
   }
@@ -878,6 +880,9 @@ document.addEventListener("click",async function(e){
     }
     /* Immer prüfen — auch bei returning users ohne gespeicherten MasterMedic */
     if(!masterMedic && operator){await setMasterMedic(operator);}
+    /* Zugang dauerhaft freischalten (auch wenn vom gesperrten Bildschirm aus) */
+    if(!localStorage.getItem('argus_verified')) localStorage.setItem('argus_verified','true');
+    if(!_ccpId){toast("Verbinde…");var ok2=await openOrCreateCCP();if(ok2)subscribeRealtime();}
     go("home");return;
   }
   if(a==="joinccp"){
@@ -1001,32 +1006,38 @@ setInterval(async function(){
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
 
-  /* ── Zugangsprüfung ──────────────────────────────────────────── */
+  /* ── Zugangsprüfung (nur einmalig beim ersten Start) ─────────────
+   * argus_verified = true  →  einmal freigeschaltet, dauerhaft Zugang
+   * Einladungslink         →  einmalige Registrierung, danach verified
+   * Nichts von beidem      →  gesperrter Bildschirm
+   * ──────────────────────────────────────────────────────────────── */
+  var verified=localStorage.getItem('argus_verified');
   var urlToken=extractInviteToken();
-  var storedToken=localStorage.getItem('argus_invite');
-  var storedCcp=localStorage.getItem('argus_ccp_id');
 
   if(urlToken){
-    /* Einladungslink geöffnet: Token validieren */
+    /* Einladungslink: einmalig validieren und Zugang dauerhaft freischalten */
     var ccpData=await validateInviteToken(urlToken);
     if(ccpData){
-      _ccpId=ccpData.id;
-      localStorage.setItem('argus_ccp_id',_ccpId);
+      localStorage.setItem('argus_verified','true');
       localStorage.setItem('argus_invite',urlToken);
       history.replaceState(null,'',window.location.pathname);
+      /* Letzte CCP vorbelegen, aber nicht erzwingen — Nutzer wählt selbst */
+      if(!localStorage.getItem('argus_ccp_id')){
+        localStorage.setItem('argus_ccp_id',ccpData.id);
+      }
     }else{
-      /* Ungültiger Token */
       $("clock").textContent=new Date().toLocaleTimeString("de-DE");
       state.view='locked'; render(); return;
     }
-  } else if(storedCcp){
-    /* Bestehende Session: CCP-ID aus localStorage */
-    _ccpId=storedCcp;
-  } else if(!storedToken){
-    /* Kein Zugang: Token fehlt komplett */
+  } else if(!verified){
+    /* Kein Token, nicht registriert → gesperrter Bildschirm */
     $("clock").textContent=new Date().toLocaleTimeString("de-DE");
     state.view='locked'; render(); return;
   }
+
+  /* Ab hier: Nutzer ist freigeschaltet — letzten CCP wiederherstellen */
+  var storedCcp=localStorage.getItem('argus_ccp_id');
+  if(storedCcp) _ccpId=storedCcp;
 
   await loadMeta();
   await loadPatients();
