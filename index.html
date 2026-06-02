@@ -906,18 +906,34 @@ document.addEventListener("click",async function(e){
     toast("Prüfe Code…");
     var valid=await validateInviteToken(code);
     if(valid){
-      /* Dauerhaften Zugang freischalten */
       localStorage.setItem('argus_verified','true');
       localStorage.setItem('argus_invite',code);
-      if(!localStorage.getItem('argus_ccp_id')) localStorage.setItem('argus_ccp_id',valid.id);
-      _ccpId=localStorage.getItem('argus_ccp_id');
-      await loadMeta();await loadPatients();await loadChecklist();
-      subscribeRealtime();
-      if(!operator){
-        var voinv=await promptModal("Dein Kürzel:","");
-        if(voinv&&voinv.trim()){operator=voinv.trim();await setOperatorStore(operator);}
+      if(valid.is_master){
+        /* MasterToken: Rolle setzen + Präsidienauswahl zeigen */
+        _isMaster=true;
+        localStorage.setItem('argus_is_master','true');
+        localStorage.removeItem('argus_praesidium_id');
+        localStorage.removeItem('argus_praesidium_name');
+        _praesidiumId=null; _praesidiumName='';
+        var prlc=await sb().from('praesidien').select('id,name').order('name');
+        _praesidienList=prlc.data||[];
+        go("praesidium");
+      } else {
+        /* Normaler Token: Präsidium setzen und weiter */
+        if(valid.praesidium_id){
+          _praesidiumId=valid.praesidium_id;
+          _praesidiumName=(valid.praesidien&&valid.praesidien.name)||'';
+          localStorage.setItem('argus_praesidium_id',_praesidiumId);
+          localStorage.setItem('argus_praesidium_name',_praesidiumName);
+        }
+        await loadMeta();await loadPatients();await loadChecklist();
+        subscribeRealtime();
+        if(!operator){
+          var voinv=await promptModal("Dein Kürzel:","");
+          if(voinv&&voinv.trim()){operator=voinv.trim();await setOperatorStore(operator);}
+        }
+        go("start");
       }
-      go("start");
     }else{toast("Ungültiger Code");}
     return;
   }
