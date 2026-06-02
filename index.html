@@ -89,6 +89,113 @@
 
 <script>
 "use strict";
+
+/* ============================================================
+ * PHASE 1 — SUPABASE BACKEND
+ * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
+ * localStorage bleibt als Offline-Buffer.
+ * ============================================================ */
+var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
+var _sb      = null;
+var _ccpId   = null;
+var _channel = null;
+
+function sb(){
+  if(!_sb && window.supabaseLib && window.supabaseLib.createClient){
+    _sb = window.supabaseLib.createClient(SUPA_URL, SUPA_KEY, {
+      auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:false}
+    });
+  }
+  return _sb;
+}
+function patFromRow(r){
+  return normalize({
+    id:r.id, num:r.num, ccp:r.ccp, cat:r.cat, status:r.status,
+    prio:!!r.prio, ready:!!r.ready, tqStart:r.tq_start,
+    created:r.created, lastTriage:r.last_triage, updated:r.updated,
+    name:r.name||'', age:r.age||'', gender:r.gender||'',
+    allergies:r.allergies||'', pupRe:r.pup_re||'', pupLi:r.pup_li||'',
+    vit:r.vit||{af:'',spo2:'',hf:'',rr:'',avpu:'',pain:''},
+    tx:r.tx||{}, inj:r.inj||[],
+    moi:r.moi||'', injury:r.injury||'', fr:r.fr||'',
+    notes:r.notes||'', by:r.by||'',
+    photo:r.photo||null, lockedBy:r.locked_by||null, lockedAt:r.locked_at||null
+  });
+}
+function patToRow(p){
+  return {
+    id:p.id, ccp_id:_ccpId, num:p.num, ccp:p.ccp||'A',
+    cat:p.cat, status:p.status||'active',
+    prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null,
+    created:p.created, last_triage:p.lastTriage, updated:p.updated,
+    name:p.name||'', age:p.age||'', gender:p.gender||'',
+    allergies:p.allergies||'', pup_re:p.pupRe||'', pup_li:p.pupLi||'',
+    vit:p.vit||{}, tx:p.tx||{}, inj:p.inj||[],
+    moi:p.moi||'', injury:p.injury||'', fr:p.fr||'',
+    notes:p.notes||'', by:p.by||'',
+    photo:p.photo||null, locked_by:p.lockedBy||null, locked_at:p.lockedAt||null
+  };
+}
+function applyMeta(row){
+  if(!row) return;
+  if(typeof row.master_medic==='string') masterMedic=row.master_medic;
+  if(typeof row.merged==='boolean') ccpMerged=row.merged;
+}
+async function openOrCreateCCP(){
+  var client=sb(); if(!client) return false;
+  if(_ccpId){
+    var r=await client.from('ccps').select('*').eq('id',_ccpId).single();
+    if(r.data){applyMeta(r.data);return true;}
+  }
+  var ins=await client.from('ccps').insert({
+    kennung:'A', ort:'', master_medic:operator||'', merged:false
+  }).select().single();
+  if(ins.data){
+    _ccpId=ins.data.id;
+    localStorage.setItem('argus_ccp_id',_ccpId);
+    return true;
+  }
+  return false;
+}
+function subscribeRealtime(){
+  var client=sb(); if(!client||!_ccpId||_channel) return;
+  _channel=client.channel('ccp-'+_ccpId)
+    .on('postgres_changes',{event:'*',schema:'public',table:'patients',
+        filter:'ccp_id=eq.'+_ccpId}, async function(){
+      if(state.view==='patient'||state.view==='checklist') return;
+      await loadPatients(); render();
+    })
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ccps',
+        filter:'id=eq.'+_ccpId}, function(p){applyMeta(p.new);render();})
+    .subscribe();
+}
+function ccpJoinModal(list){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');ov.className='modalov';
+    var inner='<div class="modalbx" style="max-width:360px">';
+    inner+='<div class="modalmsg" style="margin-bottom:14px">CCP auswählen</div>';
+    list.forEach(function(ccp){
+      inner+='<button class="mc-ccpjoin card" data-id="'+ccp.id+'" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px">';
+      inner+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">';
+      inner+='<span class="mono" style="font-size:18px;font-weight:600">CCP '+esc(ccp.kennung)+'</span>';
+      if(ccp.ort) inner+='<span class="hint">'+esc(ccp.ort)+'</span>';
+      inner+='</div>';
+      inner+='<div class="hint">MasterMedic: '+(ccp.master_medic||'keine')+'</div>';
+      inner+='</button>';
+    });
+    inner+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
+    inner+='</div>';
+    ov.innerHTML=inner; document.body.appendChild(ov);
+    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    ov.querySelectorAll('.mc-ccpjoin').forEach(function(btn){
+      btn.addEventListener('click',function(){done(btn.getAttribute('data-id'));});
+    });
+    ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
+    ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
+  });
+}
+
 /* --- Standalone-Persistenz: localStorage-Speicher, wenn kein window.storage vorhanden (z.B. auf dem iPhone) --- */
 if (typeof window !== "undefined" && !window.storage) {
   window.storage = {
@@ -183,10 +290,23 @@ async function setOperatorStore(v){
   try{await SS.set("ccp_operator",v,false);}catch(e){}
 }
 async function loadMeta(){
+  var client=sb();
+  if(client && _ccpId){
+    try{
+      var r=await client.from('ccps').select('master_medic,merged').eq('id',_ccpId).single();
+      if(r.data){applyMeta(r.data);return;}
+    }catch(e){}
+  }
   var mm=await sGet("ccp_mastermedic");masterMedic=(typeof mm==="string")?mm:"";
   var mg=await sGet("ccp_merged");ccpMerged=!!mg;
 }
-async function setMasterMedic(v){masterMedic=v;await sSet("ccp_mastermedic",v);}
+async function setMasterMedic(v){
+  masterMedic=v; await sSet("ccp_mastermedic",v);
+  var client=sb();
+  if(client && _ccpId){
+    try{await client.from('ccps').update({master_medic:v}).eq('id',_ccpId);}catch(e){}
+  }
+}
 /* Demo-CCPs: realistisch befüllte Beispiel-CCPs für Präsentations- und Testzwecke.
  * Jede CCP hat 8 Patienten mit variierenden Kategorien, Vitalwerten und Verletzungen.
  * Demo-Patienten tragen demo:true — werden nur im zusammengeführten Modus angezeigt.
@@ -258,13 +378,24 @@ async function undoMergeDemo(){
   await loadPatients();
 }
 async function loadPatients(){
+  var client=sb();
+  if(client && _ccpId){
+    try{
+      var r=await client.from('patients').select('*').eq('ccp_id',_ccpId);
+      if(!r.error && r.data){
+        var arr=r.data.map(patFromRow);
+        if(ccpMerged){
+          var keys2=await sList("ccp_pat_");
+          for(var i=0;i<keys2.length;i++){var pd=await sGet(keys2[i]);if(pd&&pd.demo)arr.push(normalize(pd));}
+        }
+        arr.sort(function(a,b){var ca=a.ccp||"A",cb=b.ccp||"A";if(ca!==cb)return ca<cb?-1:1;return a.num-b.num;});
+        patients=arr; return;
+      }
+    }catch(e){}
+  }
   var keys=await sList("ccp_pat_");var arr=[];
   for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!ccpMerged)continue;arr.push(normalize(p));}}
-  arr.sort(function(a,b){
-    var ca=a.ccp||"A",cb=b.ccp||"A";
-    if(ca!==cb)return ca<cb?-1:1;
-    return a.num-b.num;
-  });
+  arr.sort(function(a,b){var ca=a.ccp||"A",cb=b.ccp||"A";if(ca!==cb)return ca<cb?-1:1;return a.num-b.num;});
   patients=arr;
 }
 function normalize(p){
@@ -288,10 +419,21 @@ async function addPatient(cat){
     vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
     tx:{},inj:[],moi:"",injury:"",fr:operator,notes:"",by:operator,updated:nowMs()};
   await sSet("ccp_pat_"+p.id,p);
+  var client=sb();
+  if(client && _ccpId){
+    try{await client.from('patients').insert(patToRow(p));}catch(e){}
+  }
   await loadPatients();
   return num;
 }
-async function savePatient(p){p.updated=nowMs();await sSet("ccp_pat_"+p.id,p);}
+async function savePatient(p){
+  p.updated=nowMs();
+  await sSet("ccp_pat_"+p.id,p);
+  var client=sb();
+  if(client && _ccpId && !p.demo){
+    try{await client.from('patients').upsert(patToRow(p));}catch(e){}
+  }
+}
 function activeByCat(cat){return patients.filter(function(p){return p.status==="active"&&p.cat===cat;});}
 function countCat(cat){return activeByCat(cat).length;}
 function countGpa(){return patients.filter(function(p){return p.status==="gpa";}).length;}
@@ -331,7 +473,7 @@ function vHome(){
     mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }
   return countbar()+
-  '<div class="banner"><span>⇄</span><div>Gemeinsamer Modus'+(SS?"":" (lokal)")+': Alle Geräte mit dieser App teilen dieselbe Patientenliste – mehrere Kollegen können gleichzeitig erfassen.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<div class="banner"><span>⇄</span><div>'+(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus')+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
@@ -665,8 +807,24 @@ document.addEventListener("click",async function(e){
     go("home");return;
   }
   if(a==="joinccp"){
-    await confirmModal("CCP beitreten\n\nDiese Funktion zeigt verfügbare CCPs an und lässt dich beitreten – sobald das Backend verbunden ist.\n\nFunktion wird in Phase 1 freigeschaltet.","Verstanden");
-    return;
+    var client2=sb();
+    if(!client2){await confirmModal("Keine Backend-Verbindung.\n\nInternetverbindung prüfen.","OK");return;}
+    var jres=await client2.from('ccps').select('*').order('created_at',{ascending:true});
+    if(!jres.data||jres.data.length===0){
+      await confirmModal("Keine aktiven CCPs gefunden.\n\nEröffne zuerst einen CCP über 'Neue CCP eröffnen'.","OK");return;
+    }
+    var selId=await ccpJoinModal(jres.data);
+    if(!selId) return;
+    _ccpId=selId; localStorage.setItem('argus_ccp_id',_ccpId);
+    if(!operator){
+      var voj=await promptModal("Dein Kürzel:","");
+      if(!voj||!voj.trim()) return;
+      operator=voj.trim();await setOperatorStore(operator);
+    }
+    toast("Verbinde mit CCP…");
+    await loadMeta();await loadPatients();
+    subscribeRealtime();
+    go("home");return;
   }
   if(a==="setoperator"){e.preventDefault();var v=await promptModal("Bediener-Kürzel (z. B. Streife / Name):",operator||"");if(v!=null){operator=v.trim();await setOperatorStore(operator);if(!masterMedic&&operator){await setMasterMedic(operator);}render();}return;}
   if(a==="claimmm"){
