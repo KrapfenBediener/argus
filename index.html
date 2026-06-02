@@ -617,6 +617,6 @@ setInterval(async function(){
 })();
 
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/sw.js').catch(function(e) {});
+  navigator.serviceWorker.register('./sw.js').catch(function(e) {});
 }
 </script>

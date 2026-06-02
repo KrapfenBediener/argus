@@ -9,8 +9,8 @@
 const CACHE_NAME = 'ccp-shell-v1';
 
 const PRECACHE_URLS = [
-  '/',
-  '/index.html',
+  './',
+  './index.html',
   'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap'
 ];
 
@@ -86,8 +86,8 @@ self.addEventListener('fetch', function(event) {
           return response;
         }).catch(function() {
           /* Offline und nicht im Cache → für index.html Fallback */
-          if (url.pathname === '/' || url.pathname === '/index.html') {
-            return caches.match('/index.html');
+          if (url.pathname.endsWith('/') || url.pathname.endsWith('/index.html')) {
+            return caches.match('./index.html');
           }
         });
       })
