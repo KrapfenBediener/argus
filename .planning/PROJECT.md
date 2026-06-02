@@ -32,6 +32,13 @@ Digitales Echtzeit-Koordinierungswerkzeug für den CCP (Casualty Collection Poin
 - MDR-Einstufung tacSTART klären (Entscheidungsunterstützung)
 - Org-Verankerung: Träger-Buy-in vor produktivem Mehrbenutzerbetrieb
 
+## Kosten-Constraint (bindend bis Rücksprache Polizei BW)
+- **Supabase Free Tier** bis zur offiziellen Übernahme durch Polizei BW
+- Free Tier reicht für Beta: 500 MB DB, 1 GB Storage, ~20 gleichzeitige Geräte
+- Projekt pausiert nach 7 Tagen Inaktivität → beim Entwickler manuell reaktivieren
+- Wenn Polizei BW übernimmt: eigene Server / Self-Hosted Supabase (bevorzugt)
+- Beta-Gerätegrenze: max. 20 gleichzeitig verbundene Geräte (Free Tier-Limit)
+
 ## Team
 - Entwicklung: Einzelperson + Claude Code (bis Beta)
 - Zielorganisation: Polizei BW (PP Karlsruhe als erster Ansprechpartner)
