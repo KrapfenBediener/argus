@@ -207,17 +207,18 @@ async function copyInviteLink(){
 }
 /* ── Gesperrter Bildschirm ──────────────────────────────────────────────── */
 function vLocked(){
-  var h='<div style="text-align:center;padding:60px 20px 30px">';
+  var h='<div style="text-align:center;padding:48px 20px 24px">';
   h+='<img src="./icon-180.png" alt="Argus" style="width:80px;height:80px;border-radius:18px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;opacity:.5">';
   h+='<div style="font-size:22px;font-weight:600;margin-bottom:8px">Kein Zugang</div>';
-  h+='<div class="hint" style="margin-bottom:32px">Bitte einen Einladungslink verwenden.</div>';
+  h+='<div class="hint" style="margin-bottom:20px">Bitte einen Einladungslink verwenden.</div>';
   h+='</div>';
+  h+='<button class="prim" data-action="newccp" style="margin-bottom:14px">＋ Neuen CCP eröffnen</button>';
   h+='<div class="card" style="padding:16px 14px">';
-  h+='<label class="fieldlab">Einladungscode manuell eingeben</label>';
+  h+='<label class="fieldlab">Einladungscode eingeben</label>';
   h+='<input id="inv-input" placeholder="32-stelliger Code…" style="font-family:monospace;font-size:13px">';
   h+='<button class="prim" data-action="checkinvite" style="margin-top:10px">Zugang prüfen</button>';
   h+='</div>';
-  h+='<p class="hint" style="text-align:center;margin-top:20px;font-size:11px">Argus Beta · Nur für autorisierte Nutzer</p>';
+  h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">Argus Beta · Nur für autorisierte Nutzer</p>';
   return h;
 }
 function ccpJoinModal(list){
