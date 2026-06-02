@@ -1,0 +1,36 @@
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V8
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Editor & IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Entwicklungsserver-Logs (python -m http.server)
+*.log
+
+# Umgebungsvariablen (kommen in Phase 1)
+.env
+.env.local
+.env.*.local
+
+# Temporäre Dateien
+*.tmp
+*.bak
+
+# Node (kein npm in Phase 0, aber für Phase 1+ vorbereiten)
+node_modules/
+npm-debug.log*
+
+# Sicherheitskritisch — nie einchecken
+*.pem
+*.key
+supabase-config.js
