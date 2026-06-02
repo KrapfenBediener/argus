@@ -396,15 +396,25 @@ function vOverview(){
   h+='<p class="hint" style="text-align:center;margin-top:10px">Kategorie antippen → Patientenliste → Patient antippen</p>';
   if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
-    if(!ccpMerged){
-      h+='<button class="ghost" data-action="mergestart" style="margin-top:0">⇄ CCPs zusammenführen</button>';
-      h+='<p class="hint" style="text-align:center;margin-top:6px">2 Demo-CCPs verfügbar</p>';
-    }else{
-      var mergedKeys=[];
-      patients.forEach(function(p){if(p.demo&&mergedKeys.indexOf(p.ccp)===-1)mergedKeys.push(p.ccp);});
-      mergedKeys.sort();
-      h+='<div class="banner" style="margin-bottom:8px"><span>✓</span><div><span style="font-weight:600">Zusammenführung aktiv:</span> CCP A + CCP '+mergedKeys.join(' + CCP ')+'<br><span class="hint">Patienten-Nummern mit CCP-Buchstaben (A-01, '+mergedKeys[0]+'-01 …)</span></div></div>';
-      h+='<button class="ghost" data-action="mergeundo" style="margin-top:0">Zusammenführung zurücksetzen</button>';
+    /* Welche Demo-CCPs sind bereits zusammengeführt? */
+    var mergedKeys=[];
+    patients.forEach(function(p){if(p.demo&&mergedKeys.indexOf(p.ccp)===-1)mergedKeys.push(p.ccp);});
+    mergedKeys.sort();
+    /* Welche Demo-CCPs sind noch NICHT zusammengeführt? */
+    var availKeys=Object.keys(DEMO_CCPS).filter(function(k){return mergedKeys.indexOf(k)===-1;});
+    /* Status-Banner wenn mindestens eine CCP zusammengeführt ist */
+    if(ccpMerged&&mergedKeys.length>0){
+      h+='<div class="banner" style="margin-bottom:10px"><span>✓</span><div>';
+      h+='<span style="font-weight:600">Aktiv: CCP A + CCP '+mergedKeys.join(' + CCP ')+'</span><br>';
+      h+='<span class="hint">Nummern mit Buchstaben-Präfix (A-01, '+mergedKeys[0]+'-01 …)</span>';
+      h+='</div></div>';
+      h+='<button class="ghost" data-action="mergeundo" style="margin-top:0;margin-bottom:8px">Zusammenführung zurücksetzen</button>';
+    }
+    /* Merge-Button solange noch ungemergde CCPs vorhanden */
+    if(availKeys.length>0){
+      var btnLabel=ccpMerged?'⇄ Weitere CCP hinzufügen':'⇄ CCPs zusammenführen';
+      h+='<button class="ghost" data-action="mergestart" style="margin-top:0">'+btnLabel+'</button>';
+      h+='<p class="hint" style="text-align:center;margin-top:5px">'+availKeys.length+' CCP'+( availKeys.length!==1?'s':'')+' verfügbar</p>';
     }
   }
   return h;
