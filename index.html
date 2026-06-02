@@ -148,12 +148,17 @@ async function openOrCreateCCP(){
     var r=await client.from('ccps').select('*').eq('id',_ccpId).single();
     if(r.data){applyMeta(r.data);return true;}
   }
+  /* Einzigartigen Join-Token generieren */
+  var tokenArr=new Uint8Array(16);
+  crypto.getRandomValues(tokenArr);
+  var joinToken=Array.from(tokenArr,function(b){return b.toString(16).padStart(2,'0');}).join('');
   var ins=await client.from('ccps').insert({
-    kennung:'A', ort:'', master_medic:operator||'', merged:false
+    kennung:'A', ort:'', master_medic:operator||'', merged:false, join_token:joinToken
   }).select().single();
   if(ins.data){
     _ccpId=ins.data.id;
     localStorage.setItem('argus_ccp_id',_ccpId);
+    localStorage.setItem('argus_invite',joinToken);
     return true;
   }
   return false;
@@ -169,6 +174,51 @@ function subscribeRealtime(){
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ccps',
         filter:'id=eq.'+_ccpId}, function(p){applyMeta(p.new);render();})
     .subscribe();
+}
+
+/* ── Einladungs-System ─────────────────────────────────────────────────── */
+function extractInviteToken(){
+  var hash=window.location.hash||'';
+  var m=hash.match(/[#&]inv=([a-f0-9]{32})/i);
+  return m?m[1]:null;
+}
+async function validateInviteToken(token){
+  var client=sb(); if(!client) return null;
+  try{
+    var r=await client.from('ccps').select('id,kennung,master_medic,merged')
+      .eq('join_token',token).single();
+    return r.data||null;
+  }catch(e){return null;}
+}
+function inviteUrl(){
+  var token=localStorage.getItem('argus_invite')||'';
+  if(!token) return null;
+  return window.location.origin+window.location.pathname+'#inv='+token;
+}
+async function copyInviteLink(){
+  var url=inviteUrl();
+  if(!url){toast('Kein Einladungslink verfügbar');return;}
+  try{
+    await navigator.clipboard.writeText(url);
+    toast('Einladungslink kopiert ✓');
+  }catch(e){
+    promptModal('Einladungslink (kopieren):',url);
+  }
+}
+/* ── Gesperrter Bildschirm ──────────────────────────────────────────────── */
+function vLocked(){
+  var h='<div style="text-align:center;padding:60px 20px 30px">';
+  h+='<img src="./icon-180.png" alt="Argus" style="width:80px;height:80px;border-radius:18px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;opacity:.5">';
+  h+='<div style="font-size:22px;font-weight:600;margin-bottom:8px">Kein Zugang</div>';
+  h+='<div class="hint" style="margin-bottom:32px">Bitte einen Einladungslink verwenden.</div>';
+  h+='</div>';
+  h+='<div class="card" style="padding:16px 14px">';
+  h+='<label class="fieldlab">Einladungscode manuell eingeben</label>';
+  h+='<input id="inv-input" placeholder="32-stelliger Code…" style="font-family:monospace;font-size:13px">';
+  h+='<button class="prim" data-action="checkinvite" style="margin-top:10px">Zugang prüfen</button>';
+  h+='</div>';
+  h+='<p class="hint" style="text-align:center;margin-top:20px;font-size:11px">Argus Beta · Nur für autorisierte Nutzer</p>';
+  return h;
 }
 function ccpJoinModal(list){
   return new Promise(function(resolve){
@@ -440,11 +490,12 @@ function countGpa(){return patients.filter(function(p){return p.status==="gpa";}
 function countPrio(){return patients.filter(function(p){return p.status==="active"&&p.prio;}).length;}
 
 function render(){
-  $("backbtn").style.display = state.view==="start" ? "none" : "flex";
-  var titles={start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
+  $("backbtn").style.display = (state.view==="start"||state.view==="locked") ? "none" : "flex";
+  var titles={locked:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
   $("title").textContent=titles[state.view]||"Argus";
   var v=state.view, h="";
-  if(v==="start")h=vStart();
+  if(v==="locked")h=vLocked();
+  else if(v==="start")h=vStart();
   else if(v==="home")h=vHome();
   else if(v==="checklist")h=vChecklist();
   else if(v==="capture")h=vCapture();
@@ -474,6 +525,7 @@ function vHome(){
   }
   return countbar()+
   '<div class="banner"><span>⇄</span><div>'+(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus')+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<button class="ghost" data-action="shareinvite" style="margin-bottom:12px">🔗 Einladungslink teilen</button>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
@@ -790,6 +842,27 @@ document.addEventListener("click",async function(e){
   var el=e.target.closest("[data-action]");if(!el)return;
   var a=el.getAttribute("data-action");
   if(a==="back"){back();return;}
+  if(a==="shareinvite"){await copyInviteLink();return;}
+  if(a==="checkinvite"){
+    var inp=document.getElementById('inv-input');
+    var code=inp?inp.value.trim():'';
+    if(!code||code.length<32){toast("Bitte vollständigen Code eingeben");return;}
+    toast("Prüfe Code…");
+    var valid=await validateInviteToken(code);
+    if(valid){
+      _ccpId=valid.id;
+      localStorage.setItem('argus_ccp_id',_ccpId);
+      localStorage.setItem('argus_invite',code);
+      await loadMeta();await loadPatients();await loadChecklist();
+      subscribeRealtime();
+      if(!operator){
+        var voinv=await promptModal("Dein Kürzel:","");
+        if(voinv&&voinv.trim()){operator=voinv.trim();await setOperatorStore(operator);}
+      }
+      go("home");
+    }else{toast("Ungültiger Code");}
+    return;
+  }
   if(a==="nav"){go(el.getAttribute("data-view"));return;}
   if(a==="resumeccp"){
     /* Kürzel bekannt, aber MasterMedic noch nicht gesetzt → automatisch übernehmen */
@@ -926,9 +999,34 @@ setInterval(async function(){
 
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
-  /* Gespeicherte CCP-ID wiederherstellen */
+
+  /* ── Zugangsprüfung ──────────────────────────────────────────── */
+  var urlToken=extractInviteToken();
+  var storedToken=localStorage.getItem('argus_invite');
   var storedCcp=localStorage.getItem('argus_ccp_id');
-  if(storedCcp) _ccpId=storedCcp;
+
+  if(urlToken){
+    /* Einladungslink geöffnet: Token validieren */
+    var ccpData=await validateInviteToken(urlToken);
+    if(ccpData){
+      _ccpId=ccpData.id;
+      localStorage.setItem('argus_ccp_id',_ccpId);
+      localStorage.setItem('argus_invite',urlToken);
+      history.replaceState(null,'',window.location.pathname);
+    }else{
+      /* Ungültiger Token */
+      $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+      state.view='locked'; render(); return;
+    }
+  } else if(storedCcp){
+    /* Bestehende Session: CCP-ID aus localStorage */
+    _ccpId=storedCcp;
+  } else if(!storedToken){
+    /* Kein Zugang: Token fehlt komplett */
+    $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+    state.view='locked'; render(); return;
+  }
+
   await loadMeta();
   await loadPatients();
   await loadChecklist();
