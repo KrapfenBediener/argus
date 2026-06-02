@@ -531,9 +531,9 @@ function rl(n,d){return '<div style="padding:6px 0;border-bottom:1px solid var(-
 
 function vStart(){
   var hasSession = patients.filter(function(p){return p.status==="active";}).length > 0;
-  var h = '<div style="text-align:center;padding:48px 0 32px">';
-  h += '<div style="font-size:52px;line-height:1;margin-bottom:10px">⦿</div>';
-  h += '<div style="font-size:30px;font-weight:600;letter-spacing:-.5px;margin-bottom:6px">Argus</div>';
+  var h = '<div style="text-align:center;padding:40px 0 28px">';
+  h += '<img src="./icon-180.png" alt="Argus" style="width:96px;height:96px;border-radius:22px;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;box-shadow:0 4px 16px rgba(0,0,0,.15)">';
+  h += '<div style="font-size:28px;font-weight:600;letter-spacing:-.5px;margin-bottom:5px">Argus</div>';
   h += '<div class="hint">Koordinierung · Sichtung · Transport</div>';
   h += '</div>';
   if(hasSession){
@@ -609,14 +609,19 @@ document.addEventListener("click",async function(e){
   var a=el.getAttribute("data-action");
   if(a==="back"){back();return;}
   if(a==="nav"){go(el.getAttribute("data-view"));return;}
-  if(a==="resumeccp"){go("home");return;}
+  if(a==="resumeccp"){
+    /* Kürzel bekannt, aber MasterMedic noch nicht gesetzt → automatisch übernehmen */
+    if(operator && !masterMedic){await setMasterMedic(operator);}
+    go("home");return;
+  }
   if(a==="newccp"){
     if(!operator){
       var vop=await promptModal("Dein Kürzel (z. B. Name / Streife):","");
       if(vop==null||!vop.trim())return;
       operator=vop.trim();await setOperatorStore(operator);
-      if(!masterMedic){await setMasterMedic(operator);}
     }
+    /* Immer prüfen — auch bei returning users ohne gespeicherten MasterMedic */
+    if(!masterMedic && operator){await setMasterMedic(operator);}
     go("home");return;
   }
   if(a==="joinccp"){
