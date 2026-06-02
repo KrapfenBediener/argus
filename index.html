@@ -926,8 +926,13 @@ setInterval(async function(){
 
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
+  /* Gespeicherte CCP-ID wiederherstellen */
+  var storedCcp=localStorage.getItem('argus_ccp_id');
+  if(storedCcp) _ccpId=storedCcp;
   await loadMeta();
-  await loadPatients();await loadChecklist();
+  await loadPatients();
+  await loadChecklist();
+  if(_ccpId && sb()) subscribeRealtime();
   $("clock").textContent=new Date().toLocaleTimeString("de-DE");
   render();
 })();
