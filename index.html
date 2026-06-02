@@ -99,7 +99,11 @@ var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
 var _sb      = null;
 var _ccpId   = null;
-var _channel = null;
+var _channel       = null;
+var _praesidiumId   = null;
+var _praesidiumName = '';
+var _isMaster       = false;
+var _praesidienList = [];
 
 function sb(){
   if(!_sb && window.supabaseLib && window.supabaseLib.createClient){
@@ -153,7 +157,8 @@ async function openOrCreateCCP(){
   crypto.getRandomValues(tokenArr);
   var joinToken=Array.from(tokenArr,function(b){return b.toString(16).padStart(2,'0');}).join('');
   var ins=await client.from('ccps').insert({
-    kennung:'A', ort:'', master_medic:operator||'', merged:false, join_token:joinToken
+    kennung:'A', ort:'', master_medic:operator||'', merged:false,
+    join_token:joinToken, praesidium_id:_praesidiumId||null
   }).select().single();
   if(ins.data){
     _ccpId=ins.data.id;
@@ -185,10 +190,18 @@ function extractInviteToken(){
 async function validateInviteToken(token){
   var client=sb(); if(!client) return null;
   try{
-    var r=await client.from('ccps').select('id,kennung,master_medic,merged')
-      .eq('join_token',token).single();
-    return r.data||null;
-  }catch(e){return null;}
+    /* Neues System: access_tokens Tabelle */
+    var r=await client.from('access_tokens')
+      .select('token,praesidium_id,is_master,label,praesidien(id,name)')
+      .eq('token',token).single();
+    if(r.data) return r.data;
+  }catch(e){}
+  /* Fallback: alter join_token auf ccps */
+  try{
+    var r2=await client.from('ccps').select('id,kennung').eq('join_token',token).single();
+    if(r2.data) return {praesidium_id:null,is_master:false,praesidien:null};
+  }catch(e){}
+  return null;
 }
 function inviteUrl(){
   var token=localStorage.getItem('argus_invite')||'';
@@ -219,6 +232,26 @@ function vLocked(){
   h+='<button class="prim" data-action="checkinvite" style="margin-top:10px">Zugang prüfen</button>';
   h+='</div>';
   h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">Argus Beta · Nur für autorisierte Nutzer</p>';
+  return h;
+}
+function vPraesidium(){
+  var h='<div style="text-align:center;padding:32px 0 16px">';
+  h+='<img src="./icon-180.png" alt="Argus" style="width:72px;height:72px;border-radius:16px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
+  h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">Argus</div>';
+  h+='<div class="hint" style="margin-bottom:24px">Präsidium auswählen</div>';
+  h+='</div>';
+  if(!_praesidienList.length){
+    h+='<p class="muted" style="text-align:center">Lade Präsidien…</p>';
+  }else{
+    _praesidienList.forEach(function(p){
+      var isSchul=p.name==='Schulungsumgebung';
+      h+='<button class="navbtn" data-action="selectpraesidium" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'">';
+      h+='<span class="ic">'+(isSchul?'🎓':'🏗')+' </span>';
+      h+='<span><span class="t">'+esc(p.name)+'</span>';
+      h+='<br><span class="s">'+(isSchul?'Training & Demo-Szenarien':'Einsatzbetrieb')+'</span></span>';
+      h+='</button>';
+    });
+  }
   return h;
 }
 function ccpJoinModal(list){
@@ -491,11 +524,12 @@ function countGpa(){return patients.filter(function(p){return p.status==="gpa";}
 function countPrio(){return patients.filter(function(p){return p.status==="active"&&p.prio;}).length;}
 
 function render(){
-  $("backbtn").style.display = (state.view==="start"||state.view==="locked") ? "none" : "flex";
-  var titles={locked:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
+  $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="praesidium") ? "none" : "flex";
+  var titles={locked:"Argus",praesidium:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
   $("title").textContent=titles[state.view]||"Argus";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
+  else if(v==="praesidium")h=vPraesidium();
   else if(v==="start")h=vStart();
   else if(v==="home")h=vHome();
   else if(v==="checklist")h=vChecklist();
@@ -525,7 +559,7 @@ function vHome(){
     mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }
   return countbar()+
-  '<div class="banner"><span>⇄</span><div>'+(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus')+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<div class="banner"><span>⇄</span><div>'+(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus')+(_praesidiumName?' · '+esc(_praesidiumName):'')+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   '<button class="ghost" data-action="shareinvite" style="margin-bottom:12px">🔗 Einladungslink teilen</button>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
@@ -591,6 +625,8 @@ function vOverview(){
   h+='<p class="hint" style="text-align:center;margin-top:10px">Kategorie antippen → Patientenliste → Patient antippen</p>';
   if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
+    /* Demo-CCPs nur in Schulungsumgebung */
+    if(_praesidiumName!=='Schulungsumgebung'){return h;}
     /* Welche Demo-CCPs sind bereits zusammengeführt? */
     var mergedKeys=[];
     patients.forEach(function(p){if(p.demo&&mergedKeys.indexOf(p.ccp)===-1)mergedKeys.push(p.ccp);});
@@ -747,6 +783,10 @@ function vStart(){
     h += '<button class="prim" data-action="newccp" style="margin-bottom:10px">＋ Neue CCP eröffnen</button>';
   }
   h += '<button class="ghost" data-action="joinccp">⇄ CCP beitreten</button>';
+  if(_isMaster){
+    h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
+    h += '🏗 Präsidium wechseln · '+esc(_praesidiumName||'—')+'</button>';
+  }
   h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">Beta · Lokaler Modus · Phase 1 in Entwicklung</p>';
   return h;
 }
@@ -843,6 +883,23 @@ document.addEventListener("click",async function(e){
   var el=e.target.closest("[data-action]");if(!el)return;
   var a=el.getAttribute("data-action");
   if(a==="back"){back();return;}
+  if(a==="selectpraesidium"){
+    _praesidiumId=el.getAttribute("data-pid");
+    _praesidiumName=el.getAttribute("data-pname")||'';
+    localStorage.setItem('argus_praesidium_id',_praesidiumId);
+    localStorage.setItem('argus_praesidium_name',_praesidiumName);
+    _ccpId=null; _channel=null;
+    localStorage.removeItem('argus_ccp_id');
+    await loadPatients(); go("start"); return;
+  }
+  if(a==="changepraesidium"){
+    _praesidiumId=null; _praesidiumName='';
+    localStorage.removeItem('argus_praesidium_id');
+    localStorage.removeItem('argus_praesidium_name');
+    var pr=await sb().from('praesidien').select('id,name').order('name');
+    _praesidienList=pr.data||[];
+    go("praesidium"); return;
+  }
   if(a==="shareinvite"){await copyInviteLink();return;}
   if(a==="checkinvite"){
     var inp=document.getElementById('inv-input');
@@ -888,7 +945,7 @@ document.addEventListener("click",async function(e){
   if(a==="joinccp"){
     var client2=sb();
     if(!client2){await confirmModal("Keine Backend-Verbindung.\n\nInternetverbindung prüfen.","OK");return;}
-    var jres=await client2.from('ccps').select('*').order('created_at',{ascending:true});
+    var jres=await client2.from('ccps').select('*')      .eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').order('created_at',{ascending:true});
     if(!jres.data||jres.data.length===0){
       await confirmModal("Keine aktiven CCPs gefunden.\n\nEröffne zuerst einen CCP über 'Neue CCP eröffnen'.","OK");return;
     }
@@ -1013,26 +1070,47 @@ setInterval(async function(){
    * ──────────────────────────────────────────────────────────────── */
   var verified=localStorage.getItem('argus_verified');
   var urlToken=extractInviteToken();
+  _praesidiumId   = localStorage.getItem('argus_praesidium_id')||null;
+  _praesidiumName = localStorage.getItem('argus_praesidium_name')||'';
+  _isMaster       = localStorage.getItem('argus_is_master')==='true';
 
   if(urlToken){
     /* Einladungslink: einmalig validieren und Zugang dauerhaft freischalten */
-    var ccpData=await validateInviteToken(urlToken);
-    if(ccpData){
+    var tokenData=await validateInviteToken(urlToken);
+    if(tokenData){
       localStorage.setItem('argus_verified','true');
       localStorage.setItem('argus_invite',urlToken);
       history.replaceState(null,'',window.location.pathname);
-      /* Letzte CCP vorbelegen, aber nicht erzwingen — Nutzer wählt selbst */
-      if(!localStorage.getItem('argus_ccp_id')){
-        localStorage.setItem('argus_ccp_id',ccpData.id);
+      if(tokenData.is_master){
+        /* MasterToken: Präsidiensauswahl als nächste Seite */
+        localStorage.setItem('argus_is_master','true');
+        _isMaster=true;
+        var prl=await sb().from('praesidien').select('id,name').order('name');
+        _praesidienList=prl.data||[];
+        $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+        state.view='praesidium'; render(); return;
+      } else if(tokenData.praesidium_id){
+        /* Normaler Token: Präsidium direkt setzen */
+        _praesidiumId=tokenData.praesidium_id;
+        _praesidiumName=(tokenData.praesidien&&tokenData.praesidien.name)||'';
+        localStorage.setItem('argus_praesidium_id',_praesidiumId);
+        localStorage.setItem('argus_praesidium_name',_praesidiumName);
       }
     }else{
       $("clock").textContent=new Date().toLocaleTimeString("de-DE");
       state.view='locked'; render(); return;
     }
   } else if(!verified){
-    /* Kein Token, nicht registriert → gesperrter Bildschirm */
     $("clock").textContent=new Date().toLocaleTimeString("de-DE");
     state.view='locked'; render(); return;
+  }
+
+  /* Master ohne Präsidium-Auswahl → Auswahl zeigen */
+  if(_isMaster && !_praesidiumId){
+    var prl2=await sb().from('praesidien').select('id,name').order('name');
+    _praesidienList=prl2.data||[];
+    $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+    state.view='praesidium'; render(); return;
   }
 
   /* Ab hier: Nutzer ist freigeschaltet — letzten CCP wiederherstellen */
