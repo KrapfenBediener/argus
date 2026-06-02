@@ -4,11 +4,11 @@
 
 ## Worum es geht
 
-**CCP-App** – ein digitales Erfassungs- und Sichtungswerkzeug für einen **Casualty Collection Point / Verwundetensammelstelle** im Rahmen von MANV-/LebEL-Lagen (Massenanfall von Verletzten / lebensbedrohliche Einsatzlagen).
+**CCP-App** – ein digitales Erfassungs- und Sichtungswerkzeug für einen **Casualty Collection Point / Verwundetensammelstelle** im Rahmen von MANV-/Feldübung-Lagen (Massenanfall von Verletzten / lebensbedrohliche Einsatzlagen).
 
 Die App ersetzt die handschriftliche Sichtung am CCP: Patienten werden mit einer laufenden Nummer (auf der Haut notiert) erfasst, per Sichtungsalgorithmus (tacSTART) oder direkt einer Kategorie (T1/T2/T3/T5) zugeordnet, verwaltet (Vitalwerte, Verletzungen, Maßnahmen, Tourniquet-Zeit, Prio-Transport, Foto) und beim Abtransport ausgecheckt.
 
-**Ausgangspunkt ist eine fertige, funktionierende Single-File-Web-App:** `legacy/CCP_App.html`. Sie ist im Feld bereits erprobt (LebEL-Großübung). Ziel dieses Projekts ist, daraus eine echte **mehrgeräte-fähige App für eine Closed Beta** zu machen, ohne die im Feld bewährte Einfachheit zu verlieren.
+**Ausgangspunkt ist eine fertige, funktionierende Single-File-Web-App:** `legacy/CCP_App.html`. Sie ist im Feld bereits erprobt (Großübung). Ziel dieses Projekts ist, daraus eine echte **mehrgeräte-fähige App für eine Closed Beta** zu machen, ohne die im Feld bewährte Einfachheit zu verlieren.
 
 ## Oberste Leitprinzipien (nicht verhandelbar)
 
