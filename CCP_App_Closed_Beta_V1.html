@@ -1,0 +1,616 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="CCP">
+<meta name="theme-color" content="#1f2530">
+<title>CCP</title>
+<link rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAEbElEQVR4nO3dT3LjRBjGYTnMYnZwA9jAjqrhNnAKzsIp4Dakih3ZkBvAbhb8W1AzlRhbluxu9afXz7N2uVXSL1/aVko5TEV8/uW7f0YfA9d7fno8jD6GaZqmYQch4GyjAt90URHfpy3j7r6QiHmpd9zd3lzIzOkVdvM3FTJrtA77oeWbiZm1WjfT5KdDyLTQYlrfPKHFTCstWropaDHT2q1NXTXihcwWrtmCrJ7QYmYr17S2Kmgxs7W1zS0OWsyMsqa9pt9Dw2iLgjadGW1pgxeDFjNVLGlxNmgxU82lJu2hiXI2aNOZqubaPBm0mKnuXKO2HET5X9CmM3txqlUTmiivgjad2ZvjZk1oogiaKB+Dtt1gr162a0ITRdBEeZgm2w3270PDJjRR3ow+gL357defN1/zi6++2XzNvTKhVxgR88h19+hg/7xMhahM6stM6AUqxDxNdY6jMkFfUC2iasdTjaCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoImym+dDe+rmeHt4PvUuJrSYa9jDdSgf9B5O4j2pfj1KB1395N2rytelbNCVTxp1r0/ZoOEagiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKKUDXoPD9e+Z1WvT9mgp6nuSbt3la9L6aCnqfbJu0fVr0f5oKep/km8F3u4Drv5p0GjVHyw9x7CGmUXExqWEjRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQR9AXVnvRZ7XiqEfQCVSKqchyVCXqh0TGNXn8vBL3CqKjEvJwn+BPFhCaKoIkiaKIImiiCJoqgiSJoogiaKIdpmqbeN1d+/OR9t/f+7q+3i1/7yw+P3Y7j6+/fLX7tp9/2myN//PT34tf++f73bsfx5u1n3d77nOenx0PXoHuGfGwu7J4hH5sLu2fIx+bC7hnysS3Dfn56PNhyEKVb0FtO57n1tpzOc+ttOZ3n1ttyOo9Y72Ga/hvVm64KjX1o2JaDKIImysegbTvYq5ftmtBEETRRXgXdctux5g5ez/XW3MFr4dx6a+7gtXBuva3v4PVe77hZE5ooJydy61vh/pbjNX/L0capHcUmQUMPp4I+OSp8hUd15xo9+7tP1FQ116YPhUSZDdqUpppLTV6c0KKmiiUtLtpyiJrRljZoD02UxUGb0oyypr1VE1rUbG1tc6u3HKJmK9e0dlOcbpHTwy1D86YPhaY1rd3a1M3fcoiaVlq01DRGWxCu0XIoNv0e2rRmrdbNdAvQtGZOr+HXfaIKm5d6/xbfdIsg7vu05VZ02J5X3NlGfZ4q8yFO4PtW5QuBfwEE+zkDPhW1eQAAAABJRU5ErkJggg==">
+<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAAEbElEQVR4nO3dT3LjRBjGYTnMYnZwA9jAjqrhNnAKzsIp4Dakih3ZkBvAbhb8W1AzlRhbluxu9afXz7N2uVXSL1/aVko5TEV8/uW7f0YfA9d7fno8jD6GaZqmYQch4GyjAt90URHfpy3j7r6QiHmpd9zd3lzIzOkVdvM3FTJrtA77oeWbiZm1WjfT5KdDyLTQYlrfPKHFTCstWropaDHT2q1NXTXihcwWrtmCrJ7QYmYr17S2Kmgxs7W1zS0OWsyMsqa9pt9Dw2iLgjadGW1pgxeDFjNVLGlxNmgxU82lJu2hiXI2aNOZqubaPBm0mKnuXKO2HET5X9CmM3txqlUTmiivgjad2ZvjZk1oogiaKB+Dtt1gr162a0ITRdBEeZgm2w3270PDJjRR3ow+gL357defN1/zi6++2XzNvTKhVxgR88h19+hg/7xMhahM6stM6AUqxDxNdY6jMkFfUC2iasdTjaCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoImym+dDe+rmeHt4PvUuJrSYa9jDdSgf9B5O4j2pfj1KB1395N2rytelbNCVTxp1r0/ZoOEagiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKIImiiCJoqgiSJoogiaKIImiqCJImiiCJoogiaKoIkiaKKUDXoPD9e+Z1WvT9mgp6nuSbt3la9L6aCnqfbJu0fVr0f5oKep/km8F3u4Drv5p0GjVHyw9x7CGmUXExqWEjRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQRNFEETRRBE0XQRBE0UQRNFEETRdBEETRRBE0UQRNF0EQR9AXVnvRZ7XiqEfQCVSKqchyVCXqh0TGNXn8vBL3CqKjEvJwn+BPFhCaKoIkiaKIImiiCJoqgiSJoogiaKIdpmqbeN1d+/OR9t/f+7q+3i1/7yw+P3Y7j6+/fLX7tp9/2myN//PT34tf++f73bsfx5u1n3d77nOenx0PXoHuGfGwu7J4hH5sLu2fIx+bC7hnysS3Dfn56PNhyEKVb0FtO57n1tpzOc+ttOZ3n1ttyOo9Y72Ga/hvVm64KjX1o2JaDKIImysegbTvYq5ftmtBEETRRXgXdctux5g5ez/XW3MFr4dx6a+7gtXBuva3v4PVe77hZE5ooJydy61vh/pbjNX/L0capHcUmQUMPp4I+OSp8hUd15xo9+7tP1FQ116YPhUSZDdqUpppLTV6c0KKmiiUtLtpyiJrRljZoD02UxUGb0oyypr1VE1rUbG1tc6u3HKJmK9e0dlOcbpHTwy1D86YPhaY1rd3a1M3fcoiaVlq01DRGWxCu0XIoNv0e2rRmrdbNdAvQtGZOr+HXfaIKm5d6/xbfdIsg7vu05VZ02J5X3NlGfZ4q8yFO4PtW5QuBfwEE+zkDPhW1eQAAAABJRU5ErkJggg==">
+<link rel="manifest" href="data:application/manifest+json;base64,eyJuYW1lIjogIkNDUCBcdTIwMTMgQ2FzdWFsdHkgQ29sbGVjdGlvbiBQb2ludCIsICJzaG9ydF9uYW1lIjogIkNDUCIsICJzdGFydF91cmwiOiAiLiIsICJzY29wZSI6ICIuIiwgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsICJvcmllbnRhdGlvbiI6ICJwb3J0cmFpdCIsICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLCAidGhlbWVfY29sb3IiOiAiIzFmMjUzMCIsICJpY29ucyI6IFt7InNyYyI6ICJkYXRhOmltYWdlL3BuZztiYXNlNjQsaVZCT1J3MEtHZ29BQUFBTlNVaEVVZ0FBQUxRQUFBQzBDQVlBQUFBOXpRWXlBQUFFYkVsRVFWUjRuTzNkVDNMalJCakdZVG5NWW5ad0E5akFqcXJoTm5BS3pzSXA0RGFraWgzWmtCdkFiaGI4VzFBemxSaGJsdXh1OWFmWHo3TjJ1VlhTTDEvYVZrbzVURVY4L3VXN2YwWWZBOWQ3Zm5vOGpENkdhWnFtWVFjaDRHeWpBdDkwVVJIZnB5M2o3cjZRaUhtcGQ5emQzbHpJek9rVmR2TTNGVEpydEE3N29lV2JpWm0xV2pmVDVLZER5TFRRWWxyZlBLSEZUQ3N0V3JvcGFESFQycTFOWFRYaWhjd1dydG1Dcko3UVltWXIxN1MyS21neHM3VzF6UzBPV3N5TXNxYTlwdDlEdzJpTGdqYWRHVzFwZ3hlREZqTlZMR2x4Tm1neFU4MmxKdTJoaVhJMmFOT1pxdWJhUEJtMG1LbnVYS08ySEVUNVg5Q21NM3R4cWxVVG1paXZnamFkMlp2alprMW9vZ2lhS0IrRHR0MWdyMTYyYTBJVFJkQkVlWmdtMnczMjcwUERKalJSM293K2dMMzU3ZGVmTjEvemk2KysyWHpOdlRLaFZ4Z1I4OGgxOStoZy83eE1oYWhNNnN0TTZBVXF4RHhOZFk2ak1rRmZVQzJpYXNkVGphQ0pJbWlpQ0pvb2dpYUtvSWtpYUtJSW1paUNKb3FnaVNKb29naWFLSUltaXFDSkltaWlDSm9vZ2lhS29Ja2lhS0lJbWlpQ0pvcWdpU0pvb2dpYUtJSW1pcUNKSW1paUNKb29naWFLb0lteW0rZERlK3JtZUh0NFB2VXVKclNZYTlqRGRTZ2Y5QjVPNGoycGZqMUtCMTM5NU4ycnl0ZWxiTkNWVHhwMXIwL1pvT0VhZ2lhS29Ja2lhS0lJbWlpQ0pvcWdpU0pvb2dpYUtJSW1pcUNKSW1paUNKb29naWFLb0lraWFLSUltaWlDSm9xZ2lTSm9vZ2lhS0lJbWlxQ0pJbWlpQ0pvb2dpYUtvSWtpYUtLVURYb1BEOWUrWjFXdlQ5bWdwNm51U2J0M2xhOUw2YUNucWZiSnUwZlZyMGY1b0tlcC9rbThGM3U0RHJ2NXAwR2pWSHl3OXg3Q0dtVVhFeHFXRWpSUkJFMFVRUk5GMEVRUk5GRUVUUlJCRTBYUVJCRTBVUVJORkVFVFJkQkVFVFJSQkUwVVFSTkYwRVFSTkZFRVRSUkJFMFhRUkJFMFVRUk5GRUVUUmRCRUVUUlJCRTBVUVJORjBFUVI5QVhWbnZSWjdYaXFFZlFDVlNLcWNoeVZDWHFoMFRHTlhuOHZCTDNDcUtqRXZKd24rQlBGaENhS29Ja2lhS0lJbWlpQ0pvcWdpU0pvb2dpYUtJZHBtcWJlTjFkKy9PUjl0L2YrN3ErM2kxLzd5dytQM1k3ajYrL2ZMWDd0cDkvMm15Ti8vUFQzNHRmKytmNzNic2Z4NXUxbjNkNzduT2VueDBQWG9IdUdmR3d1N0o0aEg1c0x1MmZJeCtiQzdobnlzUzNEZm41NlBOaHlFS1ZiMEZ0TzU3bjF0cHpPYyt0dE9aM24xdHR5T285WTcyR2EvaHZWbTY0S2pYMW8ySmFES0lJbXlzZWdiVHZZcTVmdG10QkVFVFJSWGdYZGN0dXg1ZzVlei9YVzNNRnI0ZHg2YSs3Z3RYQnV2YTN2NFBWZTc3aFpFNW9vSnlkeTYxdmgvcGJqTlgvTDBjYXBIY1VtUVVNUHA0SStPU3A4aFVkMTV4bzkrN3RQMUZRMTE2WVBoVVNaRGRxVXBwcExUVjZjMEtLbWlpVXRMdHB5aUpyUmxqWm9EMDJVeFVHYjBveXlwcjFWRTFyVWJHMXRjNnUzSEtKbUs5ZTBkbE9jYnBIVHd5MUQ4NllQaGFZMXJkM2ExTTNmY29pYVZscTAxRFJHV3hDdTBYSW9OdjBlMnJSbXJkYk5kQXZRdEdaT3IrSFhmYUlLbTVkNi94YmZkSXNnN3Z1MDVWWjAySjVYM05sR2ZaNHE4eUZPNFB0VzVRdUJmd0VFK3prRFBoVzFlUUFBQUFCSlJVNUVya0pnZ2c9PSIsICJzaXplcyI6ICIxODB4MTgwIiwgInR5cGUiOiAiaW1hZ2UvcG5nIiwgInB1cnBvc2UiOiAiYW55IG1hc2thYmxlIn1dfQ==">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368; --hint:#8a9097;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --t5b:#3a3d41;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:16px;line-height:1.45}
+  body{max-width:460px;margin:0 auto;min-height:100vh}
+  button{font-family:var(--sans);cursor:pointer;border:none;color:inherit}
+  input,select,textarea{font-family:var(--sans);font-size:15px;background:var(--bg);color:var(--tx);border:1px solid var(--line);border-radius:8px;padding:9px 10px;width:100%}
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--mut)}
+  .topbar{position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:12px 14px}
+  .topbar h1{font-size:16px;font-weight:600;margin:0;flex:1;letter-spacing:.2px}
+  .clock{font-family:var(--mono);font-size:13px;color:var(--mut)}
+  .iconbtn{width:38px;height:38px;border-radius:9px;background:var(--surf2);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .wrap{padding:14px 14px 30px}
+  .muted{color:var(--mut)} .hint{color:var(--hint);font-size:12px}
+  .mono{font-family:var(--mono)}
+  .navbtn{width:100%;text-align:left;background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:18px 16px;margin-bottom:12px;display:flex;align-items:center;gap:14px}
+  .navbtn .ic{font-size:24px;width:30px;text-align:center}
+  .navbtn .t{font-size:18px;font-weight:600} .navbtn .s{font-size:13px;color:var(--mut)}
+  .countbar{display:flex;gap:7px;margin-bottom:14px}
+  .cnt{flex:1;border-radius:11px;padding:9px 4px;text-align:center}
+  .cnt .n{font-family:var(--mono);font-size:22px;font-weight:600;display:block;line-height:1.1}
+  .cnt .l{font-size:11px;font-weight:600}
+  .bigcat{width:100%;border-radius:14px;padding:20px 16px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;font-weight:600}
+  .bigcat .lab{font-family:var(--mono);font-size:26px;font-weight:600}
+  .bigcat .nm{font-size:13px;font-weight:500;opacity:.85}
+  .bigcat .cc{font-family:var(--mono);font-size:30px;font-weight:600}
+  .prim{width:100%;background:var(--acc);color:#fff;border-radius:12px;padding:15px;font-size:16px;font-weight:600;margin-top:6px}
+  .ghost{width:100%;background:transparent;border:1px solid var(--line);color:var(--mut);border-radius:12px;padding:13px;font-size:15px;margin-top:8px}
+  .card{background:var(--bg);border:1px solid var(--line);border-radius:13px;padding:13px 14px;margin-bottom:11px}
+  .row{display:flex;gap:8px}
+  .patrow{width:100%;text-align:left;background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:12px 13px;margin-bottom:9px;display:flex;align-items:center;gap:12px}
+  .pnum{font-family:var(--mono);font-size:22px;font-weight:600;min-width:34px}
+  .pill{font-size:11px;font-weight:600;padding:3px 8px;border-radius:7px;display:inline-block}
+  .chk{display:flex;align-items:flex-start;gap:11px;padding:11px 0;border-bottom:1px solid var(--line)}
+  .chk:last-child{border-bottom:none}
+  .chk input[type=checkbox]{width:24px;height:24px;flex:none;margin-top:1px;accent-color:#2E7D32}
+  .chk .ct{font-weight:500} .chk .cs{font-size:12px;color:var(--mut);margin-top:2px}
+  .chk textarea{margin-top:7px;min-height:34px;font-size:13px;padding:6px 8px}
+  .sech{font-size:12px;font-weight:600;letter-spacing:1px;color:var(--mut);text-transform:uppercase;margin:16px 2px 7px}
+  .subl{font-size:12px;font-weight:600;color:var(--mut);margin:9px 2px 5px}
+  .fieldlab{font-size:12px;color:var(--mut);margin:0 0 4px 2px;display:block}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px}
+  .txbtn{background:var(--surf2);border:1px solid var(--line);border-radius:9px;padding:10px 6px;font-size:13px;font-weight:500;color:var(--mut);text-align:center}
+  .txbtn.on{background:#e4f3e7;border-color:#2E7D32;color:#1e5b2a}
+  .catset{display:flex;gap:7px}
+  .catset button{flex:1;border-radius:10px;padding:13px 4px;font-family:var(--mono);font-size:17px;font-weight:600;border:2px solid var(--line);background:var(--surf2);color:var(--mut)}
+  .injrow{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .injrow:last-child{border-bottom:none}
+  .delx{width:30px;height:30px;border-radius:7px;background:var(--surf2);color:var(--mut);font-size:16px;flex:none}
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--acc);color:#fff;font-weight:600;padding:12px 20px;border-radius:30px;font-size:15px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:20;max-width:90%}
+  .toast.show{opacity:1}
+  .banner{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-size:13px;color:var(--mut);margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
+  .qbtn{flex:1;border-radius:12px;padding:18px;font-size:18px;font-weight:600;border:1px solid var(--line);background:var(--surf2)}
+  .helpa{color:var(--mut);font-size:14px}
+  .modalov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modalbx{background:var(--bg);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+  .modalmsg{font-size:16px;font-weight:500;line-height:1.4}
+</style>
+
+<div class="topbar">
+  <button class="iconbtn" data-action="back" id="backbtn" style="display:none">‹</button>
+  <h1 id="title">CCP</h1>
+  <span class="clock mono" id="clock"></span>
+</div>
+<div id="app" class="wrap"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+/* --- Standalone-Persistenz: localStorage-Speicher, wenn kein window.storage vorhanden (z.B. auf dem iPhone) --- */
+if (typeof window !== "undefined" && !window.storage) {
+  window.storage = {
+    get: function(key){ try{ var v = localStorage.getItem(key); return v===null ? null : {value:v, key:key}; }catch(e){ return null; } },
+    set: function(key, value){ try{ localStorage.setItem(key, value); }catch(e){} return {key:key, value:value}; },
+    delete: function(key){ try{ localStorage.removeItem(key); }catch(e){} return {key:key, deleted:true}; },
+    list: function(prefix){ var keys=[]; try{ for(var i=0;i<localStorage.length;i++){ var k=localStorage.key(i); if(prefix==null || k.indexOf(prefix)===0) keys.push(k); } }catch(e){} return {keys:keys}; }
+  };
+}
+var SS = (typeof window!=="undefined" && window.storage) ? window.storage : null;
+var mem = {};
+var CATS = {
+  T1:{label:"T-1",bg:"var(--t1)",fg:"#fff",nm:"sofort"},
+  T2:{label:"T-2",bg:"var(--t2)",fg:"#3A2C00",nm:"dringend"},
+  T3:{label:"T-3",bg:"var(--t3)",fg:"#fff",nm:"leicht"},
+  T5:{label:"T-5",bg:"var(--t5)",fg:"#fff",nm:"verstorben",bd:"var(--t5b)"}
+};
+var CATORDER = ["T1","T2","T3","T5"];
+var TXG=[
+  ["A – Atemweg",[["seiten","Seitenlage"],["wendl","Wendl/Güdel"],["larynx","Larynxtubus"],["intub","ET-Intubation"],["konio","Koniotomie"]]],
+  ["B – Atmung",[["chest","Chest Seal"],["entlast","Entlastungspkt."],["drainage","Thoraxdrainage"]]],
+  ["C – Kreislauf",[["druck","Druckverband"],["tampon","Tamponade"],["haemo","Hämostatikum"],["becken","Beckenschlinge"],["zugang","i.v./i.o."]]],
+  ["D – Defizit",[["txa","TXA"],["medo","Meds andere"]]],
+  ["E – Exposure",[["waerme","Wärmeerhalt"],["schiene","Schienung"],["hws","HWS-Immo."]]]
+];
+var REGIONS=["Kopf","Hals","Thorax","Abdomen","Becken","Arm li","Arm re","Bein li","Bein re","Rücken"];
+var ARTS=[["Wunde","O"],["Fraktur","#"],["Amputation","X"],["Verbrennung","B"]];
+function artCode(a){for(var i=0;i<ARTS.length;i++)if(ARTS[i][0]===a)return ARTS[i][1];return "";}
+var CHK = [
+  ["sec","AUFBAU"],
+  ["a1","Geeignete Örtlichkeit?","Witterung/Licht · hochgemeldet · gekennzeichnet · Platz"],
+  ["a3","Sicherung?","Tür · Innen · Außen (lageabhängig)"],
+  ["a4","Bereiche eingeteilt & markiert?","Rot/Gelb/Grün – je Bereich ein Führer"],
+  ["a5","Rollen besetzt & allen bekannt?","Doorman · Apotheker · Assistent"],
+  ["a6","Materialplatz zentral & genug Material?","improvisieren · RTW/Gebäude nutzen"],
+  ["a7","Genug Personal?","entlastendes Personal · per Funk SANIS nachfordern"],
+  ["sec","BETRIEB – Schleife"],
+  ["b1","Durchatmen",""],
+  ["b2","Lagebild aktuell?","Lage je Kategorie · freie Kapazität · wer braucht was"],
+  ["b3","Abgleich Patientenliste?","alle erfasst · Nummern eindeutig · Prios erhoben"],
+  ["b4","Re-Triage läuft?","Gelb/Grün nachsichten – Verschlechterer hoch"],
+  ["b5","Örtlichkeit noch geeignet?","weitere Räume / zweiter CCP"],
+  ["b6","Check again!","zurück an den Anfang"]
+];
+var FLOW={
+  start:{q:"Kritische Blutung an Extremität?",note:"→ zuerst Tourniquet / direkter Druck (Helfer)",ans:[["weiter zur Sichtung","walk"]]},
+  walk:{q:"Patient gehfähig?",ans:[["Ja","R:T3"],["Nein","breath"]]},
+  breath:{q:"Spontane Atmung vorhanden?",ans:[["Ja","af"],["Nein","airway"]]},
+  airway:{q:"Atemwege freimachen – Atmung jetzt vorhanden?",note:"Esmarch-Handgriff / Wendl-Tubus",ans:[["Ja","R:T1"],["Nein","R:NOBR"]]},
+  af:{q:"Atemfrequenz 10–30 / min?",ans:[["Ja","pulse"],["Nein","R:T1"]]},
+  pulse:{q:"Radialispuls tastbar / Rekap < 2 s?",ans:[["Ja","cmd"],["Nein","R:T1"]]},
+  cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
+};
+
+var state = {view:"home", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null};
+var patients = [];
+var checklist = {hdr:{}, items:{}};
+var operator = "";
+var masterMedic = "";
+var ccpMerged = false;
+
+function $(id){return document.getElementById(id);}
+function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+function nowMs(){return Date.now();}
+function two(n){return (n<10?"0":"")+n;}
+function pno(p){return ccpMerged?((p.ccp||"A")+"-"+two(p.num)):(""+p.num);}
+function fmtDur(ms){var s=Math.max(0,Math.floor(ms/1000));return two(Math.floor(s/60))+":"+two(s%60);}
+function ageStr(ms){var s=Math.floor((nowMs()-ms)/1000);return s<60?("vor "+s+" s"):("vor "+Math.floor(s/60)+" min");}
+
+async function sList(prefix){
+  if(!SS){return Object.keys(mem).filter(function(k){return k.indexOf(prefix)===0;});}
+  try{var r=await SS.list(prefix,true);return (r&&r.keys)?r.keys:[];}catch(e){return [];}
+}
+async function sGet(key){
+  if(!SS){return mem[key]!==undefined?mem[key]:null;}
+  try{var r=await SS.get(key,true);return r?JSON.parse(r.value):null;}catch(e){return null;}
+}
+async function sSet(key,val){
+  if(!SS){mem[key]=val;return;}
+  try{await SS.set(key,JSON.stringify(val),true);}catch(e){}
+}
+async function sDel(key){
+  if(!SS){delete mem[key];return;}
+  try{await SS.delete(key,true);}catch(e){}
+}
+async function getOperator(){
+  if(!SS){return mem.__op||"";}
+  try{var r=await SS.get("ccp_operator",false);return r?r.value:"";}catch(e){return "";}
+}
+async function setOperatorStore(v){
+  if(!SS){mem.__op=v;return;}
+  try{await SS.set("ccp_operator",v,false);}catch(e){}
+}
+async function loadMeta(){
+  var mm=await sGet("ccp_mastermedic");masterMedic=(typeof mm==="string")?mm:"";
+  var mg=await sGet("ccp_merged");ccpMerged=!!mg;
+}
+async function setMasterMedic(v){masterMedic=v;await sSet("ccp_mastermedic",v);}
+async function doMergeDemo(){
+  await loadPatients();
+  for(var i=0;i<patients.length;i++){if(!patients[i].demo&&(!patients[i].ccp||patients[i].ccp!=="A")){patients[i].ccp="A";await sSet("ccp_pat_"+patients[i].id,patients[i]);}}
+  var demo=[["T1",3,false],["T2",7,false],["T3",2,true]];
+  for(var j=0;j<demo.length;j++){
+    var d=demo[j];
+    var dp={id:"demoB"+d[1],num:d[1],cat:d[0],ccp:"B",prio:false,ready:d[2],status:"active",created:nowMs(),lastTriage:nowMs(),tqStart:null,
+      name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
+      tx:{},inj:[],moi:"",injury:"",fr:"CD",notes:"Demo-Patient aus CCP B (Vorschau)",by:"CD",updated:nowMs(),demo:true};
+    await sSet("ccp_pat_"+dp.id,dp);
+  }
+  ccpMerged=true;await sSet("ccp_merged",true);
+  await loadPatients();
+}
+async function undoMergeDemo(){
+  ccpMerged=true;await loadPatients();
+  for(var i=0;i<patients.length;i++){if(patients[i].demo){await sDel("ccp_pat_"+patients[i].id);}}
+  ccpMerged=false;await sSet("ccp_merged",false);
+  await loadPatients();
+}
+async function loadPatients(){
+  var keys=await sList("ccp_pat_");var arr=[];
+  for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!ccpMerged)continue;arr.push(normalize(p));}}
+  arr.sort(function(a,b){return a.num-b.num;});
+  patients=arr;
+}
+function normalize(p){
+  if(!p.vit)p.vit={};if(!p.tx)p.tx={};if(!p.inj)p.inj=[];
+  if(p.pupRe===undefined)p.pupRe="";if(p.pupLi===undefined)p.pupLi="";
+  if(!p.ccp)p.ccp="A";
+  return p;
+}
+async function loadChecklist(){
+  var c=await sGet("ccp_checklist");if(c&&typeof c==="object"){checklist=c;}
+  if(!checklist.hdr)checklist.hdr={};if(!checklist.items)checklist.items={};
+}
+async function saveChecklist(){await sSet("ccp_checklist",checklist);}
+function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")==="A"&&p.num>m)m=p.num;});return m+1;}
+async function addPatient(cat){
+  await loadPatients();
+  var num=nextNum();
+  var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:num,cat:cat,ccp:"A",prio:false,ready:false,
+    status:"active",created:nowMs(),lastTriage:nowMs(),tqStart:null,
+    name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",
+    vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
+    tx:{},inj:[],moi:"",injury:"",fr:operator,notes:"",by:operator,updated:nowMs()};
+  await sSet("ccp_pat_"+p.id,p);
+  await loadPatients();
+  return num;
+}
+async function savePatient(p){p.updated=nowMs();await sSet("ccp_pat_"+p.id,p);}
+function activeByCat(cat){return patients.filter(function(p){return p.status==="active"&&p.cat===cat;});}
+function countCat(cat){return activeByCat(cat).length;}
+function countGpa(){return patients.filter(function(p){return p.status==="gpa";}).length;}
+function countPrio(){return patients.filter(function(p){return p.status==="active"&&p.prio;}).length;}
+
+function render(){
+  $("backbtn").style.display = state.view==="home" ? "none" : "flex";
+  var titles={home:"CCP",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
+  $("title").textContent=titles[state.view]||"CCP";
+  var v=state.view, h="";
+  if(v==="home")h=vHome();
+  else if(v==="checklist")h=vChecklist();
+  else if(v==="capture")h=vCapture();
+  else if(v==="overview")h=vOverview();
+  else if(v==="catlist")h=vCatlist();
+  else if(v==="patient")h=vPatient();
+  else if(v==="help")h=vHelp();
+  $("app").innerHTML=h;
+  if(typeof window!=="undefined"&&window.scrollTo)window.scrollTo(0,0);
+}
+function countbar(){
+  var s="";var defs=[["T1",CATS.T1],["T2",CATS.T2],["T3",CATS.T3],["T5",CATS.T5]];
+  defs.forEach(function(d){var c=d[1];s+='<div class="cnt" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="n">'+countCat(d[0])+'</span><span class="l">'+c.label+'</span></div>';});
+  s+='<div class="cnt" style="background:var(--prio);color:#fff"><span class="n">'+countPrio()+'</span><span class="l">PRIO</span></div>';
+  s+='<div class="cnt" style="background:var(--surf2);color:var(--mut)"><span class="n">'+countGpa()+'</span><span class="l">gPA</span></div>';
+  return '<div class="countbar">'+s+'</div>';
+}
+function navbtn(view,ic,t,s){return '<button class="navbtn" data-action="nav" data-view="'+view+'"><span class="ic">'+ic+'</span><span><span class="t">'+t+'</span><br><span class="s">'+s+'</span></span></button>';}
+function vHome(){
+  var mmLine;
+  if(masterMedic&&operator&&masterMedic===operator){
+    mmLine='<span class="pill" style="background:var(--acc);color:#fff;margin-top:7px;display:inline-block">★ Du bist MasterMedic</span>';
+  }else if(masterMedic){
+    mmLine='<span class="hint" style="display:inline-block;margin-top:6px">MasterMedic: '+esc(masterMedic)+' · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
+  }else{
+    mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
+  }
+  return countbar()+
+  '<div class="banner"><span>⇄</span><div>Gemeinsamer Modus'+(SS?"":" (lokal)")+': Alle Geräte mit dieser App teilen dieselbe Patientenliste – mehrere Kollegen können gleichzeitig erfassen.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
+  navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
+  navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
+  navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze");
+}
+function vChecklist(){
+  var hd=checklist.hdr;
+  var h='<div class="card"><div class="sech" style="margin-top:0">Kopfdaten</div>'+
+    '<label class="fieldlab">Einsatzort</label><input data-kind="hdr" data-field="ort" value="'+esc(hd.ort)+'">'+
+    '<div style="height:9px"></div><div class="grid3">'+
+    '<div><label class="fieldlab">MasterMedic</label><input data-kind="hdr" data-field="mm" value="'+esc(hd.mm)+'"></div>'+
+    '<div><label class="fieldlab">Doorman</label><input data-kind="hdr" data-field="door" value="'+esc(hd.door)+'"></div>'+
+    '<div><label class="fieldlab">Assistent</label><input data-kind="hdr" data-field="ass" value="'+esc(hd.ass)+'"></div></div></div>';
+  h+='<div class="card">';
+  CHK.forEach(function(it){
+    if(it[0]==="sec"){h+='<div class="sech">'+it[1]+'</div>';return;}
+    var st=checklist.items[it[0]]||{};
+    h+='<div class="chk"><input type="checkbox" data-kind="chk" data-id="'+it[0]+'" data-field="done" '+(st.done?"checked":"")+'>'+
+      '<div style="flex:1"><div class="ct">'+esc(it[1])+'</div>'+(it[2]?'<div class="cs">'+esc(it[2])+'</div>':'')+
+      '<textarea data-kind="chk" data-id="'+it[0]+'" data-field="note" placeholder="Notiz…">'+esc(st.note)+'</textarea></div></div>';
+  });
+  h+='</div>';
+  return h;
+}
+function vCapture(){
+  if(state.capMode==="tac")return vTac();
+  return '<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--surf2)"><span style="text-align:center"><span class="t">Erfassen mit tacSTART</span><br><span class="s">geführte Vorsichtung Schritt für Schritt</span></span></button>'+
+    '<div class="sech">oder direkt zuordnen</div>'+
+    catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5")+
+    '<p class="hint" style="text-align:center;margin-top:14px">Die laufende Nummer wird automatisch &amp; geräteübergreifend vergeben.</p>';
+}
+function catBig(cat){var c=CATS[cat];return '<button class="bigcat" data-action="addcat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span><br><span class="nm">'+c.nm+'</span></span><span class="cc">＋</span></button>';}
+function vTac(){
+  if(state.tacResult){
+    var rc=state.tacResult;
+    if(rc==="NOBR"){
+      return '<div class="card" style="padding:22px 16px"><div style="font-size:19px;font-weight:600;margin-bottom:8px">Keine Spontanatmung trotz Freimachen</div>'+
+        '<div class="muted" style="font-size:14px">Keine automatische Sichtungskategorie. Einzelfall- bzw. ärztliche Entscheidung – die App ordnet hier nichts selbsttätig zu.</div></div>'+
+        '<div class="catset" style="margin-top:4px"><button data-action="tacconfirm" data-cat="T1" style="background:var(--t1);color:#fff;border-color:var(--t1)">als T-1</button><button data-action="tacconfirm" data-cat="T5" style="background:var(--t5);color:#fff;border-color:var(--t5b)">als T-5</button></div>'+
+        '<button class="ghost" data-action="tacstart">nochmal</button>';
+    }
+    var c=CATS[rc];
+    return '<div class="card" style="text-align:center;padding:26px 16px"><div class="hint">Ergebnis tacSTART</div>'+
+      '<div style="display:inline-block;margin:14px auto;border-radius:14px;padding:18px 30px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="mono" style="font-size:34px;font-weight:600">'+c.label+'</span><br><span style="font-size:13px">'+c.nm+'</span></div></div>'+
+      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient #'+nextNum()+' anlegen</button>'+
+      '<button class="ghost" data-action="tacstart">nochmal</button>';
+  }
+  var node=FLOW[state.tacNode];
+  var h='<div class="card" style="padding:20px 16px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">'+esc(node.q)+'</div>';
+  if(node.note)h+='<div class="muted" style="font-size:14px;margin-bottom:14px">'+esc(node.note)+'</div>';else h+='<div style="height:8px"></div>';
+  h+='<div class="row">';
+  node.ans.forEach(function(a){h+='<button class="qbtn" data-action="tacanswer" data-go="'+a[1]+'">'+esc(a[0])+'</button>';});
+  h+='</div></div>';
+  h+='<button class="ghost" data-action="nav" data-view="capture">abbrechen</button>';
+  return h;
+}
+function vOverview(){
+  var h=countbar();
+  CATORDER.forEach(function(cat){var c=CATS[cat];var n=countCat(cat);
+    h+='<button class="bigcat" data-action="opencat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+n+'</span></button>';
+  });
+  h+='<p class="hint" style="text-align:center;margin-top:10px">Kategorie antippen → Patientenliste → Patient antippen</p>';
+  if(operator&&masterMedic&&operator===masterMedic){
+    h+='<div class="sech">Nur MasterMedic</div>';
+    if(!ccpMerged){
+      h+='<button class="ghost" data-action="mergestart" style="margin-top:0">CCPs zusammenführen</button>';
+      h+='<p class="hint" style="text-align:center;margin-top:6px">Vorschau mit Beispiel-CCP B</p>';
+    }else{
+      h+='<div class="banner" style="margin-bottom:8px"><span>✓</span><div>Zusammenführung aktiv (Vorschau): CCP A + CCP B. Nummern erscheinen jetzt mit Buchstaben, z. B. A-07 / B-03.</div></div>';
+      h+='<button class="ghost" data-action="mergeundo" style="margin-top:0">Zusammenführung zurücksetzen</button>';
+    }
+  }
+  return h;
+}
+function vCatlist(){
+  var cat=state.cat,c=CATS[cat];var list=activeByCat(cat).sort(function(a,b){return b.lastTriage-a.lastTriage;});
+  var h='<div class="bigcat" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+';margin-bottom:14px"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+list.length+'</span></div>';
+  var readyList=list.filter(function(p){return p.ready;});
+  if(readyList.length>0){
+    h+='<button class="prim" data-action="checkoutready" data-cat="'+cat+'" style="background:var(--ready);margin:0 0 14px">✓ Alle '+readyList.length+' transportfertigen auschecken → gPA</button>';
+  }
+  if(list.length===0)h+='<p class="muted" style="text-align:center;padding:20px">keine Patienten in dieser Kategorie</p>';
+  list.forEach(function(p){
+    h+='<button class="patrow" data-action="openpat" data-id="'+p.id+'"><span class="pnum">'+pno(p)+'</span>'+
+      '<span style="flex:1"><span style="font-weight:500">'+(esc(p.name)||"—")+'</span>'+
+      '<br><span class="hint js-age" data-ts="'+p.lastTriage+'">'+ageStr(p.lastTriage)+'</span>'+
+      (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+p.tqStart+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
+      (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
+      (p.photo?'<span class="pill" style="background:var(--surf2);color:var(--mut)">📷</span>':'')+
+      (p.ready?'<span class="pill" style="background:var(--ready);color:#fff">fertig</span>':'')+'</button>';
+  });
+  return h;
+}
+function vPatient(){
+  var p=normalize(state.edit);if(!p)return"";var c=CATS[p.cat];
+  function inp(field,val,ph){return '<input data-kind="pat" data-field="'+field+'" value="'+esc(val)+'" placeholder="'+(ph||"")+'">';}
+  function vinp(field,val){return '<input data-kind="vit" data-field="'+field+'" value="'+esc(val)+'" inputmode="numeric">';}
+  var h='<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px"><span class="pnum" style="font-size:28px">'+pno(p)+'</span>'+
+    '<span class="pill" style="font-size:14px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+' '+c.nm+'</span>'+
+    '<span style="flex:1"></span>'+
+    '<button class="txbtn '+(p.prio?"on":"")+'" data-action="prio" data-id="'+p.id+'" style="width:auto;'+(p.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio-Transport</button></div>';
+
+  h+='<div class="sech">Foto zur Identifikation</div><div class="card">';
+  if(p.photo){
+    h+='<img src="'+p.photo+'" alt="Patientenfoto" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block">';
+    h+='<div class="row" style="margin-top:9px">'+
+      '<label class="txbtn" style="flex:1;cursor:pointer;line-height:1.3">Neues Foto<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>'+
+      '<button class="txbtn" data-action="delphoto" data-id="'+p.id+'" style="flex:1">Foto entfernen</button></div>';
+  }else{
+    h+='<label class="txbtn" style="display:block;padding:16px;cursor:pointer;font-size:15px">📷 Foto aufnehmen oder wählen<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>';
+  }
+  h+='<div class="hint" style="margin-top:6px">Zur zweifelsfreien Zuordnung, falls die aufgemalte Nummer verwischt. Bleibt lokal auf diesem Gerät.</div></div>';
+
+  h+='<div class="sech">In andere Kategorie verschieben</div><div class="catset">';
+  CATORDER.forEach(function(cat){var cc=CATS[cat];var on=p.cat===cat;h+='<button data-action="movecat" data-id="'+p.id+'" data-cat="'+cat+'" style="background:'+(on?cc.bg:"var(--surf2)")+';color:'+(on?cc.fg:"var(--mut)")+';border-color:'+(on?cc.bg:"var(--line)")+'">'+cc.label+'</button>';});
+  h+='</div>';
+
+  h+='<div class="sech">Stammdaten</div><div class="card">'+
+    '<label class="fieldlab">Name (optional)</label>'+inp("name",p.name)+
+    '<div style="height:9px"></div><div class="grid3">'+
+    '<div><label class="fieldlab">Alter</label>'+inp("age",p.age)+'</div>'+
+    '<div><label class="fieldlab">Geschl.</label><select data-kind="pat" data-field="gender"><option value=""'+sel(p.gender,"")+'>—</option><option value="m"'+sel(p.gender,"m")+'>m</option><option value="w"'+sel(p.gender,"w")+'>w</option></select></div>'+
+    '<div><label class="fieldlab">Allergien</label>'+inp("allergies",p.allergies)+'</div></div></div>';
+
+  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?('TQ läuft · '+fmtDur(nowMs()-p.tqStart)+' — stoppen'):'TQ-Timer starten')+'</button></div>';
+
+  h+='<div class="sech">Maßnahmen A–E</div><div class="card">';
+  TXG.forEach(function(g){h+='<div class="subl">'+esc(g[0])+'</div><div class="grid3">';
+    g[1].forEach(function(f){var on=p.tx&&p.tx[f[0]];h+='<button class="txbtn '+(on?"on":"")+'" data-kind="tx" data-field="'+f[0]+'">'+esc(f[1])+'</button>';});
+    h+='</div>';});
+  h+='</div>';
+
+  h+='<div class="sech">Verletzungen</div><div class="card">';
+  if(p.inj.length===0)h+='<div class="muted" style="font-size:13px;margin-bottom:8px">noch keine Einträge</div>';
+  p.inj.forEach(function(it,idx){h+='<div class="injrow"><span class="pill" style="background:var(--surf2);color:var(--tx);min-width:22px;text-align:center">'+artCode(it.a)+'</span><span style="flex:1">'+esc(it.r)+' – '+esc(it.a)+'</span><button class="delx" data-action="delinj" data-idx="'+idx+'">×</button></div>';});
+  h+='<div class="row" style="margin-top:10px"><select data-field="injRegion" style="flex:1">';
+  REGIONS.forEach(function(r){h+='<option>'+r+'</option>';});
+  h+='</select><select data-field="injArt" style="flex:1">';
+  ARTS.forEach(function(a){h+='<option>'+a[0]+'</option>';});
+  h+='</select><button class="txbtn" data-action="addinj" style="width:auto;padding:0 16px">＋</button></div>';
+  h+='<div class="hint" style="margin-top:6px">O = Wunde · # = Fraktur · X = Amputation · B = Verbrennung</div></div>';
+
+  h+='<div class="sech">Vitalwerte</div><div class="card"><div class="grid3">'+
+    '<div><label class="fieldlab">AF</label>'+vinp("af",p.vit.af)+'</div>'+
+    '<div><label class="fieldlab">SpO₂</label>'+vinp("spo2",p.vit.spo2)+'</div>'+
+    '<div><label class="fieldlab">HF</label>'+vinp("hf",p.vit.hf)+'</div></div><div style="height:9px"></div><div class="grid3">'+
+    '<div><label class="fieldlab">RR</label>'+vinp("rr",p.vit.rr)+'</div>'+
+    '<div><label class="fieldlab">AVPU</label><select data-kind="vit" data-field="avpu"><option value=""'+sel(p.vit.avpu,"")+'>—</option><option'+sel(p.vit.avpu,"A")+'>A</option><option'+sel(p.vit.avpu,"V")+'>V</option><option'+sel(p.vit.avpu,"P")+'>P</option><option'+sel(p.vit.avpu,"U")+'>U</option></select></div>'+
+    '<div><label class="fieldlab">Schmerz</label>'+vinp("pain",p.vit.pain)+'</div></div><div style="height:9px"></div><div class="grid2">'+
+    '<div><label class="fieldlab">Pupille re</label>'+inp("pupRe",p.pupRe)+'</div>'+
+    '<div><label class="fieldlab">Pupille li</label>'+inp("pupLi",p.pupLi)+'</div></div></div>';
+
+  h+='<div class="sech">Verlauf / Karte</div><div class="card">'+
+    '<label class="fieldlab">MOI / Unfallhergang</label><textarea data-kind="pat" data-field="moi">'+esc(p.moi)+'</textarea>'+
+    '<div style="height:9px"></div><label class="fieldlab">Verletzung / Erkrankung (Freitext)</label><textarea data-kind="pat" data-field="injury">'+esc(p.injury)+'</textarea>'+
+    '<div style="height:9px"></div><label class="fieldlab">Erstversorger</label>'+inp("fr",p.fr)+
+    '<div style="height:9px"></div><label class="fieldlab">Notizen</label><textarea data-kind="pat" data-field="notes">'+esc(p.notes)+'</textarea></div>';
+
+  h+='<button class="txbtn '+(p.ready?"on":"")+'" data-action="ready" data-id="'+p.id+'" style="width:100%;padding:14px;font-size:15px;'+(p.ready?'background:var(--ready);border-color:var(--ready);color:#fff':'')+'">'+(p.ready?'✓ transportfertig':'als transportfertig markieren')+'</button>';
+  h+='<button class="prim" data-action="gpa" data-id="'+p.id+'" style="background:var(--ready);color:#fff">Abtransport → gPA</button>';
+  h+='<p class="hint" style="text-align:center;margin-top:8px">Eingaben werden automatisch gespeichert.</p>';
+  return h;
+}
+function sel(a,b){return a===b?" selected":"";}
+function vHelp(){
+  var h='<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
+    '<div class="helpa">Gehfähig → T-3. Sonst Atmung prüfen: keine Spontanatmung auch nach Freimachen → keine Auto-Kategorie (Einzelfall). Atmung nur nach Freimachen → T-1. Bei Spontanatmung: AF außerhalb 10–30 → T-1; kein Radialispuls → T-1; folgt nicht Befehlen → T-1. Alle vier ok (Atmung, AF, Puls, Befehle) → T-2.</div></div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Kategorien</div>';
+  CATORDER.forEach(function(cat){var c=CATS[cat];h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span><span class="helpa">'+c.nm+'</span></div>';});
+  h+='</div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Rollen – Klartext</div>'+
+    rl("MasterMedic","leitet & sichtet. Koordiniert, behandelt selbst nicht. Vergibt Nummer + Kategorie.")+
+    rl("Doorman","hält den Eingang, meldet weiteren Patienten, gibt Verwundetenkarte + Stift aus.")+
+    rl("Führer R/G/G","verantwortlich je Farbbereich, meldet Veränderungen an MasterMedic.")+
+    rl("Apotheker","verwaltet Materialplatz, gibt aus, meldet Knappheit.")+
+    rl("Assistent","entlastet MasterMedic (Doku, Funk, Botengänge).")+'</div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Merksätze</div>'+
+    '<div class="helpa">• Laufende Nummern werden nur im CCP vergeben.<br>• Leiten ≠ behandeln.<br>• Todesfeststellung trifft nur ein Arzt – die App ordnet T-5 nie automatisch zu.<br>• Papier-Verwundetenkarte bleibt am Patienten (Redundanz + Übergabe gPA).</div></div>';
+  return h;
+}
+function rl(n,d){return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span style="font-weight:600">'+n+'</span> <span class="helpa">– '+esc(d)+'</span></div>';}
+
+function toast(msg){var t=$("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show");},1700);}
+
+function resizePhoto(file,maxEdge,quality){
+  return new Promise(function(resolve,reject){
+    var url=URL.createObjectURL(file);var img=new Image();
+    img.onload=function(){
+      URL.revokeObjectURL(url);
+      var w=img.naturalWidth||img.width,hh=img.naturalHeight||img.height;
+      var s=Math.min(1,maxEdge/Math.max(w,hh));
+      var cw=Math.max(1,Math.round(w*s)),ch=Math.max(1,Math.round(hh*s));
+      var cv=document.createElement("canvas");cv.width=cw;cv.height=ch;
+      cv.getContext("2d").drawImage(img,0,0,cw,ch);
+      try{resolve(cv.toDataURL("image/jpeg",quality));}catch(e){reject(e);}
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);reject(new Error("img"));};
+    img.src=url;
+  });
+}
+
+function confirmModal(msg,okLabel){
+  return new Promise(function(resolve){
+    var ov=document.createElement("div");ov.className="modalov";
+    ov.innerHTML='<div class="modalbx"><div class="modalmsg">'+esc(msg)+'</div>'+
+      '<div class="row" style="margin-top:16px">'+
+      '<button class="ghost mc-cancel" style="flex:1;margin:0">Abbrechen</button>'+
+      '<button class="prim mc-ok" style="flex:1;margin:0;background:var(--ready)">'+esc(okLabel||"OK")+'</button></div></div>';
+    document.body.appendChild(ov);
+    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    ov.querySelector(".mc-cancel").addEventListener("click",function(){done(false);});
+    ov.querySelector(".mc-ok").addEventListener("click",function(){done(true);});
+    ov.addEventListener("click",function(e){if(e.target===ov)done(false);});
+  });
+}
+function promptModal(msg,def){
+  return new Promise(function(resolve){
+    var ov=document.createElement("div");ov.className="modalov";
+    ov.innerHTML='<div class="modalbx"><div class="modalmsg">'+esc(msg)+'</div>'+
+      '<input class="mc-inp" style="margin-top:12px" value="'+esc(def||"")+'">'+
+      '<div class="row" style="margin-top:16px">'+
+      '<button class="ghost mc-cancel" style="flex:1;margin:0">Abbrechen</button>'+
+      '<button class="prim mc-ok" style="flex:1;margin:0">OK</button></div></div>';
+    document.body.appendChild(ov);
+    var inp=ov.querySelector(".mc-inp");
+    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    ov.querySelector(".mc-cancel").addEventListener("click",function(){done(null);});
+    ov.querySelector(".mc-ok").addEventListener("click",function(){done(inp.value);});
+    ov.addEventListener("click",function(e){if(e.target===ov)done(null);});
+    setTimeout(function(){try{inp.focus();}catch(e){}},50);
+  });
+}
+
+document.addEventListener("click",async function(e){
+  var el=e.target.closest("[data-action]");if(!el)return;
+  var a=el.getAttribute("data-action");
+  if(a==="back"){back();return;}
+  if(a==="nav"){go(el.getAttribute("data-view"));return;}
+  if(a==="setoperator"){e.preventDefault();var v=await promptModal("Bediener-Kürzel (z. B. Streife / Name):",operator||"");if(v!=null){operator=v.trim();await setOperatorStore(operator);if(!masterMedic&&operator){await setMasterMedic(operator);}render();}return;}
+  if(a==="claimmm"){
+    e.preventDefault();
+    if(!operator){var vo=await promptModal("Erst dein Kürzel angeben:",operator||"");if(vo==null||!vo.trim())return;operator=vo.trim();await setOperatorStore(operator);}
+    var okm=await confirmModal(masterMedic?("MasterMedic-Rolle von "+masterMedic+" übernehmen?"):"MasterMedic-Rolle übernehmen?","Übernehmen");
+    if(!okm)return;
+    await setMasterMedic(operator);render();toast("Du bist jetzt MasterMedic");
+    return;
+  }
+  if(a==="mergestart"){
+    var oks=await confirmModal("Vorschau: mit „CCP B · MasterMedic CD · 3 Patienten\" zusammenführen?\n\nIn der Live-Version bestätigt MasterMedic CD dies auf seinem Gerät.","Zusammenführen");
+    if(!oks)return;
+    await doMergeDemo();render();toast("CCPs zusammengeführt (Vorschau)");
+    return;
+  }
+  if(a==="mergeundo"){
+    var oku=await confirmModal("Zusammenführung der Vorschau zurücksetzen? Die Demo-Patienten (CCP B) werden entfernt.","Zurücksetzen");
+    if(!oku)return;
+    await undoMergeDemo();render();toast("Vorschau zurückgesetzt");
+    return;
+  }
+  if(a==="tacstart"){state.capMode="tac";state.tacNode="start";state.tacResult=null;render();return;}
+  if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
+  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");var num=await addPatient(cat);state.capMode="menu";state.tacResult=null;render();toast("Patient #"+num+" angelegt ("+CATS[cat].label+")");return;}
+  if(a==="addcat"){var cat2=el.getAttribute("data-cat");var num2=await addPatient(cat2);render();toast("Patient #"+num2+" angelegt ("+CATS[cat2].label+")");return;}
+  if(a==="opencat"){state.cat=el.getAttribute("data-cat");go("catlist");return;}
+  if(a==="openpat"){var id=el.getAttribute("data-id");await loadPatients();state.id=id;state.edit=patients.find(function(p){return p.id===id;});if(state.edit){state.view="patient";render();}return;}
+  if(a==="movecat"){var p=state.edit;p.cat=el.getAttribute("data-cat");p.lastTriage=nowMs();await savePatient(p);render();return;}
+  if(a==="prio"){var p2=state.edit;p2.prio=!p2.prio;await savePatient(p2);render();return;}
+  if(a==="ready"){var p3=state.edit;p3.ready=!p3.ready;await savePatient(p3);render();return;}
+  if(a==="tq"){var p4=state.edit;p4.tqStart=p4.tqStart?null:nowMs();await savePatient(p4);render();return;}
+  if(a==="gpa"){var p5=state.edit;p5.status="gpa";await savePatient(p5);await loadPatients();go("overview");toast("Patient #"+p5.num+" → gPA");return;}
+  if(a==="checkoutready"){
+    var rcat=el.getAttribute("data-cat");
+    await loadPatients();
+    var rl2=patients.filter(function(p){return p.status==="active"&&p.cat===rcat&&p.ready;});
+    if(rl2.length===0){toast("keine transportfertigen Patienten");render();return;}
+    var ok=await confirmModal(rl2.length+" transportfertige Patienten ("+CATS[rcat].label+") auschecken → gPA?","Auschecken");
+    if(!ok)return;
+    for(var ri=0;ri<rl2.length;ri++){rl2[ri].status="gpa";await savePatient(rl2[ri]);}
+    await loadPatients();render();toast(rl2.length+" Patienten → gPA");
+    return;
+  }
+  if(a==="delphoto"){var pph=state.edit;if(pph){delete pph.photo;await savePatient(pph);render();toast("Foto entfernt");}return;}
+  if(a==="addinj"){var p6=state.edit;var rsel=document.querySelector('[data-field="injRegion"]');var asel=document.querySelector('[data-field="injArt"]');if(rsel&&asel){p6.inj=p6.inj||[];p6.inj.push({r:rsel.value,a:asel.value});await savePatient(p6);render();}return;}
+  if(a==="delinj"){var p7=state.edit;var idx=+el.getAttribute("data-idx");p7.inj.splice(idx,1);await savePatient(p7);render();return;}
+});
+document.addEventListener("change",async function(e){
+  var el=e.target.closest("[data-kind]");if(!el)return;
+  var kind=el.getAttribute("data-kind"),field=el.getAttribute("data-field");
+  if(kind==="chk"){var cid=el.getAttribute("data-id");if(!checklist.items[cid])checklist.items[cid]={};
+    checklist.items[cid][field]= field==="done"?el.checked:el.value;await saveChecklist();return;}
+  if(kind==="hdr"){checklist.hdr[field]=el.value;await saveChecklist();return;}
+  if(kind==="pat"&&state.edit){state.edit[field]=el.value;await savePatient(state.edit);return;}
+  if(kind==="vit"&&state.edit){state.edit.vit[field]=el.value;await savePatient(state.edit);return;}
+  if(kind==="photo"&&state.edit){
+    var file=el.files&&el.files[0];if(!file)return;
+    toast("Foto wird verarbeitet…");
+    try{
+      var durl=await resizePhoto(file,640,0.5);
+      state.edit.photo=durl;
+      await savePatient(state.edit);
+      render();toast("Foto gespeichert");
+    }catch(err){toast("Foto fehlgeschlagen");}
+    return;
+  }
+});
+document.addEventListener("click",async function(e){
+  var el=e.target.closest('[data-kind="tx"]');if(!el)return;
+  var f=el.getAttribute("data-field");var p=state.edit;if(!p)return;
+  if(!p.tx)p.tx={};p.tx[f]=!p.tx[f];el.classList.toggle("on",p.tx[f]);await savePatient(p);
+});
+
+function go(view){state.view=view;if(view==="capture")state.capMode="menu";render();}
+function back(){
+  if(state.view==="patient"){go("catlist");}
+  else if(state.view==="catlist"){go("overview");}
+  else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
+  else{go("home");}
+}
+
+setInterval(function(){
+  $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+  document.querySelectorAll(".js-age").forEach(function(n){n.textContent=ageStr(+n.getAttribute("data-ts"));});
+  document.querySelectorAll(".js-tq").forEach(function(n){n.textContent=fmtDur(nowMs()-(+n.getAttribute("data-tq")));});
+  var tb=document.querySelector('[data-action="tq"]');
+  if(tb&&state.edit&&state.edit.tqStart){tb.textContent="TQ läuft · "+fmtDur(nowMs()-state.edit.tqStart)+" — stoppen";}
+},1000);
+setInterval(async function(){
+  if(state.view==="patient"||state.view==="checklist")return;
+  await loadMeta();await loadPatients();await loadChecklist();render();
+},3500);
+
+(async function init(){
+  operator=await getOperator();if(!operator)operator="";
+  await loadMeta();
+  await loadPatients();await loadChecklist();
+  $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+  render();
+})();
+</script>
