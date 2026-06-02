@@ -260,7 +260,11 @@ async function undoMergeDemo(){
 async function loadPatients(){
   var keys=await sList("ccp_pat_");var arr=[];
   for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!ccpMerged)continue;arr.push(normalize(p));}}
-  arr.sort(function(a,b){return a.num-b.num;});
+  arr.sort(function(a,b){
+    var ca=a.ccp||"A",cb=b.ccp||"A";
+    if(ca!==cb)return ca<cb?-1:1;
+    return a.num-b.num;
+  });
   patients=arr;
 }
 function normalize(p){
@@ -393,36 +397,25 @@ function vOverview(){
   if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
     if(!ccpMerged){
-      h+='<div class="hint" style="margin:0 0 8px 2px">Verfügbare CCPs (Demo):</div>';
-      ['B','C'].forEach(function(k){
-        var d=DEMO_CCPS[k];
-        var t1=d.patients.filter(function(p){return p.cat==="T1";}).length;
-        var t2=d.patients.filter(function(p){return p.cat==="T2";}).length;
-        var t3=d.patients.filter(function(p){return p.cat==="T3";}).length;
-        h+='<div class="card" style="margin-bottom:10px;padding:12px 14px">';
-        h+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">';
-        h+='<span class="mono" style="font-size:20px;font-weight:600">CCP '+k+'</span>';
-        h+='<span class="hint">'+d.ort+' · MM: '+d.mm+'</span></div>';
-        h+='<div style="display:flex;gap:6px;margin-bottom:10px">';
-        h+='<span class="pill" style="background:var(--t1);color:#fff">T-1 × '+t1+'</span>';
-        h+='<span class="pill" style="background:var(--t2);color:#3A2C00">T-2 × '+t2+'</span>';
-        h+='<span class="pill" style="background:var(--t3);color:#fff">T-3 × '+t3+'</span>';
-        h+='</div>';
-        h+='<div style="display:flex;gap:8px">';
-        h+='<button class="prim" data-action="mergestart" data-ccp="'+k+'" style="flex:1;padding:11px">⇄ Zusammenführen</button>';
-        h+='<button class="ghost" data-action="joinccp" style="flex:1;padding:11px;opacity:.45;pointer-events:none" title="Beitreten erfordert Backend (Phase 1)">🔒 Beitreten</button>';
-        h+='</div></div>';
-      });
+      h+='<button class="ghost" data-action="mergestart" style="margin-top:0">⇄ CCPs zusammenführen</button>';
+      h+='<p class="hint" style="text-align:center;margin-top:6px">2 Demo-CCPs verfügbar</p>';
     }else{
-      var mergedKeys = [...new Set(patients.filter(function(p){return p.demo;}).map(function(p){return p.ccp;}))];
-      h+='<div class="banner" style="margin-bottom:8px"><span>✓</span><div>Zusammenführung aktiv: CCP A + CCP '+mergedKeys.join(' + CCP ')+'. Nummern mit Buchstaben-Präfix (A-07, '+mergedKeys[0]+'-03).</div></div>';
+      var mergedKeys=[];
+      patients.forEach(function(p){if(p.demo&&mergedKeys.indexOf(p.ccp)===-1)mergedKeys.push(p.ccp);});
+      mergedKeys.sort();
+      h+='<div class="banner" style="margin-bottom:8px"><span>✓</span><div><span style="font-weight:600">Zusammenführung aktiv:</span> CCP A + CCP '+mergedKeys.join(' + CCP ')+'<br><span class="hint">Patienten-Nummern mit CCP-Buchstaben (A-01, '+mergedKeys[0]+'-01 …)</span></div></div>';
       h+='<button class="ghost" data-action="mergeundo" style="margin-top:0">Zusammenführung zurücksetzen</button>';
     }
   }
   return h;
 }
 function vCatlist(){
-  var cat=state.cat,c=CATS[cat];var list=activeByCat(cat).sort(function(a,b){return b.lastTriage-a.lastTriage;});
+  var cat=state.cat,c=CATS[cat];
+  var list=activeByCat(cat).sort(function(a,b){
+    var ca=a.ccp||"A",cb=b.ccp||"A";
+    if(ca!==cb)return ca<cb?-1:1;
+    return a.num-b.num;
+  });
   var h='<div class="bigcat" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+';margin-bottom:14px"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+list.length+'</span></div>';
   var readyList=list.filter(function(p){return p.ready;});
   if(readyList.length>0){
@@ -603,6 +596,43 @@ function promptModal(msg,def){
     setTimeout(function(){try{inp.focus();}catch(e){}},50);
   });
 }
+function mergeCcpSelectModal(){
+  return new Promise(function(resolve){
+    var ov=document.createElement("div");ov.className="modalov";
+    var inner='<div class="modalbx" style="max-width:360px">';
+    inner+='<div class="modalmsg" style="margin-bottom:14px">Welche CCP zusammenführen?</div>';
+    ['B','C'].forEach(function(k){
+      var d=DEMO_CCPS[k];
+      var already=patients.some(function(p){return p.demo&&p.ccp===k;});
+      var t1=d.patients.filter(function(p){return p.cat==="T1";}).length;
+      var t2=d.patients.filter(function(p){return p.cat==="T2";}).length;
+      var t3=d.patients.filter(function(p){return p.cat==="T3";}).length;
+      inner+='<button class="mc-ccpsel card" data-ccp="'+k+'" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px'+(already?';opacity:.4;pointer-events:none':'')+'">';
+      inner+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:7px">';
+      inner+='<span class="mono" style="font-size:19px;font-weight:600">CCP '+k+'</span>';
+      inner+='<span class="hint">'+esc(d.ort)+'</span>';
+      if(already)inner+='<span class="pill" style="background:var(--surf2);color:var(--mut);margin-left:auto">bereits zusammengeführt</span>';
+      inner+='</div>';
+      inner+='<div style="display:flex;gap:6px;margin-bottom:5px">';
+      inner+='<span class="pill" style="background:var(--t1);color:#fff">T-1 × '+t1+'</span>';
+      inner+='<span class="pill" style="background:var(--t2);color:#3A2C00">T-2 × '+t2+'</span>';
+      inner+='<span class="pill" style="background:var(--t3);color:#fff">T-3 × '+t3+'</span>';
+      inner+='</div>';
+      inner+='<div class="hint">MasterMedic: '+esc(d.mm)+' · '+d.patients.length+' Patienten</div>';
+      inner+='</button>';
+    });
+    inner+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
+    inner+='</div>';
+    ov.innerHTML=inner;
+    document.body.appendChild(ov);
+    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    ov.querySelectorAll(".mc-ccpsel").forEach(function(btn){
+      btn.addEventListener("click",function(){done(btn.getAttribute("data-ccp"));});
+    });
+    ov.querySelector(".mc-cancel").addEventListener("click",function(){done(null);});
+    ov.addEventListener("click",function(e){if(e.target===ov)done(null);});
+  });
+}
 
 document.addEventListener("click",async function(e){
   var el=e.target.closest("[data-action]");if(!el)return;
@@ -638,9 +668,10 @@ document.addEventListener("click",async function(e){
     return;
   }
   if(a==="mergestart"){
-    var ccpKey=el.getAttribute("data-ccp")||"B";
+    var ccpKey=await mergeCcpSelectModal();
+    if(!ccpKey)return;
     var demoInfo=DEMO_CCPS[ccpKey];
-    var msg="CCP "+ccpKey+" zusammenführen?\n\nStandort: "+demoInfo.ort+"\nMasterMedic: "+demoInfo.mm+"\n"+demoInfo.patients.length+" Patienten\n\nIn der Live-Version bestätigt MasterMedic "+demoInfo.mm+" dies auf seinem Gerät.";
+    var msg="CCP "+ccpKey+" zusammenführen?\n\nStandort: "+demoInfo.ort+"\nMasterMedic: "+demoInfo.mm+"\n"+demoInfo.patients.length+" Patienten\n\nIn der echten Version bestätigt MasterMedic "+demoInfo.mm+" dies auf seinem Gerät.";
     var oks=await confirmModal(msg,"Zusammenführen");
     if(!oks)return;
     await doMergeDemo(ccpKey);render();toast("CCP A + CCP "+ccpKey+" zusammengeführt");
