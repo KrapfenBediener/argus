@@ -143,7 +143,7 @@ var FLOW={
   cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
 };
 
-var state = {view:"home", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null};
+var state = {view:"start", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -244,11 +244,12 @@ function countGpa(){return patients.filter(function(p){return p.status==="gpa";}
 function countPrio(){return patients.filter(function(p){return p.status==="active"&&p.prio;}).length;}
 
 function render(){
-  $("backbtn").style.display = state.view==="home" ? "none" : "flex";
-  var titles={home:"CCP",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
-  $("title").textContent=titles[state.view]||"CCP";
+  $("backbtn").style.display = state.view==="start" ? "none" : "flex";
+  var titles={start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
+  $("title").textContent=titles[state.view]||"Argus";
   var v=state.view, h="";
-  if(v==="home")h=vHome();
+  if(v==="start")h=vStart();
+  else if(v==="home")h=vHome();
   else if(v==="checklist")h=vChecklist();
   else if(v==="capture")h=vCapture();
   else if(v==="overview")h=vOverview();
@@ -459,6 +460,30 @@ function vHelp(){
 }
 function rl(n,d){return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span style="font-weight:600">'+n+'</span> <span class="helpa">– '+esc(d)+'</span></div>';}
 
+function vStart(){
+  var hasSession = patients.filter(function(p){return p.status==="active";}).length > 0;
+  var h = '<div style="text-align:center;padding:48px 0 32px">';
+  h += '<div style="font-size:52px;line-height:1;margin-bottom:10px">⦿</div>';
+  h += '<div style="font-size:30px;font-weight:600;letter-spacing:-.5px;margin-bottom:6px">Argus</div>';
+  h += '<div class="hint">Koordinierung · Sichtung · Transport</div>';
+  h += '</div>';
+  if(hasSession){
+    var activeCount = patients.filter(function(p){return p.status==="active";}).length;
+    h += '<div class="banner" style="margin-bottom:16px"><span>↩</span><div>';
+    h += '<span style="font-weight:600">Aktive CCP</span>';
+    if(operator) h += ' · Bediener: '+esc(operator);
+    h += '<br><span class="hint">'+activeCount+' aktive'+' Patient'+(activeCount!==1?'en':'')+'</span>';
+    h += '</div></div>';
+    h += '<button class="prim" data-action="resumeccp" style="margin-bottom:10px">↩ Aktive CCP fortsetzen</button>';
+    h += '<button class="ghost" data-action="newccp" style="margin-bottom:8px">Neue CCP eröffnen</button>';
+  } else {
+    h += '<button class="prim" data-action="newccp" style="margin-bottom:10px">＋ Neue CCP eröffnen</button>';
+  }
+  h += '<button class="ghost" data-action="joinccp">⇄ CCP beitreten</button>';
+  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">Beta · Lokaler Modus · Phase 1 in Entwicklung</p>';
+  return h;
+}
+
 function toast(msg){var t=$("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show");},1700);}
 
 function resizePhoto(file,maxEdge,quality){
@@ -515,6 +540,20 @@ document.addEventListener("click",async function(e){
   var a=el.getAttribute("data-action");
   if(a==="back"){back();return;}
   if(a==="nav"){go(el.getAttribute("data-view"));return;}
+  if(a==="resumeccp"){go("home");return;}
+  if(a==="newccp"){
+    if(!operator){
+      var vop=await promptModal("Dein Kürzel (z. B. Name / Streife):","");
+      if(vop==null||!vop.trim())return;
+      operator=vop.trim();await setOperatorStore(operator);
+      if(!masterMedic){await setMasterMedic(operator);}
+    }
+    go("home");return;
+  }
+  if(a==="joinccp"){
+    await confirmModal("CCP beitreten\n\nDiese Funktion zeigt verfügbare CCPs an und lässt dich beitreten – sobald das Backend verbunden ist.\n\nFunktion wird in Phase 1 freigeschaltet.","Verstanden");
+    return;
+  }
   if(a==="setoperator"){e.preventDefault();var v=await promptModal("Bediener-Kürzel (z. B. Streife / Name):",operator||"");if(v!=null){operator=v.trim();await setOperatorStore(operator);if(!masterMedic&&operator){await setMasterMedic(operator);}render();}return;}
   if(a==="claimmm"){
     e.preventDefault();
@@ -593,6 +632,7 @@ function back(){
   if(state.view==="patient"){go("catlist");}
   else if(state.view==="catlist"){go("overview");}
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
+  else if(state.view==="home"){go("start");}
   else{go("home");}
 }
 
