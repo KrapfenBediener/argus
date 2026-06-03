@@ -1,3 +1,5 @@
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten -->
+
 # Argus
 
 Digitales Koordinierungswerkzeug für Sammelstellen bei Großschadenslagen.
@@ -19,3 +21,14 @@ python3 -m http.server 8080
 ## Dokumentation
 
 Interne Projektdokumentation unter `.planning/`.
+
+## Lizenz & Rechte
+
+© 2026 Gabor Szeman – Alle Rechte vorbehalten.
+
+Dieses Projekt ist proprietär und urheberrechtlich geschützt. Nutzung,
+Vervielfältigung, Veränderung, Verbreitung und Hosting nur mit vorheriger
+schriftlicher Genehmigung des Rechteinhabers. Siehe [LICENSE](LICENSE)
+für vollständige Bedingungen.
+
+Lizenzanfragen: [E-MAIL@KONTAKT.DE]
