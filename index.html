@@ -110,6 +110,7 @@ var _mergeReqFrom   = null;   /* eingehende Merge-Anfrage von diesem CCP */
 var _demoMerged     = false;  /* lokale Demo-Zusammenführung (nur Schulungsumgebung) */
 var _mergeReqHandling = false;/* Re-Entrancy-Schutz für Bestätigungsdialog */
 var _prevGroupSize  = 1;      /* zur Erkennung, dass ein CCP der Gruppe beigetreten ist */
+var _lastView       = null;   /* für Scroll-Reset nur bei View-Wechsel */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -171,12 +172,20 @@ async function openOrCreateCCP(){
   var tokenArr=new Uint8Array(16);
   crypto.getRandomValues(tokenArr);
   var joinToken=Array.from(tokenArr,function(b){return b.toString(16).padStart(2,'0');}).join('');
+  /* Nächste freie Kennung im Präsidium vergeben (A, B, C, …), damit mehrere
+   * CCPs unterscheidbar sind. Einzel-CCP bleibt 'A'. */
+  var usedK=[];
+  try{
+    var ex=await client.from('ccps').select('kennung').eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').is('closed_at',null);
+    if(ex.data) ex.data.forEach(function(c){if(c.kennung)usedK.push(c.kennung);});
+  }catch(e){}
+  var myK=nextFreeKennung(usedK);
   var ins=await client.from('ccps').insert({
-    kennung:'A', ort:'', master_medic:operator||'', merged:false,
+    kennung:myK, ort:'', master_medic:operator||'', merged:false,
     join_token:joinToken, praesidium_id:_praesidiumId||null
   }).select().single();
   if(ins.data){
-    _ccpId=ins.data.id;
+    _ccpId=ins.data.id; _ccpKennung=myK;
     localStorage.setItem('argus_ccp_id',_ccpId);
     localStorage.setItem('argus_invite',joinToken);
     return true;
@@ -582,12 +591,20 @@ async function checkIncomingMergeRequest(){
   _mergeReqHandling=false;
 }
 /* CCP-Verwaltung: Abschließen (MasterMedic, soft) / Löschen (nur MasterToken). */
+/* CCP-Verwaltung als Home-Buttons (Stil wie die Navigations-Buttons).
+ * Sichtbarkeit rollenabhängig: Abschließen = MasterMedic, Schulungs-Reset =
+ * Schulungsumgebung + MasterMedic, Löschen = nur MasterToken (Signalfarbe). */
 function ccpAdminUI(){
-  var h='<div class="sech">CCP verwalten</div>';
-  h+='<button class="ghost" data-action="ccpclose" style="margin-top:0;margin-bottom:8px">✓ CCP abschließen (ausblenden)</button>';
+  var h='';
+  var isMM=operator&&masterMedic&&operator===masterMedic;
+  if(isMM){
+    h+='<button class="navbtn" data-action="ccpclose" style="margin-top:10px"><span class="ic">✓</span><span><span class="t">CCP abschließen</span><br><span class="s">Aus der Auswahl ausblenden · Daten bleiben</span></span></button>';
+  }
+  if(_praesidiumName==='Schulungsumgebung' && isMM){
+    h+='<button class="navbtn" data-action="schulreset" style="margin-top:10px;border-color:var(--t1)"><span class="ic" style="color:var(--t1)">🎓</span><span><span class="t" style="color:var(--t1)">Schulung zurücksetzen</span><br><span class="s">Patienten löschen · Übungsszenario neu</span></span></button>';
+  }
   if(_isMaster){
-    h+='<button class="ghost" data-action="ccpdelete" style="margin-top:0;color:var(--t1);border-color:var(--t1)">🗑 CCP endgültig löschen</button>';
-    h+='<p class="hint" style="text-align:center;margin-top:5px">Löscht CCP und alle Patienten unwiderruflich (nur MasterToken)</p>';
+    h+='<button class="navbtn" data-action="ccpdelete" style="margin-top:10px;background:var(--t1);border-color:var(--t1)"><span class="ic" style="color:#fff">🗑</span><span><span class="t" style="color:#fff">CCP löschen</span><br><span class="s" style="color:#fff;opacity:.85">CCP und alle Patienten unwiderruflich</span></span></button>';
   }
   return h;
 }
@@ -715,7 +732,9 @@ function render(){
   else if(v==="patient")h=vPatient();
   else if(v==="help")h=vHelp();
   $("app").innerHTML=h;
-  if(typeof window!=="undefined"&&window.scrollTo)window.scrollTo(0,0);
+  /* Nur bei echtem View-Wechsel nach oben scrollen — sonst würde der
+   * 3,5-s-Refresh die Ansicht beim Runterscrollen ständig nach oben reißen. */
+  if(state.view!==_lastView){ if(typeof window!=="undefined"&&window.scrollTo)window.scrollTo(0,0); _lastView=state.view; }
 }
 function countbar(){
   var s="";var defs=[["T1",CATS.T1],["T2",CATS.T2],["T3",CATS.T3],["T5",CATS.T5]];
@@ -740,7 +759,8 @@ function vHome(){
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
-  navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze");
+  navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze")+
+  ccpAdminUI();
 }
 function vChecklist(){
   var hd=checklist.hdr;
@@ -803,7 +823,7 @@ function vOverview(){
     h+='<div class="sech">Nur MasterMedic</div>';
     /* Reguläre Präsidien: echtes geräteübergreifendes Zusammenführen.
      * Schulungsumgebung: lokale Demo-Simulation (unten). */
-    if(_praesidiumName!=='Schulungsumgebung'){ h+=realMergeUI(); h+=ccpAdminUI(); return h; }
+    if(_praesidiumName!=='Schulungsumgebung'){ h+=realMergeUI(); return h; }
     /* Welche Demo-CCPs sind bereits zusammengeführt? */
     var mergedKeys=[];
     patients.forEach(function(p){if(p.demo&&mergedKeys.indexOf(p.ccp)===-1)mergedKeys.push(p.ccp);});
@@ -824,10 +844,6 @@ function vOverview(){
       h+='<button class="ghost" data-action="mergestart" style="margin-top:0">'+btnLabel+'</button>';
       h+='<p class="hint" style="text-align:center;margin-top:5px">'+availKeys.length+' CCP'+( availKeys.length!==1?'s':'')+' verfügbar</p>';
     }
-    h+='<div class="sech">Schulung</div>';
-    h+='<button class="ghost" data-action="schulreset" style="margin-top:0">🎓 Schulung zurücksetzen (Demo-Patienten neu)</button>';
-    h+='<p class="hint" style="text-align:center;margin-top:5px">Löscht aktuelle Patienten und spielt das Übungsszenario neu ein</p>';
-    h+=ccpAdminUI();
   }
   return h;
 }
