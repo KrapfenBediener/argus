@@ -65,6 +65,10 @@ Voraussetzung für jeden Einsatz mit echten Patientendaten.
   Einmal-Link bestätigt.
 - ✅ **Bugfix:** `used_at` im RPC als bigint/ms (war `now()` → Fehler 42804,
   brach Einmal-Code-Einlösung ab). Rein serverseitig behoben, kein App-Update nötig.
+- ✅ **Sicherheitsfix `access_tokens`:** offene `anon_read`-Policy machte alle Codes
+  (inkl. MasterToken) per Anon-Key lesbar → RLS umgehbar. Ersetzt durch JWT-gebundene
+  Policies (Lesen nur eigenes Präsidium/Master, Schreiben nur Master). Anon ohne JWT
+  liest jetzt 0 Codes. Verifiziert. Install-Screen liest nicht mehr aus der DB (SW v6).
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —

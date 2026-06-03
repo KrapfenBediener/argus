@@ -41,6 +41,13 @@
   now())*1000)::bigint` geändert (ms, konsistent mit `nowMs()`). Rein serverseitig,
   kein App-Update nötig. Verifiziert: Einlösung→JWT, danach verbraucht.
 
+- **Sicherheitsfix `access_tokens` (kritisch):** Die offene `anon_read`-Policy
+  machte alle Codes inkl. MasterToken `3GNN-HMEV` per öffentlichem Anon-Key
+  abrufbar → ganze RLS umgehbar. Ersetzt durch JWT-gebundene Policies
+  (`argus_tokens_select/insert/update`): Lesen nur eigenes Präsidium / Master,
+  Schreiben nur Master. Anon ohne JWT → 0 Codes. Install-Screen liest nicht mehr
+  aus der DB (Code steht im Link). SW Cache v6. Verifiziert.
+
 **Phase 4 vollständig abgeschlossen.**
 
 **Geparkt (nicht blockierend):**

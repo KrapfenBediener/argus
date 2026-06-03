@@ -143,7 +143,27 @@ create policy "argus_checklists_rw" on public.checklists for all to anon
   with check ( public.argus_is_master()
           or ccp_id in (select id from public.ccps where praesidium_id = public.argus_praesidium_id()) );
 
--- ── 04-03-T3: access_tokens & praesidien ───────────────────────────────────
+-- ── 04-03-T3: praesidien ────────────────────────────────────────────────────
 -- Unverändert. praesidien.anon_read (qual: true) bleibt — der Freischalt-Screen
--- listet alle Präsidien ohne JWT. access_tokens behält anon_read /
--- anon_insert_singleuse / anon_update_singleuse (Einmal-Link-Mechanik).
+-- listet alle Präsidien ohne JWT (nur id + name, kein Geheimnis).
+
+-- ── 04-sec: access_tokens-Lockdown ─────────────────────────────────────────
+-- WICHTIG: Die ursprüngliche offene anon_read-Policy (qual: true) machte ALLE
+-- Codes inkl. MasterToken mit dem öffentlichen Anon-Key lesbar -> RLS umgehbar.
+-- Ersetzt durch JWT-gebundene Policies. Einlösung läuft über argus_exchange_code
+-- (security definer, an RLS vorbei), daher braucht anon hier keinen Schreibzugriff
+-- mehr außer für das Admin-Panel (Master). Lesen nur eigenes Präsidium / Master.
+drop policy if exists anon_read on public.access_tokens;
+drop policy if exists anon_insert_singleuse on public.access_tokens;
+drop policy if exists anon_update_singleuse on public.access_tokens;
+
+create policy "argus_tokens_select" on public.access_tokens
+  for select to anon
+  using ( public.argus_is_master() or praesidium_id = public.argus_praesidium_id() );
+
+create policy "argus_tokens_insert" on public.access_tokens
+  for insert to anon with check ( public.argus_is_master() );
+
+create policy "argus_tokens_update" on public.access_tokens
+  for update to anon
+  using ( public.argus_is_master() ) with check ( public.argus_is_master() );
