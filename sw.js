@@ -1,3 +1,4 @@
+/* © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. */
 /* CCP Service Worker — App-Shell-Strategie
  *
  * Routing-Prioritäten (Reihenfolge ist entscheidend):
