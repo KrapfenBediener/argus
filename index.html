@@ -104,6 +104,12 @@ var _praesidiumId   = null;
 var _praesidiumName = '';
 var _isMaster       = false;
 var _praesidienList = [];
+var _ccpKennung     = 'A';    /* Kennung des eigenen CCP (A/B/…) */
+var _mergeGroupId   = null;   /* gemeinsame Merge-Gruppe; null = eigenständig */
+var _mergeReqFrom   = null;   /* eingehende Merge-Anfrage von diesem CCP */
+var _demoMerged     = false;  /* lokale Demo-Zusammenführung (nur Schulungsumgebung) */
+var _mergeReqHandling = false;/* Re-Entrancy-Schutz für Bestätigungsdialog */
+var _prevGroupSize  = 1;      /* zur Erkennung, dass ein CCP der Gruppe beigetreten ist */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -150,7 +156,10 @@ function patToRow(p){
 function applyMeta(row){
   if(!row) return;
   if(typeof row.master_medic==='string') masterMedic=row.master_medic;
-  if(typeof row.merged==='boolean') ccpMerged=row.merged;
+  if(typeof row.kennung==='string' && row.kennung) _ccpKennung=row.kennung;
+  if('merge_group_id' in row) _mergeGroupId=row.merge_group_id||null;
+  if('merge_request_from' in row) _mergeReqFrom=row.merge_request_from||null;
+  /* ccpMerged (Präfix-Anzeige) wird in loadPatients aus der Gruppengröße abgeleitet. */
 }
 async function openOrCreateCCP(){
   var client=sb(); if(!client) return false;
@@ -183,7 +192,7 @@ function subscribeRealtime(){
       await loadPatients(); render();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ccps',
-        filter:'id=eq.'+_ccpId}, function(p){applyMeta(p.new);render();})
+        filter:'id=eq.'+_ccpId}, function(p){applyMeta(p.new);render();checkIncomingMergeRequest();})
     .subscribe();
 }
 
@@ -413,12 +422,12 @@ async function loadMeta(){
   var client=sb();
   if(client && _ccpId){
     try{
-      var r=await client.from('ccps').select('master_medic,merged').eq('id',_ccpId).single();
+      var r=await client.from('ccps').select('*').eq('id',_ccpId).single();
       if(r.data){applyMeta(r.data);return;}
     }catch(e){}
   }
   var mm=await sGet("ccp_mastermedic");masterMedic=(typeof mm==="string")?mm:"";
-  var mg=await sGet("ccp_merged");ccpMerged=!!mg;
+  var mg=await sGet("ccp_merged");_demoMerged=!!mg;
 }
 async function setMasterMedic(v){
   masterMedic=v; await sSet("ccp_mastermedic",v);
@@ -488,23 +497,111 @@ async function doMergeDemo(ccpKey){
     };
     await sSet("ccp_pat_"+dp.id, dp);
   }
-  ccpMerged=true; await sSet("ccp_merged",true);
+  _demoMerged=true; await sSet("ccp_merged",true);
   await loadPatients();
 }
 async function undoMergeDemo(){
-  ccpMerged=true; await loadPatients();
+  _demoMerged=true; await loadPatients();
   for(var i=0;i<patients.length;i++){if(patients[i].demo){await sDel("ccp_pat_"+patients[i].id);}}
-  ccpMerged=false; await sSet("ccp_merged",false);
+  _demoMerged=false; await sSet("ccp_merged",false);
   await loadPatients();
+}
+/* ── Echtes CCP-Zusammenführen (geräteübergreifend über Supabase) ──────────
+ * Datenmodell: ccps.merge_group_id (gemeinsame Gruppe), ccps.merge_request_from
+ * (Handshake). A initiiert → B bestätigt. A bleibt MasterMedic. Keine
+ * Umnummerierung; der beitretende CCP bekommt die nächste freie Kennung und
+ * schreibt seine eigenen Patienten darauf um. */
+function nextFreeKennung(usedArr){
+  var L="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  for(var i=0;i<L.length;i++){ if(usedArr.indexOf(L[i])===-1) return L[i]; }
+  return "Z";
+}
+async function realMergeRequest(targetId){
+  var client=sb(); if(!client||!_ccpId) return false;
+  /* Die Gruppe entsteht erst, wenn B bestätigt (sonst würde die Selbstheilung
+   * die Ein-Mitglied-Gruppe sofort wieder auflösen). Hier nur die Anfrage. */
+  try{await client.from('ccps').update({merge_request_from:_ccpId,merge_request_at:nowMs()}).eq('id',targetId);}catch(e){return false;}
+  return true;
+}
+async function realMergeAccept(fromId){
+  var client=sb(); if(!client||!_ccpId) return false;
+  var src; try{ src=(await client.from('ccps').select('*').eq('id',fromId).single()).data; }catch(e){}
+  if(!src) return false;
+  var grp=src.merge_group_id||src.id;
+  /* belegte Kennungen der Gruppe sammeln, nächste freie wählen */
+  var used=[]; try{ var gm=await client.from('ccps').select('kennung').eq('merge_group_id',grp); if(gm.data) gm.data.forEach(function(c){if(c.kennung)used.push(c.kennung);}); }catch(e){}
+  if(used.indexOf(src.kennung||'A')===-1) used.push(src.kennung||'A');
+  var newK = (used.indexOf(_ccpKennung)===-1 && _ccpKennung) ? _ccpKennung : nextFreeKennung(used);
+  /* eigene Patienten auf die neue Kennung umschreiben */
+  await loadPatients();
+  for(var i=0;i<patients.length;i++){ if(!patients[i].demo && patients[i].ccp!==newK){ patients[i].ccp=newK; await savePatient(patients[i]); } }
+  _ccpKennung=newK; _mergeGroupId=grp;
+  try{await client.from('ccps').update({merge_group_id:grp,kennung:newK,merged:true,merge_request_from:null,merge_request_at:null}).eq('id',_ccpId);}catch(e){}
+  /* Auch den anfragenden CCP (A) der Gruppe zuordnen, falls noch nicht geschehen */
+  if(!src.merge_group_id){ try{await client.from('ccps').update({merge_group_id:grp,merged:true}).eq('id',fromId);}catch(e){} }
+  return true;
+}
+async function realMergeDecline(){
+  var client=sb(); if(!client||!_ccpId) return;
+  _mergeReqFrom=null;
+  try{await client.from('ccps').update({merge_request_from:null,merge_request_at:null}).eq('id',_ccpId);}catch(e){}
+}
+async function realMergeLeave(){
+  var client=sb(); if(!client||!_ccpId) return;
+  _mergeGroupId=null;
+  try{await client.from('ccps').update({merge_group_id:null,merged:false}).eq('id',_ccpId);}catch(e){}
+  await loadPatients();
+}
+function realMergeUI(){
+  var h='';
+  if(_mergeGroupId && ccpMerged){
+    h+='<div class="banner" style="margin-bottom:10px"><span>✓</span><div>';
+    h+='<span style="font-weight:600">Zusammengeführt (CCP '+esc(_ccpKennung)+' + weitere)</span><br>';
+    h+='<span class="hint">Nummern mit Buchstaben-Präfix (z. B. A-01, B-01)</span>';
+    h+='</div></div>';
+    h+='<button class="ghost" data-action="rmergeleave" style="margin-top:0;margin-bottom:8px">Zusammenführung auflösen</button>';
+  }else if(_mergeGroupId){
+    h+='<p class="hint" style="text-align:center">Warte auf weiteren CCP der Gruppe…</p>';
+    h+='<button class="ghost" data-action="rmergeleave" style="margin-top:0">Zusammenführung auflösen</button>';
+  }else{
+    h+='<button class="ghost" data-action="rmergestart" style="margin-top:0">⇄ CCPs zusammenführen</button>';
+    h+='<p class="hint" style="text-align:center;margin-top:5px">Anderen CCP im Präsidium anfragen</p>';
+  }
+  return h;
+}
+/* Eingehende Merge-Anfrage: nur der MasterMedic des angefragten CCP bestätigt. */
+async function checkIncomingMergeRequest(){
+  if(_mergeReqHandling || !_mergeReqFrom) return;
+  if(!(operator && masterMedic && operator===masterMedic)) return;
+  _mergeReqHandling=true;
+  var client=sb(); var fromK='?';
+  try{ var s=(await client.from('ccps').select('kennung').eq('id',_mergeReqFrom).single()).data; if(s&&s.kennung) fromK=s.kennung; }catch(e){}
+  var ok=await confirmModal("CCP "+fromK+" möchte mit deinem CCP zusammenführen.\n\nDanach seht ihr eine gemeinsame Patientenliste (Nummern mit Präfix). Zusammenführen?","Zusammenführen");
+  if(ok){ var fid=_mergeReqFrom; await realMergeAccept(fid); _mergeReqFrom=null; await loadMeta(); await loadPatients(); render(); toast("Zusammengeführt mit CCP "+fromK); }
+  else { await realMergeDecline(); }
+  _mergeReqHandling=false;
 }
 async function loadPatients(){
   var client=sb();
   if(client && _ccpId){
     try{
-      var r=await client.from('patients').select('*').eq('ccp_id',_ccpId);
-      if(!r.error && r.data){
-        var arr=r.data.map(patFromRow);
-        if(ccpMerged){
+      var ccpIds=[_ccpId];
+      if(_mergeGroupId){
+        var g=await client.from('ccps').select('id').eq('merge_group_id',_mergeGroupId);
+        if(g.data && g.data.length>1){ ccpIds=g.data.map(function(c){return c.id;}); }
+        else { /* allein in der Gruppe → Gruppe selbstheilend verlassen */
+          _mergeGroupId=null;
+          try{await client.from('ccps').update({merge_group_id:null,merged:false}).eq('id',_ccpId);}catch(e2){}
+        }
+      }
+      var realMerged = ccpIds.length>1;
+      var q = realMerged
+        ? await client.from('patients').select('*').in('ccp_id',ccpIds)
+        : await client.from('patients').select('*').eq('ccp_id',_ccpId);
+      if(!q.error && q.data){
+        var arr=q.data.map(patFromRow);
+        ccpMerged = realMerged || _demoMerged;
+        if(_demoMerged){
           var keys2=await sList("ccp_pat_");
           for(var i=0;i<keys2.length;i++){var pd=await sGet(keys2[i]);if(pd&&pd.demo)arr.push(normalize(pd));}
         }
@@ -514,7 +611,7 @@ async function loadPatients(){
     }catch(e){}
   }
   var keys=await sList("ccp_pat_");var arr=[];
-  for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!ccpMerged)continue;arr.push(normalize(p));}}
+  for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!_demoMerged)continue;arr.push(normalize(p));}}
   arr.sort(function(a,b){var ca=a.ccp||"A",cb=b.ccp||"A";if(ca!==cb)return ca<cb?-1:1;return a.num-b.num;});
   patients=arr;
 }
@@ -529,11 +626,11 @@ async function loadChecklist(){
   if(!checklist.hdr)checklist.hdr={};if(!checklist.items)checklist.items={};
 }
 async function saveChecklist(){await sSet("ccp_checklist",checklist);}
-function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")==="A"&&p.num>m)m=p.num;});return m+1;}
+function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")===_ccpKennung&&p.num>m)m=p.num;});return m+1;}
 async function addPatient(cat){
   await loadPatients();
   var num=nextNum();
-  var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:num,cat:cat,ccp:"A",prio:false,ready:false,
+  var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:num,cat:cat,ccp:_ccpKennung,prio:false,ready:false,
     status:"active",created:nowMs(),lastTriage:nowMs(),tqStart:null,
     name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",
     vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
@@ -688,8 +785,9 @@ function vOverview(){
   h+='<p class="hint" style="text-align:center;margin-top:10px">Kategorie antippen → Patientenliste → Patient antippen</p>';
   if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
-    /* Demo-CCPs nur in Schulungsumgebung */
-    if(_praesidiumName!=='Schulungsumgebung'){return h;}
+    /* Reguläre Präsidien: echtes geräteübergreifendes Zusammenführen.
+     * Schulungsumgebung: lokale Demo-Simulation (unten). */
+    if(_praesidiumName!=='Schulungsumgebung'){ h+=realMergeUI(); return h; }
     /* Welche Demo-CCPs sind bereits zusammengeführt? */
     var mergedKeys=[];
     patients.forEach(function(p){if(p.demo&&mergedKeys.indexOf(p.ccp)===-1)mergedKeys.push(p.ccp);});
@@ -1078,6 +1176,25 @@ document.addEventListener("click",async function(e){
     await undoMergeDemo();render();toast("Zusammenführung zurückgesetzt");
     return;
   }
+  if(a==="rmergestart"){
+    var rmc=sb();
+    if(!rmc){await confirmModal("Keine Backend-Verbindung.\n\nInternetverbindung prüfen.","OK");return;}
+    var rlst=await rmc.from('ccps').select('*').eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').order('created_at',{ascending:true});
+    var cands=(rlst.data||[]).filter(function(c){return c.id!==_ccpId && !c.merge_group_id;});
+    if(!cands.length){await confirmModal("Kein zusammenführbarer CCP im Präsidium gefunden.\n\n(Nur eigenständige, noch nicht zusammengeführte CCPs.)","OK");return;}
+    var tgt=await ccpJoinModal(cands);
+    if(!tgt)return;
+    var okr=await realMergeRequest(tgt);
+    if(okr){await loadPatients();render();toast("Anfrage gesendet — warte auf Bestätigung der CCP-Leitung");}
+    else toast("Anfrage fehlgeschlagen");
+    return;
+  }
+  if(a==="rmergeleave"){
+    var okl=await confirmModal("Zusammenführung auflösen? Dein CCP wird wieder eigenständig.","Auflösen");
+    if(!okl)return;
+    await realMergeLeave();render();toast("Zusammenführung aufgelöst");
+    return;
+  }
   if(a==="tacstart"){state.capMode="tac";state.tacNode="start";state.tacResult=null;render();return;}
   if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
   if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");var num=await addPatient(cat);state.capMode="menu";state.tacResult=null;render();toast("Patient #"+num+" angelegt ("+CATS[cat].label+")");return;}
@@ -1168,7 +1285,9 @@ setInterval(function(){
 },1000);
 setInterval(async function(){
   if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start")return;
-  await loadMeta();await loadPatients();await loadChecklist();render();
+  await loadMeta();await loadPatients();await loadChecklist();
+  await checkIncomingMergeRequest();
+  render();
 },3500);
 /* Sperr-Heartbeat: hält die eigene Sperre frisch und erkennt eine
  * MasterMedic-Übernahme. Läuft nur im Patienten-View; re-rendert NICHT im
