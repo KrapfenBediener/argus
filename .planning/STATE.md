@@ -20,6 +20,15 @@
 - → **Offen: Gerätetest** (zwei iPhones, zwei CCPs zusammenführen) + ggf. Feinschliff.
 - Danach Phase 3 abgeschlossen → weiter mit Phase 4/5.
 
+## CCP-Verwaltung (2026-06-03)
+- **CCP abschließen** (MasterMedic): `closed_at` gesetzt → aus Beitritts-/Merge-Auswahl ausgeblendet,
+  Daten bleiben. **CCP endgültig löschen** (nur MasterToken/`is_master`): löscht CCP + Patienten
+  (FK CASCADE, DB-verifiziert). Schema: `ccps.closed_at` ergänzt.
+- **Schulung zurücksetzen** (MasterMedic, nur Schulungsumgebung): löscht aktuelle Patienten und
+  spielt das Demo-Szenario (DEMO_CCPS B, 8 Patienten) als **echte synchronisierte** Patienten ein.
+- Bekannte Grenze: bereits abgeschlossene CCPs sind aus der App nicht mehr erreichbar (nur per DB)
+  → späterer Admin-Toggle „abgeschlossene anzeigen" denkbar.
+
 ## Bekannte Grenzen Merge (v1)
 - Patienten des *anderen* CCP kommen über den 3,5-s-Sync (≤3,5 s Latenz), nicht live übers Echtzeit-Abo.
 - Eigenständige CCPs tragen alle Kennung „A" (Kennung wird erst beim Merge vergeben) → im Auswahl-

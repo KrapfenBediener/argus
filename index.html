@@ -581,6 +581,22 @@ async function checkIncomingMergeRequest(){
   else { await realMergeDecline(); }
   _mergeReqHandling=false;
 }
+/* CCP-Verwaltung: Abschließen (MasterMedic, soft) / Löschen (nur MasterToken). */
+function ccpAdminUI(){
+  var h='<div class="sech">CCP verwalten</div>';
+  h+='<button class="ghost" data-action="ccpclose" style="margin-top:0;margin-bottom:8px">✓ CCP abschließen (ausblenden)</button>';
+  if(_isMaster){
+    h+='<button class="ghost" data-action="ccpdelete" style="margin-top:0;color:var(--t1);border-color:var(--t1)">🗑 CCP endgültig löschen</button>';
+    h+='<p class="hint" style="text-align:center;margin-top:5px">Löscht CCP und alle Patienten unwiderruflich (nur MasterToken)</p>';
+  }
+  return h;
+}
+async function leaveCurrentCcp(){
+  if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
+  _ccpId=null; localStorage.removeItem('argus_ccp_id');
+  _mergeGroupId=null; _ccpKennung='A'; _demoMerged=false; ccpMerged=false; patients=[];
+  try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && !pp.demo) await sDel(lk[i]); } }catch(e){}
+}
 async function loadPatients(){
   var client=sb();
   if(client && _ccpId){
@@ -787,7 +803,7 @@ function vOverview(){
     h+='<div class="sech">Nur MasterMedic</div>';
     /* Reguläre Präsidien: echtes geräteübergreifendes Zusammenführen.
      * Schulungsumgebung: lokale Demo-Simulation (unten). */
-    if(_praesidiumName!=='Schulungsumgebung'){ h+=realMergeUI(); return h; }
+    if(_praesidiumName!=='Schulungsumgebung'){ h+=realMergeUI(); h+=ccpAdminUI(); return h; }
     /* Welche Demo-CCPs sind bereits zusammengeführt? */
     var mergedKeys=[];
     patients.forEach(function(p){if(p.demo&&mergedKeys.indexOf(p.ccp)===-1)mergedKeys.push(p.ccp);});
@@ -808,6 +824,10 @@ function vOverview(){
       h+='<button class="ghost" data-action="mergestart" style="margin-top:0">'+btnLabel+'</button>';
       h+='<p class="hint" style="text-align:center;margin-top:5px">'+availKeys.length+' CCP'+( availKeys.length!==1?'s':'')+' verfügbar</p>';
     }
+    h+='<div class="sech">Schulung</div>';
+    h+='<button class="ghost" data-action="schulreset" style="margin-top:0">🎓 Schulung zurücksetzen (Demo-Patienten neu)</button>';
+    h+='<p class="hint" style="text-align:center;margin-top:5px">Löscht aktuelle Patienten und spielt das Übungsszenario neu ein</p>';
+    h+=ccpAdminUI();
   }
   return h;
 }
@@ -1134,7 +1154,7 @@ document.addEventListener("click",async function(e){
   if(a==="joinccp"){
     var client2=sb();
     if(!client2){await confirmModal("Keine Backend-Verbindung.\n\nInternetverbindung prüfen.","OK");return;}
-    var jres=await client2.from('ccps').select('*')      .eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').order('created_at',{ascending:true});
+    var jres=await client2.from('ccps').select('*')      .eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').is('closed_at',null).order('created_at',{ascending:true});
     if(!jres.data||jres.data.length===0){
       await confirmModal("Keine aktiven CCPs gefunden.\n\nEröffne zuerst einen CCP über 'Neue CCP eröffnen'.","OK");return;
     }
@@ -1179,7 +1199,7 @@ document.addEventListener("click",async function(e){
   if(a==="rmergestart"){
     var rmc=sb();
     if(!rmc){await confirmModal("Keine Backend-Verbindung.\n\nInternetverbindung prüfen.","OK");return;}
-    var rlst=await rmc.from('ccps').select('*').eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').order('created_at',{ascending:true});
+    var rlst=await rmc.from('ccps').select('*').eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').is('closed_at',null).order('created_at',{ascending:true});
     var cands=(rlst.data||[]).filter(function(c){return c.id!==_ccpId && !c.merge_group_id;});
     if(!cands.length){await confirmModal("Kein zusammenführbarer CCP im Präsidium gefunden.\n\n(Nur eigenständige, noch nicht zusammengeführte CCPs.)","OK");return;}
     var tgt=await ccpJoinModal(cands);
@@ -1193,6 +1213,46 @@ document.addEventListener("click",async function(e){
     var okl=await confirmModal("Zusammenführung auflösen? Dein CCP wird wieder eigenständig.","Auflösen");
     if(!okl)return;
     await realMergeLeave();render();toast("Zusammenführung aufgelöst");
+    return;
+  }
+  if(a==="ccpclose"){
+    var okc=await confirmModal("Diesen CCP abschließen?\n\nEr wird aus der Auswahl ausgeblendet, die Daten bleiben erhalten.","Abschließen");
+    if(!okc)return;
+    var ccx=sb();
+    if(ccx&&_ccpId){try{await ccx.from('ccps').update({closed_at:nowMs()}).eq('id',_ccpId);}catch(e){}}
+    await leaveCurrentCcp();render();toast("CCP abgeschlossen");go("start");return;
+  }
+  if(a==="ccpdelete"){
+    if(!_isMaster){toast("Nur mit MasterToken-Freischaltung möglich");return;}
+    await loadPatients();
+    var dn=patients.filter(function(p){return !p.demo;}).length;
+    var okd=await confirmModal("CCP endgültig löschen?\n\n"+dn+" Patient(en) werden UNWIDERRUFLICH gelöscht — das kann nicht rückgängig gemacht werden.","Endgültig löschen");
+    if(!okd)return;
+    var cdx=sb();
+    if(cdx&&_ccpId){try{await cdx.from('ccps').delete().eq('id',_ccpId);}catch(e){}} /* CASCADE löscht zugehörige Patienten */
+    await leaveCurrentCcp();render();toast("CCP gelöscht");go("start");return;
+  }
+  if(a==="schulreset"){
+    if(_praesidiumName!=='Schulungsumgebung')return;
+    var oks2=await confirmModal("Schulung zurücksetzen?\n\nAlle aktuellen Patienten dieses CCP werden gelöscht und das Übungsszenario neu eingespielt.","Zurücksetzen");
+    if(!oks2)return;
+    var scx=sb(); if(!scx||!_ccpId){toast("Keine Backend-Verbindung");return;}
+    toast("Setze zurück…");
+    try{await scx.from('patients').delete().eq('ccp_id',_ccpId);}catch(e){}
+    _demoMerged=false; await sSet("ccp_merged",false);
+    var slk=await sList("ccp_pat_"); for(var si=0;si<slk.length;si++){await sDel(slk[si]);}
+    var seed=DEMO_CCPS["B"].patients, st=nowMs();
+    for(var sj=0;sj<seed.length;sj++){
+      var sp=seed[sj], stq=sp.tqStart?st+sp.tqStart:null;
+      var np={id:"p"+st+"_"+sj+Math.floor(Math.random()*1000),num:sp.num,cat:sp.cat,ccp:_ccpKennung,
+        prio:sp.prio||false,ready:sp.ready||false,status:"active",
+        created:st-(3600000-sj*240000),lastTriage:st-(1800000-sj*120000),tqStart:stq,
+        name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",
+        vit:Object.assign({af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},sp.vit||{}),
+        tx:{},inj:sp.inj||[],moi:"Übungsfall",injury:"",fr:DEMO_CCPS["B"].mm,notes:sp.notes||"",by:DEMO_CCPS["B"].mm,updated:st};
+      await savePatient(np);
+    }
+    await loadPatients();render();toast("Schulung zurückgesetzt — "+seed.length+" Demo-Patienten");
     return;
   }
   if(a==="tacstart"){state.capMode="tac";state.tacNode="start";state.tacResult=null;render();return;}
