@@ -41,6 +41,22 @@
   Native App → Phase 8 (bleibt letztes, an Polizei-BW-Entscheidung gekoppelt).
 - Billige Entzugs-Hälfte (`revoked`-Flag) in Phase 5 vorgezogen.
 
+## Zugriffsmodell (2026-06-03, Phase 6 Stufe 1 – client-seitig)
+- **Gefilterte Landingpage:** Nicht-Master sehen nur freigeschaltete Präsidien (Master: alle).
+  Geräte-Freischaltliste lokal (`argus_unlocked`), temporär mit Ablauf (24 h) oder dauerhaft.
+- **Freischalten** per 8-stelligem Code (Button auf Landing + Einstieg via `#code=`-Link).
+- **Teilen-Link rollenabhängig:** Master teilt dauerhaften Code des Präsidiums, Nicht-Master den
+  24-h-Code. `access_tokens.temporary`/`ttl_hours` ergänzt; Codes je Präsidium generiert.
+- **Strikt-neu-Umstieg:** bestehende Nicht-Master-Geräte müssen ihren Präsidiums-Code 1× neu eingeben.
+- **Schulungsumgebung:** Merge läuft direkt (ohne Bestätigung), da Ziel-CCPs fiktive MasterMedics haben.
+- ⚠️ **Stufe 2 offen:** echte serverseitige Trennung (RLS an Identität/Präsidium) — aktuell `anon_all`
+  (anon-Key darf per API alles). Braucht echte Auth. Vor Open Beta / Echtbetrieb zwingend.
+
+## Freischaltcodes (Stand 2026-06-03)
+- MasterToken (alle): `3GNN-HMEV`
+- Schulungsumgebung: dauerhaft `LBYN-SFL6` · 24 h `CBFR-UFD2`
+- PP Karlsruhe: dauerhaft `MTEC-9PF7` · 24 h `THY2-EP6D`
+
 ## Offene Entscheidungen / Hinweise
 - **Link-Sperre unvollständig:** bereits verifizierte Geräte (`argus_verified`) bleiben drin; echter
   Entzug braucht `revoked`-Flag / DB-Eingriff → vorgezogen in Phase 5.

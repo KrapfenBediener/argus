@@ -211,10 +211,32 @@ function extractInviteToken(){
   var m=hash.match(/[#&]inv=([a-f0-9]{32})/i);
   return m?m[1]:null;
 }
+function extractInviteCode(){
+  var hash=window.location.hash||'';
+  var m=hash.match(/[#&]code=([A-Za-z0-9]{4}-?[A-Za-z0-9]{4})/i);
+  return m?m[1].toUpperCase():null;
+}
+/* ── Geräte-Freischaltungen: welche Präsidien darf dieses Gerät sehen ──────
+ * Liste {p:praesidium_id, exp:ms|0}. exp=0 = dauerhaft, sonst Ablaufzeitpunkt.
+ * Master-Geräte (_isMaster) umgehen die Filterung und sehen alle Präsidien. */
+function getUnlocked(){
+  var arr=[]; try{ arr=JSON.parse(localStorage.getItem('argus_unlocked')||'[]'); }catch(e){ arr=[]; }
+  if(!Array.isArray(arr)) arr=[];
+  var now=nowMs(); var live=arr.filter(function(u){return u&&u.p&&(!u.exp||u.exp>now);});
+  if(live.length!==arr.length){ try{localStorage.setItem('argus_unlocked',JSON.stringify(live));}catch(e){} }
+  return live;
+}
+function isUnlocked(pid){ if(_isMaster) return true; return getUnlocked().some(function(u){return u.p===pid;}); }
+function addUnlock(pid, ttlHours){
+  if(!pid) return;
+  var arr=getUnlocked().filter(function(u){return u.p!==pid;});
+  arr.push({p:pid, exp: ttlHours? (nowMs()+ttlHours*3600000) : 0});
+  try{localStorage.setItem('argus_unlocked',JSON.stringify(arr));}catch(e){}
+}
 async function validateInviteToken(token){
   var client=sb(); if(!client) return null;
   var clean=token.replace(/[\s\-]/g,'').toUpperCase();
-  var fields='token,praesidium_id,is_master,label,short_code,praesidien(id,name)';
+  var fields='token,praesidium_id,is_master,label,short_code,temporary,ttl_hours,praesidien(id,name)';
   try{
     /* Short Code (8 Zeichen, z.B. ABCD-1234 → ABCD-1234) */
     if(clean.length===8){
@@ -237,14 +259,27 @@ function inviteUrl(){
   if(!token) return null;
   return window.location.origin+window.location.pathname+'#inv='+token;
 }
+async function buildShareLink(){
+  var client=sb(); if(!client||!_praesidiumId) return null;
+  var wantTemp = !_isMaster; /* Master teilt dauerhaft, sonst 24-h-Code */
+  try{
+    var rs=await client.from('access_tokens').select('short_code,temporary').eq('praesidium_id',_praesidiumId);
+    var rows=rs.data||[];
+    var pick=rows.filter(function(t){return !!t.temporary===wantTemp;})[0]
+          || rows.filter(function(t){return !t.temporary;})[0] || rows[0];
+    if(!pick||!pick.short_code) return null;
+    return window.location.origin+window.location.pathname+'#code='+pick.short_code;
+  }catch(e){ return null; }
+}
 async function copyInviteLink(){
-  var url=inviteUrl();
-  if(!url){toast('Kein Einladungslink verfügbar');return;}
+  var url=await buildShareLink();
+  if(!url){toast('Kein Freischaltcode für dieses Präsidium gefunden');return;}
+  var label = _isMaster ? 'Link (dauerhaft) kopiert ✓' : 'Link (24 h) kopiert ✓';
   try{
     await navigator.clipboard.writeText(url);
-    toast('Einladungslink kopiert ✓');
+    toast(label);
   }catch(e){
-    promptModal('Einladungslink (kopieren):',url);
+    promptModal('Freischalt-Link (kopieren):',url);
   }
 }
 /* ── Gesperrter Bildschirm ──────────────────────────────────────────────── */
@@ -294,10 +329,13 @@ function vPraesidium(){
   h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">Argus</div>';
   h+='<div class="hint" style="margin-bottom:24px">Präsidium auswählen</div>';
   h+='</div>';
+  var list = _isMaster ? _praesidienList : _praesidienList.filter(function(p){return isUnlocked(p.id);});
   if(!_praesidienList.length){
-    h+='<p class="muted" style="text-align:center">Lade Präsidien…</p>';
+    h+='<p class="muted" style="text-align:center;margin-bottom:14px">Lade Präsidien…</p>';
+  }else if(!list.length){
+    h+='<p class="muted" style="text-align:center;margin-bottom:14px">Noch kein Präsidium freigeschaltet.<br>Gib unten deinen 8-stelligen Code ein.</p>';
   }else{
-    _praesidienList.forEach(function(p){
+    list.forEach(function(p){
       var isSchul=p.name==='Schulungsumgebung';
       h+='<button class="navbtn" data-action="selectpraesidium" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'">';
       h+='<span class="ic">'+(isSchul?'🎓':'🏗')+' </span>';
@@ -306,6 +344,7 @@ function vPraesidium(){
       h+='</button>';
     });
   }
+  h+='<button class="navbtn" data-action="unlockpraes" style="margin-top:10px;border-color:var(--acc)"><span class="ic">➕</span><span><span class="t">Präsidium freischalten</span><br><span class="s">8-stelligen Code eingeben</span></span></button>';
   return h;
 }
 function ccpJoinModal(list){
@@ -1085,7 +1124,21 @@ document.addEventListener("click",async function(e){
   var el=e.target.closest("[data-action]");if(!el)return;
   var a=el.getAttribute("data-action");
   if(a==="back"){await back();return;}
+  if(a==="unlockpraes"){
+    var uc=await promptModal("8-stelligen Freischaltcode eingeben:","");
+    if(uc==null||!uc.trim())return;
+    toast("Prüfe Code…");
+    var uv=await validateInviteToken(uc.trim().toUpperCase());
+    if(!uv){toast("Ungültiger Code");return;}
+    localStorage.setItem('argus_verified','true');
+    if(uv.is_master){ _isMaster=true; localStorage.setItem('argus_is_master','true'); toast("Master-Zugang freigeschaltet"); }
+    else if(uv.praesidium_id){ addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null); toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet"); }
+    else { toast("Code ohne Präsidium"); return; }
+    var pru=await sb().from('praesidien').select('id,name').order('name'); _praesidienList=pru.data||[];
+    render(); return;
+  }
   if(a==="selectpraesidium"){
+    if(!isUnlocked(el.getAttribute("data-pid"))){toast("Dieses Präsidium ist nicht freigeschaltet");return;}
     _praesidiumId=el.getAttribute("data-pid");
     _praesidiumName=el.getAttribute("data-pname")||'';
     localStorage.setItem('argus_praesidium_id',_praesidiumId);
@@ -1124,8 +1177,9 @@ document.addEventListener("click",async function(e){
         _praesidienList=prlc.data||[];
         go("praesidium");
       } else {
-        /* Normaler Token: Präsidium setzen und weiter */
+        /* Normaler Token: Präsidium freischalten und weiter */
         if(valid.praesidium_id){
+          addUnlock(valid.praesidium_id, valid.temporary?(valid.ttl_hours||24):null);
           _praesidiumId=valid.praesidium_id;
           _praesidiumName=(valid.praesidien&&valid.praesidien.name)||'';
           localStorage.setItem('argus_praesidium_id',_praesidiumId);
@@ -1404,52 +1458,68 @@ setInterval(async function(){
    * ──────────────────────────────────────────────────────────────── */
   var verified=localStorage.getItem('argus_verified');
   var urlToken=extractInviteToken();
+  var urlCode=extractInviteCode();
   _praesidiumId   = localStorage.getItem('argus_praesidium_id')||null;
   _praesidiumName = localStorage.getItem('argus_praesidium_name')||'';
   _isMaster       = localStorage.getItem('argus_is_master')==='true';
 
-  if(urlToken){
-    /* Einladungslink: einmalig validieren und Zugang dauerhaft freischalten */
+  /* ── Freischalt-Link mit 8-stelligem Code (#code=) ──────────────── */
+  if(urlCode){
+    var cdata=await validateInviteToken(urlCode);
+    if(cdata){
+      if(!isStandalone()){
+        state.installShortCode=cdata.short_code||urlCode;
+        state.installTokenFull=urlCode;
+        $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+        state.view='install'; render(); return;
+      }
+      localStorage.setItem('argus_verified','true'); verified='true';
+      history.replaceState(null,'',window.location.pathname);
+      if(cdata.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
+      else if(cdata.praesidium_id){
+        addUnlock(cdata.praesidium_id, cdata.temporary?(cdata.ttl_hours||24):null);
+        _praesidiumId=cdata.praesidium_id;
+        _praesidiumName=(cdata.praesidien&&cdata.praesidien.name)||'';
+        localStorage.setItem('argus_praesidium_id',_praesidiumId);
+        localStorage.setItem('argus_praesidium_name',_praesidiumName);
+      }
+    }
+  }
+  /* ── Einladungslink mit 32-Zeichen-Token (#inv=, Install-Flow) ──── */
+  else if(urlToken){
     var tokenData=await validateInviteToken(urlToken);
     if(tokenData){
-      /* Browser (nicht PWA): Installationsseite zeigen */
       if(!isStandalone()){
         state.installShortCode=tokenData.short_code||urlToken.slice(0,8).toUpperCase();
         state.installTokenFull=urlToken;
         $("clock").textContent=new Date().toLocaleTimeString("de-DE");
         state.view='install'; render(); return;
       }
-      localStorage.setItem('argus_verified','true');
+      localStorage.setItem('argus_verified','true'); verified='true';
       localStorage.setItem('argus_invite',urlToken);
       history.replaceState(null,'',window.location.pathname);
-      if(tokenData.is_master){
-        /* MasterToken: Präsidiensauswahl als nächste Seite */
-        localStorage.setItem('argus_is_master','true');
-        _isMaster=true;
-        var prl=await sb().from('praesidien').select('id,name').order('name');
-        _praesidienList=prl.data||[];
-        $("clock").textContent=new Date().toLocaleTimeString("de-DE");
-        state.view='praesidium'; render(); return;
-      } else if(tokenData.praesidium_id){
-        /* Normaler Token: Präsidium direkt setzen */
+      if(tokenData.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
+      else if(tokenData.praesidium_id){
+        addUnlock(tokenData.praesidium_id, tokenData.temporary?(tokenData.ttl_hours||24):null);
         _praesidiumId=tokenData.praesidium_id;
         _praesidiumName=(tokenData.praesidien&&tokenData.praesidien.name)||'';
         localStorage.setItem('argus_praesidium_id',_praesidiumId);
         localStorage.setItem('argus_praesidium_name',_praesidiumName);
       }
-    }else{
-      $("clock").textContent=new Date().toLocaleTimeString("de-DE");
-      state.view='locked'; render(); return;
     }
-  } else if(!verified){
-    $("clock").textContent=new Date().toLocaleTimeString("de-DE");
-    state.view='locked'; render(); return;
   }
 
-  /* Kein Präsidium gewählt → Auswahl zeigen (für alle Nutzer) */
-  if(!_praesidiumId && sb()){
-    var prl2=await sb().from('praesidien').select('id,name').order('name');
-    _praesidienList=prl2.data||[];
+  /* Präsidienliste laden (für die Landingpage) */
+  if(sb()){
+    var prlAll=await sb().from('praesidien').select('id,name').order('name');
+    _praesidienList=prlAll.data||[];
+  }
+
+  /* ── Zugriffsgate (strikt): Master ODER mind. ein freigeschaltetes
+   *    Präsidium. Sonst → Landingpage mit Freischalt-Button (kein
+   *    gesperrter Screen mehr — Fehlerfall ist „Code eingeben"). ──── */
+  var hasAccess = _isMaster || getUnlocked().length>0;
+  if(!hasAccess || !_praesidiumId || !isUnlocked(_praesidiumId)){
     $("clock").textContent=new Date().toLocaleTimeString("de-DE");
     state.view='praesidium'; render(); return;
   }
