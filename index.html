@@ -1671,16 +1671,14 @@ setInterval(async function(){
   /* ── Freischalt-Link mit 8-stelligem Code (#code=) ──────────────── */
   if(urlCode){
     if(!isStandalone()){
-      /* Browser (noch nicht installiert): Install-Screen anzeigen, aber Code
-       * NICHT einlösen (read-only) — sonst würde ein Einmal-Code schon beim
-       * bloßen Öffnen des Links verbraucht. JWT wird erst im Standalone geholt. */
-      var cmeta=await validateInviteToken(urlCode);
-      if(cmeta){
-        state.installShortCode=cmeta.short_code||urlCode;
-        state.installTokenFull=urlCode;
-        $("clock").textContent=new Date().toLocaleTimeString("de-DE");
-        state.view='install'; render(); return;
-      }
+      /* Browser (noch nicht installiert): Install-Screen anzeigen. Der Code steht
+       * bereits im Link — KEIN DB-Read (anon darf access_tokens nicht mehr lesen;
+       * Lücke aus Phase 4 geschlossen). Eingelöst wird erst im Standalone. */
+      var ucClean=urlCode.replace(/[\s\-]/g,'').toUpperCase();
+      state.installShortCode = ucClean.length>=8 ? ucClean.slice(0,4)+'-'+ucClean.slice(4,8) : urlCode;
+      state.installTokenFull=urlCode;
+      $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+      state.view='install'; render(); return;
     } else {
       /* Installierte PWA: echter Eintritt → JWT holen (Einmal-Code wird jetzt
        * serverseitig verbraucht). */
