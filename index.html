@@ -822,7 +822,7 @@ function vStart(){
   }
   h += '<button class="ghost" data-action="joinccp">⇄ CCP beitreten</button>';
   h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
-  h += '🏗 Pr\xe4sidium: '+esc(_praesidiumName||'—')+' · wechseln</button>';
+  h += '🏗 '+esc(_praesidiumName||'—')+' · wechseln</button>';
   h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">Beta · Lokaler Modus · Phase 1 in Entwicklung</p>';
   return h;
 }
@@ -1109,7 +1109,7 @@ setInterval(function(){
   if(tb&&state.edit&&state.edit.tqStart){tb.textContent="TQ läuft · "+fmtDur(nowMs()-state.edit.tqStart)+" — stoppen";}
 },1000);
 setInterval(async function(){
-  if(state.view==="patient"||state.view==="checklist")return;
+  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start")return;
   await loadMeta();await loadPatients();await loadChecklist();render();
 },3500);
 
