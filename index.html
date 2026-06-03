@@ -4,9 +4,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="Argus">
+<meta name="apple-mobile-web-app-title" content="ARGUS">
 <meta name="theme-color" content="#1f2530">
-<title>Argus</title>
+<title>ARGUS</title>
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="icon" type="image/png" href="./icon-192.png">
 <link rel="manifest" href="./manifest.json">
@@ -366,7 +366,7 @@ async function copyInviteLink(){
 /* ── Gesperrter Bildschirm ──────────────────────────────────────────────── */
 function vLocked(){
   var h='<div style="text-align:center;padding:48px 20px 24px">';
-  h+='<img src="./icon-180.png" alt="Argus" style="width:80px;height:80px;border-radius:18px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;opacity:.5">';
+  h+='<img src="./icon-180.png" alt="ARGUS" style="width:80px;height:80px;border-radius:18px;margin-bottom:16px;display:block;margin-left:auto;margin-right:auto;opacity:.5">';
   h+='<div style="font-size:22px;font-weight:600;margin-bottom:8px">Kein Zugang</div>';
   h+='<div class="hint" style="margin-bottom:20px">Bitte einen Einladungslink verwenden.</div>';
   h+='</div>';
@@ -376,20 +376,20 @@ function vLocked(){
   h+='<input id="inv-input" placeholder="XXXX-XXXX (8-stelliger Code)" style="font-family:monospace;font-size:15px;letter-spacing:2px;text-transform:uppercase">';
   h+='<button class="prim" data-action="checkinvite" style="margin-top:10px">Zugang prüfen</button>';
   h+='</div>';
-  h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">Argus Beta · Nur für autorisierte Nutzer</p>';
+  h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">ARGUS Beta · Nur für autorisierte Nutzer</p>';
   return h;
 }
 function vInstall(){
   var sc=state.installShortCode||'—';
   var h='<div style="text-align:center;padding:36px 0 20px">';
-  h+='<img src="./icon-180.png" alt="Argus" style="width:80px;height:80px;border-radius:18px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
-  h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">Argus installieren</div>';
+  h+='<img src="./icon-180.png" alt="ARGUS" style="width:80px;height:80px;border-radius:18px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
+  h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">ARGUS installieren</div>';
   h+='<div class="hint" style="margin-bottom:20px">Folge diesen Schritten:</div></div>';
   var steps=[
     ['1','Tippe unten auf das <b>Teilen-Symbol</b> ↑<br><span class="hint">(Rechteck mit Pfeil nach oben)</span>'],
     ['2','Wähle <b>„Zum Home-Bildschirm"</b>'],
     ['3','Tippe auf <b>„Hinzufügen"</b>'],
-    ['4','Öffne <b>Argus</b> vom Homescreen']
+    ['4','Öffne <b>ARGUS</b> vom Homescreen']
   ];
   steps.forEach(function(s){
     h+='<div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:12px">';
@@ -406,8 +406,8 @@ function vInstall(){
 }
 function vPraesidium(){
   var h='<div style="text-align:center;padding:32px 0 16px">';
-  h+='<img src="./icon-180.png" alt="Argus" style="width:72px;height:72px;border-radius:16px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
-  h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">Argus</div>';
+  h+='<img src="./icon-180.png" alt="ARGUS" style="width:72px;height:72px;border-radius:16px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
+  h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">ARGUS</div>';
   h+='<div class="hint" style="margin-bottom:24px">Präsidium auswählen</div>';
   h+='</div>';
   var list = _isMaster ? _praesidienList : _praesidienList.filter(function(p){return isUnlocked(p.id);});
@@ -951,8 +951,8 @@ function countPrio(){return patients.filter(function(p){return p.status==="activ
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"Argus",install:"Argus installieren",praesidium:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen",admin:"Administration"};
-  $("title").textContent=titles[state.view]||"Argus";
+  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen",admin:"Administration"};
+  $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
   else if(v==="install")h=vInstall();
@@ -1191,8 +1191,8 @@ function rl(n,d){return '<div style="padding:6px 0;border-bottom:1px solid var(-
 function vStart(){
   var hasSession = patients.filter(function(p){return p.status==="active";}).length > 0;
   var h = '<div style="text-align:center;padding:40px 0 28px">';
-  h += '<img src="./icon-180.png" alt="Argus" style="width:96px;height:96px;border-radius:22px;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;box-shadow:0 4px 16px rgba(0,0,0,.15)">';
-  h += '<div style="font-size:28px;font-weight:600;letter-spacing:-.5px;margin-bottom:5px">Argus</div>';
+  h += '<img src="./icon-180.png" alt="ARGUS" style="width:96px;height:96px;border-radius:22px;margin-bottom:14px;display:block;margin-left:auto;margin-right:auto;box-shadow:0 4px 16px rgba(0,0,0,.15)">';
+  h += '<div style="font-size:28px;font-weight:600;letter-spacing:-.5px;margin-bottom:5px">ARGUS</div>';
   h += '<div class="hint">Koordinierung · Sichtung · Transport</div>';
   h += '</div>';
   if(hasSession){
@@ -1217,7 +1217,7 @@ function vStart(){
   }
   h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
   h += '🏗 '+esc(_praesidiumName||'—')+' · wechseln</button>';
-  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">Argus Beta · © 2026 Gabor Szeman</p>';
+  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta · © 2026 Gabor Szeman</p>';
   return h;
 }
 
