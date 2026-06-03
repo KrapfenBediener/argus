@@ -249,23 +249,33 @@ function addUnlock(pid, ttlHours){
 async function validateInviteToken(token){
   var client=sb(); if(!client) return null;
   var clean=token.replace(/[\s\-]/g,'').toUpperCase();
-  var fields='token,praesidium_id,is_master,label,short_code,temporary,ttl_hours,single_use,used_at,praesidien(id,name)';
+  /* Kein join in diesem Query — join via .single() + PGRST116-Fehler
+   * schlägt in Supabase JS v2 geräuschlos fehl. Stattdessen:
+   * 1) Token ohne Join holen (maybeSingle → nie PGRST116)
+   * 2) Presidiumsname separat nachladen */
+  var fields='token,praesidium_id,is_master,label,short_code,temporary,ttl_hours,single_use,used_at';
+  var row=null;
   try{
-    /* Short Code (8 Zeichen, z.B. ABCD-1234 → ABCD-1234) */
     if(clean.length===8){
       var sc=clean.slice(0,4)+'-'+clean.slice(4);
-      var rs=await client.from('access_tokens').select(fields).eq('short_code',sc).single();
-      if(rs.data){ if(rs.data.single_use && rs.data.used_at) return null; return rs.data; }
+      var rs=await client.from('access_tokens').select(fields).eq('short_code',sc).maybeSingle();
+      if(!rs.error && rs.data) row=rs.data;
     }
-    /* Vollständiger Token (32+ Zeichen) */
-    var r=await client.from('access_tokens').select(fields).eq('token',token.trim()).single();
-    if(r.data){ if(r.data.single_use && r.data.used_at) return null; return r.data; }
-  }catch(e){}
-  /* Legacy-Pfad DEAKTIVIERT (2026-06): Alte Einladungslinks, die über den
-   * rohen ccps.join_token ohne Präsidiums-/Freischaltungs-Provisionierung
-   * funktioniert haben, sind ab sofort ungültig. Gültiger Zugang nur noch
-   * über access_tokens (8-stelliger Kurzcode oder provisionierter Link). */
-  return null;
+    if(!row && token.trim().length>=16){
+      var r=await client.from('access_tokens').select(fields).eq('token',token.trim()).maybeSingle();
+      if(!r.error && r.data) row=r.data;
+    }
+  }catch(e){ return null; }
+  if(!row) return null;
+  if(row.single_use && row.used_at) return null;
+  /* Presidiumsname separat holen (einfacher JOIN-lose Abfrage) */
+  if(row.praesidium_id){
+    try{
+      var pr=await client.from('praesidien').select('id,name').eq('id',row.praesidium_id).maybeSingle();
+      if(!pr.error && pr.data) row.praesidien=pr.data;
+    }catch(e){}
+  }
+  return row;
 }
 function inviteUrl(){
   var token=localStorage.getItem('argus_invite')||'';
@@ -357,7 +367,11 @@ function vPraesidium(){
       h+='</button>';
     });
   }
-  h+='<button class="navbtn" data-action="unlockpraes" style="margin-top:10px;border-color:var(--acc)"><span class="ic">➕</span><span><span class="t">Präsidium freischalten</span><br><span class="s">8-stelligen Code eingeben</span></span></button>';
+  h+='<div class="card" style="padding:16px 14px;margin-top:10px">';
+  h+='<label class="fieldlab">Präsidium freischalten</label>';
+  h+='<input id="unlock-input" placeholder="XXXX-XXXX" style="font-family:monospace;font-size:16px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">';
+  h+='<button class="prim" data-action="checkunlock">Freischalten</button>';
+  h+='</div>';
   if(_isMaster){
     h+='<button class="navbtn" data-action="openadmin" style="margin-top:10px"><span class="ic">⚙️</span><span><span class="t">Administration</span><br><span class="s">Zugangs-Links teilen · Codes</span></span></button>';
   }
@@ -1233,18 +1247,31 @@ document.addEventListener("click",async function(e){
     catch(e){ await promptModal(albl+' — '+apname+' (kopieren):',aurl); }
     return;
   }
-  if(a==="unlockpraes"){
-    var uc=await promptModal("8-stelligen Freischaltcode eingeben:","");
-    if(uc==null||!uc.trim())return;
+  if(a==="checkunlock"){
+    var uinp=document.getElementById('unlock-input');
+    var uc2=(uinp?uinp.value:'').replace(/[\s\-]/g,'').toUpperCase();
+    if(uc2.length<8){toast("Bitte vollständigen Code eingeben (Format: XXXX-XXXX)");return;}
     toast("Prüfe Code…");
-    var uv=await validateInviteToken(uc.trim().toUpperCase());
-    if(!uv){toast("Ungültiger Code");return;}
+    var uv=await validateInviteToken(uc2);
+    if(!uv){toast("Ungültiger oder abgelaufener Code");return;}
     localStorage.setItem('argus_verified','true');
-    if(uv.is_master){ _isMaster=true; localStorage.setItem('argus_is_master','true'); toast("Master-Zugang freigeschaltet"); }
-    else if(uv.praesidium_id){ addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null); await consumeSingleUse(uv); toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet"); }
-    else { toast("Code ohne Präsidium"); return; }
-    var pru=await sb().from('praesidien').select('id,name').order('name'); _praesidienList=pru.data||[];
+    if(uv.is_master){
+      _isMaster=true; localStorage.setItem('argus_is_master','true');
+      toast("Master-Zugang freigeschaltet");
+    } else if(uv.praesidium_id){
+      addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null);
+      await consumeSingleUse(uv);
+      toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet");
+    } else {
+      toast("Code ohne Präsidium"); return;
+    }
+    var pru=await sb().from('praesidien').select('id,name').order('name');
+    _praesidienList=pru.data||[];
     render(); return;
+  }
+  if(a==="unlockpraes"){ /* Alias — leitet auf checkunlock weiter */
+    var uinp2=document.getElementById('unlock-input');
+    if(uinp2){ uinp2.focus(); } return;
   }
   if(a==="selectpraesidium"){
     if(!isUnlocked(el.getAttribute("data-pid"))){toast("Dieses Präsidium ist nicht freigeschaltet");return;}
