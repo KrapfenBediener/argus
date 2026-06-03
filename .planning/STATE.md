@@ -57,6 +57,17 @@
 - Schulungsumgebung: dauerhaft `LBYN-SFL6` · 24 h `CBFR-UFD2`
 - PP Karlsruhe: dauerhaft `MTEC-9PF7` · 24 h `THY2-EP6D`
 
+## Verifiziert im Feld (2026-06-03)
+- ✅ Client-seitige Präsidiums-Trennung (gefilterte Landingpage) funktioniert.
+- ✅ Multi-User-Zusammenarbeit (gleicher CCP, mehrere Geräte) funktioniert.
+- 🔄 Patienten-Bearbeitungsschutz (45-s-Lock + Override) — Test läuft im Tagesverlauf.
+
+## Nächster großer Schritt (geparkt, vor Open Beta / Echtbetrieb)
+- **Phase 6 Stufe 2 — serverseitige Trennung (RLS):** anon_all ersetzen durch echte
+  Zugriffskontrolle. Empfohlener Weg: Edge-Function tauscht Freischaltcode gegen kurzlebiges,
+  signiertes Sitzungs-Ticket (Präsidium-Claim, pseudonym) → RLS-Policies pro Tabelle lesen den Claim.
+  Pflicht vor echtem Patienteneinsatz (Compliance).
+
 ## Offene Entscheidungen / Hinweise
 - **Link-Sperre unvollständig:** bereits verifizierte Geräte (`argus_verified`) bleiben drin; echter
   Entzug braucht `revoked`-Flag / DB-Eingriff → vorgezogen in Phase 5.
