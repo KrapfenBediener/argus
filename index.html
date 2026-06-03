@@ -208,11 +208,10 @@ async function validateInviteToken(token){
     var r=await client.from('access_tokens').select(fields).eq('token',token.trim()).single();
     if(r.data) return r.data;
   }catch(e){}
-  /* Fallback: alter join_token auf ccps */
-  try{
-    var r2=await client.from('ccps').select('id,kennung').eq('join_token',token.trim()).single();
-    if(r2.data) return {praesidium_id:null,is_master:false,praesidien:null,short_code:null};
-  }catch(e){}
+  /* Legacy-Pfad DEAKTIVIERT (2026-06): Alte Einladungslinks, die über den
+   * rohen ccps.join_token ohne Präsidiums-/Freischaltungs-Provisionierung
+   * funktioniert haben, sind ab sofort ungültig. Gültiger Zugang nur noch
+   * über access_tokens (8-stelliger Kurzcode oder provisionierter Link). */
   return null;
 }
 function inviteUrl(){
@@ -371,7 +370,7 @@ var FLOW={
   cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
 };
 
-var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null, readonly:false};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -555,6 +554,32 @@ async function savePatient(p){
     try{await client.from('patients').upsert(patToRow(p));}catch(e){}
   }
 }
+/* ── Patienten-Sperre (Soft-Lock gegen Doppelbearbeitung) ──────────────────
+ * Beim Öffnen wird ein Patient für den eigenen Bediener gesperrt. Andere
+ * sehen ihn dann schreibgeschützt. Ein Heartbeat hält die Sperre frisch;
+ * nach LOCK_TTL ohne Lebenszeichen läuft sie automatisch ab. Der MasterMedic
+ * kann eine fremde Sperre per Override übernehmen. */
+var LOCK_TTL = 45000; /* 45 s Ablauf nach letztem Lebenszeichen */
+var _lockBeat = 0;
+function isMasterMedic(){ return !!((operator && masterMedic && operator===masterMedic) || _isMaster); }
+function lockInfo(p){
+  if(!p||!p.lockedBy||!p.lockedAt) return {locked:false,by:null,mine:false,age:Infinity};
+  var age=nowMs()-p.lockedAt;
+  return {locked:age<LOCK_TTL, by:p.lockedBy, mine:(p.lockedBy===operator), age:age};
+}
+async function acquirePatientLock(p){
+  if(!p) return;
+  p.lockedBy=operator||"?"; p.lockedAt=nowMs();
+  state.readonly=false; _lockBeat=nowMs();
+  await savePatient(p);
+}
+async function releasePatientLock(){
+  var p=state.edit;
+  if(p && p.lockedBy && p.lockedBy===operator){
+    p.lockedBy=null; p.lockedAt=null;
+    await savePatient(p);
+  }
+}
 function activeByCat(cat){return patients.filter(function(p){return p.status==="active"&&p.cat===cat;});}
 function countCat(cat){return activeByCat(cat).length;}
 function countGpa(){return patients.filter(function(p){return p.status==="gpa";}).length;}
@@ -708,6 +733,7 @@ function vCatlist(){
       (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+p.tqStart+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
       (p.photo?'<span class="pill" style="background:var(--surf2);color:var(--mut)">📷</span>':'')+
+      (function(){var l=lockInfo(p);return (l.locked&&!l.mine)?'<span class="pill" style="background:var(--surf2);color:var(--prio);border:1px solid var(--prio)">🔒 '+esc(l.by)+'</span>':'';})()+
       (p.ready?'<span class="pill" style="background:var(--ready);color:#fff">fertig</span>':'')+'</button>';
   });
   return h;
@@ -716,7 +742,18 @@ function vPatient(){
   var p=normalize(state.edit);if(!p)return"";var c=CATS[p.cat];
   function inp(field,val,ph){return '<input data-kind="pat" data-field="'+field+'" value="'+esc(val)+'" placeholder="'+(ph||"")+'">';}
   function vinp(field,val){return '<input data-kind="vit" data-field="'+field+'" value="'+esc(val)+'" inputmode="numeric">';}
-  var h='<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px"><span class="pnum" style="font-size:28px">'+pno(p)+'</span>'+
+  var li=lockInfo(p);
+  var ro=(state.readonly===true);
+  var h='';
+  if(ro){
+    h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:13px;margin-bottom:12px">'+
+       '<div style="font-weight:600;font-size:15px">🔒 Wird bearbeitet von '+(esc(li.by)||'?')+'</div>'+
+       '<div class="hint" style="margin-top:4px">Schreibgeschützt, um Doppelbearbeitung zu vermeiden. Die Sperre läuft nach 45 s ohne Aktivität automatisch ab.</div>'+
+       (isMasterMedic()?'<button class="prim" data-action="overridelock" data-id="'+p.id+'" style="margin-top:10px;background:var(--prio);border-color:var(--prio);color:#fff">🔓 Sperre übernehmen (MasterMedic)</button>':'')+
+       '</div>';
+  }
+  h+='<div id="patbody"'+(ro?' style="opacity:.55;pointer-events:none"':'')+'>';
+  h+='<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px"><span class="pnum" style="font-size:28px">'+pno(p)+'</span>'+
     '<span class="pill" style="font-size:14px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+' '+c.nm+'</span>'+
     '<span style="flex:1"></span>'+
     '<button class="txbtn '+(p.prio?"on":"")+'" data-action="prio" data-id="'+p.id+'" style="width:auto;'+(p.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio-Transport</button></div>';
@@ -780,6 +817,7 @@ function vPatient(){
   h+='<button class="txbtn '+(p.ready?"on":"")+'" data-action="ready" data-id="'+p.id+'" style="width:100%;padding:14px;font-size:15px;'+(p.ready?'background:var(--ready);border-color:var(--ready);color:#fff':'')+'">'+(p.ready?'✓ transportfertig':'als transportfertig markieren')+'</button>';
   h+='<button class="prim" data-action="gpa" data-id="'+p.id+'" style="background:var(--ready);color:#fff">Abtransport → gPA</button>';
   h+='<p class="hint" style="text-align:center;margin-top:8px">Eingaben werden automatisch gespeichert.</p>';
+  h+='</div>';
   return h;
 }
 function sel(a,b){return a===b?" selected":"";}
@@ -918,7 +956,7 @@ function mergeCcpSelectModal(){
 document.addEventListener("click",async function(e){
   var el=e.target.closest("[data-action]");if(!el)return;
   var a=el.getAttribute("data-action");
-  if(a==="back"){back();return;}
+  if(a==="back"){await back();return;}
   if(a==="selectpraesidium"){
     _praesidiumId=el.getAttribute("data-pid");
     _praesidiumName=el.getAttribute("data-pname")||'';
@@ -1045,12 +1083,30 @@ document.addEventListener("click",async function(e){
   if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");var num=await addPatient(cat);state.capMode="menu";state.tacResult=null;render();toast("Patient #"+num+" angelegt ("+CATS[cat].label+")");return;}
   if(a==="addcat"){var cat2=el.getAttribute("data-cat");var num2=await addPatient(cat2);render();toast("Patient #"+num2+" angelegt ("+CATS[cat2].label+")");return;}
   if(a==="opencat"){state.cat=el.getAttribute("data-cat");go("catlist");return;}
-  if(a==="openpat"){var id=el.getAttribute("data-id");await loadPatients();state.id=id;state.edit=patients.find(function(p){return p.id===id;});if(state.edit){state.view="patient";render();}return;}
+  if(a==="openpat"){
+    var id=el.getAttribute("data-id");await loadPatients();
+    state.id=id;state.edit=patients.find(function(p){return p.id===id;});
+    if(state.edit){
+      var li=lockInfo(state.edit);
+      if(li.locked && !li.mine){
+        state.readonly=true;                 /* fremd & frisch gesperrt → schreibgeschützt (MasterMedic sieht Override) */
+      }else{
+        await acquirePatientLock(state.edit); /* frei, abgelaufen oder eigene Sperre → übernehmen */
+      }
+      state.view="patient";render();
+    }
+    return;
+  }
+  if(a==="overridelock"){
+    if(!isMasterMedic()){toast("Nur MasterMedic kann übernehmen");return;}
+    if(state.edit){await acquirePatientLock(state.edit);toast("Sperre übernommen");render();}
+    return;
+  }
   if(a==="movecat"){var p=state.edit;p.cat=el.getAttribute("data-cat");p.lastTriage=nowMs();await savePatient(p);render();return;}
   if(a==="prio"){var p2=state.edit;p2.prio=!p2.prio;await savePatient(p2);render();return;}
   if(a==="ready"){var p3=state.edit;p3.ready=!p3.ready;await savePatient(p3);render();return;}
   if(a==="tq"){var p4=state.edit;p4.tqStart=p4.tqStart?null:nowMs();await savePatient(p4);render();return;}
-  if(a==="gpa"){var p5=state.edit;p5.status="gpa";await savePatient(p5);await loadPatients();go("overview");toast("Patient #"+p5.num+" → gPA");return;}
+  if(a==="gpa"){var p5=state.edit;p5.status="gpa";p5.lockedBy=null;p5.lockedAt=null;await savePatient(p5);state.readonly=false;await loadPatients();go("overview");toast("Patient #"+p5.num+" → gPA");return;}
   if(a==="checkoutready"){
     var rcat=el.getAttribute("data-cat");
     await loadPatients();
@@ -1069,6 +1125,7 @@ document.addEventListener("click",async function(e){
 document.addEventListener("change",async function(e){
   var el=e.target.closest("[data-kind]");if(!el)return;
   var kind=el.getAttribute("data-kind"),field=el.getAttribute("data-field");
+  if(state.readonly && (kind==="pat"||kind==="vit"||kind==="photo")) return; /* Schreibschutz bei fremder Sperre */
   if(kind==="chk"){var cid=el.getAttribute("data-id");if(!checklist.items[cid])checklist.items[cid]={};
     checklist.items[cid][field]= field==="done"?el.checked:el.value;await saveChecklist();return;}
   if(kind==="hdr"){checklist.hdr[field]=el.value;await saveChecklist();return;}
@@ -1088,13 +1145,14 @@ document.addEventListener("change",async function(e){
 });
 document.addEventListener("click",async function(e){
   var el=e.target.closest('[data-kind="tx"]');if(!el)return;
+  if(state.readonly)return; /* Schreibschutz bei fremder Sperre */
   var f=el.getAttribute("data-field");var p=state.edit;if(!p)return;
   if(!p.tx)p.tx={};p.tx[f]=!p.tx[f];el.classList.toggle("on",p.tx[f]);await savePatient(p);
 });
 
 function go(view){state.view=view;if(view==="capture")state.capMode="menu";render();}
-function back(){
-  if(state.view==="patient"){go("catlist");}
+async function back(){
+  if(state.view==="patient"){await releasePatientLock();state.readonly=false;go("catlist");}
   else if(state.view==="catlist"){go("overview");}
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
   else if(state.view==="home"){go("start");}
@@ -1112,6 +1170,27 @@ setInterval(async function(){
   if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start")return;
   await loadMeta();await loadPatients();await loadChecklist();render();
 },3500);
+/* Sperr-Heartbeat: hält die eigene Sperre frisch und erkennt eine
+ * MasterMedic-Übernahme. Läuft nur im Patienten-View; re-rendert NICHT im
+ * Normalfall (sonst Fokusverlust beim Tippen), nur wenn die Sperre fremd wird. */
+setInterval(async function(){
+  if(state.view!=="patient"||!state.edit||state.readonly) return;
+  if(state.edit.lockedBy!==operator) return;
+  if(nowMs()-_lockBeat <= 15000) return;
+  _lockBeat=nowMs();
+  var client=sb();
+  if(client && _ccpId){
+    try{
+      var r=await client.from('patients').select('locked_by,locked_at').eq('id',state.edit.id).single();
+      if(r.data && r.data.locked_by && r.data.locked_by!==operator && (nowMs()-(r.data.locked_at||0))<LOCK_TTL){
+        state.readonly=true; state.edit.lockedBy=r.data.locked_by; state.edit.lockedAt=r.data.locked_at;
+        render(); toast("Sperre durch "+r.data.locked_by+" übernommen"); return; /* überschrieben → schreibgeschützt */
+      }
+    }catch(e){}
+  }
+  state.edit.lockedAt=nowMs();
+  await savePatient(state.edit);
+},16000);
 
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
