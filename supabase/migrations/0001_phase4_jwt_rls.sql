@@ -81,8 +81,10 @@ begin
   );
 
   if v_token.single_use and v_token.used_at is null then
+    -- used_at ist bigint (JS-Millisekunden, vgl. nowMs()/Date.now() in der App),
+    -- NICHT timestamptz. now() würde mit Fehler 42804 abbrechen.
     update public.access_tokens
-    set used_at = now()
+    set used_at = (extract(epoch from now())*1000)::bigint
     where short_code = v_short_code and used_at is null;
   end if;
 
