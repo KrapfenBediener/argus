@@ -518,6 +518,31 @@ var DEMO_CCPS = {
   }
 };
 
+/* Zufällige Demo-Patienten (3–8) für einen CCP — für den Schulungs-Reset. */
+function _ri(a,b){return a+Math.floor(Math.random()*(b-a+1));}
+function _pk(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function genDemoRows(cid, kennung, medic){
+  var REG=["Kopf","Hals","Thorax","Abdomen","Becken","Arm re","Arm li","Bein re","Bein li","Rücken"];
+  var ART=["Wunde","Fraktur","Amputation","Verbrennung"];
+  var MOI=["Verkehrsunfall","Sturz aus Höhe","Explosion","Gebäudeeinsturz","Schussverletzung","Brand","Stichverletzung","Massenpanik"];
+  var NOTE={Amputation:"Traumatische Amputation, TQ angelegt",Wunde:"Blutung, Druckverband",Fraktur:"Fraktur geschient",Verbrennung:"Verbrennung 2. Grades, gekühlt"};
+  var cats=["T1","T2","T2","T3","T3","T3","T5"];
+  var n=_ri(3,8), t=nowMs(), rows=[];
+  for(var i=1;i<=n;i++){
+    var cat=_pk(cats), inj=[], ni=_ri(1,2), j;
+    for(j=0;j<ni;j++) inj.push({r:_pk(REG),a:_pk(ART)});
+    var prio=false,ready=false,tq=null,vit;
+    if(cat==="T1"){ vit={af:String(_pk([6,7,8,28,30,32])),spo2:String(_ri(78,90)),hf:String(_ri(120,160)),rr:_pk(["70/40","80/p","60/p"]),avpu:_pk(["V","P","U"]),pain:String(_ri(8,10))}; prio=Math.random()<0.6; if(Math.random()<0.4)tq=t-_ri(300000,900000); }
+    else if(cat==="T2"){ vit={af:String(_ri(18,26)),spo2:String(_ri(90,96)),hf:String(_ri(95,120)),rr:_pk(["90/60","100/65","105/70"]),avpu:_pk(["A","V"]),pain:String(_ri(5,8))}; prio=Math.random()<0.3; }
+    else if(cat==="T3"){ vit={af:String(_ri(14,18)),spo2:String(_ri(96,99)),hf:String(_ri(70,95)),rr:_pk(["120/80","125/85","130/85"]),avpu:"A",pain:String(_ri(1,4))}; ready=Math.random()<0.4; }
+    else { vit={af:"",spo2:"",hf:"",rr:"",avpu:"U",pain:""}; }
+    var note = cat==="T5" ? "Keine Vitalzeichen, ärztliche Feststellung" : (inj[0]?(NOTE[inj[0].a]||""):"");
+    rows.push({id:"seed"+t+"_"+kennung+"_"+i+Math.floor(Math.random()*1000),ccp_id:cid,num:i,ccp:kennung,cat:cat,status:"active",
+      prio:prio,ready:ready,tq_start:tq,created:t-(3600000-i*240000),last_triage:t-(1800000-i*120000),updated:t,
+      name:"",age:"",gender:"",allergies:"",pup_re:"",pup_li:"",vit:vit,tx:{},inj:inj,moi:_pk(MOI),injury:"",fr:medic,notes:note,by:medic,photo:null,locked_by:null,locked_at:null});
+  }
+  return rows;
+}
 async function doMergeDemo(ccpKey){
   var demoData = DEMO_CCPS[ccpKey];
   if(!demoData) return;
@@ -610,8 +635,14 @@ async function realMergeDecline(){
 }
 async function realMergeLeave(){
   var client=sb(); if(!client||!_ccpId) return;
+  var grp=_mergeGroupId;
   _mergeGroupId=null;
-  try{await client.from('ccps').update({merge_group_id:null,merged:false}).eq('id',_ccpId);}catch(e){}
+  try{
+    /* Ganze Gruppe auflösen, damit alle CCPs wieder eigenständig und erneut
+     * zusammenführbar sind (sonst behielten die anderen eine tote Gruppen-ID). */
+    if(grp){ await client.from('ccps').update({merge_group_id:null,merged:false}).eq('merge_group_id',grp); }
+    else { await client.from('ccps').update({merge_group_id:null,merged:false}).eq('id',_ccpId); }
+  }catch(e){}
   await loadPatients();
 }
 function realMergeUI(){
@@ -1312,7 +1343,7 @@ document.addEventListener("click",async function(e){
   }
   if(a==="schulreset"){
     if(_praesidiumName!=='Schulungsumgebung')return;
-    var oks2=await confirmModal("Schulung komplett zurücksetzen?\n\nALLE CCPs und Patienten der Schulungsumgebung werden gelöscht und ein frisches Demo-Szenario (3 CCPs) neu angelegt.","Zurücksetzen");
+    var oks2=await confirmModal("Schulung komplett zurücksetzen?\n\nALLE CCPs und Patienten der Schulungsumgebung werden gelöscht und ein frisches Demo-Szenario (6 CCPs mit zufälligen Patienten) neu angelegt.","Zurücksetzen");
     if(!oks2)return;
     var scx=sb(); if(!scx||!_praesidiumId){toast("Keine Backend-Verbindung");return;}
     toast("Setze zurück…");
@@ -1320,30 +1351,19 @@ document.addEventListener("click",async function(e){
     try{await scx.from('ccps').delete().eq('praesidium_id',_praesidiumId);}catch(e){}
     _demoMerged=false; await sSet("ccp_merged",false);
     var slk=await sList("ccp_pat_"); for(var si=0;si<slk.length;si++){await sDel(slk[si]);}
-    /* 2) festes Demo-Szenario neu anlegen: 3 CCPs (du als Leiter von A) */
-    var baseline=[
-      {k:'A',mm:(operator||'Dr. Berg'),ort:'CCP Marktplatz',pat:DEMO_CCPS.B.patients},
-      {k:'B',mm:'San. Klein',ort:'CCP Bahnhof',pat:DEMO_CCPS.C.patients},
-      {k:'C',mm:'Dr. Faber',ort:'CCP Schulhof',pat:DEMO_CCPS.B.patients}
-    ];
+    /* 2) frisches Demo-Szenario: 6 CCPs (du als Leiter von A), zufällige Patienten */
+    var bnames=[(operator||'Dr. Berg'),'San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt'];
+    var borte=['CCP Marktplatz','CCP Bahnhof','CCP Schulhof','CCP Stadthalle','CCP Sportplatz','CCP Parkhaus'];
+    var bkenn=['A','B','C','D','E','F'];
     var firstId=null;
-    for(var bi=0;bi<baseline.length;bi++){
-      var b=baseline[bi];
+    for(var bi=0;bi<6;bi++){
       var ta=new Uint8Array(16);crypto.getRandomValues(ta);
       var jt=Array.from(ta,function(x){return x.toString(16).padStart(2,'0');}).join('');
-      var ins=await scx.from('ccps').insert({kennung:b.k,ort:b.ort,master_medic:b.mm,merged:false,join_token:jt,praesidium_id:_praesidiumId,closed_at:null}).select().single();
+      var ins=await scx.from('ccps').insert({kennung:bkenn[bi],ort:borte[bi],master_medic:bnames[bi],merged:false,join_token:jt,praesidium_id:_praesidiumId,closed_at:null}).select().single();
       if(!ins.data)continue;
       var cid=ins.data.id; if(bi===0)firstId=cid;
-      var st=nowMs();
-      for(var sj=0;sj<b.pat.length;sj++){
-        var sp=b.pat[sj], stq=sp.tqStart?st+sp.tqStart:null;
-        var row={id:"seed"+st+"_"+b.k+"_"+sj+Math.floor(Math.random()*1000),ccp_id:cid,num:sp.num,ccp:b.k,cat:sp.cat,status:"active",
-          prio:!!sp.prio,ready:!!sp.ready,tq_start:stq,created:st-(3600000-sj*240000),last_triage:st-(1800000-sj*120000),updated:st,
-          name:"",age:"",gender:"",allergies:"",pup_re:"",pup_li:"",
-          vit:Object.assign({af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},sp.vit||{}),
-          tx:{},inj:sp.inj||[],moi:"Übungsfall",injury:"",fr:b.mm,notes:sp.notes||"",by:b.mm,photo:null,locked_by:null,locked_at:null};
-        try{await scx.from('patients').insert(row);}catch(e){}
-      }
+      var rows=genDemoRows(cid,bkenn[bi],bnames[bi]);
+      if(rows.length){ try{await scx.from('patients').insert(rows);}catch(e){} }
     }
     /* 3) Trainer in den ersten Demo-CCP setzen */
     if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
