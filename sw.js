@@ -6,7 +6,7 @@
  *   3. Alles andere           → Network-first (aktuelle Daten bevorzugen)
  */
 
-const CACHE_NAME = 'ccp-shell-v2';
+const CACHE_NAME = 'ccp-shell-v3';
 
 const PRECACHE_URLS = [
   './',
@@ -50,10 +50,11 @@ self.addEventListener('activate', function(event) {
  *   Keine Ausnahme — gecachte API-Antworten würden veraltete
  *   Patientendaten zurückliefern (sicherheitskritisch).
  *
- * REGEL 2: Shell-Assets (Origin + /) → Cache-first
- *   index.html und die App-Hülle kommen aus dem Cache.
- *   Bei Netzwerkfehler wird die gecachte Version geliefert.
- *   Ermöglicht Start vom Home-Bildschirm ohne Netz.
+ * REGEL 2: Shell-Assets (Origin + /) → Stale-while-revalidate
+ *   index.html wird sofort aus dem Cache geliefert (schnell, offline-fähig),
+ *   gleichzeitig im Hintergrund vom Netz aktualisiert. Dadurch ist eine neu
+ *   deployte Version beim NÄCHSTEN Start automatisch aktiv — ohne dass die
+ *   App vom Home-Bildschirm gelöscht oder der Cache geleert werden muss.
  *
  * REGEL 3: Alles andere → Network-first
  *   CDN-Ressourcen, externe Skripte etc. — Netz bevorzugen,
@@ -68,27 +69,25 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  /* REGEL 2: Shell-Assets (gleicher Origin) → Cache-first */
+  /* REGEL 2: Shell-Assets (gleicher Origin) → Stale-while-revalidate */
   if (url.origin === self.location.origin) {
     event.respondWith(
-      caches.match(event.request).then(function(cached) {
-        if (cached) {
-          return cached;
-        }
-        return fetch(event.request).then(function(response) {
-          /* Nur gültige Antworten cachen */
-          if (response && response.status === 200 && response.type === 'basic') {
-            var toCache = response.clone();
-            caches.open(CACHE_NAME).then(function(cache) {
-              cache.put(event.request, toCache);
-            });
-          }
-          return response;
-        }).catch(function() {
-          /* Offline und nicht im Cache → für index.html Fallback */
-          if (url.pathname.endsWith('/') || url.pathname.endsWith('/index.html')) {
-            return caches.match('./index.html');
-          }
+      caches.open(CACHE_NAME).then(function(cache) {
+        return cache.match(event.request).then(function(cached) {
+          /* Im Hintergrund immer vom Netz nachladen und Cache aktualisieren */
+          var network = fetch(event.request).then(function(response) {
+            if (response && response.status === 200 && response.type === 'basic') {
+              cache.put(event.request, response.clone());
+            }
+            return response;
+          }).catch(function() {
+            /* Offline → für index.html auf den Cache zurückfallen */
+            if (url.pathname.endsWith('/') || url.pathname.endsWith('/index.html')) {
+              return caches.match('./index.html');
+            }
+          });
+          /* Cache sofort liefern (schnell/offline), sonst auf Netz warten */
+          return cached || network;
         });
       })
     );
