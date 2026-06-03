@@ -1,4 +1,12 @@
 // © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung.
+//
+// ⚠️ ÜBERHOLT / NICHT DEPLOYT (Stand Phase 4, 2026-06-03)
+// Diese Edge Function wird NICHT verwendet. Der Token-Exchange läuft über den
+// Postgres-RPC public.argus_exchange_code (pgjwt + Vault), siehe
+// supabase/migrations/0001_phase4_jwt_rls.sql. Die App ruft /rest/v1/rpc/
+// argus_exchange_code auf (nicht /functions/v1/exchange-code).
+// Datei nur als Referenz aufbewahrt; kann bei Aufräumen entfernt werden.
+//
 // Edge Function: exchange-code
 // Validiert einen 8-stelligen Argus-Code und gibt ein signiertes JWT zurück.
 // Kein User-Datensatz wird angelegt — Pseudonymität ist gewahrt.

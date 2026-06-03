@@ -1,7 +1,7 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4 — Serverseitige Absicherung *(geplant, noch nicht gestartet)*
+- **Aktuelle Phase:** 5 — Produktionsinfrastruktur *(nächste)*
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -15,31 +15,37 @@
 | 1 | Supabase-Backend & Speicherschicht | ✅ |
 | 2 | Join-Flow & Authentifizierung | ✅ |
 | 3 | Mehrgeräte-Features verdrahten | ✅ 2026-06-03 |
+| 4 | Serverseitige Absicherung (JWT + RLS) | ✅ 2026-06-03 |
 
 ---
 
 ## Letzter Stand (2026-06-03)
 
-- Roadmap vollständig überarbeitet (6 aktive Phasen 4–9, technische Schuld
-  ausgelagert, Phase 9 als Conditional markiert)
-- `validateInviteToken` auf `.maybeSingle()` umgestellt — stille PGRST116-Fehler
-  behoben, alle Codes (dauerhaft / 24h / einmalig) funktionieren
-- GRANT INSERT/UPDATE auf `access_tokens` für `anon` (war vergessen)
-- Einmal-Links vollständig funktionsfähig (insert + consume + RLS-Policies)
-- Code-Eingabefeld direkt in `vPraesidium` (kein `promptModal` mehr)
-- SW Cache v4 — Update erzwungen
-- Licensing gemergt (`chore/licensing` → `main`, Tag `v0.1.0-rights` gepusht)
+**Phase 4 abgeschlossen — serverseitige Absicherung steht:**
+- Token-Exchange als Postgres-RPC `argus_exchange_code` (pgjwt + Vault) —
+  abgewichen von der geplanten Edge Function (Management-API kann kein raw-TS
+  deployen; Edge-Function-Datei als überholt markiert, RPC ist der echte Pfad).
+- App: `exchangeCode()` ruft den RPC, `sb()` hängt JWT als Bearer + `realtime.setAuth()`,
+  `refreshJwtIfNeeded()` stille Verlängerung (<7 Tage), Migration für Altgeräte.
+  Neue localStorage-Keys: `argus_jwt`, `argus_jwt_exp`, `argus_code`.
+- RLS: `anon_all` auf `patients`/`ccps`/`checklists` ersetzt durch `argus_*_rw`
+  (gebunden an `argus_praesidium_id()` / `argus_is_master()`).
+- API-E2E verifiziert: Anon ohne JWT → `[]`; Schulungs-JWT → nur 6 Schulungs-CCPs;
+  Master → alle 9; `praesidien` ohne JWT lesbar.
+- DB-Stand versioniert: `supabase/migrations/0001_phase4_jwt_rls.sql`.
+- SW Cache v5 — Update + Migration erzwungen.
+
+**Noch offen vor „wirklich fertig":**
+- App-E2E auf echtem iPhone (2–3 Geräte: Code-Neueingabe, Sperre, Merge, Master).
+- Rollout-Nachricht an Tester: „App schließen, neu öffnen, Code einmal neu eingeben."
+- Daten-Hygiene: 3 verwaiste CCPs mit `praesidium_id = NULL` (nur Master sichtbar).
 
 ---
 
-## Nächste Phase: 4 — Serverseitige Absicherung
+## Nächste Phase: 5 — Produktionsinfrastruktur
 
-**Kern-Problem:** Anon-Key steckt im Quelltext (öffentlich). Aktuelle RLS-Policy
-= `anon_all: true` auf allen Tabellen. Wer den Key kennt, kann alles lesen/schreiben.
-Das ist der kritische Blocker vor echtem Patienteneinsatz.
-
-**Ansatz:** Edge Function → Token-Exchange (Code → signiertes Sitzungs-Ticket mit
-`praesidium_id` + TTL) → RLS-Policies binden Zugriff an Ticket. Pseudonymität bleibt.
+Pro-Tier, separates Produktionsprojekt, Production-Repo-Schnitt, Backup-/Löschkonzept.
+Siehe `.planning/ROADMAP.md`.
 
 ---
 

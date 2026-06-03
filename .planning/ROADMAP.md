@@ -43,19 +43,25 @@ Client-seitige Freischaltliste mit Ablauflogik.
 
 ---
 
-## Phase 4 — Serverseitige Absicherung (RLS + Auth-Fundament) ⬜
+## Phase 4 — Serverseitige Absicherung (RLS + Auth-Fundament) ✅ 2026-06-03
 **Ziel:** Die App ist gegen direkten API-Zugriff abgesichert. Der öffentliche
 Anon-Key darf nur das lesen/schreiben, wozu das Gerät berechtigt ist.
 Voraussetzung für jeden Einsatz mit echten Patientendaten.
 
-- **Edge Function / Token-Exchange:** 8-stelliger Code → kurzlebiges
-  signiertes Sitzungs-Ticket mit `praesidium_id` + Ablaufzeit. Kein Klarname,
-  kein Konto — Pseudonymität bleibt gewahrt.
-- **RLS-Policies** pro Tabelle: `patients`, `ccps`, `checklists`,
-  `access_tokens` — Zugriff an Ticket / Präsidium gebunden.
-- **Feld-UX unangetastet:** Der Sichter am CCP merkt nichts, kein Login,
-  kein Passwort.
-- **Testen:** Direkter API-Zugriff mit Anon-Key wird nach Umsetzung geblockt.
+- ✅ **Token-Exchange via Postgres-RPC** `argus_exchange_code` (pgjwt + Vault,
+  statt Edge Function): 8-stelliger Code → signiertes JWT mit `praesidium_id`,
+  `is_master`, `exp`. Kein Klarname, kein Konto — Pseudonymität gewahrt.
+- ✅ **App-JWT-Integration:** `exchangeCode()`, `sb()` mit Bearer-Header +
+  `realtime.setAuth()`, stille Verlängerung (`refreshJwtIfNeeded`), Migration
+  für Altgeräte (einmalige Code-Neueingabe).
+- ✅ **RLS-Policies** `argus_patients_rw` / `argus_ccps_rw` / `argus_checklists_rw`
+  (ersetzen `anon_all`), gebunden an `argus_praesidium_id()` / `argus_is_master()`.
+  `praesidien` + `access_tokens` bleiben anon-lesbar (Freischalt-Screen / Fallback).
+- ✅ **Feld-UX unangetastet:** kein Login, kein Passwort.
+- ✅ **Verifiziert (API-E2E):** Anon ohne JWT → `[]` auf `patients`/`ccps`;
+  Schulungs-JWT → nur 6 Schulungs-CCPs; Master-JWT → alle 9.
+  DB-Stand versioniert in `supabase/migrations/0001_phase4_jwt_rls.sql`.
+- ⏳ **Offen:** App-E2E auf echtem iPhone (2–3 Geräte) + Rollout-Nachricht an Tester.
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —

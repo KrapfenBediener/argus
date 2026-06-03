@@ -99,6 +99,7 @@
 var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
 var _sb      = null;
+var _sbJwt   = null;   /* JWT, mit dem der aktuelle _sb-Client erstellt wurde (Neuinit-Erkennung) */
 var _ccpId   = null;
 var _channel       = null;
 var _praesidiumId   = null;
@@ -121,11 +122,22 @@ function isStandalone(){
 }
 
 function sb(){
-  if(!_sb && window.supabaseLib && window.supabaseLib.createClient){
-    _sb = window.supabaseLib.createClient(SUPA_URL, SUPA_KEY, {
-      auth:{persistSession:true, autoRefreshToken:true, detectSessionInUrl:false}
-    });
-  }
+  /* JWT wird manuell verwaltet (Phase 4): bei jedem Aufruf prüfen, ob sich das
+   * gespeicherte JWT geändert hat (z. B. nach Code-Eingabe oder stiller
+   * Verlängerung). Wenn ja → Client neu erstellen, Realtime-Abo trennen. */
+  var currentJwt = localStorage.getItem('argus_jwt');
+  if(_sb && currentJwt === _sbJwt) return _sb;
+  if(!window.supabaseLib || !window.supabaseLib.createClient) return _sb;
+  if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
+  _sbJwt = currentJwt;
+  var headers = currentJwt ? { Authorization:'Bearer '+currentJwt } : {};
+  _sb = window.supabaseLib.createClient(SUPA_URL, SUPA_KEY, {
+    auth:{persistSession:false, autoRefreshToken:false, detectSessionInUrl:false},
+    global:{ headers: headers }
+  });
+  /* Realtime separat authentifizieren, sonst greift die RLS-Trennung (Phase 4)
+   * nicht für postgres_changes. */
+  if(currentJwt && _sb.realtime && _sb.realtime.setAuth){ try{ _sb.realtime.setAuth(currentJwt); }catch(e){} }
   return _sb;
 }
 function patFromRow(r){
@@ -277,6 +289,51 @@ async function validateInviteToken(token){
     }catch(e){}
   }
   return row;
+}
+/* ── Phase 4: Code gegen signiertes JWT tauschen ───────────────────────────
+ * Ruft den DB-RPC argus_exchange_code (security definer, pgjwt+Vault) auf.
+ * Der RPC validiert den 8-stelligen Code, signiert ein JWT mit praesidium_id /
+ * is_master / exp und markiert Einmal-Codes serverseitig als verbraucht.
+ * Pseudonymität bleibt gewahrt — kein Name, keine E-Mail, keine UID im JWT. */
+async function exchangeCode(code){
+  var clean=code.replace(/[\s\-]/g,'').toUpperCase();
+  if(clean.length<8) return null;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data=await resp.json();            /* ungültiger Code = HTTP 200 + {error:…} */
+    if(!data || !data.jwt) return null;
+    localStorage.setItem('argus_jwt', data.jwt);
+    localStorage.setItem('argus_jwt_exp', String(data.exp*1000)); /* ms */
+    localStorage.setItem('argus_code', clean);                    /* für stille Verlängerung */
+    return {
+      praesidium_id: data.praesidium_id,
+      is_master: !!data.is_master,
+      praesidien: data.praesidium_name ? { id:data.praesidium_id, name:data.praesidium_name } : null,
+      short_code: clean.slice(0,4)+'-'+clean.slice(4),
+      temporary: data.ttl_seconds < (30*24*3600),
+      ttl_hours: Math.round(data.ttl_seconds/3600),
+      single_use: false   /* serverseitig bereits verbraucht */
+    };
+  }catch(e){ return null; }
+}
+/* Stille JWT-Verlängerung: wenn Restlaufzeit < 7 Tage und online → mit dem
+ * gespeicherten Code ein frisches JWT holen. Nutzer merkt nichts.
+ * Bei Einmal-/24-h-Codes schlägt der Re-Exchange ggf. fehl → kein Problem,
+ * das JWT läuft dann ab und der Nutzer gibt seinen Code neu ein. */
+async function refreshJwtIfNeeded(){
+  if(!navigator.onLine) return;
+  var jwt=localStorage.getItem('argus_jwt');
+  var exp=parseInt(localStorage.getItem('argus_jwt_exp')||'0',10);
+  if(!jwt||!exp) return;
+  if(exp-nowMs() > 7*24*3600*1000) return; /* noch frisch */
+  var storedCode=localStorage.getItem('argus_code')||'';
+  if(!storedCode) return;
+  var result=await exchangeCode(storedCode);
+  if(result && _ccpId && sb()) subscribeRealtime();
 }
 function inviteUrl(){
   var token=localStorage.getItem('argus_invite')||'';
@@ -1253,7 +1310,7 @@ document.addEventListener("click",async function(e){
     var uc2=(uinp?uinp.value:'').replace(/[\s\-]/g,'').toUpperCase();
     if(uc2.length<8){toast("Bitte vollständigen Code eingeben (Format: XXXX-XXXX)");return;}
     toast("Prüfe Code…");
-    var uv=await validateInviteToken(uc2);
+    var uv=await exchangeCode(uc2);
     if(!uv){toast("Ungültiger oder abgelaufener Code");return;}
     localStorage.setItem('argus_verified','true');
     if(uv.is_master){
@@ -1299,7 +1356,7 @@ document.addEventListener("click",async function(e){
     var codeClean=code.replace(/[\s\-]/g,'');
     if(!code||codeClean.length<8){toast("Bitte Code eingeben (Format: XXXX-XXXX)");return;}
     toast("Prüfe Code…");
-    var valid=await validateInviteToken(code);
+    var valid=await exchangeCode(code);
     if(valid){
       localStorage.setItem('argus_verified','true');
       localStorage.setItem('argus_invite',code);
@@ -1613,24 +1670,32 @@ setInterval(async function(){
 
   /* ── Freischalt-Link mit 8-stelligem Code (#code=) ──────────────── */
   if(urlCode){
-    var cdata=await validateInviteToken(urlCode);
-    if(cdata){
-      if(!isStandalone()){
-        state.installShortCode=cdata.short_code||urlCode;
+    if(!isStandalone()){
+      /* Browser (noch nicht installiert): Install-Screen anzeigen, aber Code
+       * NICHT einlösen (read-only) — sonst würde ein Einmal-Code schon beim
+       * bloßen Öffnen des Links verbraucht. JWT wird erst im Standalone geholt. */
+      var cmeta=await validateInviteToken(urlCode);
+      if(cmeta){
+        state.installShortCode=cmeta.short_code||urlCode;
         state.installTokenFull=urlCode;
         $("clock").textContent=new Date().toLocaleTimeString("de-DE");
         state.view='install'; render(); return;
       }
-      localStorage.setItem('argus_verified','true'); verified='true';
-      history.replaceState(null,'',window.location.pathname);
-      if(cdata.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
-      else if(cdata.praesidium_id){
-        addUnlock(cdata.praesidium_id, cdata.temporary?(cdata.ttl_hours||24):null);
-        await consumeSingleUse(cdata);
-        _praesidiumId=cdata.praesidium_id;
-        _praesidiumName=(cdata.praesidien&&cdata.praesidien.name)||'';
-        localStorage.setItem('argus_praesidium_id',_praesidiumId);
-        localStorage.setItem('argus_praesidium_name',_praesidiumName);
+    } else {
+      /* Installierte PWA: echter Eintritt → JWT holen (Einmal-Code wird jetzt
+       * serverseitig verbraucht). */
+      var cdata=await exchangeCode(urlCode);
+      if(cdata){
+        localStorage.setItem('argus_verified','true'); verified='true';
+        history.replaceState(null,'',window.location.pathname);
+        if(cdata.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
+        else if(cdata.praesidium_id){
+          addUnlock(cdata.praesidium_id, cdata.temporary?(cdata.ttl_hours||24):null);
+          _praesidiumId=cdata.praesidium_id;
+          _praesidiumName=(cdata.praesidien&&cdata.praesidien.name)||'';
+          localStorage.setItem('argus_praesidium_id',_praesidiumId);
+          localStorage.setItem('argus_praesidium_name',_praesidiumName);
+        }
       }
     }
   }
@@ -1665,16 +1730,34 @@ setInterval(async function(){
     _praesidienList=prlAll.data||[];
   }
 
-  /* ── Zugriffsgate (strikt): Master ODER mind. ein freigeschaltetes
-   *    Präsidium. Sonst → Landingpage mit Freischalt-Button (kein
-   *    gesperrter Screen mehr — Fehlerfall ist „Code eingeben"). ──── */
-  var hasAccess = _isMaster || getUnlocked().length>0;
+  /* ── Phase-4-Migration: Altgerät ohne JWT → einmalige Code-Neueingabe ────
+   * Geräte mit altem Zugang (verified / unlocked / master), aber ohne JWT
+   * werden zur Code-Eingabe geführt. Danach 30 Tage Ruhe. URL-Links
+   * (#code= / #inv=) umgehen die Migration (werden oben verarbeitet). */
+  var hasLegacyAccess = (verified==='true' || getUnlocked().length>0 || _isMaster) && !localStorage.getItem('argus_jwt');
+  if(hasLegacyAccess && !urlCode && !urlToken){
+    localStorage.removeItem('argus_verified');
+    localStorage.removeItem('argus_unlocked');
+    localStorage.removeItem('argus_praesidium_id');
+    localStorage.removeItem('argus_praesidium_name');
+    localStorage.removeItem('argus_is_master');
+    _praesidiumId=null; _praesidiumName=''; _isMaster=false;
+    $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+    state.view='praesidium'; render(); return;
+  }
+
+  /* ── Zugriffsgate (strikt): Master ODER (gültiges JWT UND mind. ein
+   *    freigeschaltetes Präsidium). Sonst → Landingpage mit Freischalt-
+   *    Button (Fehlerfall ist „Code eingeben"). ──── */
+  var hasAccess = _isMaster || (!!localStorage.getItem('argus_jwt') && getUnlocked().length>0);
   if(!hasAccess || !_praesidiumId || !isUnlocked(_praesidiumId)){
     $("clock").textContent=new Date().toLocaleTimeString("de-DE");
     state.view='praesidium'; render(); return;
   }
 
-  /* Ab hier: Nutzer ist freigeschaltet — letzten CCP wiederherstellen */
+  /* Ab hier: Nutzer ist freigeschaltet — JWT ggf. still verlängern, dann
+   * letzten CCP wiederherstellen */
+  await refreshJwtIfNeeded();
   var storedCcp=localStorage.getItem('argus_ccp_id');
   if(storedCcp) _ccpId=storedCcp;
 
