@@ -228,6 +228,18 @@ function getUnlocked(){
   return live;
 }
 function isUnlocked(pid){ if(_isMaster) return true; return getUnlocked().some(function(u){return u.p===pid;}); }
+async function consumeSingleUse(td){
+  /* Einmal-Code nach erfolgreicher Einlösung als verbraucht markieren */
+  if(td && td.single_use && !td.used_at && td.short_code){
+    try{ await sb().from('access_tokens').update({used_at:nowMs()}).eq('short_code',td.short_code).is('used_at',null); }catch(e){}
+  }
+}
+function genShortCode(){
+  var AL="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  function blk(){var s='';for(var i=0;i<4;i++)s+=AL[Math.floor(Math.random()*AL.length)];return s;}
+  return blk()+'-'+blk();
+}
+function genToken(){ var a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a,function(b){return b.toString(16).padStart(2,'0');}).join(''); }
 function addUnlock(pid, ttlHours){
   if(!pid) return;
   var arr=getUnlocked().filter(function(u){return u.p!==pid;});
@@ -237,17 +249,17 @@ function addUnlock(pid, ttlHours){
 async function validateInviteToken(token){
   var client=sb(); if(!client) return null;
   var clean=token.replace(/[\s\-]/g,'').toUpperCase();
-  var fields='token,praesidium_id,is_master,label,short_code,temporary,ttl_hours,praesidien(id,name)';
+  var fields='token,praesidium_id,is_master,label,short_code,temporary,ttl_hours,single_use,used_at,praesidien(id,name)';
   try{
     /* Short Code (8 Zeichen, z.B. ABCD-1234 → ABCD-1234) */
     if(clean.length===8){
       var sc=clean.slice(0,4)+'-'+clean.slice(4);
       var rs=await client.from('access_tokens').select(fields).eq('short_code',sc).single();
-      if(rs.data) return rs.data;
+      if(rs.data){ if(rs.data.single_use && rs.data.used_at) return null; return rs.data; }
     }
     /* Vollständiger Token (32+ Zeichen) */
     var r=await client.from('access_tokens').select(fields).eq('token',token.trim()).single();
-    if(r.data) return r.data;
+    if(r.data){ if(r.data.single_use && r.data.used_at) return null; return r.data; }
   }catch(e){}
   /* Legacy-Pfad DEAKTIVIERT (2026-06): Alte Einladungslinks, die über den
    * rohen ccps.join_token ohne Präsidiums-/Freischaltungs-Provisionierung
@@ -346,6 +358,28 @@ function vPraesidium(){
     });
   }
   h+='<button class="navbtn" data-action="unlockpraes" style="margin-top:10px;border-color:var(--acc)"><span class="ic">➕</span><span><span class="t">Präsidium freischalten</span><br><span class="s">8-stelligen Code eingeben</span></span></button>';
+  if(_isMaster){
+    h+='<button class="navbtn" data-action="openadmin" style="margin-top:10px"><span class="ic">⚙️</span><span><span class="t">Administration</span><br><span class="s">Zugangs-Links teilen · Codes</span></span></button>';
+  }
+  return h;
+}
+function vAdmin(){
+  var h='<div style="text-align:center;padding:24px 0 12px"><div style="font-size:22px;font-weight:600">Administration</div><div class="hint">Nur MasterToken · Zugänge verwalten</div></div>';
+  if(!_praesidienList.length){
+    h+='<p class="muted" style="text-align:center">Lade Präsidien…</p>';
+  }else{
+    _praesidienList.forEach(function(p){
+      h+='<div class="card" style="margin-bottom:12px">';
+      h+='<div style="font-weight:600;margin-bottom:4px">'+esc(p.name)+'</div>';
+      h+='<div class="hint" style="margin-bottom:8px">Zugangs-Link erstellen & kopieren:</div>';
+      h+='<div class="row">';
+      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="perm" style="flex:1">Dauerhaft</button>';
+      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="temp" style="flex:1">24 h</button>';
+      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="once" style="flex:1">Einmalig</button>';
+      h+='</div></div>';
+    });
+  }
+  h+='<p class="hint" style="text-align:center;margin-top:6px;font-size:11px">„Einmalig" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang.</p>';
   return h;
 }
 function ccpJoinModal(list){
@@ -808,12 +842,13 @@ function countPrio(){return patients.filter(function(p){return p.status==="activ
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"Argus",install:"Argus installieren",praesidium:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen"};
+  var titles={locked:"Argus",install:"Argus installieren",praesidium:"Argus",start:"Argus",home:"Argus",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen",admin:"Administration"};
   $("title").textContent=titles[state.view]||"Argus";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
   else if(v==="install")h=vInstall();
   else if(v==="praesidium")h=vPraesidium();
+  else if(v==="admin")h=vAdmin();
   else if(v==="start")h=vStart();
   else if(v==="home")h=vHome();
   else if(v==="checklist")h=vChecklist();
@@ -1169,6 +1204,34 @@ document.addEventListener("click",async function(e){
   var el=e.target.closest("[data-action]");if(!el)return;
   var a=el.getAttribute("data-action");
   if(a==="back"){await back();return;}
+  if(a==="openadmin"){
+    if(!_isMaster){toast("Nur MasterToken");return;}
+    if(!_praesidienList.length && sb()){ var pra=await sb().from('praesidien').select('id,name').order('name'); _praesidienList=pra.data||[]; }
+    go("admin"); return;
+  }
+  if(a==="adminlink"){
+    if(!_isMaster){toast("Nur MasterToken");return;}
+    var apid=el.getAttribute("data-pid"), apname=el.getAttribute("data-pname"), akind=el.getAttribute("data-kind");
+    var acl=sb(); if(!acl){toast("Keine Backend-Verbindung");return;}
+    var asc=null;
+    if(akind==="once"){
+      asc=genShortCode();
+      try{ await acl.from('access_tokens').insert({token:genToken(),praesidium_id:apid,is_master:false,label:apname+" Einmal-Link",short_code:asc,temporary:true,ttl_hours:24,single_use:true,used_at:null}); }
+      catch(e){ toast("Konnte Einmal-Code nicht anlegen"); return; }
+    }else{
+      var wantTemp=(akind==="temp");
+      var ars=await acl.from('access_tokens').select('short_code,temporary,single_use').eq('praesidium_id',apid);
+      var arows=(ars.data||[]).filter(function(t){return !t.single_use;});
+      var apick=arows.filter(function(t){return !!t.temporary===wantTemp;})[0];
+      if(!apick||!apick.short_code){toast("Kein passender Code für dieses Präsidium");return;}
+      asc=apick.short_code;
+    }
+    var aurl=window.location.origin+window.location.pathname+'#code='+asc;
+    var albl=akind==="once"?'Einmal-Link (24 h)':(akind==="temp"?'24-h-Link':'Dauerhaft-Link');
+    try{ await navigator.clipboard.writeText(aurl); toast(albl+' kopiert ✓'); }
+    catch(e){ await promptModal(albl+' — '+apname+' (kopieren):',aurl); }
+    return;
+  }
   if(a==="unlockpraes"){
     var uc=await promptModal("8-stelligen Freischaltcode eingeben:","");
     if(uc==null||!uc.trim())return;
@@ -1177,7 +1240,7 @@ document.addEventListener("click",async function(e){
     if(!uv){toast("Ungültiger Code");return;}
     localStorage.setItem('argus_verified','true');
     if(uv.is_master){ _isMaster=true; localStorage.setItem('argus_is_master','true'); toast("Master-Zugang freigeschaltet"); }
-    else if(uv.praesidium_id){ addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null); toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet"); }
+    else if(uv.praesidium_id){ addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null); await consumeSingleUse(uv); toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet"); }
     else { toast("Code ohne Präsidium"); return; }
     var pru=await sb().from('praesidien').select('id,name').order('name'); _praesidienList=pru.data||[];
     render(); return;
@@ -1225,6 +1288,7 @@ document.addEventListener("click",async function(e){
         /* Normaler Token: Präsidium freischalten und weiter */
         if(valid.praesidium_id){
           addUnlock(valid.praesidium_id, valid.temporary?(valid.ttl_hours||24):null);
+          await consumeSingleUse(valid);
           _praesidiumId=valid.praesidium_id;
           _praesidiumName=(valid.praesidien&&valid.praesidien.name)||'';
           localStorage.setItem('argus_praesidium_id',_praesidiumId);
@@ -1464,6 +1528,7 @@ async function back(){
   else if(state.view==="catlist"){go("overview");}
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
   else if(state.view==="home"){await loadOpenCcpCount();go("start");}
+  else if(state.view==="admin"){go("praesidium");}
   else{go("home");}
 }
 
@@ -1532,6 +1597,7 @@ setInterval(async function(){
       if(cdata.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
       else if(cdata.praesidium_id){
         addUnlock(cdata.praesidium_id, cdata.temporary?(cdata.ttl_hours||24):null);
+        await consumeSingleUse(cdata);
         _praesidiumId=cdata.praesidium_id;
         _praesidiumName=(cdata.praesidien&&cdata.praesidien.name)||'';
         localStorage.setItem('argus_praesidium_id',_praesidiumId);
@@ -1555,6 +1621,7 @@ setInterval(async function(){
       if(tokenData.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
       else if(tokenData.praesidium_id){
         addUnlock(tokenData.praesidium_id, tokenData.temporary?(tokenData.ttl_hours||24):null);
+        await consumeSingleUse(tokenData);
         _praesidiumId=tokenData.praesidium_id;
         _praesidiumName=(tokenData.praesidien&&tokenData.praesidien.name)||'';
         localStorage.setItem('argus_praesidium_id',_praesidiumId);
