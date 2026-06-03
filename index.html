@@ -1216,8 +1216,9 @@ document.addEventListener("click",async function(e){
     var asc=null;
     if(akind==="once"){
       asc=genShortCode();
-      try{ await acl.from('access_tokens').insert({token:genToken(),praesidium_id:apid,is_master:false,label:apname+" Einmal-Link",short_code:asc,temporary:true,ttl_hours:24,single_use:true,used_at:null}); }
-      catch(e){ toast("Konnte Einmal-Code nicht anlegen"); return; }
+      var ins=await acl.from('access_tokens').insert({token:genToken(),praesidium_id:apid,is_master:false,label:apname+" Einmal-Link",short_code:asc,temporary:true,ttl_hours:24,single_use:true,used_at:null}).select('short_code').single();
+      if(ins.error||!ins.data){ toast("Konnte Einmal-Code nicht anlegen"+(ins.error?' · '+ins.error.message:'')); return; }
+      asc=ins.data.short_code; /* bestätigter Code aus der DB */
     }else{
       var wantTemp=(akind==="temp");
       var ars=await acl.from('access_tokens').select('short_code,temporary,single_use').eq('praesidium_id',apid);
