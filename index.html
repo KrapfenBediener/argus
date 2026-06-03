@@ -865,7 +865,7 @@ function vPatient(){
   }else{
     h+='<label class="txbtn" style="display:block;padding:16px;cursor:pointer;font-size:15px">📷 Foto aufnehmen oder wählen<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>';
   }
-  h+='<div class="hint" style="margin-top:6px">Zur zweifelsfreien Zuordnung, falls die aufgemalte Nummer verwischt. Bleibt lokal auf diesem Gerät.</div></div>';
+  h+='<div class="hint" style="margin-top:6px">Zur zweifelsfreien Zuordnung, falls die aufgemalte Nummer verwischt. Wird mit allen Geräten dieser CCP geteilt.</div></div>';
 
   h+='<div class="sech">In andere Kategorie verschieben</div><div class="catset">';
   CATORDER.forEach(function(cat){var cc=CATS[cat];var on=p.cat===cat;h+='<button data-action="movecat" data-id="'+p.id+'" data-cat="'+cat+'" style="background:'+(on?cc.bg:"var(--surf2)")+';color:'+(on?cc.fg:"var(--mut)")+';border-color:'+(on?cc.bg:"var(--line)")+'">'+cc.label+'</button>';});
