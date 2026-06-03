@@ -156,7 +156,7 @@ function patFromRow(r){
 }
 function patToRow(p){
   return {
-    id:p.id, ccp_id:_ccpId, num:p.num, ccp:p.ccp||'A',
+    id:p.id, ccp_id:p.ccpId||_ccpId, num:p.num, ccp:p.ccp||'A',
     cat:p.cat, status:p.status||'active',
     prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null,
     created:p.created, last_triage:p.lastTriage, updated:p.updated,
@@ -811,6 +811,31 @@ async function leaveCurrentCcp(){
   _mergeGroupId=null; _ccpKennung='A'; _demoMerged=false; ccpMerged=false; patients=[];
   try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && !pp.demo) await sDel(lk[i]); } }catch(e){}
 }
+/* Offline-Robustheit: lokal noch nicht synchronisierte Patienten in die
+ * Cloud-Liste einmischen und — wenn online — nachschieben. Konfliktlösung per
+ * 'updated'-Zeitstempel (jüngere Version gewinnt). So überschreibt ein Reconnect
+ * keine offline erfassten/bearbeiteten Patienten mehr. */
+async function flushPendingPatients(arr, client, ccpIds){
+  var byId={}; arr.forEach(function(p){byId[p.id]=p;});
+  var keys=await sList("ccp_pat_");
+  for(var i=0;i<keys.length;i++){
+    var lp=await sGet(keys[i]);
+    if(!lp || lp.demo || !lp._dirty) continue;
+    /* nur Patienten des aktuellen CCP(-Verbunds) berücksichtigen */
+    if(lp.ccpId && ccpIds && ccpIds.indexOf(lp.ccpId)===-1) continue;
+    var cloudP=byId[lp.id];
+    if(cloudP && (cloudP.updated||0) >= (lp.updated||0)){
+      delete lp._dirty; await sSet("ccp_pat_"+lp.id, lp);   /* Cloud ist aktueller */
+      continue;
+    }
+    var pushed=false;
+    try{ var r=await client.from('patients').upsert(patToRow(lp)); if(!r.error) pushed=true; }catch(e){}
+    if(pushed){ delete lp._dirty; await sSet("ccp_pat_"+lp.id, lp); }
+    byId[lp.id]=normalize(lp);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
+  }
+  arr.length=0;
+  Object.keys(byId).forEach(function(k){ arr.push(byId[k]); });
+}
 async function loadPatients(){
   var client=sb();
   if(client && _ccpId){
@@ -830,6 +855,7 @@ async function loadPatients(){
         : await client.from('patients').select('*').eq('ccp_id',_ccpId);
       if(!q.error && q.data){
         var arr=q.data.map(patFromRow);
+        await flushPendingPatients(arr, client, ccpIds);
         ccpMerged = realMerged || _demoMerged;
         if(_demoMerged){
           var keys2=await sList("ccp_pat_");
@@ -864,21 +890,32 @@ async function addPatient(cat){
     status:"active",created:nowMs(),lastTriage:nowMs(),tqStart:null,
     name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",
     vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
-    tx:{},inj:[],moi:"",injury:"",fr:operator,notes:"",by:operator,updated:nowMs()};
+    tx:{},inj:[],moi:"",injury:"",fr:operator,notes:"",by:operator,updated:nowMs(),
+    ccpId:_ccpId||null, _dirty:true};
   await sSet("ccp_pat_"+p.id,p);
   var client=sb();
   if(client && _ccpId){
-    try{await client.from('patients').insert(patToRow(p));}catch(e){}
+    try{ var r=await client.from('patients').insert(patToRow(p)); if(!r.error){ delete p._dirty; await sSet("ccp_pat_"+p.id,p); } }catch(e){}
   }
   await loadPatients();
   return num;
 }
 async function savePatient(p){
   p.updated=nowMs();
+  /* Welchem CCP gehört dieser Patient? Für offline angelegte/bearbeitete
+   * Datensätze festhalten, damit sie später in den RICHTIGEN CCP hochgehen. */
+  if(!p.ccpId && _ccpId) p.ccpId=_ccpId;
+  /* Durability zuerst: lokal sichern und optimistisch als „offen" markieren.
+   * Erst nach erfolgreichem Cloud-Schreiben wird die Markierung gelöscht. */
+  if(!p.demo) p._dirty=true;
   await sSet("ccp_pat_"+p.id,p);
+  if(p.demo) return;
   var client=sb();
-  if(client && _ccpId && !p.demo){
-    try{await client.from('patients').upsert(patToRow(p));}catch(e){}
+  if(client && _ccpId){
+    try{
+      var r=await client.from('patients').upsert(patToRow(p));
+      if(!r.error){ delete p._dirty; await sSet("ccp_pat_"+p.id,p); }
+    }catch(e){}
   }
 }
 /* ── Patienten-Sperre (Soft-Lock gegen Doppelbearbeitung) ──────────────────
@@ -952,7 +989,7 @@ function vHome(){
     mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }
   return countbar()+
-  '<div class="banner"><span>⇄</span><div>'+(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus')+(_praesidiumName?' · '+esc(_praesidiumName):'')+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<div class="banner"><span>⇄</span><div>'+(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus')+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   '<button class="ghost" data-action="shareinvite" style="margin-bottom:12px">🔗 Einladungslink teilen</button>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
@@ -1771,4 +1808,12 @@ setInterval(async function(){
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js').catch(function(e) {});
 }
+
+/* Wiederverbindung: offline erfasste/bearbeitete Patienten nachschieben und
+ * JWT ggf. auffrischen. loadPatients() mischt offene lokale Änderungen ein und
+ * lädt sie hoch (siehe flushPendingPatients). */
+window.addEventListener('online', function(){
+  refreshJwtIfNeeded();
+  if(_ccpId && sb()){ loadPatients().then(function(){ render(); }); }
+});
 </script>
