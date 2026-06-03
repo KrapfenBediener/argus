@@ -1,7 +1,8 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 5 — Produktionsinfrastruktur *(nächste)*
+- **Aktuelle Phase:** Test-/Härtungsfenster — Phase 5 bewusst aufgeschoben,
+  bis die App ausgiebiger getestet ist
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -49,6 +50,24 @@
   aus der DB (Code steht im Link). SW Cache v6. Verifiziert.
 
 **Phase 4 vollständig abgeschlossen.**
+
+### Nach Phase 4 (2026-06-04)
+- **Offline-Robustheit (wichtigster Fund aus dem Audit):** Offline erfasste/
+  bearbeitete Patienten gingen beim Reconnect verloren (loadPatients überschrieb
+  mit Cloud). Jetzt `_dirty`-Markierung + `ccpId`-Tag + `flushPendingPatients()`
+  (Merge per `updated`-Zeitstempel, Nachsync per `online`-Event), Banner-Hinweis
+  „⏳ n nicht synchronisiert". Merge-Logik per JSC-Unit-Test (5 Szenarien) belegt.
+- **Branding:** „Argus" → „ARGUS" (UI, manifest, iOS-Titel). SW v8.
+- **Entscheidung:** Phase 5 (Produktionsinfra) aufgeschoben bis nach ausgiebigerem
+  Test der Beta.
+
+### Offene Audit-Punkte (geparkt, nach Bedarf angehen)
+- Laufnummern-Kollision bei gleichzeitigem Anlegen auf 2 Geräten (serverseitige
+  Nummernvergabe nötig).
+- JWT-Ablauf in sehr langer Dauer-Session (Refresh läuft nur bei Start/`online`).
+- Fotos als base64 inline → Supabase Storage (vor großem Rollout).
+- DSGVO-Löschkonzept, Master-Code-Rotation, Repo-Schnitt, Pro-Tier → Phase 5.
+- **PAT widerrufen** (war zuletzt noch aktiv).
 
 **Geparkt (nicht blockierend):**
 - Daten-Hygiene: 3 verwaiste CCPs mit `praesidium_id = NULL` (nur Master sichtbar)
