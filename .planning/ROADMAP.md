@@ -61,7 +61,10 @@ Voraussetzung für jeden Einsatz mit echten Patientendaten.
 - ✅ **Verifiziert (API-E2E):** Anon ohne JWT → `[]` auf `patients`/`ccps`;
   Schulungs-JWT → nur 6 Schulungs-CCPs; Master-JWT → alle 9.
   DB-Stand versioniert in `supabase/migrations/0001_phase4_jwt_rls.sql`.
-- ⏳ **Offen:** App-E2E auf echtem iPhone (2–3 Geräte) + Rollout-Nachricht an Tester.
+- ✅ **Praxistest (echte Geräte):** Master-Login, Präsidiums-Trennung und
+  Einmal-Link bestätigt.
+- ✅ **Bugfix:** `used_at` im RPC als bigint/ms (war `now()` → Fehler 42804,
+  brach Einmal-Code-Einlösung ab). Rein serverseitig behoben, kein App-Update nötig.
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —

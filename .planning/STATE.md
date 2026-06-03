@@ -34,11 +34,18 @@
   Master → alle 9; `praesidien` ohne JWT lesbar.
 - DB-Stand versioniert: `supabase/migrations/0001_phase4_jwt_rls.sql`.
 - SW Cache v5 — Update + Migration erzwungen.
+- **Praxistest auf echten Geräten bestanden:** Master-Login, Präsidiums-Trennung,
+  Einmal-Link.
+- **Bugfix Einmal-Codes:** RPC schrieb `used_at = now()` (timestamptz) in eine
+  bigint-Spalte → Fehler 42804, Einlösung schlug fehl. Auf `(extract(epoch from
+  now())*1000)::bigint` geändert (ms, konsistent mit `nowMs()`). Rein serverseitig,
+  kein App-Update nötig. Verifiziert: Einlösung→JWT, danach verbraucht.
 
-**Noch offen vor „wirklich fertig":**
-- App-E2E auf echtem iPhone (2–3 Geräte: Code-Neueingabe, Sperre, Merge, Master).
-- Rollout-Nachricht an Tester: „App schließen, neu öffnen, Code einmal neu eingeben."
-- Daten-Hygiene: 3 verwaiste CCPs mit `praesidium_id = NULL` (nur Master sichtbar).
+**Phase 4 vollständig abgeschlossen.**
+
+**Geparkt (nicht blockierend):**
+- Daten-Hygiene: 3 verwaiste CCPs mit `praesidium_id = NULL` (nur Master sichtbar)
+  → beim Production-Schnitt (Phase 5) bereinigen.
 
 ---
 
