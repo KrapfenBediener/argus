@@ -532,6 +532,20 @@ async function realMergeRequest(targetId){
   try{await client.from('ccps').update({merge_request_from:_ccpId,merge_request_at:nowMs()}).eq('id',targetId);}catch(e){return false;}
   return true;
 }
+/* Direktes Zusammenführen ohne Bestätigung — für die Schulungsumgebung, wo die
+ * Ziel-CCPs fiktive MasterMedics ohne Gerät haben (Ein-Personen-Demo). */
+async function realMergeDirect(targetId){
+  var client=sb(); if(!client||!_ccpId) return false;
+  var grp=_mergeGroupId||_ccpId;
+  if(!_mergeGroupId){ _mergeGroupId=grp; try{await client.from('ccps').update({merge_group_id:grp,merged:true}).eq('id',_ccpId);}catch(e){} }
+  var tgt; try{ tgt=(await client.from('ccps').select('*').eq('id',targetId).single()).data; }catch(e){}
+  if(!tgt) return false;
+  var used=[]; try{ var gm=await client.from('ccps').select('kennung').eq('merge_group_id',grp); if(gm.data) gm.data.forEach(function(c){if(c.kennung)used.push(c.kennung);}); }catch(e){}
+  var tk=tgt.kennung||'B';
+  if(used.indexOf(tk)!==-1){ tk=nextFreeKennung(used); try{await client.from('patients').update({ccp:tk}).eq('ccp_id',targetId);}catch(e){} }
+  try{await client.from('ccps').update({merge_group_id:grp,kennung:tk,merged:true,merge_request_from:null,merge_request_at:null}).eq('id',targetId);}catch(e){}
+  return true;
+}
 async function realMergeAccept(fromId){
   var client=sb(); if(!client||!_ccpId) return false;
   var src; try{ src=(await client.from('ccps').select('*').eq('id',fromId).single()).data; }catch(e){}
@@ -1206,9 +1220,16 @@ document.addEventListener("click",async function(e){
     if(!cands.length){await confirmModal("Kein zusammenführbarer CCP im Präsidium gefunden.\n\n(Nur eigenständige, noch nicht zusammengeführte CCPs.)","OK");return;}
     var tgt=await ccpJoinModal(cands);
     if(!tgt)return;
-    var okr=await realMergeRequest(tgt);
-    if(okr){await loadPatients();render();toast("Anfrage gesendet — warte auf Bestätigung der CCP-Leitung");}
-    else toast("Anfrage fehlgeschlagen");
+    if(_praesidiumName==='Schulungsumgebung'){
+      /* Demo: direkt zusammenführen (kein zweites Gerät zum Bestätigen) */
+      var okd=await realMergeDirect(tgt);
+      if(okd){await loadMeta();await loadPatients();render();toast("CCPs zusammengeführt");}
+      else toast("Zusammenführen fehlgeschlagen");
+    }else{
+      var okr=await realMergeRequest(tgt);
+      if(okr){await loadPatients();render();toast("Anfrage gesendet — warte auf Bestätigung der CCP-Leitung");}
+      else toast("Anfrage fehlgeschlagen");
+    }
     return;
   }
   if(a==="rmergeleave"){
