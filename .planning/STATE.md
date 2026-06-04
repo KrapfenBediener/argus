@@ -68,8 +68,12 @@
   zuletzt angelegten Patienten; Prio-Schnellaktion + „öffnen"-Sprung; „Was ist
   neu"-Hinweis (whatsNewModal/WHATS_NEW). [Zobel #8, Braunbeck #1/#2]
   Noch offen aus B: Rufname-Hinweis gem. REK Sonderlagen am Kürzel-Feld [Zobel #2]
-  (klein, ggf. in C mitnehmen). Aktiver „Bitte aktualisieren"-Anstoß (3b) bewusst
-  zurückgestellt, bis sich zeigt, dass Tester auf alten Versionen hängenbleiben.
+  (klein, ggf. in C mitnehmen).
+- **Update-Auslieferung — ✅ repariert (v0.5.1):** iOS-PWA blieb auf alter Version,
+  weil die SW-Revalidierung ohne `event.waitUntil` lief (iOS killt den SW vor dem
+  Cache-Update). Behoben + `version.json`-basierte Update-Erkennung mit
+  „Jetzt aktualisieren"-Banner (= 3b, jetzt umgesetzt). **Merke:** `version.json`
+  bei jedem Release gleich `APP_VERSION` setzen.
 - **Paket C — offen:** fachliche Tiefe — Vitalwerte-Verlaufsdoku (PFC, einklappbar),
   neurologisches Defizit unter „D", Funktions-/Rollenanzeige am CCP.
   [Schill, Zobel #1] · „D"-Punkt mit Schill kurz inhaltlich klären.
