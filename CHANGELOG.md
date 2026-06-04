@@ -6,6 +6,18 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.8.1 — 2026-06-04
+**Korrekturen (Tester-Feedback)**
+- **Behoben:** „Alle Patienten" war doppelt (CCP-Hauptmenü + Patientenübersicht) —
+  jetzt nur noch unter „Patientenübersicht".
+- **Behoben:** Nach dem Löschen/Abschließen von CCPs wurde der Zähler offener CCPs
+  nicht aktualisiert → „CCP beitreten" blieb sichtbar, bis man das Präsidium verließ
+  und neu betrat. Jetzt wird `loadOpenCcpCount()` direkt nach Löschen/Abschließen
+  aufgerufen.
+- **Hinweis (kein Bug):** Beim Löschen eines zusammengeführten CCP bleiben die
+  übrigen Merge-Partner bestehen (eigene CCPs mit eigenen Patienten) und erscheinen
+  weiter in „CCP beitreten". In der Schulung leert „Schulung zurücksetzen" alles.
+
 ## v0.8.0 — 2026-06-04
 **Erst-Einführung (Onboarding)**
 - **Neu:** Bei einer echten Neuinstallation erscheint eine kurze, überspringbare

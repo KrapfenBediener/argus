@@ -96,11 +96,15 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.8.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.8.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.8.1': [
+    '„Alle Patienten" ist jetzt nur noch unter „Patientenübersicht" (nicht mehr doppelt im Hauptmenü).',
+    '„CCP beitreten" verschwindet jetzt sofort, wenn keine offenen CCPs mehr da sind — kein Verlassen/Neu-Betreten des Präsidiums mehr nötig.'
+  ],
   '0.8.0': [
     'Neu installierte Geräte bekommen eine kurze, überspringbare Einführung. Du kannst sie jederzeit unter „Hilfestellungen → Einführung erneut ansehen" aufrufen.'
   ],
@@ -1097,7 +1101,6 @@ function vHome(){
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
-  '<button class="navbtn" data-action="opencat" data-cat="all"><span class="ic">≡</span><span><span class="t">Alle Patienten</span><br><span class="s">Gesamtliste — direkt antippen</span></span></button>'+
   navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze")+
   ccpAdminUI();
 }
@@ -1795,7 +1798,7 @@ document.addEventListener("click",async function(e){
     if(!okc)return;
     var ccx=sb();
     if(ccx&&_ccpId){try{await ccx.from('ccps').update({closed_at:nowMs()}).eq('id',_ccpId);}catch(e){}}
-    await leaveCurrentCcp();render();toast("CCP abgeschlossen");go("start");return;
+    await leaveCurrentCcp();await loadOpenCcpCount();toast("CCP abgeschlossen");go("start");return;
   }
   if(a==="ccpdelete"){
     if(!_isMaster){toast("Nur mit MasterToken-Freischaltung möglich");return;}
@@ -1805,7 +1808,7 @@ document.addEventListener("click",async function(e){
     if(!okd)return;
     var cdx=sb();
     if(cdx&&_ccpId){try{await cdx.from('ccps').delete().eq('id',_ccpId);}catch(e){}} /* CASCADE löscht zugehörige Patienten */
-    await leaveCurrentCcp();render();toast("CCP gelöscht");go("start");return;
+    await leaveCurrentCcp();await loadOpenCcpCount();toast("CCP gelöscht");go("start");return;
   }
   if(a==="schulreset"){
     if(_praesidiumName!=='Schulungsumgebung')return;
