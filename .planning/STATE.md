@@ -83,8 +83,9 @@
   „Messung protokollieren" → `vit.log`, eingeklappt). C2 Neuro: Owner-Entscheid
   „bleibt wie es ist" (gestrichen). C3 Funktionsanzeige: Owner-Entscheid gestrichen
   (kleines Team kennt Rollen). [Schill, Zobel #1]
-- **Offen (klein):** C4 Rufname-Hinweis am Kürzel-Feld — wartet auf den genauen
-  Hinweistext vom Owner [Zobel #2].
+- **C4 Rufname-Hinweis:** Owner-Entscheid „passt wie es ist", keine Änderung. ✅
+
+**→ Tester-Feedback-Runde (3 Nutzer) vollständig abgearbeitet** (Pakete A–C, v0.4.0–v0.7.0).
 - **Laufend:** Verständlichkeit/Begriffe für Laien [Zobel #6].
 - **Organisatorisch:** DSB-Gespräch vor PP-/Landes-Umsetzung [Zobel #5];
   Vertriebs-/Erweiterungsidee PTLS/Personensammelstelle [Schill] — geparkt.
