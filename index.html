@@ -96,11 +96,14 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.7.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.8.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.8.0': [
+    'Neu installierte Geräte bekommen eine kurze, überspringbare Einführung. Du kannst sie jederzeit unter „Hilfestellungen → Einführung erneut ansehen" aufrufen.'
+  ],
   '0.7.0': [
     'Vitalwerte-Verlauf: Mit „Messung protokollieren" (im Patienten) frierst du die aktuellen Vitalwerte mit Uhrzeit ein — nützlich bei längerer Versorgung. Eingeklappt, stört den Normalfall nicht.'
   ],
@@ -125,6 +128,14 @@ var WHATS_NEW = {
     'Sperre greift bei Übernahme durch MasterMedic jetzt sofort.'
   ]
 };
+/* Kurze Erst-Einführung (nur bei echter Neuinstallation, überspringbar,
+ * jederzeit aus den Hilfestellungen erneut aufrufbar). Keine Wisch-Gesten. */
+var INTRO_STEPS = [
+  {icon:'🛡️', title:'Willkommen bei ARGUS', text:'ARGUS erfasst und sichtet Patienten am CCP — einhändig bedienbar, offline-fähig und für mehrere Geräte gleichzeitig.'},
+  {icon:'＋', title:'Patienten erfassen', text:'„Patient erfassen" → geführt mit tacSTART oder direkt eine Kategorie (T-1…T-5). Die laufende Nummer vergibt ARGUS automatisch.'},
+  {icon:'▦', title:'Übersicht & Bearbeiten', text:'Über die Kacheln oder „Alle Patienten" findest du jeden Fall. Antippen öffnet Vitalwerte, Maßnahmen, Foto und Kategorie.'},
+  {icon:'⇄', title:'Mehrere Geräte', text:'Alle im selben CCP teilen dieselbe Liste. Wer einen Patienten bearbeitet, sperrt ihn kurz. Offline läuft alles weiter und gleicht sich später ab.'}
+];
 var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
 var _sb      = null;
@@ -1329,7 +1340,8 @@ function vPatient(){
 }
 function sel(a,b){return a===b?" selected":"";}
 function vHelp(){
-  var h='<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
+  var h='<button class="ghost" data-action="showintro" style="margin-bottom:14px">▶ Einführung erneut ansehen</button>'+
+    '<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
     '<div class="helpa">Gehfähig → T-3. Sonst Atmung prüfen: keine Spontanatmung auch nach Freimachen → keine Auto-Kategorie (Einzelfall). Atmung nur nach Freimachen → T-1. Bei Spontanatmung: AF außerhalb 10–30 → T-1; kein Radialispuls → T-1; folgt nicht Befehlen → T-1. Alle vier ok (Atmung, AF, Puls, Befehle) → T-2.</div></div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kategorien</div>';
   CATORDER.forEach(function(cat){var c=CATS[cat];h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span><span class="helpa">'+c.nm+'</span></div>';});
@@ -1442,6 +1454,41 @@ function whatsNewModal(sinceV, recentCap){
   function done(){if(ov.parentNode)ov.parentNode.removeChild(ov);}
   ov.querySelector(".mc-ok").addEventListener("click",done);
   ov.addEventListener("click",function(e){if(e.target===ov)done();});
+}
+/* Erst-Einführung als überspringbare Karten-Sequenz (Button-Navigation, kein Swipe). */
+function introOverlay(){
+  var steps=INTRO_STEPS, i=0;
+  var ov=document.createElement('div'); ov.className='modalov'; ov.id='introov';
+  document.body.appendChild(ov);
+  function close(){ if(ov.parentNode)ov.parentNode.removeChild(ov); try{localStorage.setItem('argus_intro_seen','1');}catch(e){} }
+  function draw(){
+    var s=steps[i];
+    var dots=steps.map(function(_,k){return '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;margin:0 3px;background:'+(k===i?'var(--acc)':'var(--line)')+'"></span>';}).join('');
+    ov.innerHTML='<div class="modalbx" style="text-align:center">'+
+      '<div style="font-size:40px;line-height:1;margin-bottom:8px">'+s.icon+'</div>'+
+      '<div style="font-weight:600;font-size:18px;margin-bottom:8px">'+esc(s.title)+'</div>'+
+      '<div style="font-size:14px;line-height:1.5;color:var(--mut)">'+esc(s.text)+'</div>'+
+      '<div style="margin:16px 0 14px">'+dots+'</div>'+
+      '<div class="row" style="margin:0">'+
+        (i>0?'<button class="ghost btn-back" style="flex:1;margin:0">Zurück</button>':'')+
+        '<button class="prim btn-next" style="flex:2;margin:0;background:var(--ready)">'+(i<steps.length-1?'Weiter':'Los geht’s')+'</button>'+
+      '</div>'+
+      '<button class="ghost btn-skip" style="width:100%;margin-top:10px;border:0;color:var(--mut);font-size:13px">Überspringen</button>'+
+      '</div>';
+    var nb=ov.querySelector('.btn-next'); if(nb)nb.addEventListener('click',function(){ if(i<steps.length-1){i++;draw();}else{close();} });
+    var bb=ov.querySelector('.btn-back'); if(bb)bb.addEventListener('click',function(){ if(i>0){i--;draw();} });
+    var sk=ov.querySelector('.btn-skip'); if(sk)sk.addEventListener('click',close);
+  }
+  draw();
+}
+/* Zeigt das Intro nur bei echter Neuinstallation (window._pendingIntro wird im
+ * init gesetzt, bevor irgendwelche Daten geschrieben werden). */
+function maybeShowIntro(){
+  if(!window._pendingIntro) return;
+  if(localStorage.getItem('argus_intro_seen')) return;
+  if(document.getElementById('introov')) return;
+  window._pendingIntro=false;
+  setTimeout(introOverlay,500);
 }
 /* ── Update-Erkennung ──────────────────────────────────────────────────────
  * Prüft per version.json (network-only, nie gecacht), ob serverseitig eine
@@ -1647,6 +1694,7 @@ document.addEventListener("click",async function(e){
   }
   if(a==="nav"){go(el.getAttribute("data-view"));return;}
   if(a==="whatsnew"){whatsNewModal(null,3);return;}
+  if(a==="showintro"){introOverlay();return;}
   if(a==="resumeccp"){
     /* Kürzel bekannt, aber MasterMedic noch nicht gesetzt → automatisch übernehmen */
     if(operator && !masterMedic){await setMasterMedic(operator);}
@@ -1880,7 +1928,7 @@ document.addEventListener("click",async function(e){
   if(!p.tx)p.tx={};p.tx[f]=!p.tx[f];el.classList.toggle("on",p.tx[f]);await savePatient(p);
 });
 
-function go(view){state.view=view;if(view==="capture")state.capMode="menu";render();}
+function go(view){state.view=view;if(view==="capture")state.capMode="menu";render();if(view==="start"||view==="home")maybeShowIntro();}
 async function back(){
   if(state.view==="patient"){await releasePatientLock();state.readonly=false;go("catlist");}
   else if(state.view==="catlist"){go("overview");}
@@ -1937,6 +1985,15 @@ setInterval(async function(){
 
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
+
+  /* Erstinstallation erkennen — VOR allem anderen, solange die Geräte-Ablage noch
+   * leer ist. Ein bestehender Nutzer (irgendwelche ARGUS-Daten vorhanden) bekommt
+   * KEIN Intro (nur stilles Markieren); nur eine echte Neuinstallation. Eine
+   * spätere Freischaltung für ein weiteres Präsidium ändert das nicht. */
+  var introSeen=localStorage.getItem('argus_intro_seen');
+  var hadData=!!(operator||localStorage.getItem('argus_verified')||localStorage.getItem('argus_unlocked')||localStorage.getItem('argus_jwt')||localStorage.getItem('argus_seen_version')||localStorage.getItem('argus_ccp_id'));
+  window._pendingIntro = (!introSeen && !hadData);
+  if(!introSeen && hadData){ try{localStorage.setItem('argus_intro_seen','1');}catch(e){} }
 
   /* „Was ist neu"-Hinweis: einmalig pro Version. Wird für bestehende Nutzer
    * angezeigt (auch beim ersten Lauf mit sichtbarer Version), nicht für eine
@@ -2056,6 +2113,7 @@ setInterval(async function(){
   if(_ccpId && sb()) subscribeRealtime();
   $("clock").textContent=new Date().toLocaleTimeString("de-DE");
   render();
+  maybeShowIntro();
 })();
 
 if ('serviceWorker' in navigator) {

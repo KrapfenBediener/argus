@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.8.0 — 2026-06-04
+**Erst-Einführung (Onboarding)**
+- **Neu:** Bei einer echten Neuinstallation erscheint eine kurze, überspringbare
+  Einführung (4 Karten, Button-Navigation — kein Swipe, gem. „keine versteckten
+  Gesten"). Jederzeit erneut aufrufbar über „Hilfestellungen → Einführung erneut
+  ansehen".
+- **Erkennung:** `argus_intro_seen` (pro Gerät). Erstinstallation wird am leeren
+  localStorage erkannt — eine spätere Freischaltung für ein weiteres Präsidium löst
+  das Intro NICHT erneut aus. Bestehende Nutzer bekommen beim Update auf 0.8.0
+  kein Intro (nur stilles Markieren), sondern den „Was ist neu"-Hinweis.
+
 ## v0.7.0 — 2026-06-04
 **Paket C (Teil): Vitalwerte-Verlauf**
 - **Neu:** „Messung protokollieren" im Patientendetail friert die aktuellen
