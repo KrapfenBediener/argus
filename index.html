@@ -546,6 +546,21 @@ function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g
 function nowMs(){return Date.now();}
 function two(n){return (n<10?"0":"")+n;}
 function pno(p){return ccpMerged?((p.ccp||"A")+"-"+two(p.num)):(""+p.num);}
+/* Doppelnummer-Erkennung: aktive Patienten mit gleicher (Kennung, Nummer) im
+ * selben CCP. Kann entstehen, wenn mehrere Geräte (v. a. offline) unabhängig
+ * nummerieren. Es wird NICHT automatisch umnummeriert (Nummer steht auf der
+ * Haut) — nur sichtbar markiert, damit das Team physisch nachzieht. */
+function dupNumKeys(){
+  var cnt={}, dup={};
+  patients.forEach(function(p){
+    if(p.status!=='active') return;
+    var k=(p.ccp||'A')+'|'+p.num;
+    cnt[k]=(cnt[k]||0)+1;
+    if(cnt[k]>1) dup[k]=true;
+  });
+  return dup;
+}
+function isDupNum(p){ return !!(p && p.status==='active' && dupNumKeys()[(p.ccp||'A')+'|'+p.num]); }
 function fmtDur(ms){var s=Math.max(0,Math.floor(ms/1000));return two(Math.floor(s/60))+":"+two(s%60);}
 function ageStr(ms){var s=Math.floor((nowMs()-ms)/1000);return s<60?("vor "+s+" s"):("vor "+Math.floor(s/60)+" min");}
 
@@ -1050,6 +1065,11 @@ function vTac(){
 }
 function vOverview(){
   var h=countbar();
+  var dupO=dupNumKeys();
+  if(Object.keys(dupO).length){
+    var labels=Object.keys(dupO).map(function(k){var pp=k.split('|');return ccpMerged?(pp[0]+'-'+pp[1]):pp[1];});
+    h+='<div class="banner" style="margin-bottom:12px;background:var(--surf2);border:1px solid var(--prio)"><span>⚠</span><div><b style="color:var(--prio)">Doppelte Nummer'+(labels.length>1?'n':'')+': '+esc(labels.join(', '))+'</b><br><span class="hint">Im selben CCP doppelt vergeben (z. B. durch parallele Erfassung). Bitte prüfen und einen Patienten neu kennzeichnen.</span></div></div>';
+  }
   CATORDER.forEach(function(cat){var c=CATS[cat];var n=countCat(cat);
     h+='<button class="bigcat" data-action="opencat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+n+'</span></button>';
   });
@@ -1075,8 +1095,10 @@ function vCatlist(){
     h+='<button class="prim" data-action="checkoutready" data-cat="'+cat+'" style="background:var(--ready);margin:0 0 14px">✓ Alle '+readyList.length+' transportfertigen auschecken → gPA</button>';
   }
   if(list.length===0)h+='<p class="muted" style="text-align:center;padding:20px">keine Patienten in dieser Kategorie</p>';
+  var dupC=dupNumKeys();
   list.forEach(function(p){
-    h+='<button class="patrow" data-action="openpat" data-id="'+p.id+'"><span class="pnum">'+pno(p)+'</span>'+
+    var isd=!!dupC[(p.ccp||'A')+'|'+p.num];
+    h+='<button class="patrow" data-action="openpat" data-id="'+p.id+'"><span class="pnum"'+(isd?' style="color:var(--prio)"':'')+'>'+pno(p)+(isd?' ⚠':'')+'</span>'+
       '<span style="flex:1"><span style="font-weight:500">'+(esc(p.name)||"—")+'</span>'+
       '<br><span class="hint js-age" data-ts="'+p.lastTriage+'">'+ageStr(p.lastTriage)+'</span>'+
       (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+p.tqStart+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
@@ -1106,6 +1128,9 @@ function vPatient(){
     '<span class="pill" style="font-size:14px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+' '+c.nm+'</span>'+
     '<span style="flex:1"></span>'+
     '<button class="txbtn '+(p.prio?"on":"")+'" data-action="prio" data-id="'+p.id+'" style="width:auto;'+(p.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio-Transport</button></div>';
+  if(isDupNum(p)){
+    h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:11px;margin-top:8px"><span style="color:var(--prio);font-weight:600">⚠ Nummer '+esc(pno(p))+' doppelt vergeben</span><div class="hint" style="margin-top:3px">Ein weiterer aktiver Patient im selben CCP trägt dieselbe Nummer. Bitte einen davon neu kennzeichnen.</div></div>';
+  }
 
   h+='<div class="sech">Foto zur Identifikation</div><div class="card">';
   if(p.photo){
