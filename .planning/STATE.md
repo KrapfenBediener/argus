@@ -62,8 +62,9 @@
   Test der Beta.
 
 ### Offene Audit-Punkte (geparkt, nach Bedarf angehen)
-- Laufnummern-Kollision bei gleichzeitigem Anlegen auf 2 Geräten (serverseitige
-  Nummernvergabe nötig).
+- Laufnummern-Kollision bei parallelem Anlegen: **Doppelnummer-Warnung eingebaut**
+  (Banner/Liste/Detail, kein Auto-Umnummerieren — Nummer steht auf der Haut).
+  Optionaler Tiefenfix (serverseitige Nummernvergabe) nur bei Bedarf.
 - JWT-Ablauf in sehr langer Dauer-Session (Refresh läuft nur bei Start/`online`).
 - Fotos als base64 inline → Supabase Storage (vor großem Rollout).
 - DSGVO-Löschkonzept, Master-Code-Rotation, Repo-Schnitt, Pro-Tier → Phase 5.
