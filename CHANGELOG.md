@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.5.2 — 2026-06-04
+**Fix: Bearbeitungssperre gibt zuverlässig frei**
+- **Behoben:** Der wartende Nutzer prüfte die Sperre nie erneut — sie blieb auch
+  nach Ablauf der 45 s bestehen, und wenn der Bearbeiter den Patienten verließ,
+  musste der Wartende ebenfalls raus und neu öffnen.
+- **Neu/Verhalten:** Der Heartbeat behandelt jetzt beide Rollen. Wird die Sperre
+  frei (Bearbeiter verlässt den Patienten **oder** 45 s ohne Lebenszeichen), übernimmt
+  der Wartende **automatisch** (Realtime sofort, sonst per Heartbeat ≤5 s) — ohne den
+  Patienten neu öffnen zu müssen. Hinweistext im Schreibschutz angepasst.
+
 ## v0.5.1 — 2026-06-04
 **Fix: Update-Auslieferung (iOS-PWA blieb auf alter Version)**
 - **Behoben:** Service-Worker-Revalidierung wird per `event.waitUntil` am Leben

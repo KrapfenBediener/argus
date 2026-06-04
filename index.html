@@ -96,11 +96,14 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.5.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.5.2';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.5.2': [
+    'Bearbeitungssperre: gibt automatisch frei, sobald der Bearbeiter den Patienten verlässt oder 45 s ohne Aktivität vergehen — Wartende können dann sofort weiterarbeiten, ohne den Patienten neu zu öffnen.'
+  ],
   '0.5.1': [
     'ARGUS erkennt jetzt zuverlässig neue Versionen und bietet ein „Jetzt aktualisieren" an.'
   ],
@@ -234,10 +237,18 @@ function subscribeRealtime(){
        * aber eine MasterMedic-Übernahme der offenen Sperre sofort erkennen. */
       if(state.view==='patient'){
         var n=payload&&payload.new;
-        if(n && state.edit && n.id===state.edit.id && !state.readonly &&
-           n.locked_by && n.locked_by!==operator && (nowMs()-(n.locked_at||0))<LOCK_TTL){
-          state.readonly=true; state.edit.lockedBy=n.locked_by; state.edit.lockedAt=n.locked_at;
-          render(); toast("Sperre durch "+n.locked_by+" übernommen");
+        if(n && state.edit && n.id===state.edit.id){
+          var lb=n.locked_by, la=n.locked_at||0, fresh=(nowMs()-la)<LOCK_TTL;
+          if(state.readonly){
+            /* Wartender: Sperre frei geworden (Bearbeiter raus / abgelaufen) → übernehmen */
+            if(!lb || !fresh || lb===operator){
+              acquirePatientLock(state.edit).then(function(){ render(); toast("Patient frei — du kannst jetzt bearbeiten"); });
+            }else{ state.edit.lockedBy=lb; state.edit.lockedAt=la; }
+          }else if(state.edit.lockedBy===operator && lb && lb!==operator && fresh){
+            /* Bearbeiter: fremde Übernahme (MasterMedic) sofort erkennen */
+            state.readonly=true; state.edit.lockedBy=lb; state.edit.lockedAt=la;
+            render(); toast("Sperre durch "+lb+" übernommen");
+          }
         }
         return;
       }
@@ -1209,7 +1220,7 @@ function vPatient(){
   if(ro){
     h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:13px;margin-bottom:12px">'+
        '<div style="font-weight:600;font-size:15px">🔒 Wird bearbeitet von '+(esc(li.by)||'?')+'</div>'+
-       '<div class="hint" style="margin-top:4px">Schreibgeschützt, um Doppelbearbeitung zu vermeiden. Die Sperre läuft nach 45 s ohne Aktivität automatisch ab.</div>'+
+       '<div class="hint" style="margin-top:4px">Schreibgeschützt, um Doppelbearbeitung zu vermeiden. Sobald die Bearbeitung freigegeben wird oder 45 s ohne Aktivität vergehen, kannst du automatisch übernehmen.</div>'+
        (isMasterMedic()?'<button class="prim" data-action="overridelock" data-id="'+p.id+'" style="margin-top:10px;background:var(--prio);border-color:var(--prio);color:#fff">🔓 Sperre übernehmen (MasterMedic)</button>':'')+
        '</div>';
   }
@@ -1837,23 +1848,33 @@ setInterval(async function(){
   await checkIncomingMergeRequest();
   render();
 },3500);
-/* Sperr-Heartbeat: hält die eigene Sperre frisch und erkennt eine
- * MasterMedic-Übernahme. Läuft nur im Patienten-View; re-rendert NICHT im
- * Normalfall (sonst Fokusverlust beim Tippen), nur wenn die Sperre fremd wird. */
+/* Sperr-Heartbeat (alle 5 s, nur im Patienten-View). Behandelt beide Rollen:
+ *  • Bearbeiter: hält die eigene Sperre frisch; erkennt eine fremde Übernahme.
+ *  • Wartender (readonly): erkennt, wenn die Sperre frei wird (Bearbeiter raus
+ *    oder 45 s ohne Lebenszeichen) und übernimmt dann automatisch.
+ * Re-rendert nur bei echtem Rollenwechsel (sonst Fokusverlust beim Tippen). */
 setInterval(async function(){
-  if(state.view!=="patient"||!state.edit||state.readonly) return;
-  if(state.edit.lockedBy!==operator) return;
+  if(state.view!=="patient"||!state.edit) return;
   var client=sb();
   if(!(client && _ccpId)) return;
-  try{
-    var r=await client.from('patients').select('locked_by,locked_at').eq('id',state.edit.id).single();
-    if(r.data && r.data.locked_by && r.data.locked_by!==operator && (nowMs()-(r.data.locked_at||0))<LOCK_TTL){
-      state.readonly=true; state.edit.lockedBy=r.data.locked_by; state.edit.lockedAt=r.data.locked_at;
-      render(); toast("Sperre durch "+r.data.locked_by+" übernommen"); return; /* übernommen → schreibgeschützt */
-    }
-  }catch(e){}
+  var r; try{ r=await client.from('patients').select('locked_by,locked_at').eq('id',state.edit.id).single(); }catch(e){ return; }
+  if(!r||!r.data) return;
+  var lb=r.data.locked_by, la=r.data.locked_at||0, fresh=(nowMs()-la)<LOCK_TTL;
+  if(state.readonly){
+    /* Wartender: Sperre frei (niemand / abgelaufen / wieder ich) → übernehmen */
+    if(!lb || !fresh || lb===operator){
+      await acquirePatientLock(state.edit); render();
+      toast("Patient frei — du kannst jetzt bearbeiten");
+    }else{ state.edit.lockedBy=lb; state.edit.lockedAt=la; }
+    return;
+  }
+  /* Bearbeiter: fremde Übernahme erkennen */
+  if(state.edit.lockedBy===operator && lb && lb!==operator && fresh){
+    state.readonly=true; state.edit.lockedBy=lb; state.edit.lockedAt=la;
+    render(); toast("Sperre durch "+lb+" übernommen"); return;
+  }
   /* Keepalive höchstens alle 15 s, und nur solange wir die Sperre noch halten. */
-  if(nowMs()-_lockBeat > 15000){
+  if(state.edit.lockedBy===operator && nowMs()-_lockBeat > 15000){
     _lockBeat=nowMs(); state.edit.lockedAt=nowMs();
     try{ await client.from('patients').update({locked_at:state.edit.lockedAt}).eq('id',state.edit.id).eq('locked_by',operator); }catch(e){}
   }
