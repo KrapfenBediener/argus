@@ -86,6 +86,12 @@
 - **C4 Rufname-Hinweis:** Owner-Entscheid „passt wie es ist", keine Änderung. ✅
 
 **→ Tester-Feedback-Runde (3 Nutzer) vollständig abgearbeitet** (Pakete A–C, v0.4.0–v0.7.0).
+
+### Zusätzlich
+- **v0.8.0 — Erst-Einführung (Onboarding):** 4-Karten-Intro bei echter
+  Neuinstallation (überspringbar, kein Swipe), re-aufrufbar via Hilfestellungen.
+  Erkennung über `argus_intro_seen` + leeres localStorage; Re-Unlock für weiteres
+  Präsidium löst es nicht aus; bestehende Nutzer bekommen es nicht.
 - **Laufend:** Verständlichkeit/Begriffe für Laien [Zobel #6].
 - **Organisatorisch:** DSB-Gespräch vor PP-/Landes-Umsetzung [Zobel #5];
   Vertriebs-/Erweiterungsidee PTLS/Personensammelstelle [Schill] — geparkt.
