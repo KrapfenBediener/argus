@@ -96,11 +96,14 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.6.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.7.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.7.0': [
+    'Vitalwerte-Verlauf: Mit „Messung protokollieren" (im Patienten) frierst du die aktuellen Vitalwerte mit Uhrzeit ein — nützlich bei längerer Versorgung. Eingeklappt, stört den Normalfall nicht.'
+  ],
   '0.6.0': [
     'Über „Neuerungen" (unten auf der Startseite) kannst du die letzten Änderungen jederzeit nachlesen.',
     'Wer mehrere Updates verpasst hat, sieht die Neuerungen jetzt zusammengefasst.'
@@ -1287,6 +1290,26 @@ function vPatient(){
     '<div><label class="fieldlab">Pupille re</label>'+inp("pupRe",p.pupRe)+'</div>'+
     '<div><label class="fieldlab">Pupille li</label>'+inp("pupLi",p.pupLi)+'</div></div></div>';
 
+  /* Vitalwerte-Verlauf (für längere Versorgung/PFC). Bewusst schlank & eingeklappt
+   * — im Normalfall nur ein Knopf. „Messung protokollieren" friert die aktuellen
+   * Vitalwerte mit Uhrzeit + Kürzel als Eintrag ein (gespeichert in p.vit.log). */
+  var vlog=(p.vit && Array.isArray(p.vit.log)) ? p.vit.log : [];
+  h+='<div class="card" style="padding:11px 13px">';
+  h+='<button class="txbtn" data-action="logvit" data-id="'+p.id+'" style="width:100%">＋ Messung protokollieren</button>';
+  if(vlog.length){
+    h+='<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--mut)">Protokollierte Messungen ('+vlog.length+')</summary><div style="margin-top:6px">';
+    vlog.slice().reverse().forEach(function(m){
+      var tm=new Date(m.t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+      var parts=[];
+      if(m.af)parts.push('AF '+esc(m.af)); if(m.spo2)parts.push('SpO₂ '+esc(m.spo2));
+      if(m.hf)parts.push('HF '+esc(m.hf)); if(m.rr)parts.push('RR '+esc(m.rr));
+      if(m.avpu)parts.push('AVPU '+esc(m.avpu)); if(m.pain)parts.push('Schmerz '+esc(m.pain));
+      h+='<div style="font-size:13px;padding:6px 0;border-top:1px solid var(--line)"><span class="mono" style="font-weight:600">'+tm+'</span>'+(m.by?' · '+esc(m.by):'')+'<br><span class="hint">'+(parts.join(' · ')||'—')+'</span></div>';
+    });
+    h+='</div></details>';
+  }
+  h+='</div>';
+
   h+='<div class="sech">Verlauf / Karte</div><div class="card">'+
     '<label class="fieldlab">MOI / Unfallhergang</label><textarea data-kind="pat" data-field="moi">'+esc(p.moi)+'</textarea>'+
     '<div style="height:9px"></div><label class="fieldlab">Verletzung / Erkrankung (Freitext)</label><textarea data-kind="pat" data-field="injury">'+esc(p.injury)+'</textarea>'+
@@ -1801,6 +1824,17 @@ document.addEventListener("click",async function(e){
   if(a==="prio"){var p2=state.edit;p2.prio=!p2.prio;await savePatient(p2);render();return;}
   if(a==="ready"){var p3=state.edit;p3.ready=!p3.ready;await savePatient(p3);render();return;}
   if(a==="tq"){var p4=state.edit;p4.tqStart=p4.tqStart?null:nowMs();await savePatient(p4);render();return;}
+  if(a==="logvit"){
+    var pv=state.edit; if(!pv) return;
+    if(state.readonly){toast("Schreibgeschützt");return;}
+    var v=pv.vit||{};
+    if(!(v.af||v.spo2||v.hf||v.rr||v.avpu||v.pain)){toast("Keine Vitalwerte zum Protokollieren");return;}
+    if(!pv.vit) pv.vit={};
+    if(!Array.isArray(pv.vit.log)) pv.vit.log=[];
+    pv.vit.log.push({t:nowMs(),af:v.af||'',spo2:v.spo2||'',hf:v.hf||'',rr:v.rr||'',avpu:v.avpu||'',pain:v.pain||'',by:operator||''});
+    await savePatient(pv);render();toast("Messung protokolliert");
+    return;
+  }
   if(a==="gpa"){var p5=state.edit;p5.status="gpa";p5.lockedBy=null;p5.lockedAt=null;await savePatient(p5);await pushLock(p5);state.readonly=false;await loadPatients();go("overview");toast("Patient #"+p5.num+" → gPA");return;}
   if(a==="reactivate"){var pr=state.edit;pr.status="active";await savePatient(pr);await loadPatients();go("overview");toast("Patient #"+pr.num+" zurückgeholt → aktiv");return;}
   if(a==="checkoutready"){

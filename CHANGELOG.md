@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.7.0 — 2026-06-04
+**Paket C (Teil): Vitalwerte-Verlauf**
+- **Neu:** „Messung protokollieren" im Patientendetail friert die aktuellen
+  Vitalwerte (AF/SpO₂/HF/RR/AVPU/Schmerz) mit Uhrzeit + Kürzel als Eintrag ein —
+  für längere Versorgung / Prolonged Field Care [Schill]. Bewusst schlank: ein
+  Knopf, der Verlauf ist eingeklappt (`<details>`), stört den Normalfall nicht.
+  Speicherung in `vit.log` (kein DB-Schema-Eingriff).
+- **De-scoped:** C2 (Neuro-Feld) bleibt unverändert; C3 (Funktionsanzeige am CCP)
+  gestrichen — bei überschaubaren Teams kennt jeder seine Rolle (Owner-Entscheid).
+
 ## v0.6.0 — 2026-06-04
 **Update-Kommunikation: kumulative Neuerungen + „Neuerungen"-Button**
 - **Neu:** „Was ist neu"-Hinweis zeigt jetzt **alle** Versionen, die seit der zuletzt
