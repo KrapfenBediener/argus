@@ -96,6 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
+var APP_VERSION = '0.4.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md */
 var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
 var _sb      = null;
@@ -210,8 +211,19 @@ function subscribeRealtime(){
   var client=sb(); if(!client||!_ccpId||_channel) return;
   _channel=client.channel('ccp-'+_ccpId)
     .on('postgres_changes',{event:'*',schema:'public',table:'patients',
-        filter:'ccp_id=eq.'+_ccpId}, async function(){
-      if(state.view==='patient'||state.view==='checklist') return;
+        filter:'ccp_id=eq.'+_ccpId}, async function(payload){
+      /* Im Patienten-View NICHT neu laden (sonst Fokusverlust beim Tippen) —
+       * aber eine MasterMedic-Übernahme der offenen Sperre sofort erkennen. */
+      if(state.view==='patient'){
+        var n=payload&&payload.new;
+        if(n && state.edit && n.id===state.edit.id && !state.readonly &&
+           n.locked_by && n.locked_by!==operator && (nowMs()-(n.locked_at||0))<LOCK_TTL){
+          state.readonly=true; state.edit.lockedBy=n.locked_by; state.edit.lockedAt=n.locked_at;
+          render(); toast("Sperre durch "+n.locked_by+" übernommen");
+        }
+        return;
+      }
+      if(state.view==='checklist') return;
       await loadPatients(); render();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ccps',
@@ -376,7 +388,7 @@ function vLocked(){
   h+='<input id="inv-input" placeholder="XXXX-XXXX (8-stelliger Code)" style="font-family:monospace;font-size:15px;letter-spacing:2px;text-transform:uppercase">';
   h+='<button class="prim" data-action="checkinvite" style="margin-top:10px">Zugang prüfen</button>';
   h+='</div>';
-  h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">ARGUS Beta · Nur für autorisierte Nutzer</p>';
+  h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · Nur für autorisierte Nutzer</p>';
   return h;
 }
 function vInstall(){
@@ -498,6 +510,20 @@ var CATS = {
   T5:{label:"T-5",bg:"var(--t5)",fg:"#fff",nm:"verstorben",bd:"var(--t5b)"}
 };
 var CATORDER = ["T1","T2","T3","T5"];
+/* Spezial-„Buckets" neben den Sichtungskategorien: prioritärer Transport,
+ * abtransportiert (gPA) und eine flache Gesamtliste. */
+var BUCKETS = {
+  all:  {label:"Alle",   nm:"alle Patienten",   bg:"var(--acc)",   fg:"#fff"},
+  prio: {label:"PRIO",   nm:"prioritärer Transport", bg:"var(--prio)", fg:"#fff"},
+  gpa:  {label:"gPA",    nm:"abtransportiert",  bg:"var(--surf2)", fg:"var(--mut)", bd:"var(--line)"}
+};
+function catDef(key){ return CATS[key] || BUCKETS[key] || BUCKETS.all; }
+function bucketPatients(key){
+  if(key==='gpa')  return patients.filter(function(p){return p.status==='gpa';});
+  if(key==='prio') return patients.filter(function(p){return p.status==='active'&&p.prio;});
+  if(key==='all')  return patients.slice();
+  return activeByCat(key);
+}
 var TXG=[
   ["A – Atemweg",[["seiten","Seitenlage"],["wendl","Wendl/Güdel"],["larynx","Larynxtubus"],["intub","ET-Intubation"],["konio","Koniotomie"]]],
   ["B – Atmung",[["chest","Chest Seal"],["entlast","Entlastungspkt."],["drainage","Thoraxdrainage"]]],
@@ -844,7 +870,7 @@ async function flushPendingPatients(arr, client, ccpIds){
       continue;
     }
     var pushed=false;
-    try{ var r=await client.from('patients').upsert(patToRow(lp)); if(!r.error) pushed=true; }catch(e){}
+    try{ var lrow=patToRow(lp); delete lrow.locked_by; delete lrow.locked_at; var r=await client.from('patients').upsert(lrow); if(!r.error) pushed=true; }catch(e){}
     if(pushed){ delete lp._dirty; await sSet("ccp_pat_"+lp.id, lp); }
     byId[lp.id]=normalize(lp);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
   }
@@ -928,7 +954,11 @@ async function savePatient(p){
   var client=sb();
   if(client && _ccpId){
     try{
-      var r=await client.from('patients').upsert(patToRow(p));
+      /* Sperr-Spalten NICHT über die Datenspeicherung schreiben — sonst könnte
+       * ein Bearbeiter eine vom MasterMedic übernommene Sperre durch bloßes
+       * Weitertippen zurückerobern. Sperren laufen ausschließlich über pushLock. */
+      var row=patToRow(p); delete row.locked_by; delete row.locked_at;
+      var r=await client.from('patients').upsert(row);
       if(!r.error){ delete p._dirty; await sSet("ccp_pat_"+p.id,p); }
     }catch(e){}
   }
@@ -946,17 +976,27 @@ function lockInfo(p){
   var age=nowMs()-p.lockedAt;
   return {locked:age<LOCK_TTL, by:p.lockedBy, mine:(p.lockedBy===operator), age:age};
 }
+/* Schreibt ausschließlich die Sperr-Spalten (getrennt von der Datenspeicherung).
+ * So bleibt die Sperre eine eigene, klar steuerbare Größe. */
+async function pushLock(p){
+  var client=sb();
+  if(client && _ccpId && p && !p.demo){
+    try{ await client.from('patients').update({locked_by:p.lockedBy||null, locked_at:p.lockedAt||null}).eq('id',p.id); }catch(e){}
+  }
+}
 async function acquirePatientLock(p){
   if(!p) return;
   p.lockedBy=operator||"?"; p.lockedAt=nowMs();
   state.readonly=false; _lockBeat=nowMs();
-  await savePatient(p);
+  await sSet("ccp_pat_"+p.id,p);
+  await pushLock(p);
 }
 async function releasePatientLock(){
   var p=state.edit;
   if(p && p.lockedBy && p.lockedBy===operator){
     p.lockedBy=null; p.lockedAt=null;
-    await savePatient(p);
+    await sSet("ccp_pat_"+p.id,p);
+    await pushLock(p);
   }
 }
 function activeByCat(cat){return patients.filter(function(p){return p.status==="active"&&p.cat===cat;});}
@@ -966,7 +1006,7 @@ function countPrio(){return patients.filter(function(p){return p.status==="activ
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:CATS[state.cat?state.cat:"T1"].label,patient:"Patient",help:"Hilfestellungen",admin:"Administration"};
+  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration"};
   $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
@@ -987,10 +1027,11 @@ function render(){
   if(state.view!==_lastView){ if(typeof window!=="undefined"&&window.scrollTo)window.scrollTo(0,0); _lastView=state.view; }
 }
 function countbar(){
+  /* Zähler sind anklickbar → öffnen die jeweilige Liste (auch PRIO und gPA). */
   var s="";var defs=[["T1",CATS.T1],["T2",CATS.T2],["T3",CATS.T3],["T5",CATS.T5]];
-  defs.forEach(function(d){var c=d[1];s+='<div class="cnt" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="n">'+countCat(d[0])+'</span><span class="l">'+c.label+'</span></div>';});
-  s+='<div class="cnt" style="background:var(--prio);color:#fff"><span class="n">'+countPrio()+'</span><span class="l">PRIO</span></div>';
-  s+='<div class="cnt" style="background:var(--surf2);color:var(--mut)"><span class="n">'+countGpa()+'</span><span class="l">gPA</span></div>';
+  defs.forEach(function(d){var c=d[1];s+='<div class="cnt" data-action="opencat" data-cat="'+d[0]+'" style="cursor:pointer;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="n">'+countCat(d[0])+'</span><span class="l">'+c.label+'</span></div>';});
+  s+='<div class="cnt" data-action="opencat" data-cat="prio" style="cursor:pointer;background:var(--prio);color:#fff"><span class="n">'+countPrio()+'</span><span class="l">PRIO</span></div>';
+  s+='<div class="cnt" data-action="opencat" data-cat="gpa" style="cursor:pointer;background:var(--surf2);color:var(--mut)"><span class="n">'+countGpa()+'</span><span class="l">gPA</span></div>';
   return '<div class="countbar">'+s+'</div>';
 }
 function navbtn(view,ic,t,s){return '<button class="navbtn" data-action="nav" data-view="'+view+'"><span class="ic">'+ic+'</span><span><span class="t">'+t+'</span><br><span class="s">'+s+'</span></span></button>';}
@@ -1009,6 +1050,7 @@ function vHome(){
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
+  '<button class="navbtn" data-action="opencat" data-cat="all"><span class="ic">≡</span><span><span class="t">Alle Patienten</span><br><span class="s">Gesamtliste — direkt antippen</span></span></button>'+
   navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze")+
   ccpAdminUI();
 }
@@ -1073,7 +1115,8 @@ function vOverview(){
   CATORDER.forEach(function(cat){var c=CATS[cat];var n=countCat(cat);
     h+='<button class="bigcat" data-action="opencat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+n+'</span></button>';
   });
-  h+='<p class="hint" style="text-align:center;margin-top:10px">Kategorie antippen → Patientenliste → Patient antippen</p>';
+  h+='<button class="navbtn" data-action="opencat" data-cat="all" style="margin-top:10px"><span class="ic">≡</span><span><span class="t">Alle Patienten</span><br><span class="s">Gesamtliste — direkt antippen</span></span></button>';
+  h+='<p class="hint" style="text-align:center;margin-top:10px">Kachel oben oder Kategorie antippen → Liste → Patient antippen</p>';
   if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
     /* Einheitlich echtes geräteübergreifendes Zusammenführen — auch in der
@@ -1083,29 +1126,38 @@ function vOverview(){
   return h;
 }
 function vCatlist(){
-  var cat=state.cat,c=CATS[cat];
-  var list=activeByCat(cat).sort(function(a,b){
+  var cat=state.cat, c=catDef(cat), special=!CATS[cat];
+  var list=bucketPatients(cat).sort(function(a,b){
     var ca=a.ccp||"A",cb=b.ccp||"A";
     if(ca!==cb)return ca<cb?-1:1;
     return a.num-b.num;
   });
   var h='<div class="bigcat" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+';margin-bottom:14px"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+list.length+'</span></div>';
-  var readyList=list.filter(function(p){return p.ready;});
-  if(readyList.length>0){
-    h+='<button class="prim" data-action="checkoutready" data-cat="'+cat+'" style="background:var(--ready);margin:0 0 14px">✓ Alle '+readyList.length+' transportfertigen auschecken → gPA</button>';
+  /* „Transportfertige auschecken" nur in den echten aktiven Kategorien. */
+  if(!special){
+    var readyList=list.filter(function(p){return p.ready;});
+    if(readyList.length>0){
+      h+='<button class="prim" data-action="checkoutready" data-cat="'+cat+'" style="background:var(--ready);margin:0 0 14px">✓ Alle '+readyList.length+' transportfertigen auschecken → gPA</button>';
+    }
   }
-  if(list.length===0)h+='<p class="muted" style="text-align:center;padding:20px">keine Patienten in dieser Kategorie</p>';
+  if(list.length===0)h+='<p class="muted" style="text-align:center;padding:20px">keine Patienten</p>';
   var dupC=dupNumKeys();
   list.forEach(function(p){
     var isd=!!dupC[(p.ccp||'A')+'|'+p.num];
+    var cc=CATS[p.cat]||CATS.T3;
+    /* In den Sammel-Listen (Alle/Prio/gPA) zusätzlich Kategorie zeigen. */
+    var catPill = special ? '<span class="pill" style="background:'+cc.bg+';color:'+cc.fg+(cc.bd?';border:1px solid '+cc.bd:'')+'">'+cc.label+'</span>' : '';
+    var gpaPill = (p.status==='gpa') ? '<span class="pill" style="background:var(--surf2);color:var(--mut)">gPA</span>' : '';
     h+='<button class="patrow" data-action="openpat" data-id="'+p.id+'"><span class="pnum"'+(isd?' style="color:var(--prio)"':'')+'>'+pno(p)+(isd?' ⚠':'')+'</span>'+
       '<span style="flex:1"><span style="font-weight:500">'+(esc(p.name)||"—")+'</span>'+
       '<br><span class="hint js-age" data-ts="'+p.lastTriage+'">'+ageStr(p.lastTriage)+'</span>'+
       (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+p.tqStart+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
+      catPill+
       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
       (p.photo?'<span class="pill" style="background:var(--surf2);color:var(--mut)">📷</span>':'')+
       (function(){var l=lockInfo(p);return (l.locked&&!l.mine)?'<span class="pill" style="background:var(--surf2);color:var(--prio);border:1px solid var(--prio)">🔒 '+esc(l.by)+'</span>':'';})()+
-      (p.ready?'<span class="pill" style="background:var(--ready);color:#fff">fertig</span>':'')+'</button>';
+      gpaPill+
+      (p.ready&&p.status!=='gpa'?'<span class="pill" style="background:var(--ready);color:#fff">fertig</span>':'')+'</button>';
   });
   return h;
 }
@@ -1188,8 +1240,13 @@ function vPatient(){
     '<div style="height:9px"></div><label class="fieldlab">Erstversorger</label>'+inp("fr",p.fr)+
     '<div style="height:9px"></div><label class="fieldlab">Notizen</label><textarea data-kind="pat" data-field="notes">'+esc(p.notes)+'</textarea></div>';
 
-  h+='<button class="txbtn '+(p.ready?"on":"")+'" data-action="ready" data-id="'+p.id+'" style="width:100%;padding:14px;font-size:15px;'+(p.ready?'background:var(--ready);border-color:var(--ready);color:#fff':'')+'">'+(p.ready?'✓ transportfertig':'als transportfertig markieren')+'</button>';
-  h+='<button class="prim" data-action="gpa" data-id="'+p.id+'" style="background:var(--ready);color:#fff">Abtransport → gPA</button>';
+  if(p.status==='gpa'){
+    h+='<div class="card" style="background:var(--surf2);border:1px solid var(--line);padding:11px;margin-bottom:8px"><span style="font-weight:600">↩ Bereits abtransportiert (gPA)</span><div class="hint" style="margin-top:3px">Falls versehentlich ausgecheckt: hier zurück in den aktiven Bestand holen.</div></div>';
+    h+='<button class="prim" data-action="reactivate" data-id="'+p.id+'" style="background:var(--acc);color:#fff">↩ Zurückholen → aktiv</button>';
+  }else{
+    h+='<button class="txbtn '+(p.ready?"on":"")+'" data-action="ready" data-id="'+p.id+'" style="width:100%;padding:14px;font-size:15px;'+(p.ready?'background:var(--ready);border-color:var(--ready);color:#fff':'')+'">'+(p.ready?'✓ transportfertig':'als transportfertig markieren')+'</button>';
+    h+='<button class="prim" data-action="gpa" data-id="'+p.id+'" style="background:var(--ready);color:#fff">Abtransport → gPA</button>';
+  }
   h+='<p class="hint" style="text-align:center;margin-top:8px">Eingaben werden automatisch gespeichert.</p>';
   h+='</div>';
   return h;
@@ -1242,7 +1299,7 @@ function vStart(){
   }
   h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
   h += '🏗 '+esc(_praesidiumName||'—')+' · wechseln</button>';
-  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta · © 2026 Gabor Szeman</p>';
+  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · © 2026 Gabor Szeman</p>';
   return h;
 }
 
@@ -1626,7 +1683,8 @@ document.addEventListener("click",async function(e){
   if(a==="prio"){var p2=state.edit;p2.prio=!p2.prio;await savePatient(p2);render();return;}
   if(a==="ready"){var p3=state.edit;p3.ready=!p3.ready;await savePatient(p3);render();return;}
   if(a==="tq"){var p4=state.edit;p4.tqStart=p4.tqStart?null:nowMs();await savePatient(p4);render();return;}
-  if(a==="gpa"){var p5=state.edit;p5.status="gpa";p5.lockedBy=null;p5.lockedAt=null;await savePatient(p5);state.readonly=false;await loadPatients();go("overview");toast("Patient #"+p5.num+" → gPA");return;}
+  if(a==="gpa"){var p5=state.edit;p5.status="gpa";p5.lockedBy=null;p5.lockedAt=null;await savePatient(p5);await pushLock(p5);state.readonly=false;await loadPatients();go("overview");toast("Patient #"+p5.num+" → gPA");return;}
+  if(a==="reactivate"){var pr=state.edit;pr.status="active";await savePatient(pr);await loadPatients();go("overview");toast("Patient #"+pr.num+" zurückgeholt → aktiv");return;}
   if(a==="checkoutready"){
     var rcat=el.getAttribute("data-cat");
     await loadPatients();
@@ -1699,21 +1757,21 @@ setInterval(async function(){
 setInterval(async function(){
   if(state.view!=="patient"||!state.edit||state.readonly) return;
   if(state.edit.lockedBy!==operator) return;
-  if(nowMs()-_lockBeat <= 15000) return;
-  _lockBeat=nowMs();
   var client=sb();
-  if(client && _ccpId){
-    try{
-      var r=await client.from('patients').select('locked_by,locked_at').eq('id',state.edit.id).single();
-      if(r.data && r.data.locked_by && r.data.locked_by!==operator && (nowMs()-(r.data.locked_at||0))<LOCK_TTL){
-        state.readonly=true; state.edit.lockedBy=r.data.locked_by; state.edit.lockedAt=r.data.locked_at;
-        render(); toast("Sperre durch "+r.data.locked_by+" übernommen"); return; /* überschrieben → schreibgeschützt */
-      }
-    }catch(e){}
+  if(!(client && _ccpId)) return;
+  try{
+    var r=await client.from('patients').select('locked_by,locked_at').eq('id',state.edit.id).single();
+    if(r.data && r.data.locked_by && r.data.locked_by!==operator && (nowMs()-(r.data.locked_at||0))<LOCK_TTL){
+      state.readonly=true; state.edit.lockedBy=r.data.locked_by; state.edit.lockedAt=r.data.locked_at;
+      render(); toast("Sperre durch "+r.data.locked_by+" übernommen"); return; /* übernommen → schreibgeschützt */
+    }
+  }catch(e){}
+  /* Keepalive höchstens alle 15 s, und nur solange wir die Sperre noch halten. */
+  if(nowMs()-_lockBeat > 15000){
+    _lockBeat=nowMs(); state.edit.lockedAt=nowMs();
+    try{ await client.from('patients').update({locked_at:state.edit.lockedAt}).eq('id',state.edit.id).eq('locked_by',operator); }catch(e){}
   }
-  state.edit.lockedAt=nowMs();
-  await savePatient(state.edit);
-},16000);
+},5000);
 
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
