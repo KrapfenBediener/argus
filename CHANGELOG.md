@@ -6,6 +6,19 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.5.0 — 2026-06-04
+**Paket B: Erfassungs-Flow + Versions-Hinweis (Tester-Feedback)**
+- **Neu:** Erfassungs-Screen zeigt die **nächste Nummer** und den **zuletzt
+  angelegten Patienten** (Nr. + Kategorie) dauerhaft an — beugt Doppelerfassung vor
+  (ergänzt die Doppelnummer-Warnung um Vorbeugung). [Braunbeck #1]
+- **Neu:** Schnellaktionen am zuletzt angelegten Patienten direkt auf dem
+  Erfassungs-Screen: **Prio** setzen ohne Navigation [Zobel #8], **öffnen** springt
+  in die Details [Braunbeck #2]. Der schnelle Standardfall (Kategorie antippen =
+  fertig) bleibt unverändert.
+- **Neu:** „Was ist neu"-Hinweis — einmaliger, wegklickbarer Hinweis nach einem
+  Update mit kurzen, nutzerverständlichen Highlights (`WHATS_NEW`). Voller
+  technischer Verlauf bleibt hier im CHANGELOG.
+
 ## v0.4.0 — 2026-06-04
 **Paket A: Erreichbarkeit & Mehrgeräte-Sicherheit (Tester-Feedback)**
 - **Neu:** „Alle Patienten" — flache, anklickbare Gesamtliste (Startseite + Übersicht).

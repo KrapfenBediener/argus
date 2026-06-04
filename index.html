@@ -96,7 +96,21 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.4.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md */
+var APP_VERSION = '0.5.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md */
+/* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
+ * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
+var WHATS_NEW = {
+  '0.5.0': [
+    'Beim Erfassen siehst du jetzt die nächste Nummer und den zuletzt angelegten Patienten (weniger Doppelerfassung).',
+    'Prio lässt sich direkt nach dem Anlegen setzen; „öffnen" springt sofort in die Patientendetails.',
+    'Hinweis bei neuen Versionen (dieses Fenster).'
+  ],
+  '0.4.0': [
+    'Ausgecheckte Patienten (gPA) lassen sich wieder aufrufen und zurückholen.',
+    'Neue „Alle Patienten"-Liste; die PRIO- und gPA-Zähler sind direkt antippbar.',
+    'Sperre greift bei Übernahme durch MasterMedic jetzt sofort.'
+  ]
+};
 var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
 var _sb      = null;
@@ -560,7 +574,7 @@ var FLOW={
   cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
 };
 
-var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null, readonly:false};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null, readonly:false, lastCreatedId:null};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -939,7 +953,7 @@ async function addPatient(cat){
     try{ var r=await client.from('patients').insert(patToRow(p)); if(!r.error){ delete p._dirty; await sSet("ccp_pat_"+p.id,p); } }catch(e){}
   }
   await loadPatients();
-  return num;
+  return p;
 }
 async function savePatient(p){
   p.updated=nowMs();
@@ -1075,10 +1089,30 @@ function vChecklist(){
 }
 function vCapture(){
   if(state.capMode==="tac")return vTac();
-  return '<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--surf2)"><span style="text-align:center"><span class="t">Erfassen mit tacSTART</span><br><span class="s">geführte Vorsichtung Schritt für Schritt</span></span></button>'+
+  var h='<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--surf2)"><span style="text-align:center"><span class="t">Erfassen mit tacSTART</span><br><span class="s">geführte Vorsichtung Schritt für Schritt</span></span></button>'+
     '<div class="sech">oder direkt zuordnen</div>'+
-    catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5")+
-    '<p class="hint" style="text-align:center;margin-top:14px">Die laufende Nummer wird automatisch &amp; geräteübergreifend vergeben.</p>';
+    catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5");
+  /* Kontext: nächste Nummer + zuletzt angelegter Patient (gegen Doppelerfassung).
+   * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
+   * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
+  h+='<div class="card" style="margin-top:12px;padding:12px">';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+nextNum()+'</span></div>';
+  var lc=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
+  if(lc){
+    var cc=CATS[lc.cat]||CATS.T3;
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">';
+    h+='<span class="hint">Zuletzt:</span>';
+    h+='<span class="mono" style="font-weight:700">'+pno(lc)+'</span>';
+    h+='<span class="pill" style="background:'+cc.bg+';color:'+cc.fg+(cc.bd?';border:1px solid '+cc.bd:'')+'">'+cc.label+'</span>';
+    if(lc.prio)h+='<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>';
+    h+='<span style="flex:1"></span>';
+    h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="width:auto;padding:6px 12px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
+    h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="width:auto;padding:6px 12px">öffnen</button>';
+    h+='</div>';
+  }
+  h+='</div>';
+  h+='<p class="hint" style="text-align:center;margin-top:14px">Die laufende Nummer wird automatisch &amp; geräteübergreifend vergeben.</p>';
+  return h;
 }
 function catBig(cat){var c=CATS[cat];return '<button class="bigcat" data-action="addcat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span><br><span class="nm">'+c.nm+'</span></span><span class="cc">＋</span></button>';}
 function vTac(){
@@ -1335,6 +1369,21 @@ function confirmModal(msg,okLabel){
     ov.querySelector(".mc-ok").addEventListener("click",function(){done(true);});
     ov.addEventListener("click",function(e){if(e.target===ov)done(false);});
   });
+}
+function whatsNewModal(){
+  var items=(WHATS_NEW[APP_VERSION]||[]);
+  if(!items.length) return;
+  var ov=document.createElement("div");ov.className="modalov";
+  var lis=items.map(function(t){return '<li style="margin:5px 0">'+esc(t)+'</li>';}).join('');
+  ov.innerHTML='<div class="modalbx">'+
+    '<div class="modalmsg" style="font-weight:600;font-size:17px;text-align:center">Neu in ARGUS v'+esc(APP_VERSION)+'</div>'+
+    '<ul style="text-align:left;margin:12px 0 0;padding-left:20px;font-size:14px;line-height:1.45">'+lis+'</ul>'+
+    '<div class="hint" style="margin-top:12px">Falls etwas fehlt oder seltsam wirkt: App komplett schließen und neu öffnen.</div>'+
+    '<div class="row" style="margin-top:16px"><button class="prim mc-ok" style="flex:1;margin:0;background:var(--ready)">Verstanden</button></div></div>';
+  document.body.appendChild(ov);
+  function done(){if(ov.parentNode)ov.parentNode.removeChild(ov);}
+  ov.querySelector(".mc-ok").addEventListener("click",done);
+  ov.addEventListener("click",function(e){if(e.target===ov)done();});
 }
 function promptModal(msg,def){
   return new Promise(function(resolve){
@@ -1657,8 +1706,13 @@ document.addEventListener("click",async function(e){
   }
   if(a==="tacstart"){state.capMode="tac";state.tacNode="start";state.tacResult=null;render();return;}
   if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
-  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");var num=await addPatient(cat);state.capMode="menu";state.tacResult=null;render();toast("Patient #"+num+" angelegt ("+CATS[cat].label+")");return;}
-  if(a==="addcat"){var cat2=el.getAttribute("data-cat");var num2=await addPatient(cat2);render();toast("Patient #"+num2+" angelegt ("+CATS[cat2].label+")");return;}
+  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();toast("Patient #"+np.num+" angelegt ("+CATS[cat].label+")");return;}
+  if(a==="addcat"){var cat2=el.getAttribute("data-cat");var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();toast("Patient #"+np2.num+" angelegt ("+CATS[cat2].label+")");return;}
+  if(a==="capprio"){
+    var lcp=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
+    if(lcp){ lcp.prio=!lcp.prio; await savePatient(lcp); await loadPatients(); render(); toast("#"+lcp.num+(lcp.prio?" als Prio markiert":" Prio entfernt")); }
+    return;
+  }
   if(a==="opencat"){state.cat=el.getAttribute("data-cat");go("catlist");return;}
   if(a==="openpat"){
     var id=el.getAttribute("data-id");await loadPatients();
@@ -1775,6 +1829,14 @@ setInterval(async function(){
 
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
+
+  /* „Was ist neu"-Hinweis: einmalig pro Version. Wird für bestehende Nutzer
+   * angezeigt (auch beim ersten Lauf mit sichtbarer Version), nicht für eine
+   * brandneue Erstinstallation. Läuft unabhängig vom späteren View-Pfad. */
+  var seenV=localStorage.getItem('argus_seen_version');
+  var existingUser=!!(localStorage.getItem('argus_jwt')||localStorage.getItem('argus_unlocked')||localStorage.getItem('argus_verified'));
+  localStorage.setItem('argus_seen_version',APP_VERSION);
+  if(seenV ? (seenV!==APP_VERSION) : existingUser){ setTimeout(whatsNewModal,700); }
 
   /* ── Zugangsprüfung (nur einmalig beim ersten Start) ─────────────
    * argus_verified = true  →  einmal freigeschaltet, dauerhaft Zugang
