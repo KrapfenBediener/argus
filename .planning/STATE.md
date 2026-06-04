@@ -69,6 +69,11 @@
   neu"-Hinweis (whatsNewModal/WHATS_NEW). [Zobel #8, Braunbeck #1/#2]
   Noch offen aus B: Rufname-Hinweis gem. REK Sonderlagen am Kürzel-Feld [Zobel #2]
   (klein, ggf. in C mitnehmen).
+- **Bearbeitungssperre — ✅ repariert (v0.5.2):** Wartender prüfte die Sperre nie
+  erneut → blieb nach 45 s gesperrt; beim Verlassen durch den Bearbeiter musste der
+  Wartende ebenfalls raus+neu öffnen. Jetzt: Auto-Übernahme, sobald frei (Realtime
+  sofort / Heartbeat ≤5 s). Offene Designfrage Timer-Visualisierung: bewusst NICHT
+  umgesetzt (Empfehlung: weglassen). Auto-Übernahme statt Tap-to-Edit gewählt.
 - **Update-Auslieferung — ✅ repariert (v0.5.1):** iOS-PWA blieb auf alter Version,
   weil die SW-Revalidierung ohne `event.waitUntil` lief (iOS killt den SW vor dem
   Cache-Update). Behoben + `version.json`-basierte Update-Erkennung mit
