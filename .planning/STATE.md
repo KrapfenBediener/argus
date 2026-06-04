@@ -61,6 +61,19 @@
 - **Entscheidung:** Phase 5 (Produktionsinfra) aufgeschoben bis nach ausgiebigerem
   Test der Beta.
 
+### Tester-Feedback (3 Nutzer, 2026-06-04) — Pakete
+- **Paket A — ✅ erledigt (v0.4.0):** gPA/Prio/„Alle Patienten" anklickbar,
+  gPA-Zurückholen, Soft-Lock-Übernahme robust (Realtime + getrennte Sperr-Spalten).
+- **Paket B — offen:** Erfassungs-Flow (beim Anlegen direkt Daten eintragen;
+  zuletzt vergebene Nr.+Kategorie anzeigen; Prio beim Erfassen; Rufname-Hinweis
+  gem. REK Sonderlagen). [Zobel #8, Braunbeck #1/#2, Zobel #2]
+- **Paket C — offen:** fachliche Tiefe — Vitalwerte-Verlaufsdoku (PFC, einklappbar),
+  neurologisches Defizit unter „D", Funktions-/Rollenanzeige am CCP.
+  [Schill, Zobel #1] · „D"-Punkt mit Schill kurz inhaltlich klären.
+- **Laufend:** Verständlichkeit/Begriffe für Laien [Zobel #6].
+- **Organisatorisch:** DSB-Gespräch vor PP-/Landes-Umsetzung [Zobel #5];
+  Vertriebs-/Erweiterungsidee PTLS/Personensammelstelle [Schill] — geparkt.
+
 ### Offene Audit-Punkte (geparkt, nach Bedarf angehen)
 - Laufnummern-Kollision bei parallelem Anlegen: **Doppelnummer-Warnung eingebaut**
   (Banner/Liste/Detail, kein Auto-Umnummerieren — Nummer steht auf der Haut).
