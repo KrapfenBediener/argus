@@ -6,6 +6,15 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.6.0 — 2026-06-04
+**Update-Kommunikation: kumulative Neuerungen + „Neuerungen"-Button**
+- **Neu:** „Was ist neu"-Hinweis zeigt jetzt **alle** Versionen, die seit der zuletzt
+  gesehenen dazugekommen sind (kumulativ) — wer mehrere Updates verpasst hat, sieht
+  alle relevanten Neuerungen gruppiert, nicht nur die letzte.
+- **Neu:** dezenter „Neuerungen"-Link in der Startseiten-Fußzeile — öffnet die
+  letzten Änderungen jederzeit auf Wunsch (kein vollständiger Versionsverlauf).
+- Intern: `cmpVer()` (Semver-Vergleich); `whatsNewModal(sinceV, recentCap)`.
+
 ## v0.5.2 — 2026-06-04
 **Fix: Bearbeitungssperre gibt zuverlässig frei**
 - **Behoben:** Der wartende Nutzer prüfte die Sperre nie erneut — sie blieb auch

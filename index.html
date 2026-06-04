@@ -96,11 +96,15 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.5.2';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.6.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.6.0': [
+    'Über „Neuerungen" (unten auf der Startseite) kannst du die letzten Änderungen jederzeit nachlesen.',
+    'Wer mehrere Updates verpasst hat, sieht die Neuerungen jetzt zusammengefasst.'
+  ],
   '0.5.2': [
     'Bearbeitungssperre: gibt automatisch frei, sobald der Bearbeiter den Patienten verlässt oder 45 s ohne Aktivität vergehen — Wartende können dann sofort weiterarbeiten, ohne den Patienten neu zu öffnen.'
   ],
@@ -1348,7 +1352,7 @@ function vStart(){
   }
   h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
   h += '🏗 '+esc(_praesidiumName||'—')+' · wechseln</button>';
-  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · © 2026 Gabor Szeman</p>';
+  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · <a href="#" data-action="whatsnew" style="color:var(--mut)">Neuerungen</a> · © 2026 Gabor Szeman</p>';
   return h;
 }
 
@@ -1385,14 +1389,30 @@ function confirmModal(msg,okLabel){
     ov.addEventListener("click",function(e){if(e.target===ov)done(false);});
   });
 }
-function whatsNewModal(){
-  var items=(WHATS_NEW[APP_VERSION]||[]);
-  if(!items.length) return;
+function cmpVer(a,b){
+  var pa=String(a).split('.').map(Number), pb=String(b).split('.').map(Number);
+  for(var i=0;i<3;i++){ var d=(pa[i]||0)-(pb[i]||0); if(d) return d>0?1:-1; }
+  return 0;
+}
+/* Zeigt die Highlights aller Versionen NEUER als sinceV (kumulativ — wer mehrere
+ * Updates verpasst hat, sieht alle relevanten Neuerungen). sinceV=null → alle
+ * vorhandenen. recentCap begrenzt die Anzahl (für den „Neuerungen"-Button). */
+function whatsNewModal(sinceV, recentCap){
+  var keys=Object.keys(WHATS_NEW).sort(cmpVer);
+  if(sinceV){ keys=keys.filter(function(k){return cmpVer(k,sinceV)>0;}); }
+  keys=keys.sort(cmpVer).reverse();                 /* neueste zuerst */
+  if(recentCap){ keys=keys.slice(0,recentCap); }
+  if(!keys.length){ if(WHATS_NEW[APP_VERSION]) keys=[APP_VERSION]; else return; }
+  var multi=keys.length>1;
+  var body=keys.map(function(k){
+    var lis=(WHATS_NEW[k]||[]).map(function(t){return '<li style="margin:5px 0">'+esc(t)+'</li>';}).join('');
+    var ul='<ul style="text-align:left;margin:4px 0 0;padding-left:20px;font-size:14px;line-height:1.45">'+lis+'</ul>';
+    return multi ? ('<div style="margin-top:10px"><div class="hint" style="font-weight:600;color:var(--acc)">v'+esc(k)+'</div>'+ul+'</div>') : ul;
+  }).join('');
   var ov=document.createElement("div");ov.className="modalov";
-  var lis=items.map(function(t){return '<li style="margin:5px 0">'+esc(t)+'</li>';}).join('');
   ov.innerHTML='<div class="modalbx">'+
-    '<div class="modalmsg" style="font-weight:600;font-size:17px;text-align:center">Neu in ARGUS v'+esc(APP_VERSION)+'</div>'+
-    '<ul style="text-align:left;margin:12px 0 0;padding-left:20px;font-size:14px;line-height:1.45">'+lis+'</ul>'+
+    '<div class="modalmsg" style="font-weight:600;font-size:17px;text-align:center">'+(multi?'Neu in ARGUS':'Neu in ARGUS v'+esc(keys[0]))+'</div>'+
+    body+
     '<div class="hint" style="margin-top:12px">Falls etwas fehlt oder seltsam wirkt: App komplett schließen und neu öffnen.</div>'+
     '<div class="row" style="margin-top:16px"><button class="prim mc-ok" style="flex:1;margin:0;background:var(--ready)">Verstanden</button></div></div>';
   document.body.appendChild(ov);
@@ -1603,6 +1623,7 @@ document.addEventListener("click",async function(e){
     return;
   }
   if(a==="nav"){go(el.getAttribute("data-view"));return;}
+  if(a==="whatsnew"){whatsNewModal(null,3);return;}
   if(a==="resumeccp"){
     /* Kürzel bekannt, aber MasterMedic noch nicht gesetzt → automatisch übernehmen */
     if(operator && !masterMedic){await setMasterMedic(operator);}
@@ -1889,7 +1910,7 @@ setInterval(async function(){
   var seenV=localStorage.getItem('argus_seen_version');
   var existingUser=!!(localStorage.getItem('argus_jwt')||localStorage.getItem('argus_unlocked')||localStorage.getItem('argus_verified'));
   localStorage.setItem('argus_seen_version',APP_VERSION);
-  if(seenV ? (seenV!==APP_VERSION) : existingUser){ setTimeout(whatsNewModal,700); }
+  if(seenV ? (seenV!==APP_VERSION) : existingUser){ setTimeout(function(){ whatsNewModal(seenV); },700); }
 
   /* ── Zugangsprüfung (nur einmalig beim ersten Start) ─────────────
    * argus_verified = true  →  einmal freigeschaltet, dauerhaft Zugang
