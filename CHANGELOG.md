@@ -6,6 +6,18 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.5.1 — 2026-06-04
+**Fix: Update-Auslieferung (iOS-PWA blieb auf alter Version)**
+- **Behoben:** Service-Worker-Revalidierung wird per `event.waitUntil` am Leben
+  gehalten — iOS beendete den SW bisher direkt nach Auslieferung der gecachten
+  Seite, sodass der Cache nie aktualisiert wurde (App blieb auf alter Version).
+- **Neu:** zuverlässige Update-Erkennung über `version.json` (network-only),
+  geprüft beim Start und bei jedem Sichtbarwerden (deckt iOS-Resume ab) → dezenter
+  Banner „Neue Version verfügbar — Jetzt aktualisieren" (nutzer-initiiert, keine
+  Unterbrechung mitten in der Bearbeitung). Entspricht dem zurückgestellten
+  „Bitte-aktualisieren"-Anstoß (3b).
+- **Wartung:** `version.json` muss bei jedem Release gleich `APP_VERSION` gesetzt werden.
+
 ## v0.5.0 — 2026-06-04
 **Paket B: Erfassungs-Flow + Versions-Hinweis (Tester-Feedback)**
 - **Neu:** Erfassungs-Screen zeigt die **nächste Nummer** und den **zuletzt

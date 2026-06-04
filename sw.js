@@ -7,7 +7,7 @@
  *   3. Alles andere           → Network-first (aktuelle Daten bevorzugen)
  */
 
-const CACHE_NAME = 'ccp-shell-v11';
+const CACHE_NAME = 'ccp-shell-v12';
 
 const PRECACHE_URLS = [
   './',
@@ -70,6 +70,11 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
+  /* version.json NIE cachen → zuverlässige Update-Erkennung (Network-only) */
+  if (url.origin === self.location.origin && url.pathname.endsWith('/version.json')) {
+    return;
+  }
+
   /* REGEL 2: Shell-Assets (gleicher Origin) → Stale-while-revalidate */
   if (url.origin === self.location.origin) {
     event.respondWith(
@@ -87,6 +92,10 @@ self.addEventListener('fetch', function(event) {
               return caches.match('./index.html');
             }
           });
+          /* WICHTIG: Revalidierung am Leben halten, bis sie fertig ist — sonst
+           * beendet iOS den SW direkt nach Auslieferung der gecachten Seite und
+           * der Cache wird NIE aktualisiert (App bliebe auf alter Version). */
+          event.waitUntil(network.catch(function(){}));
           /* Cache sofort liefern (schnell/offline), sonst auf Netz warten */
           return cached || network;
         });
