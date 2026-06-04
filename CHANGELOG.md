@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.9.0 — 2026-06-04
+**Verbund löschen (MasterUser-Token)**
+- **Neu:** Ist der aktuelle CCP Teil eines zusammengeführten Verbunds, kann ein
+  MasterUser-Token-Inhaber „Ganzen Verbund löschen" — entfernt alle CCPs des
+  Verbunds (`merge_group_id`) inkl. Patienten (CASCADE), mit Bestätigung, die
+  Anzahl CCPs + Patienten anzeigt. Löschen bleibt MasterUser-Token-exklusiv;
+  Abschließen weiterhin MasterMedic.
+- **Behoben (Folge):** Nach dem Löschen eines Verbunds tauchen die Verbund-CCPs
+  nicht mehr unter „CCP beitreten" auf (vorher blieben Merge-Partner als
+  beitretbare Reste übrig).
+
 ## v0.8.1 — 2026-06-04
 **Korrekturen (Tester-Feedback)**
 - **Behoben:** „Alle Patienten" war doppelt (CCP-Hauptmenü + Patientenübersicht) —

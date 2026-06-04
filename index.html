@@ -96,11 +96,14 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.8.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.9.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.9.0': [
+    'Mit MasterUser-Token kannst du jetzt einen ganzen zusammengeführten Verbund auf einmal löschen (alle CCPs + Patienten). Damit verschwinden auch keine gelöschten Verbund-CCPs mehr unter „CCP beitreten".'
+  ],
   '0.8.1': [
     '„Alle Patienten" ist jetzt nur noch unter „Patientenübersicht" (nicht mehr doppelt im Hauptmenü).',
     '„CCP beitreten" verschwindet jetzt sofort, wenn keine offenen CCPs mehr da sind — kein Verlassen/Neu-Betreten des Präsidiums mehr nötig.'
@@ -886,6 +889,9 @@ function ccpAdminUI(){
   }
   if(_isMaster){
     h+='<button class="navbtn" data-action="ccpdelete" style="margin-top:10px;background:var(--t1);border-color:var(--t1)"><span class="ic" style="color:#fff">🗑</span><span><span class="t" style="color:#fff">CCP löschen</span><br><span class="s" style="color:#fff;opacity:.85">CCP und alle Patienten unwiderruflich</span></span></button>';
+    if(_mergeGroupId){
+      h+='<button class="navbtn" data-action="ccpdeletegroup" style="margin-top:10px;background:var(--t1);border-color:var(--t1)"><span class="ic" style="color:#fff">🗑</span><span><span class="t" style="color:#fff">Ganzen Verbund löschen</span><br><span class="s" style="color:#fff;opacity:.85">Alle zusammengeführten CCPs + Patienten unwiderruflich</span></span></button>';
+    }
   }
   return h;
 }
@@ -1809,6 +1815,20 @@ document.addEventListener("click",async function(e){
     var cdx=sb();
     if(cdx&&_ccpId){try{await cdx.from('ccps').delete().eq('id',_ccpId);}catch(e){}} /* CASCADE löscht zugehörige Patienten */
     await leaveCurrentCcp();await loadOpenCcpCount();toast("CCP gelöscht");go("start");return;
+  }
+  if(a==="ccpdeletegroup"){
+    if(!_isMaster){toast("Nur mit MasterToken-Freischaltung möglich");return;}
+    var grp=_mergeGroupId; if(!grp){toast("Kein Verbund");return;}
+    var gdx=sb(); if(!gdx){toast("Keine Backend-Verbindung");return;}
+    var members=[]; try{ var gm=await gdx.from('ccps').select('id,kennung').eq('merge_group_id',grp); members=gm.data||[]; }catch(e){}
+    if(!members.length){toast("Verbund nicht gefunden");return;}
+    var gids=members.map(function(c){return c.id;});
+    var pcount=0; try{ var pr=await gdx.from('patients').select('id',{count:'exact',head:true}).in('ccp_id',gids); pcount=(typeof pr.count==='number')?pr.count:0; }catch(e){}
+    var kenn=members.map(function(c){return 'CCP '+(c.kennung||'?');}).sort().join(', ');
+    var okg=await confirmModal("Ganzen Verbund endgültig löschen?\n\n"+members.length+" zusammengeführte CCPs ("+kenn+") und "+pcount+" Patient(en) werden UNWIDERRUFLICH gelöscht — das kann nicht rückgängig gemacht werden.","Verbund löschen");
+    if(!okg)return;
+    try{ await gdx.from('ccps').delete().eq('merge_group_id',grp); }catch(e){} /* CASCADE löscht alle zugehörigen Patienten */
+    await leaveCurrentCcp();await loadOpenCcpCount();toast("Verbund gelöscht ("+members.length+" CCPs)");go("start");return;
   }
   if(a==="schulreset"){
     if(_praesidiumName!=='Schulungsumgebung')return;
