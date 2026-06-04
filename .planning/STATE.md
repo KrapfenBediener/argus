@@ -79,9 +79,12 @@
   Cache-Update). Behoben + `version.json`-basierte Update-Erkennung mit
   „Jetzt aktualisieren"-Banner (= 3b, jetzt umgesetzt). **Merke:** `version.json`
   bei jedem Release gleich `APP_VERSION` setzen.
-- **Paket C — offen:** fachliche Tiefe — Vitalwerte-Verlaufsdoku (PFC, einklappbar),
-  neurologisches Defizit unter „D", Funktions-/Rollenanzeige am CCP.
-  [Schill, Zobel #1] · „D"-Punkt mit Schill kurz inhaltlich klären.
+- **Paket C — weitgehend erledigt:** C1 Vitalwerte-Verlauf ✅ (v0.7.0,
+  „Messung protokollieren" → `vit.log`, eingeklappt). C2 Neuro: Owner-Entscheid
+  „bleibt wie es ist" (gestrichen). C3 Funktionsanzeige: Owner-Entscheid gestrichen
+  (kleines Team kennt Rollen). [Schill, Zobel #1]
+- **Offen (klein):** C4 Rufname-Hinweis am Kürzel-Feld — wartet auf den genauen
+  Hinweistext vom Owner [Zobel #2].
 - **Laufend:** Verständlichkeit/Begriffe für Laien [Zobel #6].
 - **Organisatorisch:** DSB-Gespräch vor PP-/Landes-Umsetzung [Zobel #5];
   Vertriebs-/Erweiterungsidee PTLS/Personensammelstelle [Schill] — geparkt.
