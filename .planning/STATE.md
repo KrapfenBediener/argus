@@ -64,9 +64,12 @@
 ### Tester-Feedback (3 Nutzer, 2026-06-04) — Pakete
 - **Paket A — ✅ erledigt (v0.4.0):** gPA/Prio/„Alle Patienten" anklickbar,
   gPA-Zurückholen, Soft-Lock-Übernahme robust (Realtime + getrennte Sperr-Spalten).
-- **Paket B — offen:** Erfassungs-Flow (beim Anlegen direkt Daten eintragen;
-  zuletzt vergebene Nr.+Kategorie anzeigen; Prio beim Erfassen; Rufname-Hinweis
-  gem. REK Sonderlagen). [Zobel #8, Braunbeck #1/#2, Zobel #2]
+- **Paket B — ✅ erledigt (v0.5.0):** Erfassungs-Screen zeigt nächste Nummer +
+  zuletzt angelegten Patienten; Prio-Schnellaktion + „öffnen"-Sprung; „Was ist
+  neu"-Hinweis (whatsNewModal/WHATS_NEW). [Zobel #8, Braunbeck #1/#2]
+  Noch offen aus B: Rufname-Hinweis gem. REK Sonderlagen am Kürzel-Feld [Zobel #2]
+  (klein, ggf. in C mitnehmen). Aktiver „Bitte aktualisieren"-Anstoß (3b) bewusst
+  zurückgestellt, bis sich zeigt, dass Tester auf alten Versionen hängenbleiben.
 - **Paket C — offen:** fachliche Tiefe — Vitalwerte-Verlaufsdoku (PFC, einklappbar),
   neurologisches Defizit unter „D", Funktions-/Rollenanzeige am CCP.
   [Schill, Zobel #1] · „D"-Punkt mit Schill kurz inhaltlich klären.
