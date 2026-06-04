@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.9.1 — 2026-06-04
+**Verfeinerungen rund um Verbünde**
+- **Behoben:** „CCP beitreten" listete zusammengeführte CCPs einzeln. Jetzt werden
+  Mitglieder eines Verbunds (gleiche `merge_group_id`) zu **einem** Eintrag
+  („Verbund A+B+C", N CCPs) gebündelt; Beitreten verbindet mit dem Verbund.
+- **Geändert:** Lösch-Button ist nicht mehr doppelt — bei einem Verbund steht
+  „Ganzen Verbund löschen", bei einem originären CCP „CCP löschen".
+
 ## v0.9.0 — 2026-06-04
 **Verbund löschen (MasterUser-Token)**
 - **Neu:** Ist der aktuelle CCP Teil eines zusammengeführten Verbunds, kann ein

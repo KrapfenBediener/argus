@@ -96,11 +96,15 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.9.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.9.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.9.1': [
+    'Zusammengeführte CCPs erscheinen unter „CCP beitreten" jetzt als ein einziger Verbund-Eintrag (statt jedem CCP einzeln).',
+    'Kein doppelter Lösch-Button mehr: bei einem Verbund steht „Ganzen Verbund löschen", sonst „CCP löschen".'
+  ],
   '0.9.0': [
     'Mit MasterUser-Token kannst du jetzt einen ganzen zusammengeführten Verbund auf einmal löschen (alle CCPs + Patienten). Damit verschwinden auch keine gelöschten Verbund-CCPs mehr unter „CCP beitreten".'
   ],
@@ -526,12 +530,16 @@ function ccpJoinModal(list){
     var inner='<div class="modalbx" style="max-width:360px">';
     inner+='<div class="modalmsg" style="margin-bottom:14px">CCP auswählen</div>';
     list.forEach(function(ccp){
+      var members=ccp._members||[ccp];
+      var isVerbund=members.length>1;
+      var kenns=members.map(function(m){return m.kennung;}).sort().join('+');
       inner+='<button class="mc-ccpjoin card" data-id="'+ccp.id+'" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px">';
       inner+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">';
-      inner+='<span class="mono" style="font-size:18px;font-weight:600">CCP '+esc(ccp.kennung)+'</span>';
-      if(ccp.ort) inner+='<span class="hint">'+esc(ccp.ort)+'</span>';
+      inner+='<span class="mono" style="font-size:18px;font-weight:600">'+(isVerbund?('Verbund '+esc(kenns)):('CCP '+esc(ccp.kennung)))+'</span>';
+      if(isVerbund) inner+='<span class="pill" style="background:var(--acc);color:#fff">'+members.length+' CCPs</span>';
+      else if(ccp.ort) inner+='<span class="hint">'+esc(ccp.ort)+'</span>';
       inner+='</div>';
-      inner+='<div class="hint">MasterMedic: '+(ccp.master_medic||'keine')+'</div>';
+      inner+='<div class="hint">'+(isVerbund?('Zusammengeführt — gemeinsame Patientenliste'):('MasterMedic: '+(ccp.master_medic||'keine')))+'</div>';
       inner+='</button>';
     });
     inner+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
@@ -888,9 +896,11 @@ function ccpAdminUI(){
     h+='<button class="navbtn" data-action="ccpclose" style="margin-top:10px"><span class="ic">✓</span><span><span class="t">CCP abschließen</span><br><span class="s">Aus der Auswahl ausblenden · Daten bleiben</span></span></button>';
   }
   if(_isMaster){
-    h+='<button class="navbtn" data-action="ccpdelete" style="margin-top:10px;background:var(--t1);border-color:var(--t1)"><span class="ic" style="color:#fff">🗑</span><span><span class="t" style="color:#fff">CCP löschen</span><br><span class="s" style="color:#fff;opacity:.85">CCP und alle Patienten unwiderruflich</span></span></button>';
     if(_mergeGroupId){
+      /* Zusammengeführt → es ist ein Verbund; einzelnes Löschen entfällt. */
       h+='<button class="navbtn" data-action="ccpdeletegroup" style="margin-top:10px;background:var(--t1);border-color:var(--t1)"><span class="ic" style="color:#fff">🗑</span><span><span class="t" style="color:#fff">Ganzen Verbund löschen</span><br><span class="s" style="color:#fff;opacity:.85">Alle zusammengeführten CCPs + Patienten unwiderruflich</span></span></button>';
+    }else{
+      h+='<button class="navbtn" data-action="ccpdelete" style="margin-top:10px;background:var(--t1);border-color:var(--t1)"><span class="ic" style="color:#fff">🗑</span><span><span class="t" style="color:#fff">CCP löschen</span><br><span class="s" style="color:#fff;opacity:.85">CCP und alle Patienten unwiderruflich</span></span></button>';
     }
   }
   return h;
@@ -1735,7 +1745,15 @@ document.addEventListener("click",async function(e){
     if(!jres.data||jres.data.length===0){
       await confirmModal("Keine aktiven CCPs gefunden.\n\nEröffne zuerst einen CCP über 'Neue CCP eröffnen'.","OK");return;
     }
-    var selId=await ccpJoinModal(jres.data);
+    /* Zusammengeführte CCPs teilen eine gemeinsame Liste → als EIN Verbund-Eintrag
+     * anzeigen (Beitreten zu irgendeinem Mitglied verbindet mit dem Verbund). */
+    var jseen={}, jlist=[];
+    jres.data.forEach(function(c){
+      var g=c.merge_group_id;
+      if(g){ if(jseen[g]){ jseen[g]._members.push(c); return; } c._members=[c]; jseen[g]=c; jlist.push(c); }
+      else jlist.push(c);
+    });
+    var selId=await ccpJoinModal(jlist);
     if(!selId) return;
     _ccpId=selId; localStorage.setItem('argus_ccp_id',_ccpId);
     if(!operator){
