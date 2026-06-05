@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.15.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.16.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -109,6 +109,9 @@ var UPDATE_SHEETS = {
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html'   /* deckt v0.9.0 → v0.12.x ab */
 };
 var WHATS_NEW = {
+  '0.16.0': [
+    'Bewusstseinslage jetzt auf Deutsch: WASB (Wach · Ansprechbar · Schmerzreiz · Bewusstlos) statt AVPU. Bestehende Einträge wurden automatisch umgestellt.'
+  ],
   '0.15.1': [
     'Zeitanzeigen mit Stunden: „vor 2 Std 5 min" statt „vor 125 min"; TQ-Timer als 2:05:30 statt 125:30.'
   ],
@@ -768,27 +771,27 @@ var DEMO_CCPS = {
   B: {
     mm: "DR", ort: "Markplatz West",
     patients: [
-      {num:1,cat:"T1",prio:true, tqStart:-780000,inj:[{r:"Arm re",a:"Amputation"}],   vit:{af:"28",spo2:"88",hf:"132",rr:"80/40",avpu:"V",pain:"9"}, notes:"Schussverletzung, TQ angelegt"},
-      {num:2,cat:"T1",prio:false,tqStart:null,  inj:[{r:"Thorax",a:"Wunde"}],          vit:{af:"8", spo2:"82",hf:"140",rr:"70/p",avpu:"P",pain:"8"}, notes:"Offener Pneumothorax, Chest Seal"},
-      {num:3,cat:"T2",prio:true, tqStart:null,  inj:[{r:"Bein li",a:"Fraktur"}],       vit:{af:"22",spo2:"94",hf:"110",rr:"100/60",avpu:"A",pain:"7"}, notes:"Femurfraktur, Schienung"},
-      {num:4,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Abdomen",a:"Wunde"}],         vit:{af:"20",spo2:"96",hf:"105",rr:"95/65",avpu:"A",pain:"6"}, notes:"Stichverletzung Abdomen"},
-      {num:5,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Kopf",a:"Wunde"}],            vit:{af:"18",spo2:"97",hf:"95", rr:"120/80",avpu:"V",pain:"5"}, notes:"SHT leicht, GCS 12"},
-      {num:6,cat:"T3",prio:false,tqStart:null,  inj:[{r:"Arm li",a:"Fraktur"}],        vit:{af:"16",spo2:"99",hf:"88", rr:"125/85",avpu:"A",pain:"4"}, notes:"Unterarmfraktur li"},
-      {num:7,cat:"T3",ready:true,tqStart:null,  inj:[{r:"Rücken",a:"Wunde"}],          vit:{af:"15",spo2:"98",hf:"82", rr:"130/85",avpu:"A",pain:"3"}, notes:"Schürfwunden, transportfertig"},
-      {num:8,cat:"T5",prio:false,tqStart:null,  inj:[{r:"Thorax",a:"Wunde"},{r:"Kopf",a:"Wunde"}], vit:{af:"",spo2:"",hf:"",rr:"",avpu:"U",pain:""}, notes:"Keine Vitalzeichen, ärztliche Feststellung"}
+      {num:1,cat:"T1",prio:true, tqStart:-780000,inj:[{r:"Arm re",a:"Amputation"}],   vit:{af:"28",spo2:"88",hf:"132",rr:"80/40",avpu:"A",pain:"9"}, notes:"Schussverletzung, TQ angelegt"},
+      {num:2,cat:"T1",prio:false,tqStart:null,  inj:[{r:"Thorax",a:"Wunde"}],          vit:{af:"8", spo2:"82",hf:"140",rr:"70/p",avpu:"S",pain:"8"}, notes:"Offener Pneumothorax, Chest Seal"},
+      {num:3,cat:"T2",prio:true, tqStart:null,  inj:[{r:"Bein li",a:"Fraktur"}],       vit:{af:"22",spo2:"94",hf:"110",rr:"100/60",avpu:"W",pain:"7"}, notes:"Femurfraktur, Schienung"},
+      {num:4,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Abdomen",a:"Wunde"}],         vit:{af:"20",spo2:"96",hf:"105",rr:"95/65",avpu:"W",pain:"6"}, notes:"Stichverletzung Abdomen"},
+      {num:5,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Kopf",a:"Wunde"}],            vit:{af:"18",spo2:"97",hf:"95", rr:"120/80",avpu:"A",pain:"5"}, notes:"SHT leicht, GCS 12"},
+      {num:6,cat:"T3",prio:false,tqStart:null,  inj:[{r:"Arm li",a:"Fraktur"}],        vit:{af:"16",spo2:"99",hf:"88", rr:"125/85",avpu:"W",pain:"4"}, notes:"Unterarmfraktur li"},
+      {num:7,cat:"T3",ready:true,tqStart:null,  inj:[{r:"Rücken",a:"Wunde"}],          vit:{af:"15",spo2:"98",hf:"82", rr:"130/85",avpu:"W",pain:"3"}, notes:"Schürfwunden, transportfertig"},
+      {num:8,cat:"T5",prio:false,tqStart:null,  inj:[{r:"Thorax",a:"Wunde"},{r:"Kopf",a:"Wunde"}], vit:{af:"",spo2:"",hf:"",rr:"",avpu:"B",pain:""}, notes:"Keine Vitalzeichen, ärztliche Feststellung"}
     ]
   },
   C: {
     mm: "MK", ort: "Schulhof Ost",
     patients: [
-      {num:1,cat:"T1",prio:true, tqStart:-540000,inj:[{r:"Bein re",a:"Amputation"}],  vit:{af:"32",spo2:"85",hf:"148",rr:"60/p",avpu:"V",pain:"10"},notes:"Traumatische Amputation, 2. TQ"},
-      {num:2,cat:"T1",prio:false,tqStart:null,  inj:[{r:"Hals",a:"Wunde"}],           vit:{af:"6", spo2:"79",hf:"155",rr:"65/p",avpu:"P",pain:"9"}, notes:"Halsverletzung, Atemweg gesichert"},
-      {num:3,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Becken",a:"Fraktur"}],       vit:{af:"24",spo2:"93",hf:"118",rr:"90/55",avpu:"A",pain:"8"}, notes:"Beckenfraktur, Schlinge angelegt"},
-      {num:4,cat:"T2",prio:true, tqStart:null,  inj:[{r:"Thorax",a:"Verbrennung"}],   vit:{af:"26",spo2:"91",hf:"122",rr:"88/58",avpu:"V",pain:"8"}, notes:"Verbrennung Grad II, ~15% KOF"},
-      {num:5,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Arm re",a:"Fraktur"},{r:"Kopf",a:"Wunde"}], vit:{af:"19",spo2:"95",hf:"100",rr:"105/70",avpu:"A",pain:"6"}, notes:"Polytrauma, stabil"},
-      {num:6,cat:"T3",prio:false,tqStart:null,  inj:[{r:"Bein li",a:"Wunde"}],        vit:{af:"16",spo2:"99",hf:"84", rr:"128/82",avpu:"A",pain:"3"}, notes:"Schnittverletzung, Druckverband"},
-      {num:7,cat:"T3",ready:true,tqStart:null,  inj:[{r:"Arm li",a:"Wunde"}],         vit:{af:"14",spo2:"98",hf:"78", rr:"132/88",avpu:"A",pain:"2"}, notes:"Kleinere Verletzungen, transportfertig"},
-      {num:8,cat:"T5",prio:false,tqStart:null,  inj:[{r:"Kopf",a:"Wunde"},{r:"Thorax",a:"Wunde"}], vit:{af:"",spo2:"",hf:"",rr:"",avpu:"U",pain:""}, notes:"Keine Spontanatmung, nicht reanimierbar"}
+      {num:1,cat:"T1",prio:true, tqStart:-540000,inj:[{r:"Bein re",a:"Amputation"}],  vit:{af:"32",spo2:"85",hf:"148",rr:"60/p",avpu:"A",pain:"10"},notes:"Traumatische Amputation, 2. TQ"},
+      {num:2,cat:"T1",prio:false,tqStart:null,  inj:[{r:"Hals",a:"Wunde"}],           vit:{af:"6", spo2:"79",hf:"155",rr:"65/p",avpu:"S",pain:"9"}, notes:"Halsverletzung, Atemweg gesichert"},
+      {num:3,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Becken",a:"Fraktur"}],       vit:{af:"24",spo2:"93",hf:"118",rr:"90/55",avpu:"W",pain:"8"}, notes:"Beckenfraktur, Schlinge angelegt"},
+      {num:4,cat:"T2",prio:true, tqStart:null,  inj:[{r:"Thorax",a:"Verbrennung"}],   vit:{af:"26",spo2:"91",hf:"122",rr:"88/58",avpu:"A",pain:"8"}, notes:"Verbrennung Grad II, ~15% KOF"},
+      {num:5,cat:"T2",prio:false,tqStart:null,  inj:[{r:"Arm re",a:"Fraktur"},{r:"Kopf",a:"Wunde"}], vit:{af:"19",spo2:"95",hf:"100",rr:"105/70",avpu:"W",pain:"6"}, notes:"Polytrauma, stabil"},
+      {num:6,cat:"T3",prio:false,tqStart:null,  inj:[{r:"Bein li",a:"Wunde"}],        vit:{af:"16",spo2:"99",hf:"84", rr:"128/82",avpu:"W",pain:"3"}, notes:"Schnittverletzung, Druckverband"},
+      {num:7,cat:"T3",ready:true,tqStart:null,  inj:[{r:"Arm li",a:"Wunde"}],         vit:{af:"14",spo2:"98",hf:"78", rr:"132/88",avpu:"W",pain:"2"}, notes:"Kleinere Verletzungen, transportfertig"},
+      {num:8,cat:"T5",prio:false,tqStart:null,  inj:[{r:"Kopf",a:"Wunde"},{r:"Thorax",a:"Wunde"}], vit:{af:"",spo2:"",hf:"",rr:"",avpu:"B",pain:""}, notes:"Keine Spontanatmung, nicht reanimierbar"}
     ]
   }
 };
@@ -807,10 +810,10 @@ function genDemoRows(cid, kennung, medic){
     var cat=_pk(cats), inj=[], ni=_ri(1,2), j;
     for(j=0;j<ni;j++) inj.push({r:_pk(REG),a:_pk(ART)});
     var prio=false,ready=false,tq=null,vit;
-    if(cat==="T1"){ vit={af:String(_pk([6,7,8,28,30,32])),spo2:String(_ri(78,90)),hf:String(_ri(120,160)),rr:_pk(["70/40","80/p","60/p"]),avpu:_pk(["V","P","U"]),pain:String(_ri(8,10))}; prio=Math.random()<0.6; if(Math.random()<0.4)tq=t-_ri(300000,900000); }
-    else if(cat==="T2"){ vit={af:String(_ri(18,26)),spo2:String(_ri(90,96)),hf:String(_ri(95,120)),rr:_pk(["90/60","100/65","105/70"]),avpu:_pk(["A","V"]),pain:String(_ri(5,8))}; prio=Math.random()<0.3; }
-    else if(cat==="T3"){ vit={af:String(_ri(14,18)),spo2:String(_ri(96,99)),hf:String(_ri(70,95)),rr:_pk(["120/80","125/85","130/85"]),avpu:"A",pain:String(_ri(1,4))}; ready=Math.random()<0.4; }
-    else { vit={af:"",spo2:"",hf:"",rr:"",avpu:"U",pain:""}; }
+    if(cat==="T1"){ vit={af:String(_pk([6,7,8,28,30,32])),spo2:String(_ri(78,90)),hf:String(_ri(120,160)),rr:_pk(["70/40","80/p","60/p"]),avpu:_pk(["A","S","B"]),pain:String(_ri(8,10))}; prio=Math.random()<0.6; if(Math.random()<0.4)tq=t-_ri(300000,900000); }
+    else if(cat==="T2"){ vit={af:String(_ri(18,26)),spo2:String(_ri(90,96)),hf:String(_ri(95,120)),rr:_pk(["90/60","100/65","105/70"]),avpu:_pk(["W","A"]),pain:String(_ri(5,8))}; prio=Math.random()<0.3; }
+    else if(cat==="T3"){ vit={af:String(_ri(14,18)),spo2:String(_ri(96,99)),hf:String(_ri(70,95)),rr:_pk(["120/80","125/85","130/85"]),avpu:"W",pain:String(_ri(1,4))}; ready=Math.random()<0.4; }
+    else { vit={af:"",spo2:"",hf:"",rr:"",avpu:"B",pain:""}; }
     var note = cat==="T5" ? "Keine Vitalzeichen, ärztliche Feststellung" : (inj[0]?(NOTE[inj[0].a]||""):"");
     rows.push({id:"seed"+t+"_"+kennung+"_"+i+Math.floor(Math.random()*1000),ccp_id:cid,num:i,ccp:kennung,cat:cat,status:"active",
       prio:prio,ready:ready,tq_start:tq,created:t-(3600000-i*240000),last_triage:t-(1800000-i*120000),updated:t,
@@ -1409,7 +1412,7 @@ function vPatient(){
     '<div><label class="fieldlab">SpO₂</label>'+vinp("spo2",p.vit.spo2)+'</div>'+
     '<div><label class="fieldlab">HF</label>'+vinp("hf",p.vit.hf)+'</div></div><div style="height:9px"></div><div class="grid3">'+
     '<div><label class="fieldlab">RR</label>'+vinp("rr",p.vit.rr)+'</div>'+
-    '<div><label class="fieldlab">AVPU</label><select data-kind="vit" data-field="avpu"><option value=""'+sel(p.vit.avpu,"")+'>—</option><option'+sel(p.vit.avpu,"A")+'>A</option><option'+sel(p.vit.avpu,"V")+'>V</option><option'+sel(p.vit.avpu,"P")+'>P</option><option'+sel(p.vit.avpu,"U")+'>U</option></select></div>'+
+    '<div><label class="fieldlab">WASB</label><select data-kind="vit" data-field="avpu"><option value=""'+sel(p.vit.avpu,"")+'>—</option><option value="W"'+sel(p.vit.avpu,"W")+'>W – wach</option><option value="A"'+sel(p.vit.avpu,"A")+'>A – ansprechbar</option><option value="S"'+sel(p.vit.avpu,"S")+'>S – Schmerzreiz</option><option value="B"'+sel(p.vit.avpu,"B")+'>B – bewusstlos</option></select></div>'+
     '<div><label class="fieldlab">Schmerz</label>'+vinp("pain",p.vit.pain)+'</div></div><div style="height:9px"></div><div class="grid2">'+
     '<div><label class="fieldlab">Pupille re</label>'+inp("pupRe",p.pupRe)+'</div>'+
     '<div><label class="fieldlab">Pupille li</label>'+inp("pupLi",p.pupLi)+'</div></div></div>';
@@ -1427,7 +1430,7 @@ function vPatient(){
       var parts=[];
       if(m.af)parts.push('AF '+esc(m.af)); if(m.spo2)parts.push('SpO₂ '+esc(m.spo2));
       if(m.hf)parts.push('HF '+esc(m.hf)); if(m.rr)parts.push('RR '+esc(m.rr));
-      if(m.avpu)parts.push('AVPU '+esc(m.avpu)); if(m.pain)parts.push('Schmerz '+esc(m.pain));
+      if(m.avpu)parts.push('WASB '+esc(m.avpu)); if(m.pain)parts.push('Schmerz '+esc(m.pain));
       h+='<div style="font-size:13px;padding:6px 0;border-top:1px solid var(--line)"><span class="mono" style="font-weight:600">'+tm+'</span>'+(m.by?' · '+esc(m.by):'')+'<br><span class="hint">'+(parts.join(' · ')||'—')+'</span></div>';
     });
     h+='</div></details>';

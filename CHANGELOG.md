@@ -6,6 +6,15 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.16.0 — 2026-06-05
+**AVPU → WASB (deutsche Bewusstseinslage)**
+- Vitalwerte-Feld von AVPU auf **WASB** umgestellt (Wach · Ansprechbar · Schmerzreiz ·
+  Bewusstlos), Dropdown mit deutschen Bezeichnungen, Verlaufs-Zeile „WASB …".
+- Demo-Daten (`DEMO_CCPS`, `genDemoRows`) auf WASB.
+- **Einmalige Daten-Migration** bestehender Patienten (atomar, CASE): A→W, V→A,
+  P→S, U→B. Verifiziert (W=18, A=7, S=4, B=1, leer=9). Keine Verlaufs-Einträge betroffen.
+- Hinweis: das interne Feld heißt weiterhin `vit.avpu` (nur Werte/Anzeige deutsch).
+
 ## v0.15.1 — 2026-06-05
 **Zeitanzeigen mit Stunden-Überlauf (Tester-Feedback)**
 - `ageStr` (Zeit seit letzter Sichtung im CCP): zeigt ab 60 min „vor H Std M min"
