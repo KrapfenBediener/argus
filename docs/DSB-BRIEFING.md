@@ -51,6 +51,11 @@ Abtransport verwaltet. PWA (Webapp), läuft mehrgeräte-fähig und offline.
    werden, wer wann was in welcher CCP geändert/eingesehen hat (Einsatz-/Zugriffs-
    protokoll)? Wenn ja: Umfang und Aufbewahrungsdauer? (Aktuell nur „zuletzt geändert
    von/wann"; ein echtes Audit-Log wäre Phase 7.)
+9. **Aktualisierungssicherheit ohne Tracking:** Geplant ist eine **tracking-freie
+   Mindestversions-Sperre** (App verweigert den Betrieb unter einer Mindestversion) —
+   so kann keine bekannt unsichere Altversion im Echtbetrieb laufen, **ohne** Geräte/
+   Nutzer zu erfassen (Pseudonymität gewahrt). Frage: Genügt das, oder wird eine
+   **Versions-/Geräteprotokollierung** erwartet (die der Pseudonymität entgegenstünde)?
 
 ## 5. Was wir mitbringen / zusichern können
 - Pseudonymität als Default, optionale Klarnamen.
