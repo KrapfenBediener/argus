@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.13.1 — 2026-06-04
+**Zwei Fehler am Update-Sheet behoben**
+- Sheet-Link erschien **immer** (globale `UPDATE_SHEET`) → jetzt `UPDATE_SHEETS` je
+  Zielversion; der Link erscheint nur, wenn diese Version zum tatsächlichen
+  Versionssprung gehört (kein bereits durchlaufenes Sheet mehr). Meta-Eintrag
+  `WHATS_NEW['0.13.0']` entfernt.
+- Sheet ließ sich in der iOS-Standalone-PWA **nicht schließen** (`target=_blank`
+  navigierte im PWA-Fenster, keine Zurück-Leiste). Jetzt öffnet es in einem
+  **In-App-Overlay (iframe) mit „✕ Schließen"** (`openSheetOverlay`).
+
 ## v0.13.0 — 2026-06-04
 **Update-Sheet verlinkt**
 - Die „Was ist neu"-Anzeige (Auto-Popup + „Neuerungen"-Button) verlinkt jetzt auf die
