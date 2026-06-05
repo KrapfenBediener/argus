@@ -96,11 +96,15 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.9.2';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.10.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.10.0': [
+    'Direkt nach dem Anlegen kannst du jetzt auch den TQ-Timer starten und einen versehentlich erfassten Patienten verwerfen (neben Prio und öffnen).',
+    'Schutz gegen versehentliche Doppelerfassung: ein zu schneller Doppeltipp legt keinen zweiten Patienten mehr an.'
+  ],
   '0.9.1': [
     'Zusammengeführte CCPs erscheinen unter „CCP beitreten" jetzt als ein einziger Verbund-Eintrag (statt jedem CCP einzeln).',
     'Kein doppelter Lösch-Button mehr: bei einem Verbund steht „Ganzen Verbund löschen", sonst „CCP löschen".'
@@ -152,6 +156,7 @@ var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 var _sb      = null;
 var _sbJwt   = null;   /* JWT, mit dem der aktuelle _sb-Client erstellt wurde (Neuinit-Erkennung) */
 var _ccpId   = null;
+var _lastCreateAt  = 0;       /* Zeit der letzten Patienten-Erfassung (Doppeltipp-Sperre) */
 var _channel       = null;
 var _praesidiumId   = null;
 var _praesidiumName = '';
@@ -1157,9 +1162,14 @@ function vCapture(){
     h+='<span class="mono" style="font-weight:700">'+pno(lc)+'</span>';
     h+='<span class="pill" style="background:'+cc.bg+';color:'+cc.fg+(cc.bd?';border:1px solid '+cc.bd:'')+'">'+cc.label+'</span>';
     if(lc.prio)h+='<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>';
-    h+='<span style="flex:1"></span>';
-    h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="width:auto;padding:6px 12px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
-    h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="width:auto;padding:6px 12px">öffnen</button>';
+    if(lc.tqStart)h+='<span class="pill" style="background:var(--t1);color:#fff">TQ läuft</span>';
+    h+='</div>';
+    /* Schnellaktionen direkt am zuletzt angelegten Patienten (ohne Navigation) */
+    h+='<div style="display:flex;gap:6px;margin-top:10px">';
+    h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="flex:1;padding:8px 4px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
+    h+='<button class="txbtn'+(lc.tqStart?' on':'')+'" data-action="captq" style="flex:1;padding:8px 4px;'+(lc.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(lc.tqStart?'TQ stop':'TQ')+'</button>';
+    h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="flex:1;padding:8px 4px">öffnen</button>';
+    h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:8px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
     h+='</div>';
   }
   h+='</div>';
@@ -1882,11 +1892,36 @@ document.addEventListener("click",async function(e){
   }
   if(a==="tacstart"){state.capMode="tac";state.tacNode="start";state.tacResult=null;render();return;}
   if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
-  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();toast("Patient #"+np.num+" angelegt ("+CATS[cat].label+")");return;}
-  if(a==="addcat"){var cat2=el.getAttribute("data-cat");var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();toast("Patient #"+np2.num+" angelegt ("+CATS[cat2].label+")");return;}
+  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();toast("Patient #"+np.num+" angelegt ("+CATS[cat].label+")");return;}
+  if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();toast("Patient #"+np2.num+" angelegt ("+CATS[cat2].label+")");return;}
   if(a==="capprio"){
     var lcp=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
     if(lcp){ lcp.prio=!lcp.prio; await savePatient(lcp); await loadPatients(); render(); toast("#"+lcp.num+(lcp.prio?" als Prio markiert":" Prio entfernt")); }
+    return;
+  }
+  if(a==="captq"){
+    var lct=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
+    if(lct){ lct.tqStart=lct.tqStart?null:nowMs(); await savePatient(lct); await loadPatients(); render(); toast("#"+lct.num+(lct.tqStart?" — TQ-Timer gestartet":" — TQ-Timer gestoppt")); }
+    return;
+  }
+  if(a==="capdiscard"){
+    var lcd=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
+    if(!lcd){ toast("Kein Patient zum Verwerfen"); return; }
+    /* Hat der Patient schon Eingaben? Dann sicherheitshalber bestätigen lassen.
+     * Frisch & leer (typischer Fehltipp) → sofort verwerfen. */
+    var hasData = lcd.name||lcd.notes||lcd.moi||lcd.injury||lcd.photo||lcd.tqStart||lcd.ready||
+      (lcd.inj&&lcd.inj.length)||
+      (lcd.vit&&(lcd.vit.af||lcd.vit.spo2||lcd.vit.hf||lcd.vit.rr||lcd.vit.avpu||lcd.vit.pain))||
+      (lcd.tx&&Object.keys(lcd.tx).length);
+    if(hasData){
+      var okv=await confirmModal("Patient "+pno(lcd)+" verwerfen?\n\nDer Patient hat bereits Eingaben — diese gehen unwiderruflich verloren.","Verwerfen");
+      if(!okv) return;
+    }
+    var dcl=sb();
+    if(dcl && _ccpId){ try{ await dcl.from('patients').delete().eq('id',lcd.id); }catch(e){} }
+    try{ await sDel("ccp_pat_"+lcd.id); }catch(e){}
+    state.lastCreatedId=null;
+    await loadPatients(); render(); toast("Patient "+pno(lcd)+" verworfen");
     return;
   }
   if(a==="opencat"){state.cat=el.getAttribute("data-cat");go("catlist");return;}

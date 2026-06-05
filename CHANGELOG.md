@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.10.0 — 2026-06-04
+**Schnellaktionen beim Erfassen + Schutz vor Fehlerfassung**
+- **Neu:** Am „zuletzt angelegt"-Patienten zusätzlich **TQ-Timer starten/stoppen**
+  (`captq`) und **Verwerfen** (`capdiscard`) — neben Prio und öffnen. „Verwerfen"
+  löscht einen frisch/versehentlich erfassten Patienten sofort; hat er bereits
+  Eingaben, kommt eine Sicherheitsabfrage.
+- **Neu:** **Doppeltipp-Sperre** (~0,7 s) bei der Erfassung — verhindert, dass ein
+  zu schneller Doppeltipp zwei Patienten anlegt. Kein Bestätigungsdialog (Feld-Tempo
+  bleibt erhalten).
+
 ## v0.9.2 — 2026-06-04
 **Kosmetik**
 - App-Icon auf der Startseite ohne Schlagschatten — einheitlich „clean" wie auf
