@@ -34,3 +34,9 @@ npm-debug.log*
 *.pem
 *.key
 supabase-config.js
+
+# Daten-Backups (enthalten Codes/Patientendaten) — gehören NICHT ins Repo.
+# (Liegen standardmäßig ohnehin außerhalb unter ~/ARGUS-Backups/.)
+argus-backup-*.json
+ARGUS-Backups/
+backups/
