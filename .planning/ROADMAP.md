@@ -98,6 +98,20 @@ Veränderung, Hilfestellungen/Kurzanleitung.
 - ➖ **Bewusst verworfen (Owner-Entscheid):** Neuro-Feld, Funktions-/Rollenanzeige
   am CCP, Rufname-Hinweis.
 
+## UI-/Plattform-Strategie (Architektur-Entscheidung 2026-06-05)
+**Eine** Codebasis, **ein** Backend, **eine** Veröffentlichung — **keine** separate „PC-App".
+ARGUS passt sich **responsiv** an (CSS-Breakpoints; **capability-basiert**: Bildschirm­größe +
+Eingabeart `pointer`, NICHT Geräte-Sniffing):
+- **Feld-Oberfläche:** bleibt **mobile-first/responsive** (Telefon, Tablet); auf Desktop
+  höchstens luftiger/zentriert. Bewusst schlicht (Stress/Handschuhe) — kein eigenes
+  „Desktop-Feld-UI".
+- **Admin (Phase 7) & FLZ-Dashboard (Phase 8):** zusätzliche, desktop-taugliche
+  **Ansichten im selben Projekt** (Tabellen, Mehrspalten, Karten-Raster), die die Breite
+  nutzen. Das Dashboard kann einen **eigenen Einstieg/URL** (Beobachter-Token) haben,
+  bleibt aber dieselbe Codebasis/Backend.
+- Native App (Phase 9) ist hierfür **nicht** nötig — Responsive Web deckt alle Schirme
+  aus einem Code ab. Mockup-Ausblick: `docs/UI-AUSBLICK.html`.
+
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
 kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
