@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.13.0 — 2026-06-04
+**Update-Sheet verlinkt**
+- Die „Was ist neu"-Anzeige (Auto-Popup + „Neuerungen"-Button) verlinkt jetzt auf die
+  **visuelle Update-Übersicht** (`UPDATE_SHEET`). Konvention: bei jedem relevanten
+  Update ein Sheet unter `docs/` anlegen und `UPDATE_SHEET` setzen.
+
 ## v0.12.2 — 2026-06-04
 **MDR-Hinweis (dezent)**
 - Kleiner, grauer Hinweis „tacSTART ist eine Entscheidungsunterstützung – kein

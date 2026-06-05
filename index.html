@@ -96,11 +96,19 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.12.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.13.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
+/* Link zur visuellen Update-Übersicht ("Update-Sheet") — wird in der „Was ist neu"-
+ * Anzeige verlinkt. Bei jedem RELEVANTEN Update (neue Funktionen / verschobene
+ * Bedienelemente) ein neues Sheet unter docs/ anlegen und hier setzen. Bei reinen
+ * Kosmetik-/Patch-Updates auf dem letzten relevanten Sheet stehen lassen. */
+var UPDATE_SHEET = 'docs/UPDATE_v0.9_zu_v0.12.html';
 var WHATS_NEW = {
+  '0.13.0': [
+    'In den Update-Hinweisen gibt es jetzt einen Link zur visuellen Übersicht der Änderungen.'
+  ],
   '0.12.0': [
     'Neu in den Hilfestellungen: eine auf-/zuklappbare Kurzanleitung (Installieren, Erfassen, Verwalten, Mehrgeräte, Offline …) — jederzeit offline im Gerät.'
   ],
@@ -1505,10 +1513,14 @@ function whatsNewModal(sinceV, recentCap){
     var ul='<ul style="text-align:left;margin:4px 0 0;padding-left:20px;font-size:14px;line-height:1.45">'+lis+'</ul>';
     return multi ? ('<div style="margin-top:10px"><div class="hint" style="font-weight:600;color:var(--acc)">v'+esc(k)+'</div>'+ul+'</div>') : ul;
   }).join('');
+  var sheetLink = (typeof UPDATE_SHEET==='string' && UPDATE_SHEET)
+    ? '<a href="'+UPDATE_SHEET+'" target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:12px;font-size:14px;font-weight:600;color:var(--acc)">📄 Visuelle Übersicht der Änderungen öffnen</a>'
+    : '';
   var ov=document.createElement("div");ov.className="modalov";
   ov.innerHTML='<div class="modalbx">'+
     '<div class="modalmsg" style="font-weight:600;font-size:17px;text-align:center">'+(multi?'Neu in ARGUS':'Neu in ARGUS v'+esc(keys[0]))+'</div>'+
     body+
+    sheetLink+
     '<div class="hint" style="margin-top:12px">Falls etwas fehlt oder seltsam wirkt: App komplett schließen und neu öffnen.</div>'+
     '<div class="row" style="margin-top:16px"><button class="prim mc-ok" style="flex:1;margin:0;background:var(--ready)">Verstanden</button></div></div>';
   document.body.appendChild(ov);
