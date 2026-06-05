@@ -1,8 +1,7 @@
-# CCP-App (Argus) — Roadmap
+# CCP-App (ARGUS) — Roadmap
 
-> **Stand: 2026-06-03** — vollständig überarbeitet nach kritischer Bewertung
-> der Planung gegen das Endziel (operative Nutzung in MANV-Lagen, potenziell
-> Polizei BW / PTLS Pol).
+> **Stand: 2026-06-04** — Phase 4 abgeschlossen; danach Beta-Härtung aus
+> Tester-Feedback (v0.4.0–v0.9.1, siehe Phase 4.5). App live auf **v0.9.1**.
 >
 > **Milestone:** Closed Beta V1 — *läuft* (kleiner autorisierter Testkreis).
 > Nächstes Milestone: **Open Beta** (nach Phase 6).
@@ -70,6 +69,30 @@ Voraussetzung für jeden Einsatz mit echten Patientendaten.
   Policies (Lesen nur eigenes Präsidium/Master, Schreiben nur Master). Anon ohne JWT
   liest jetzt 0 Codes. Verifiziert. Install-Screen liest nicht mehr aus der DB (SW v6).
 
+## Phase 4.5 — Beta-Härtung & Tester-Feedback ✅ 2026-06-04
+**Ziel:** Stabilität, Robustheit und Bedienung anhand echten Tester-Feedbacks
+(3 Nutzer) und eines Selbst-Audits verbessern — ohne neue Großfeatures.
+Ausgeliefert als nachvollziehbare Point-Releases **v0.4.0 – v0.9.1** (`CHANGELOG.md`).
+
+- ✅ **Offline-Robustheit:** offline erfasste/bearbeitete Patienten gehen beim
+  Reconnect nicht mehr verloren (`_dirty` / `flushPendingPatients`, Merge per
+  Zeitstempel, „nicht synchronisiert"-Hinweis). → löst Tech-Schuld „Offline-Queue".
+- ✅ **Sichtbare Versionierung + Update-Mechanik:** App-Version in der Fußzeile,
+  `version.json`, „Jetzt aktualisieren"-Banner (iOS-SW-Update zuverlässig),
+  „Was ist neu"-Hinweis (kumulativ), `CHANGELOG.md`.
+- ✅ **Erst-Einführung:** überspringbar, nur bei echter Neuinstallation, aus den
+  Hilfestellungen erneut aufrufbar.
+- ✅ **Patienten-Navigation:** gPA/Prio/„Alle Patienten" anklickbar, gPA
+  zurückholbar; Erfassungs-Kontext (nächste Nr. + zuletzt angelegt) + Prio-
+  Schnellaktion. [Zobel, Braunbeck]
+- ✅ **Sperre robuster:** gibt nach Verlassen / 45 s zuverlässig frei, Wartende
+  übernehmen automatisch. [Braunbeck]
+- ✅ **Vitalwerte-Verlauf:** „Messung protokollieren" für längere Versorgung/PFC. [Schill]
+- ✅ **CCP-Verbund:** „Ganzen Verbund löschen" (MasterToken); Verbund als ein
+  Eintrag in „CCP beitreten"; korrekte Zähler nach Löschen.
+- ➖ **Bewusst verworfen (Owner-Entscheid):** Neuro-Feld, Funktions-/Rollenanzeige
+  am CCP, Rufname-Hinweis.
+
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
 kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
@@ -82,6 +105,9 @@ und Produktion.
 - **Production-Repo-Schnitt:** Neues GitHub-Repo (privat), Git-History
   erhalten, alte URL + altes Supabase einfrieren. Tester installieren
   PWA neu.
+- **Daten-Hygiene beim Schnitt:** verwaiste CCPs (`praesidium_id = NULL`)
+  bereinigen; alte Codes nicht übernehmen → frische Codes inkl. neuem MasterToken
+  (der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
 - **Backup-/Löschkonzept** dokumentieren und testen (DSGVO).
 
 ## Phase 6 — Betriebsbereitschaft & Open Beta ⬜
@@ -137,12 +163,16 @@ dienstlichen App-Store von PTLS Pol (MDM, kein öffentlicher App Store).
 
 ## Technische Schuld (geparkt, kein aktiver Meilenstein)
 
-| Thema | Ursprung | Wann angehen |
+| Thema | Ursprung | Status / Wann angehen |
 |---|---|---|
-| Fotos → Supabase Storage | alt Phase 4 | Bei >50 Fotos spürbar oder vor großem Rollout |
-| `revoked`-Flag UI | Phase 3 | In Phase 7 integriert |
-| Offline-Queue für Writes | Phase 1 | Falls Funkloch-Szenarien zum Standard werden |
-| SW Cache-Versionierung automatisch | aktuell manuell | Bei nächstem Infra-Review |
+| Offline-Queue für Writes | Phase 1 | ✅ erledigt in Phase 4.5 (v0.4.0) |
+| Fotos → Supabase Storage | alt Phase 4 | offen — bei >50 Fotos / vor großem Rollout |
+| `revoked`-Flag UI | Phase 3 | in Phase 7 integriert |
+| SW-Cache-Version automatisch bumpen | aktuell manuell | teilw. adressiert (`version.json`); Auto-Bump offen |
+| Laufnummern-Kollision bei gleichzeitigem Anlegen (2 Geräte) | Audit 06-04 | serverseitige Nummernvergabe — offen |
+| JWT-Refresh nur bei Start/`online` (lange Dauer-Sessions) | Audit 06-04 | offen, geringe Priorität |
+| Verwaiste CCPs `praesidium_id = NULL` | Audit 06-04 | beim Produktiv-Schnitt (Phase 5) bereinigen |
+| Master-Code-Rotation vor Echtbetrieb | Audit 06-04 | in Phase 5 (frische Codes im Prod-Projekt) |
 
 ---
 
