@@ -139,7 +139,10 @@ kompromittieren. Löst die verbleibende Zugriffskontroll-Lücke sauber.
 - **Nutzerverzeichnis:** Nutzer sperren (`revoked`-Flag + Re-Check beim Start),
   Präsidien zuweisen / aufschalten, Codes ausgeben / widerrufen.
 - **Desktop-optimierte Admin-Webseite** (nicht Phone-App) für Verwaltungsaufgaben.
-- **RLS-Feinschliff** auf Basis der Phase-4-Grundlage; Audit-Log.
+- **RLS-Feinschliff** auf Basis der Phase-4-Grundlage.
+- **Audit-/Einsatzprotokoll:** personenscharfes, zeitgestempeltes Verlaufsprotokoll
+  (wer/wann/was/welcher CCP), append-only. Heute nur „zuletzt geändert von/wann".
+  Umfang + Aufbewahrung nach DSB/LDSG/Polizeidatenrecht festlegen.
 
 ## Phase 8 — Lageübersicht für FLZ / ILS (read-only Dashboard) ⬜
 **Ziel:** Browserbasierte Leseansicht für Führungs- und Lagezentrum (FLZ)
@@ -147,6 +150,10 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
 (T1/T2/T3/T5/gPA), ohne Zugriff auf personenbezogene Daten.
 
 - Anonymisierte Echtzeit-Zahlen, kein Patientendetail.
+- **Design (festgelegt):** eigener **Beobachter-Token** → JWT mit `role: observer`;
+  RLS verweigert Roh-Zugriff auf `patients`. Beobachter liest **nur eine aggregierte
+  View/RPC** (Zahlen je Kategorie/CCP) → personenbezogene Daten verlassen den Server
+  nicht. Separate, desktop-orientierte Read-only-Webansicht (nicht die Feld-PWA).
 - Klärung vor Umsetzung: zuständige Leitstelle (FLZ vs. ILS),
   Datenschutz-Folgenabschätzung für Übermittlung, Anbindung IVENA (optional).
 

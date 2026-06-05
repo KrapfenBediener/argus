@@ -39,7 +39,11 @@ Abtransport verwaltet. PWA (Webapp), läuft mehrgeräte-fähig und offline.
 6. **Medizinprodukt-Einstufung (MDR):** Die tacSTART-Kategorievorschläge könnten
    ARGUS als Medizinprodukt-Software qualifizieren. Einschätzung / weiteres Vorgehen?
 7. **Übermittlung an Dritte** (späteres FLZ/ILS-Dashboard, nur anonyme Zahlen) —
-   Anforderungen vorab klären.
+   Anforderungen/Rechtsgrundlage für die Übermittlung an die Leitstelle vorab klären.
+8. **Protokollierungspflicht:** Muss personenscharf + mit Zeitstempel protokolliert
+   werden, wer wann was in welcher CCP geändert/eingesehen hat (Einsatz-/Zugriffs-
+   protokoll)? Wenn ja: Umfang und Aufbewahrungsdauer? (Aktuell nur „zuletzt geändert
+   von/wann"; ein echtes Audit-Log wäre Phase 7.)
 
 ## 5. Was wir mitbringen / zusichern können
 - Pseudonymität als Default, optionale Klarnamen.
