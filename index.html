@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.11.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.11.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1428,6 +1428,16 @@ function vStart(){
 }
 
 function toast(msg){var t=$("toast");t.textContent=msg;t.classList.add("show");setTimeout(function(){t.classList.remove("show");},1700);}
+/* Kurze, prominente, NICHT-blockierende Erfassungs-Bestätigung (verblasst von
+ * selbst). pointer-events:none → hält den schnellen Sichtungs-Rhythmus nicht auf. */
+function flashConfirm(num, catLabel){
+  var f=document.createElement('div');
+  f.style.cssText='position:fixed;inset:0;z-index:9998;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:1;transition:opacity .35s ease';
+  f.innerHTML='<div style="background:rgba(15,21,28,.92);color:#fff;padding:16px 24px;border-radius:16px;font-size:23px;font-weight:700;display:flex;align-items:center;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.35)"><span style="color:#46c98a">✓</span> Nr. '+esc(String(num))+' · '+esc(catLabel)+'</div>';
+  document.body.appendChild(f);
+  setTimeout(function(){ f.style.opacity='0'; },650);
+  setTimeout(function(){ if(f.parentNode)f.parentNode.removeChild(f); },1050);
+}
 
 function resizePhoto(file,maxEdge,quality){
   return new Promise(function(resolve,reject){
@@ -1899,8 +1909,8 @@ document.addEventListener("click",async function(e){
   }
   if(a==="tacstart"){state.capMode="tac";state.tacNode="start";state.tacResult=null;render();return;}
   if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
-  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();toast("Patient #"+np.num+" angelegt ("+CATS[cat].label+")");return;}
-  if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();toast("Patient #"+np2.num+" angelegt ("+CATS[cat2].label+")");return;}
+  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();flashConfirm(pno(np),CATS[cat].label);return;}
+  if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();flashConfirm(pno(np2),CATS[cat2].label);return;}
   if(a==="photozoom"){
     var pzsrc=state.edit&&state.edit.photo; if(!pzsrc) return;
     var ovz=document.createElement('div');

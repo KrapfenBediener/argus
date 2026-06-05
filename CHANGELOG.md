@@ -6,6 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.11.1 — 2026-06-04
+**Erfassungs-Bestätigung als dezenter Flash**
+- Beim Anlegen (direkt + tacSTART) erscheint kurz eine zentrierte, **nicht-
+  blockierende** Bestätigung „✓ Nr. X · T-Y" (`flashConfirm`, verblasst nach
+  ~0,8 s, `pointer-events:none`) statt des kleinen Toasts. Der „zuletzt angelegt"-
+  Block unten bleibt unverändert. (Kein „Was ist neu"-Popup, da selbsterklärend.)
+
 ## v0.11.0 — 2026-06-04
 **Foto-Vollbild**
 - Patientenfoto antippen → Vollbild-Overlay (`photozoom`), erneut tippen schließt.
