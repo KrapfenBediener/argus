@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.12.1 — 2026-06-04
+**Kurzanleitung-Feinschliff**
+- Hilfestellungen jetzt auch **vor** dem CCP-Eröffnen erreichbar (Button auf der
+  CCP-Startseite) — löst das Henne-Ei-Problem („wie eröffne ich einen CCP?").
+- Kurzanleitung klappt **nicht mehr von selbst zu**: `help`-Ansicht vom 3,5-s-
+  Auto-Refresh ausgenommen.
+- Punkt „Installieren" aus der In-App-Kurzanleitung entfernt (sichtbar erst nach
+  Installation; bleibt im verteilbaren `docs/TESTER-ANLEITUNG.md`).
+- Back aus „Hilfestellungen" führt kontextabhängig zurück (CCP offen → Home, sonst
+  Startseite).
+
 ## v0.12.0 — 2026-06-04
 **Kurzanleitung in der App**
 - Hilfestellungen enthalten jetzt einen auf-/zuklappbaren Abschnitt „Kurzanleitung"

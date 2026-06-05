@@ -151,9 +151,12 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
 
 - Anonymisierte Echtzeit-Zahlen, kein Patientendetail.
 - **Design (festgelegt):** eigener **Beobachter-Token** → JWT mit `role: observer`;
-  RLS verweigert Roh-Zugriff auf `patients`. Beobachter liest **nur eine aggregierte
-  View/RPC** (Zahlen je Kategorie/CCP) → personenbezogene Daten verlassen den Server
-  nicht. Separate, desktop-orientierte Read-only-Webansicht (nicht die Feld-PWA).
+  RLS verweigert Roh-Zugriff auf `patients`. Beobachter liest **nur eine kontrollierte
+  View/RPC** mit Feld-Whitelist. Datentiefe per DSB (siehe `docs/DSB-BRIEFING.md`):
+  - Stufe a: **aggregierte Zahlen** je Kategorie/CCP (anonym).
+  - Stufe b (falls zulässig): zusätzlich **pro Patient** Kategorie + Alter + Geschlecht
+    + Verletzungsblock (pseudonym; **ohne** Name/Foto/Vitalwerte/Notizen).
+  Separate, desktop-orientierte Read-only-Webansicht (nicht die Feld-PWA).
 - Klärung vor Umsetzung: zuständige Leitstelle (FLZ vs. ILS),
   Datenschutz-Folgenabschätzung für Übermittlung, Anbindung IVENA (optional).
 

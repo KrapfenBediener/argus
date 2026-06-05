@@ -38,8 +38,15 @@ Abtransport verwaltet. PWA (Webapp), läuft mehrgeräte-fähig und offline.
 5. **Foto-Funktion:** zulässig/erwünscht, oder einschränken/abschaltbar machen?
 6. **Medizinprodukt-Einstufung (MDR):** Die tacSTART-Kategorievorschläge könnten
    ARGUS als Medizinprodukt-Software qualifizieren. Einschätzung / weiteres Vorgehen?
-7. **Übermittlung an Dritte** (späteres FLZ/ILS-Dashboard, nur anonyme Zahlen) —
-   Anforderungen/Rechtsgrundlage für die Übermittlung an die Leitstelle vorab klären.
+7. **Lageübersicht für FLZ/ILS** (geplante separate, **read-only** Desktop-Web-Ansicht
+   im Browser, nicht die Feld-PWA; Zugang über eigenen „Beobachter-Token"). Zu klären:
+   - **Zuständige Leitstelle** (FLZ vs. ILS) und Rechtsgrundlage der Übermittlung.
+   - **Datentiefe für den Beobachter** — was ist zulässig?
+     (a) nur **aggregierte Zahlen** (CCPs, Anzahl je Kategorie) — anonym, oder
+     (b) zusätzlich **pro Patient**: Kategorie + **Alter + Geschlecht + Verletzungsblock**
+     (pseudonym, **ohne** Name/Foto/Vitalwerte/Notizen) — operativ besser für die
+     Klinik-Verteilung, aber pseudonyme Gesundheitsdaten an Dritte → Abwägung nötig.
+   - **DSFA** für diese Übermittlung; optionale **IVENA-Anbindung**.
 8. **Protokollierungspflicht:** Muss personenscharf + mit Zeitstempel protokolliert
    werden, wer wann was in welcher CCP geändert/eingesehen hat (Einsatz-/Zugriffs-
    protokoll)? Wenn ja: Umfang und Aufbewahrungsdauer? (Aktuell nur „zuletzt geändert

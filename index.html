@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.12.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.12.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1382,7 +1382,6 @@ function vHelp(){
   var kb=function(t,b){return '<details style="margin:6px 0"><summary style="cursor:pointer;font-weight:600;padding:4px 0">'+t+'</summary><div class="helpa" style="padding:4px 0 8px">'+b+'</div></details>';};
   var h='<button class="ghost" data-action="showintro" style="margin-bottom:14px">▶ Einführung erneut ansehen</button>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kurzanleitung</div>'+
-    kb('Installieren','Link/Code öffnen → in Safari <b>Teilen → „Zum Home-Bildschirm"</b> → ARGUS vom Homescreen öffnen → <b>Code eingeben</b> (danach ~30 Tage Ruhe).')+
     kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>.')+
     kb('Patient erfassen','<b>Patient erfassen</b> → <b>tacSTART</b> (geführt) oder direkt eine <b>Kategorie</b> (T-1…T-5). Nummer kommt automatisch — auf die Haut notieren. Unten am zuletzt Angelegten: Prio · TQ · öffnen · Verwerfen.')+
     kb('Patient verwalten','Über <b>Patientenübersicht</b> (Kacheln, PRIO/gPA, „Alle Patienten") oder <b>öffnen</b>. Im Detail: Vitalwerte (+ Verlauf), Maßnahmen A–E, Verletzungen, <b>Foto</b> (antippen = Vollbild), Kategorie, Prio, TQ-Timer.')+
@@ -1434,6 +1433,7 @@ function vStart(){
   if(_praesidiumName==='Schulungsumgebung' && _isMaster){
     h += '<button class="ghost" data-action="schulreset" style="margin-top:10px;border-color:var(--t1)"><span style="color:var(--t1)">🎓 Schulung zurücksetzen</span></button>';
   }
+  h += '<button class="ghost" data-action="nav" data-view="help" style="margin-top:8px;font-size:13px">❓ Hilfestellungen & Kurzanleitung</button>';
   h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
   h += '🏗 '+esc(_praesidiumName||'—')+' · wechseln</button>';
   h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · <a href="#" data-action="whatsnew" style="color:var(--mut)">Neuerungen</a> · © 2026 Gabor Szeman</p>';
@@ -2051,6 +2051,7 @@ async function back(){
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
   else if(state.view==="home"){await loadOpenCcpCount();go("start");}
   else if(state.view==="admin"){go("praesidium");}
+  else if(state.view==="help"){ go(_ccpId?"home":"start"); }
   else{go("home");}
 }
 
@@ -2062,7 +2063,7 @@ setInterval(function(){
   if(tb&&state.edit&&state.edit.tqStart){tb.textContent="TQ läuft · "+fmtDur(nowMs()-state.edit.tqStart)+" — stoppen";}
 },1000);
 setInterval(async function(){
-  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start")return;
+  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help")return;
   await loadMeta();await loadPatients();await loadChecklist();
   await checkIncomingMergeRequest();
   render();
