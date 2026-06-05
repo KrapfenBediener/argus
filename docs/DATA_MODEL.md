@@ -66,3 +66,30 @@ Die Punkte-Definition (`CHK`) und der tacSTART-Entscheidungsbaum (`FLOW`) sind i
 - Echtzeit-Abonnement auf `patients` (und `ccps`) des aktiven CCP.
 - Zugriffskontrolle: nur authentifizierte Geräte; Schreibrecht über die Sperr-Logik gesteuert.
 - `demo`-Felder und der Demo-CCP-B-Mechanismus aus der Vorschau **entfallen** in der echten App.
+
+---
+
+## Aktualisierung (Stand v0.16.1, 2026-06-05)
+
+> Der obige Abschnitt beschreibt das **frühe** Modell. **Maßgeblich** für das echte
+> DB-Schema ist jetzt `supabase/migrations/0000_base_schema.sql` (+ `0001_…`).
+
+**DB-Spaltennamen** (Tabelle `patients`) weichen von den JS-Feldern ab: `ccp_id`,
+`tq_start`, `last_triage`, `pup_re`/`pup_li`, `locked_by`/`locked_at`. Mapping:
+`patFromRow()`/`patToRow()` in `index.html`.
+
+**Neu/ergänzt seit der Erstfassung:**
+- `vit.avpu` enthält jetzt **WASB** (W/A/S/B = Wach/Ansprechbar/Schmerzreiz/Bewusstlos),
+  nicht mehr AVPU (v0.16.0, inkl. Datenmigration).
+- Optionaler **Vitalwerte-Verlauf** `vit.log` = `[{t,af,spo2,hf,rr,avpu,pain,by}]`.
+- **Nur lokale** Patient-Felder (NICHT in der DB, von `patToRow` ignoriert):
+  `_dirty` (offline noch nicht synchronisiert) und `ccpId` (Ziel-CCP für den Upload).
+- `locked_by`/`locked_at` = Soft-Lock (45 s TTL, Heartbeat, Auto-Übernahme).
+- Demo-/Schulungs-Patienten haben **id-Präfix `seed`** (echte: `p…`); das frühere
+  `demo`-Flag betrifft nur die lokale Vorschau-Zusammenführung.
+
+**Weitere Tabellen:** `ccps` (praesidium_id, kennung, merged/merge_group_id/
+merge_request_from/merge_request_at, closed_at, join_token), `checklists` (ccp_id,
+data jsonb), `access_tokens` (token PK, short_code unique, is_master, temporary,
+ttl_hours, single_use, **used_at = bigint/ms**), `praesidien` (id, name).
+Zugriff serverseitig per **RLS** (siehe `0001_phase4_jwt_rls.sql`).

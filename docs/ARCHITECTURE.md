@@ -67,3 +67,31 @@ Eine Migration auf ein Framework (z. B. React/Vite) ist **optional** und nur sin
 - **Offline-Sync ohne Netz** per QR-/Funk-Code (wie etablierte Systeme): zugleich Grundlage des CCP-Zusammenführens im Funkloch.
 - **Native App** (z. B. via Capacitor) nur, falls „gar kein Internet" der Regelfall ist – dann lokale Funk-Vernetzung möglich, aber offizielle Verteilung nötig.
 - **Anbindung Lagezentrum / ILS / Krankenhausverteilung:** in Deutschland existiert dafür **IVENA eHealth** (inkl. MANV-App). Realistisch ist Einspeisung über eine Schnittstelle in Abstimmung mit Leitstellenträger und Hersteller – **nicht** ein eigener Nachbau. Erst ein Lage-Dashboard (read-only, anonymisierte Zahlen), dann kontrollierte Übergabe.
+
+---
+
+## Aktualisierung (Stand v0.16.1, 2026-06-05)
+
+> Ergänzt/präzisiert die obigen (frühen) Annahmen.
+
+**Authentifizierung & Zugriffsschutz (Phase 4):** Freischalt-Code → DB-RPC
+`argus_exchange_code` (pgjwt + Vault) → **signiertes JWT** (`praesidium_id`,
+`is_master`, exp; pseudonym) → **Row-Level-Security** bindet Zugriff ans Präsidium.
+Ohne gültiges JWT liefert das Backend nichts; `access_tokens` ist gesperrt (Codes
+nicht mehr per Anon-Key abrufbar). DB-Stand reproduzierbar in `supabase/migrations/`.
+
+**Offline-Sync (real, nicht nur 3,5-s-Refresh):** lokale Änderungen werden mit
+`_dirty` markiert und beim Reconnect über `flushPendingPatients()` eingemischt/
+hochgeschoben (Konflikt: jüngerer `updated`-Zeitstempel gewinnt); `online`-Event
+stößt den Abgleich an. So gehen offline erfasste Patienten nicht verloren.
+
+**Auslieferung/Update:** Service Worker (`sw.js`, stale-while-revalidate +
+`waitUntil`), `version.json` (network-only) + In-App „Jetzt aktualisieren"-Hinweis,
+sichtbare `APP_VERSION`. Visuelle Update-Sheets unter `docs/UPDATE_*.html`.
+
+**Backup:** bis Supabase Pro (Phase 5) manuelles Export-Skript
+`scripts/argus_backup.py` → `~/ARGUS-Backups/` (siehe `docs/BACKUP.md`).
+
+**UI-/Plattform-Strategie:** eine responsive Codebasis; Feld-UI mobile-first,
+Desktop-Ansichten (Admin Phase 7, FLZ-Dashboard Phase 8) im selben Projekt
+(siehe ROADMAP + Mockup `docs/UI-AUSBLICK.html`).

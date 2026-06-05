@@ -66,3 +66,27 @@ Detailliert in `docs/FEATURES_MULTIUSER.md`:
 - Keine automatische ärztliche Diagnose; tacSTART ist Hilfestellung, keine verbindliche Entscheidung.
 - Kein Ersatz für offizielle Leitstellen-/Krankenhaussteuerung (z. B. IVENA) – langfristig ggf. Anbindung, kein Nachbau (siehe Architektur, „Ausblick").
 - Keine Klarnamen-Pflicht.
+
+---
+
+## Aktualisierung (Stand v0.16.1, 2026-06-05)
+
+> Funktioneller Ist-Stand über die Erstfassung hinaus. Laufende Liste: `CHANGELOG.md`.
+
+- **Bewusstseinslage WASB** (Wach/Ansprechbar/Schmerzreiz/Bewusstlos) statt AVPU.
+- **Vitalwerte-Verlauf:** „Messung protokollieren" (Zeitreihe, für längere Versorgung).
+- **Erfassen:** zeigt nächste Nummer + zuletzt angelegten Patienten; Schnellaktionen
+  **Prio · TQ · öffnen · Verwerfen**; **Doppeltipp-Sperre** + dezenter Bestätigungs-Flash;
+  **kein** versehentliches Zoomen.
+- **Foto:** antippen → Vollbild.
+- **Mehrgeräte:** Soft-Lock gibt nach Verlassen/45 s automatisch frei (Wartende
+  übernehmen selbsttätig); CCP-Verbund als ein Eintrag in „CCP beitreten";
+  „Ganzen Verbund löschen" (MasterToken).
+- **Freischalten:** Code/Link kopieren → „📋 Einfügen" (kein Abtippen); Code-Typen
+  reduziert auf Dauerhaft-Link + Einmal-Link.
+- **Onboarding/Hilfe:** Erst-Einführung (überspringbar, nur Neuinstallation),
+  Kurzanleitung in den Hilfestellungen, „Was ist neu"-Hinweise + visuelle Sheets.
+- **Schulungsumgebung:** „Zurücksetzen" erscheint nur, wenn etwas verändert wurde.
+- **Zeitanzeigen** mit Stunden (z. B. „vor 2 Std 5 min", TQ 2:05:30).
+- **MDR-Hinweis:** tacSTART-Ergebnis weist dezent auf „Entscheidungsunterstützung,
+  kein Ersatz für ärztliche Beurteilung" hin.
