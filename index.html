@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.15.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.15.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -109,6 +109,9 @@ var UPDATE_SHEETS = {
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html'   /* deckt v0.9.0 → v0.12.x ab */
 };
 var WHATS_NEW = {
+  '0.15.1': [
+    'Zeitanzeigen mit Stunden: „vor 2 Std 5 min" statt „vor 125 min"; TQ-Timer als 2:05:30 statt 125:30.'
+  ],
   '0.14.0': [
     'Freischalten ohne Abtippen: Code oder erhaltenen Link kopieren und am Freischalt-Feld auf „📋 Einfügen" tippen.'
   ],
@@ -711,8 +714,8 @@ function dupNumKeys(){
   return dup;
 }
 function isDupNum(p){ return !!(p && p.status==='active' && dupNumKeys()[(p.ccp||'A')+'|'+p.num]); }
-function fmtDur(ms){var s=Math.max(0,Math.floor(ms/1000));return two(Math.floor(s/60))+":"+two(s%60);}
-function ageStr(ms){var s=Math.floor((nowMs()-ms)/1000);return s<60?("vor "+s+" s"):("vor "+Math.floor(s/60)+" min");}
+function fmtDur(ms){var s=Math.max(0,Math.floor(ms/1000));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return (h>0?(h+":"+two(m)):two(m))+":"+two(s%60);}
+function ageStr(ms){var s=Math.floor((nowMs()-ms)/1000);if(s<60)return "vor "+s+" s";var m=Math.floor(s/60);if(m<60)return "vor "+m+" min";var h=Math.floor(m/60),mm=m%60;return "vor "+h+" Std"+(mm?" "+mm+" min":"");}
 
 async function sList(prefix){
   if(!SS){return Object.keys(mem).filter(function(k){return k.indexOf(prefix)===0;});}

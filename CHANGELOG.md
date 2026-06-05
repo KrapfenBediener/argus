@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.15.1 — 2026-06-05
+**Zeitanzeigen mit Stunden-Überlauf (Tester-Feedback)**
+- `ageStr` (Zeit seit letzter Sichtung im CCP): zeigt ab 60 min „vor H Std M min"
+  statt „vor 125 min".
+- `fmtDur` (TQ-Timer): zeigt ab 1 h „H:MM:SS" (z. B. 2:05:30) statt „125:30".
+
 ## v0.15.0 — 2026-06-04
 **Schulung: „Zurücksetzen" nur bei Veränderung**
 - Der Button „🎓 Schulung zurücksetzen" ist im **Originalzustand ausgeblendet** und
