@@ -6,6 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.12.2 — 2026-06-04
+**MDR-Hinweis (dezent)**
+- Kleiner, grauer Hinweis „tacSTART ist eine Entscheidungsunterstützung – kein
+  Ersatz für die ärztliche/fachliche Beurteilung" am **tacSTART-Ergebnis** (Wirkort)
+  und in den **Hilfestellungen** (Dokumentation). So offen wie nötig, so unauffällig
+  wie möglich; kein Pop-up/Banner. Stützt die Einordnung als Hilfs-/Doku-Werkzeug.
+
 ## v0.12.1 — 2026-06-04
 **Kurzanleitung-Feinschliff**
 - Hilfestellungen jetzt auch **vor** dem CCP-Eröffnen erreichbar (Button auf der

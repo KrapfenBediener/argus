@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.12.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.12.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1199,7 +1199,8 @@ function vTac(){
     return '<div class="card" style="text-align:center;padding:26px 16px"><div class="hint">Ergebnis tacSTART</div>'+
       '<div style="display:inline-block;margin:14px auto;border-radius:14px;padding:18px 30px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="mono" style="font-size:34px;font-weight:600">'+c.label+'</span><br><span style="font-size:13px">'+c.nm+'</span></div></div>'+
       '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient #'+nextNum()+' anlegen</button>'+
-      '<button class="ghost" data-action="tacstart">nochmal</button>';
+      '<button class="ghost" data-action="tacstart">nochmal</button>'+
+      '<p class="hint" style="text-align:center;margin-top:10px;font-size:11px">tacSTART ist eine Entscheidungsunterstützung – kein Ersatz für die ärztliche/fachliche Beurteilung.</p>';
   }
   var node=FLOW[state.tacNode];
   var h='<div class="card" style="padding:20px 16px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">'+esc(node.q)+'</div>';
@@ -1390,7 +1391,8 @@ function vHelp(){
     kb('Offline & Updates','Offline läuft alles weiter und gleicht später ab („⏳ nicht synchronisiert" zeigt Offenes). Bei neuer Version „<b>Jetzt aktualisieren</b>" tippen. Version steht unten auf der Startseite.')+
     '</div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
-    '<div class="helpa">Gehfähig → T-3. Sonst Atmung prüfen: keine Spontanatmung auch nach Freimachen → keine Auto-Kategorie (Einzelfall). Atmung nur nach Freimachen → T-1. Bei Spontanatmung: AF außerhalb 10–30 → T-1; kein Radialispuls → T-1; folgt nicht Befehlen → T-1. Alle vier ok (Atmung, AF, Puls, Befehle) → T-2.</div></div>';
+    '<div class="helpa">Gehfähig → T-3. Sonst Atmung prüfen: keine Spontanatmung auch nach Freimachen → keine Auto-Kategorie (Einzelfall). Atmung nur nach Freimachen → T-1. Bei Spontanatmung: AF außerhalb 10–30 → T-1; kein Radialispuls → T-1; folgt nicht Befehlen → T-1. Alle vier ok (Atmung, AF, Puls, Befehle) → T-2.</div>'+
+    '<div class="hint" style="margin-top:8px;font-size:11px">tacSTART ist eine Entscheidungsunterstützung – kein Ersatz für die ärztliche/fachliche Beurteilung.</div></div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kategorien</div>';
   CATORDER.forEach(function(cat){var c=CATS[cat];h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span><span class="helpa">'+c.nm+'</span></div>';});
   h+='</div>';
