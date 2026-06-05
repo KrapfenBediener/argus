@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.14.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.15.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -190,6 +190,8 @@ var _mergeReqHandling = false;/* Re-Entrancy-Schutz für Bestätigungsdialog */
 var _prevGroupSize  = 1;      /* zur Erkennung, dass ein CCP der Gruppe beigetreten ist */
 var _lastView       = null;   /* für Scroll-Reset nur bei View-Wechsel */
 var _openCcpCount   = -1;     /* offene (nicht abgeschlossene) CCPs im Präsidium; -1 = unbekannt */
+var _schulDirty     = -1;     /* Schulungsumgebung verändert? -1 unbekannt · 0 sauber · 1 verändert */
+var DEMO_MEDICS = ['Dr. Berg','San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt']; /* Master-Medics der Demo-CCPs (Schulungs-Reset) */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -967,11 +969,33 @@ function ccpAdminUI(){
 }
 async function loadOpenCcpCount(){
   var c=sb();
-  if(!c||!_praesidiumId){ _openCcpCount=0; return; }
+  if(!c||!_praesidiumId){ _openCcpCount=0; _schulDirty=-1; return; }
   try{
     var r=await c.from('ccps').select('id',{count:'exact',head:true}).eq('praesidium_id',_praesidiumId).is('closed_at',null);
     _openCcpCount=(typeof r.count==='number')?r.count:-1;
   }catch(e){ _openCcpCount=-1; }
+  await loadSchulDirty();
+}
+/* Schulungsumgebung: erkennt, ob seit dem letzten „Zurücksetzen" etwas verändert wurde.
+ * Originalzustand = genau 6 CCPs A–F (unmerged/offen, Demo-Master-Medics), nur Demo-
+ * Patienten (id-Präfix "seed", aktiv, ohne Name). _schulDirty: -1 unbekannt, 0 sauber, 1 verändert. */
+async function loadSchulDirty(){
+  _schulDirty=-1;
+  if(_praesidiumName!=='Schulungsumgebung' || !_isMaster) return;
+  var c=sb(); if(!(c && _praesidiumId)) return;
+  try{
+    var cr=await c.from('ccps').select('id,kennung,merged,merge_group_id,closed_at,master_medic').eq('praesidium_id',_praesidiumId);
+    var ccps=cr.data||[];
+    var open=ccps.filter(function(x){return !x.closed_at;});
+    var kenn=open.map(function(x){return x.kennung;}).sort().join('');
+    var structPristine = ccps.length===6 && open.length===6 && kenn==='ABCDEF'
+      && open.every(function(x){ return !x.merged && !x.merge_group_id && DEMO_MEDICS.indexOf(x.master_medic)>=0; });
+    if(!structPristine){ _schulDirty=1; return; }
+    var pr=await c.from('patients').select('id,status,name').in('ccp_id',open.map(function(x){return x.id;}));
+    var pats=pr.data||[];
+    var patPristine = pats.every(function(p){ return String(p.id||'').indexOf('seed')===0 && p.status==='active' && !p.name; });
+    _schulDirty = patPristine ? 0 : 1;
+  }catch(e){ _schulDirty=-1; }
 }
 async function leaveCurrentCcp(){
   if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
@@ -1478,7 +1502,9 @@ function vStart(){
   }else{
     h += '<p class="hint" style="text-align:center;margin:4px 0 2px">Noch kein CCP eröffnet — als Erste(r) oben einen eröffnen.</p>';
   }
-  if(_praesidiumName==='Schulungsumgebung' && _isMaster){
+  /* Reset-Button nur, wenn die Schulungsumgebung verändert wurde (oder Zustand
+   * unbekannt/offline) — im Originalzustand ausgeblendet. */
+  if(_praesidiumName==='Schulungsumgebung' && _isMaster && _schulDirty!==0){
     h += '<button class="ghost" data-action="schulreset" style="margin-top:10px;border-color:var(--t1)"><span style="color:var(--t1)">🎓 Schulung zurücksetzen</span></button>';
   }
   h += '<button class="ghost" data-action="nav" data-view="help" style="margin-top:8px;font-size:13px">❓ Hilfestellungen & Kurzanleitung</button>';
@@ -1963,7 +1989,7 @@ document.addEventListener("click",async function(e){
     var slk=await sList("ccp_pat_"); for(var si=0;si<slk.length;si++){await sDel(slk[si]);}
     /* 2) frisches Demo-Szenario: 6 CCPs, ALLE mit erfundenen MasterMedics
      *    (kein vom Nutzer geführter CCP), je mit zufälligen Patienten. */
-    var bnames=['Dr. Berg','San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt'];
+    var bnames=DEMO_MEDICS;
     var borte=['CCP Marktplatz','CCP Bahnhof','CCP Schulhof','CCP Stadthalle','CCP Sportplatz','CCP Parkhaus'];
     var bkenn=['A','B','C','D','E','F'];
     for(var bi=0;bi<6;bi++){

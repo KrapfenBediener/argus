@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.15.0 — 2026-06-04
+**Schulung: „Zurücksetzen" nur bei Veränderung**
+- Der Button „🎓 Schulung zurücksetzen" ist im **Originalzustand ausgeblendet** und
+  erscheint nur, wenn die Schulungsumgebung verändert wurde (`loadSchulDirty`).
+  Erkennung serverseitig: Originalzustand = 6 CCPs A–F (unmerged/offen, Demo-Master-
+  Medics) + nur Demo-Patienten (id-Präfix `seed`, aktiv, ohne Name). Bei
+  unbekanntem Zustand (offline) wird der Button vorsichtshalber gezeigt.
+
 ## v0.14.1 — 2026-06-04
 - Admin-Panel: „📋 Code"-Button wieder entfernt — der kopierte Link + „📋 Einfügen"
   in der App reicht aus. Nur noch Dauerhaft-Link + Einmal-Link.
