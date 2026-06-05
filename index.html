@@ -22,7 +22,7 @@
     --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
     --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
   }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
   html,body{margin:0;background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:16px;line-height:1.45}
   body{max-width:460px;margin:0 auto;min-height:100vh}
   button{font-family:var(--sans);cursor:pointer;border:none;color:inherit}
@@ -96,11 +96,14 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.10.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.10.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.10.1': [
+    'Beim (Doppel-)Tippen zoomt die App nicht mehr versehentlich hinein. Pinch-Zoom (z. B. auf Fotos) und Scrollen funktionieren weiterhin.'
+  ],
   '0.10.0': [
     'Direkt nach dem Anlegen kannst du jetzt auch den TQ-Timer starten und einen versehentlich erfassten Patienten verwerfen (neben Prio und öffnen).',
     'Schutz gegen versehentliche Doppelerfassung: ein zu schneller Doppeltipp legt keinen zweiten Patienten mehr an.'

@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.10.1 — 2026-06-04
+**Doppeltipp-Zoom unterbinden**
+- `touch-action: manipulation` global → kein versehentliches Hineinzoomen beim
+  (Doppel-)Tippen mehr (ergänzt die Doppeltipp-Sperre aus v0.10.0). Pinch-Zoom
+  und Scrollen bleiben erhalten.
+
 ## v0.10.0 — 2026-06-04
 **Schnellaktionen beim Erfassen + Schutz vor Fehlerfassung**
 - **Neu:** Am „zuletzt angelegt"-Patienten zusätzlich **TQ-Timer starten/stoppen**
