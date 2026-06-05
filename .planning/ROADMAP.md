@@ -150,15 +150,26 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
 (T1/T2/T3/T5/gPA), ohne Zugriff auf personenbezogene Daten.
 
 - Anonymisierte Echtzeit-Zahlen, kein Patientendetail.
-- **Design (festgelegt):** eigener **Beobachter-Token** → JWT mit `role: observer`;
-  RLS verweigert Roh-Zugriff auf `patients`. Beobachter liest **nur eine kontrollierte
-  View/RPC** mit Feld-Whitelist. Datentiefe per DSB (siehe `docs/DSB-BRIEFING.md`):
+- **Scope (festgelegt 2026-06-04):** **präsidiumsgebunden** als Default — ein FLZ ↔ ein
+  (Regional-)Präsidium (PP BW haben je ein eigenes FLZ). Optional ein **Landes-Observer**
+  (alle/definierte Präsidien, read-only) für eine landesweite Koordinierungsstelle —
+  restriktiv ausgeben. Präsidiumsübergreifende Sicht (überörtliche Hilfe) nur per
+  **bewusster Einzel-Freigabe**, nicht automatisch.
+- **Sicherheits-Design (festgelegt):** Observer-JWT trägt eine **eigene Claim-Form**
+  (`is_observer:true` + `observer_praesidium_id`, NICHT `praesidium_id`!), damit
+  `argus_praesidium_id()` für ihn `null` liefert und die bestehenden Patienten-/CCP-
+  RLS-Policies Roh-Zugriff **verweigern**. Zahlen kommen ausschließlich aus einer
+  `security definer`-Aggregat-View/RPC (liest `observer_praesidium_id`). **Keine**
+  Bediener-/MasterMedic-Namen anzeigen. Pull/Polling, kein Realtime; reine Desktop-
+  Webansicht (nicht die Feld-PWA).
+- **Datentiefe per DSB** (siehe `docs/DSB-BRIEFING.md`):
   - Stufe a: **aggregierte Zahlen** je Kategorie/CCP (anonym).
   - Stufe b (falls zulässig): zusätzlich **pro Patient** Kategorie + Alter + Geschlecht
     + Verletzungsblock (pseudonym; **ohne** Name/Foto/Vitalwerte/Notizen).
-  Separate, desktop-orientierte Read-only-Webansicht (nicht die Feld-PWA).
-- Klärung vor Umsetzung: zuständige Leitstelle (FLZ vs. ILS),
-  Datenschutz-Folgenabschätzung für Übermittlung, Anbindung IVENA (optional).
+- **Weiteres:** widerrufbare Tokens (Phase 7); Re-Identifikation bei Kleinstzahlen in
+  der DSFA bedenken; ggf. Protokollierung des Observer-Zugriffs (DSB). IVENA wäre ein
+  separater Push, getrennt halten.
+- Klärung vor Umsetzung: zuständige Leitstelle (FLZ vs. ILS), DSFA für Übermittlung.
 
 ## Phase 9 — Native App für PTLS Pol 🔒 *Conditional*
 **Ziel:** PWA via Capacitor in native iOS-App (.ipa), verteilt über den

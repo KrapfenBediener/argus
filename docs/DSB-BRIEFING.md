@@ -46,6 +46,10 @@ Abtransport verwaltet. PWA (Webapp), läuft mehrgeräte-fähig und offline.
      (b) zusätzlich **pro Patient**: Kategorie + **Alter + Geschlecht + Verletzungsblock**
      (pseudonym, **ohne** Name/Foto/Vitalwerte/Notizen) — operativ besser für die
      Klinik-Verteilung, aber pseudonyme Gesundheitsdaten an Dritte → Abwägung nötig.
+   - **Scope:** präsidiumsgebunden (ein FLZ sieht nur sein Präsidium) — und darf es
+     eine **landesweite** Sicht (Koordinierungsstelle über mehrere Präsidien) geben?
+   - **Protokollierung des Beobachter-Zugriffs** (wer wann die Lage einsah) erwünscht/
+     erforderlich? Re-Identifikation bei **Kleinstzahlen** (z. B. „1× T5") bedenken.
    - **DSFA** für diese Übermittlung; optionale **IVENA-Anbindung**.
 8. **Protokollierungspflicht:** Muss personenscharf + mit Zeitstempel protokolliert
    werden, wer wann was in welcher CCP geändert/eingesehen hat (Einsatz-/Zugriffs-
