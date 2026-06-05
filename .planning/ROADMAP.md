@@ -164,6 +164,13 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
 **Ziel:** PWA via Capacitor in native iOS-App (.ipa), verteilt über den
 dienstlichen App-Store von PTLS Pol (MDM, kein öffentlicher App Store).
 
+**Mögliche Vorteile nativ (Owner-Notiz 2026-06-04):** Eine native App umgeht die
+PWA-Grenzen beim Onboarding — **Deep-Links könnten die App direkt öffnen und den
+enthaltenen Code automatisch einlösen** (entfällt die manuelle Kopier-/„Einfügen"-
+Brücke); engere Integration mit dem Gerät; ggf. Freischaltung/Verwaltung über das
+Governance-/„Systempanel" aus Phase 7. Daher: Onboarding-Feinschliff in der PWA
+bewusst minimal halten, die „richtige" Lösung kommt mit nativ.
+
 **Bedingungen (alle müssen erfüllt sein):**
 - Offizieller Träger-Buy-in durch Polizei BW / PTLS Pol
 - IT-Sicherheitsfreigabe

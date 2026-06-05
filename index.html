@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.14.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.14.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -574,15 +574,14 @@ function vAdmin(){
     _praesidienList.forEach(function(p){
       h+='<div class="card" style="margin-bottom:12px">';
       h+='<div style="font-weight:600;margin-bottom:4px">'+esc(p.name)+'</div>';
-      h+='<div class="hint" style="margin-bottom:8px">Zugang teilen — Link (für neue Geräte) oder nur Code (für bereits installierte):</div>';
+      h+='<div class="hint" style="margin-bottom:8px">Zugangs-Link erstellen &amp; kopieren:</div>';
       h+='<div class="row">';
       h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="perm" style="flex:1">Dauerhaft-Link</button>';
       h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="once" style="flex:1">Einmal-Link</button>';
-      h+='<button class="txbtn" data-action="admincode" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" style="flex:1">📋 Code</button>';
       h+='</div></div>';
     });
   }
-  h+='<p class="hint" style="text-align:center;margin-top:6px;font-size:11px">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. „📋 Code" = bloßer Dauerhaft-Code für bereits installierte Nutzer.</p>';
+  h+='<p class="hint" style="text-align:center;margin-top:6px;font-size:11px">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen".</p>';
   return h;
 }
 function ccpJoinModal(list){
@@ -1734,17 +1733,6 @@ document.addEventListener("click",async function(e){
     var albl=akind==="once"?'Einmal-Link (24 h)':(akind==="temp"?'24-h-Link':'Dauerhaft-Link');
     try{ await navigator.clipboard.writeText(aurl); toast(albl+' kopiert ✓'); }
     catch(e){ await promptModal(albl+' — '+apname+' (kopieren):',aurl); }
-    return;
-  }
-  if(a==="admincode"){
-    if(!_isMaster){toast("Nur MasterToken");return;}
-    var cpid=el.getAttribute("data-pid"), cpname=el.getAttribute("data-pname");
-    var ccl=sb(); if(!ccl){toast("Keine Backend-Verbindung");return;}
-    var crs=await ccl.from('access_tokens').select('short_code,temporary,single_use').eq('praesidium_id',cpid);
-    var cpick=(crs.data||[]).filter(function(t){return !t.single_use && !t.temporary;})[0];
-    if(!cpick||!cpick.short_code){toast("Kein Dauerhaft-Code für dieses Präsidium");return;}
-    try{ await navigator.clipboard.writeText(cpick.short_code); toast('Code '+cpick.short_code+' kopiert ✓'); }
-    catch(e){ await promptModal('Dauerhaft-Code — '+cpname+' (kopieren):',cpick.short_code); }
     return;
   }
   if(a==="checkunlock"){

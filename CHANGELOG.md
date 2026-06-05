@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.14.1 — 2026-06-04
+- Admin-Panel: „📋 Code"-Button wieder entfernt — der kopierte Link + „📋 Einfügen"
+  in der App reicht aus. Nur noch Dauerhaft-Link + Einmal-Link.
+- Roadmap-Notiz (Phase 9): native App könnte Deep-Links direkt öffnen + Code
+  automatisch einlösen → PWA-Onboarding bewusst minimal halten.
+
 ## v0.14.0 — 2026-06-04
 **Freischaltung vereinfacht + Code-Typen reduziert**
 - **Code-Typen auf 2 reduziert:** „Dauerhaft-Link" + „Einmal-Link (24 h)". Der
