@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.14.0 — 2026-06-04
+**Freischaltung vereinfacht + Code-Typen reduziert**
+- **Code-Typen auf 2 reduziert:** „Dauerhaft-Link" + „Einmal-Link (24 h)". Der
+  wiederverwendbare 24-h-Code (am wenigsten kontrolliert/streute) ist raus.
+- **Admin: „📋 Code"** kopiert den bloßen Dauerhaft-Code (für bereits installierte
+  Nutzer) — Link bleibt für neue Geräte.
+- **App: „📋 Einfügen"** am Freischalt-Feld liest die Zwischenablage und erkennt
+  sowohl einen bloßen Code als auch einen ganzen Link → kein Abtippen mehr.
+  (`doUnlock()` ausfaktoriert, von checkunlock + pastecode genutzt.)
+
 ## v0.13.1 — 2026-06-04
 **Zwei Fehler am Update-Sheet behoben**
 - Sheet-Link erschien **immer** (globale `UPDATE_SHEET`) → jetzt `UPDATE_SHEETS` je

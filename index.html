@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.13.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.14.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -109,6 +109,9 @@ var UPDATE_SHEETS = {
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html'   /* deckt v0.9.0 → v0.12.x ab */
 };
 var WHATS_NEW = {
+  '0.14.0': [
+    'Freischalten ohne Abtippen: Code oder erhaltenen Link kopieren und am Freischalt-Feld auf „📋 Einfügen" tippen.'
+  ],
   '0.12.0': [
     'Neu in den Hilfestellungen: eine auf-/zuklappbare Kurzanleitung (Installieren, Erfassen, Verwalten, Mehrgeräte, Offline …) — jederzeit offline im Gerät.'
   ],
@@ -427,6 +430,41 @@ async function refreshJwtIfNeeded(){
   var result=await exchangeCode(storedCode);
   if(result && _ccpId && sb()) subscribeRealtime();
 }
+/* Freischaltung über einen Code (von Hand eingegeben oder eingefügt). Tauscht den
+ * Code gegen ein JWT (exchangeCode) und schaltet das Präsidium frei. */
+async function doUnlock(rawCode){
+  var uc2=(rawCode||'').replace(/[\s\-]/g,'').toUpperCase();
+  if(uc2.length<8){toast("Bitte vollständigen Code eingeben (Format: XXXX-XXXX)");return;}
+  toast("Prüfe Code…");
+  var uv=await exchangeCode(uc2);
+  if(!uv){toast("Ungültiger oder abgelaufener Code");return;}
+  localStorage.setItem('argus_verified','true');
+  if(uv.is_master){
+    _isMaster=true; localStorage.setItem('argus_is_master','true');
+    toast("Master-Zugang freigeschaltet");
+  } else if(uv.praesidium_id){
+    addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null);
+    await consumeSingleUse(uv);
+    toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet");
+  } else {
+    toast("Code ohne Präsidium"); return;
+  }
+  var pru=await sb().from('praesidien').select('id,name').order('name');
+  _praesidienList=pru.data||[];
+  render();
+}
+/* Zieht einen Freischalt-Code aus beliebigem Text — sowohl aus einem ganzen Link
+ * (#code=XXXX-YYYY) als auch aus einem bloßen Code. */
+function codeFromText(t){
+  t=(t||'').trim();
+  var m=t.match(/[#&]code=([A-Za-z0-9]{4}-?[A-Za-z0-9]{4})/i);
+  if(m) return m[1].toUpperCase();
+  if(t.indexOf('://')===-1){
+    var b=t.replace(/[\s\-]/g,'').match(/[A-Za-z0-9]{8}/);
+    if(b) return b[0].toUpperCase();
+  }
+  return '';
+}
 function inviteUrl(){
   var token=localStorage.getItem('argus_invite')||'';
   if(!token) return null;
@@ -520,7 +558,8 @@ function vPraesidium(){
   h+='<div class="card" style="padding:16px 14px;margin-top:10px">';
   h+='<label class="fieldlab">Präsidium freischalten</label>';
   h+='<input id="unlock-input" placeholder="XXXX-XXXX" style="font-family:monospace;font-size:16px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">';
-  h+='<button class="prim" data-action="checkunlock">Freischalten</button>';
+  h+='<div class="row" style="margin:0"><button class="txbtn" data-action="pastecode" style="flex:1">📋 Einfügen</button><button class="prim" data-action="checkunlock" style="flex:2;margin:0">Freischalten</button></div>';
+  h+='<div class="hint" style="margin-top:8px;font-size:11px">Code oder erhaltenen Link kopieren, dann „Einfügen" — kein Abtippen nötig.</div>';
   h+='</div>';
   if(_isMaster){
     h+='<button class="navbtn" data-action="openadmin" style="margin-top:10px"><span class="ic">⚙️</span><span><span class="t">Administration</span><br><span class="s">Zugangs-Links teilen · Codes</span></span></button>';
@@ -535,15 +574,15 @@ function vAdmin(){
     _praesidienList.forEach(function(p){
       h+='<div class="card" style="margin-bottom:12px">';
       h+='<div style="font-weight:600;margin-bottom:4px">'+esc(p.name)+'</div>';
-      h+='<div class="hint" style="margin-bottom:8px">Zugangs-Link erstellen & kopieren:</div>';
+      h+='<div class="hint" style="margin-bottom:8px">Zugang teilen — Link (für neue Geräte) oder nur Code (für bereits installierte):</div>';
       h+='<div class="row">';
-      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="perm" style="flex:1">Dauerhaft</button>';
-      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="temp" style="flex:1">24 h</button>';
-      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="once" style="flex:1">Einmalig</button>';
+      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="perm" style="flex:1">Dauerhaft-Link</button>';
+      h+='<button class="txbtn" data-action="adminlink" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" data-kind="once" style="flex:1">Einmal-Link</button>';
+      h+='<button class="txbtn" data-action="admincode" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'" style="flex:1">📋 Code</button>';
       h+='</div></div>';
     });
   }
-  h+='<p class="hint" style="text-align:center;margin-top:6px;font-size:11px">„Einmalig" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang.</p>';
+  h+='<p class="hint" style="text-align:center;margin-top:6px;font-size:11px">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. „📋 Code" = bloßer Dauerhaft-Code für bereits installierte Nutzer.</p>';
   return h;
 }
 function ccpJoinModal(list){
@@ -1697,27 +1736,31 @@ document.addEventListener("click",async function(e){
     catch(e){ await promptModal(albl+' — '+apname+' (kopieren):',aurl); }
     return;
   }
+  if(a==="admincode"){
+    if(!_isMaster){toast("Nur MasterToken");return;}
+    var cpid=el.getAttribute("data-pid"), cpname=el.getAttribute("data-pname");
+    var ccl=sb(); if(!ccl){toast("Keine Backend-Verbindung");return;}
+    var crs=await ccl.from('access_tokens').select('short_code,temporary,single_use').eq('praesidium_id',cpid);
+    var cpick=(crs.data||[]).filter(function(t){return !t.single_use && !t.temporary;})[0];
+    if(!cpick||!cpick.short_code){toast("Kein Dauerhaft-Code für dieses Präsidium");return;}
+    try{ await navigator.clipboard.writeText(cpick.short_code); toast('Code '+cpick.short_code+' kopiert ✓'); }
+    catch(e){ await promptModal('Dauerhaft-Code — '+cpname+' (kopieren):',cpick.short_code); }
+    return;
+  }
   if(a==="checkunlock"){
     var uinp=document.getElementById('unlock-input');
-    var uc2=(uinp?uinp.value:'').replace(/[\s\-]/g,'').toUpperCase();
-    if(uc2.length<8){toast("Bitte vollständigen Code eingeben (Format: XXXX-XXXX)");return;}
-    toast("Prüfe Code…");
-    var uv=await exchangeCode(uc2);
-    if(!uv){toast("Ungültiger oder abgelaufener Code");return;}
-    localStorage.setItem('argus_verified','true');
-    if(uv.is_master){
-      _isMaster=true; localStorage.setItem('argus_is_master','true');
-      toast("Master-Zugang freigeschaltet");
-    } else if(uv.praesidium_id){
-      addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null);
-      await consumeSingleUse(uv);
-      toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet");
-    } else {
-      toast("Code ohne Präsidium"); return;
-    }
-    var pru=await sb().from('praesidien').select('id,name').order('name');
-    _praesidienList=pru.data||[];
-    render(); return;
+    await doUnlock(uinp?uinp.value:''); return;
+  }
+  if(a==="pastecode"){
+    var pinp=document.getElementById('unlock-input');
+    try{
+      var txt=await navigator.clipboard.readText();
+      var code=codeFromText(txt);
+      if(!code){ toast("Kein Code in der Zwischenablage gefunden"); return; }
+      if(pinp) pinp.value=code.slice(0,4)+'-'+code.slice(4,8);
+      await doUnlock(code);
+    }catch(e){ toast("Zwischenablage nicht lesbar — bitte Code eintippen"); }
+    return;
   }
   if(a==="unlockpraes"){ /* Alias — leitet auf checkunlock weiter */
     var uinp2=document.getElementById('unlock-input');
