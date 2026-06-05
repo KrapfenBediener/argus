@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.16.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.16.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -465,12 +465,16 @@ async function doUnlock(rawCode){
  * (#code=XXXX-YYYY) als auch aus einem bloßen Code. */
 function codeFromText(t){
   t=(t||'').trim();
+  /* 1) ganzer Link: #code=XXXX-YYYY */
   var m=t.match(/[#&]code=([A-Za-z0-9]{4}-?[A-Za-z0-9]{4})/i);
   if(m) return m[1].toUpperCase();
-  if(t.indexOf('://')===-1){
-    var b=t.replace(/[\s\-]/g,'').match(/[A-Za-z0-9]{8}/);
-    if(b) return b[0].toUpperCase();
-  }
+  /* 2) ein Code-Token mit Bindestrich irgendwo im Text (XXXX-YYYY) */
+  var m2=t.match(/(^|[^A-Za-z0-9])([A-Za-z0-9]{4}-[A-Za-z0-9]{4})([^A-Za-z0-9]|$)/);
+  if(m2) return m2[2].toUpperCase();
+  /* 3) bloßer Code NUR, wenn der gesamte (bereinigte) Text exakt 8 alnum ist
+   *    — verhindert Fehlgriffe bei eingefügten Sätzen. */
+  var clean=t.replace(/[\s\-]/g,'');
+  if(/^[A-Za-z0-9]{8}$/.test(clean)) return clean.toUpperCase();
   return '';
 }
 function inviteUrl(){
@@ -1600,7 +1604,7 @@ function whatsNewModal(sinceV, recentCap){
   document.body.appendChild(ov);
   function done(){if(ov.parentNode)ov.parentNode.removeChild(ov);}
   ov.querySelector(".mc-ok").addEventListener("click",done);
-  var sb=ov.querySelector(".mc-sheet"); if(sb)sb.addEventListener("click",function(e){ e.stopPropagation(); openSheetOverlay(sheetUrl); });
+  var sbtn=ov.querySelector(".mc-sheet"); if(sbtn)sbtn.addEventListener("click",function(e){ e.stopPropagation(); openSheetOverlay(sheetUrl); });
   ov.addEventListener("click",function(e){if(e.target===ov)done();});
 }
 /* Öffnet ein Update-Sheet IN der App (Overlay mit iframe + Schließen-Button) statt

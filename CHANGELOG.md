@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.16.1 — 2026-06-05
+**Qualitäts-Review — kleine Härtungen (intern)**
+- `whatsNewModal`: lokale Variable `sb` umbenannt (überschattete die globale
+  Supabase-`sb()`-Funktion; war hier folgenlos, aber Footgun).
+- `codeFromText` robuster: erkennt Link / Code-mit-Bindestrich / reinen 8-Zeichen-Code;
+  greift bei eingefügten Sätzen nicht mehr daneben.
+- Mehrgeräte-/Sperr-/Offline-Logik geprüft — unverändert in Ordnung.
+
 ## v0.16.0 — 2026-06-05
 **AVPU → WASB (deutsche Bewusstseinslage)**
 - Vitalwerte-Feld von AVPU auf **WASB** umgestellt (Wach · Ansprechbar · Schmerzreiz ·
