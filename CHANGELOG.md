@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.11.0 — 2026-06-04
+**Foto-Vollbild**
+- Patientenfoto antippen → Vollbild-Overlay (`photozoom`), erneut tippen schließt.
+  Glove-tauglich statt umständlichem Seiten-Pinch-Zoom; Pinch im Vollbild bleibt
+  für Detailbetrachtung möglich.
+
 ## v0.10.1 — 2026-06-04
 **Doppeltipp-Zoom unterbinden**
 - `touch-action: manipulation` global → kein versehentliches Hineinzoomen beim
