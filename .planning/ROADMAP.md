@@ -1,7 +1,9 @@
 # CCP-App (ARGUS) — Roadmap
 
-> **Stand: 2026-06-04** — Phase 4 abgeschlossen; danach Beta-Härtung aus
-> Tester-Feedback (v0.4.0–v0.9.1, siehe Phase 4.5). App live auf **v0.9.1**.
+> **Stand: 2026-06-04** — Phase 4 abgeschlossen; danach Beta-Härtung aus Tester-
+> Feedback (v0.4.0–v0.15.0, siehe Phase 4.5). App live auf **v0.15.0**.
+> Nächster realer Schritt: **DSB-Gespräch** (`docs/DSB-BRIEFING.md`) → es bestimmt,
+> was Phase 5/6 konkret brauchen.
 >
 > **Milestone:** Closed Beta V1 — *läuft* (kleiner autorisierter Testkreis).
 > Nächstes Milestone: **Open Beta** (nach Phase 6).
@@ -72,7 +74,10 @@ Voraussetzung für jeden Einsatz mit echten Patientendaten.
 ## Phase 4.5 — Beta-Härtung & Tester-Feedback ✅ 2026-06-04
 **Ziel:** Stabilität, Robustheit und Bedienung anhand echten Tester-Feedbacks
 (3 Nutzer) und eines Selbst-Audits verbessern — ohne neue Großfeatures.
-Ausgeliefert als nachvollziehbare Point-Releases **v0.4.0 – v0.9.1** (`CHANGELOG.md`).
+Ausgeliefert als nachvollziehbare Point-Releases **v0.4.0 – v0.15.0** (`CHANGELOG.md`).
+Dazu u. a.: Update-Mechanik + visuelle Update-Sheets, Foto-Vollbild, Doppeltipp-/
+Zoom-Schutz, „Verwerfen"/TQ beim Erfassen, Code-Einfügen, Schulungs-Reset nur bei
+Veränderung, Hilfestellungen/Kurzanleitung.
 
 - ✅ **Offline-Robustheit:** offline erfasste/bearbeitete Patienten gehen beim
   Reconnect nicht mehr verloren (`_dirty` / `flushPendingPatients`, Merge per

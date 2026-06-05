@@ -1,0 +1,100 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · DSB-Briefing</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#ffffff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t3:#2E7D32; --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.55;padding:22px 14px 44px}
+  .wrap{max-width:720px;margin:0 auto}
+  header{text-align:center;margin-bottom:6px}
+  .badge{display:inline-block;background:var(--acc);color:#fff;font-weight:700;letter-spacing:1px;border-radius:14px;padding:10px 18px;font-size:20px}
+  h1{font-size:20px;margin:14px 0 2px}
+  .sub{font-family:var(--mono);font-size:13px;color:var(--mut)}
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--t1);border-radius:10px;padding:11px 14px;margin:16px 0;font-size:13px}
+  h2{font-size:15px;margin:22px 0 8px;padding-bottom:5px;border-bottom:2px solid var(--surf2)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px 15px;font-size:14px}
+  ul{margin:6px 0 0;padding-left:20px}
+  li{margin:5px 0}
+  ol{margin:6px 0 0;padding-left:22px}
+  ol li{margin:8px 0}
+  .q{background:#fff;border:1px solid var(--line);border-left:4px solid var(--ready);border-radius:10px;padding:8px 12px;margin:7px 0;font-size:13.5px}
+  .q b{color:var(--acc)}
+  .sub2{font-size:13px;color:var(--mut);margin:4px 0 0 4px}
+  code{font-family:var(--mono);background:var(--surf2);padding:1px 5px;border-radius:5px;font-size:12.5px}
+  footer{margin-top:24px;text-align:center;font-size:11.5px;color:var(--mut)}
+  @media print{ body{background:#fff;padding:0} .card,.q,.note{break-inside:avoid} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">ARGUS</div>
+    <h1>Briefing für das Gespräch mit dem Datenschutzbeauftragten</h1>
+    <div class="sub">Stand 2026-06-04 · v0.15.0 · Closed Beta</div>
+  </header>
+
+  <div class="note"><b>Zweck:</b> Gesprächsvorlage, damit das DSB-Gespräch effizient und vollständig läuft. <b>Kein Rechtsrat.</b> Detaillierte technische Sammlung: <code>docs/COMPLIANCE.md</code>.</div>
+
+  <h2>1 · Was ist ARGUS</h2>
+  <div class="card">Digitales Erfassungs- und Sichtungswerkzeug für eine Verwundetensammelstelle (Casualty Collection Point) bei MANV-/Übungslagen. Ersetzt die handschriftliche Sichtung: Patienten werden per laufender Nummer erfasst, per Sichtungsalgorithmus (tacSTART) oder direkt einer Kategorie (T1/T2/T3/T5) zugeordnet und bis zum Abtransport verwaltet. PWA (Webapp), mehrgeräte-fähig und offline.</div>
+
+  <h2>2 · Welche Daten werden verarbeitet</h2>
+  <div class="card"><ul>
+    <li><b>Pseudonym:</b> Identifikation über laufende Nummer (auf der Haut). Klarname/Alter/Geschlecht optional.</li>
+    <li><b>Gesundheitsdaten</b> (Art. 9 DSGVO, besondere Kategorie): Kategorie, Vitalwerte, Verletzungen, Maßnahmen, Tourniquet-Zeit, Notizen.</li>
+    <li><b>Foto</b> (optional, zur Identifikation) — besonders sensibel.</li>
+    <li><b>Bediener-Kürzel</b> (kein Konto, kein Klarname erzwungen).</li>
+    <li>Keine Benutzerkonten im Feld; Zugang über Code → kurzlebiges Ticket (JWT).</li>
+  </ul></div>
+
+  <h2>3 · Technische Schutzmaßnahmen (Ist-Stand)</h2>
+  <div class="card"><ul>
+    <li><b>EU-Hosting:</b> Supabase, EU-Region.</li>
+    <li><b>Verschlüsselung:</b> TLS in Übertragung; Verschlüsselung at rest beim Anbieter.</li>
+    <li><b>Zugriffskontrolle:</b> 8-stelliger Code → signiertes JWT (präsidiumsgebunden) → serverseitige Row-Level-Security. Ohne gültiges Ticket liefert das Backend nichts; Codes selbst sind ohne Ticket nicht abrufbar.</li>
+    <li><b>Pseudonymität</b> durchgängig gewahrt.</li>
+    <li><b>Local-first:</b> Geräte arbeiten offline weiter, gleichen später ab.</li>
+  </ul></div>
+
+  <h2>4 · Offene Punkte — Klärung durch den DSB</h2>
+  <div class="q"><b>1. Rechtsgrundlage</b> der Verarbeitung im Übungs-/Einsatzkontext (BOS).</div>
+  <div class="q"><b>2. DSFA</b> (Datenschutz-Folgenabschätzung) erforderlich (besondere Kategorien)?</div>
+  <div class="q"><b>3. AVV</b> mit dem Hosting-Anbieter — Vorlage/OK?</div>
+  <div class="q"><b>4. Aufbewahrung &amp; Löschung:</b> zulässige Fristen; wann müssen Einsatz-/Übungsdaten (insb. Fotos) gelöscht werden? → Löschkonzept (Phase 5).</div>
+  <div class="q"><b>5. Foto-Funktion:</b> zulässig/erwünscht, oder einschränken/abschaltbar?</div>
+  <div class="q"><b>6. Medizinprodukt-Einstufung (MDR):</b> Die tacSTART-Kategorievorschläge könnten ARGUS als Medizinprodukt-Software qualifizieren. Einschätzung / weiteres Vorgehen? <span class="sub2">(Andere Fachstelle als Datenschutz — DSB ggf. zur richtigen Stelle: BfArM/Regulatory/Träger.)</span></div>
+  <div class="q"><b>7. Lageübersicht für FLZ/ILS</b> (geplante read-only Desktop-Web-Ansicht, Zugang über „Beobachter-Token"):
+    <ul>
+      <li>Zuständige Leitstelle (FLZ vs. ILS) + Rechtsgrundlage der Übermittlung.</li>
+      <li>Datentiefe: (a) nur aggregierte Zahlen (anonym) oder (b) zusätzlich pro Patient Kategorie + Alter + Geschlecht + Verletzung (pseudonym, ohne Name/Foto/Vitalwerte/Notizen)?</li>
+      <li>Scope präsidiumsgebunden — darf es eine landesweite Sicht geben?</li>
+      <li>Protokollierung des Beobachter-Zugriffs? Re-Identifikation bei Kleinstzahlen bedenken. DSFA für die Übermittlung; optional IVENA.</li>
+    </ul>
+  </div>
+  <div class="q"><b>8. Protokollierungspflicht:</b> Muss personenscharf + mit Zeitstempel protokolliert werden, wer wann was in welcher CCP geändert/eingesehen hat? Wenn ja: Umfang + Aufbewahrung? <span class="sub2">(Aktuell nur „zuletzt geändert von/wann"; echtes Audit-Log = Phase 7.)</span></div>
+  <div class="q"><b>9. Aktualisierungssicherheit ohne Tracking:</b> Geplant ist eine tracking-freie Mindestversions-Sperre (keine bekannt unsichere Altversion im Echtbetrieb), ohne Geräte/Nutzer zu erfassen. Genügt das, oder wird eine Versions-/Geräteprotokollierung erwartet?</div>
+
+  <h2>5 · Was wir mitbringen / zusichern können</h2>
+  <div class="card"><ul>
+    <li>Pseudonymität als Default, optionale Klarnamen.</li>
+    <li>EU-Hosting, serverseitige Zugriffstrennung, Pseudonym-Tickets.</li>
+    <li>Bereitschaft, Löschkonzept + Aufbewahrungsfristen umzusetzen (Phase 5).</li>
+    <li>Dokumentierte Architektur (<code>ARCHITECTURE.md</code>, <code>DATA_MODEL.md</code>).</li>
+  </ul></div>
+
+  <footer>Ergebnis des Gesprächs festhalten und als Voraussetzung für Phase 6 (Open Beta / Echtbetrieb) abhaken. · © 2026 Gabor Szeman</footer>
+
+</div>
+</body>
+</html>
