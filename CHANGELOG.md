@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.9.2 — 2026-06-04
+**Kosmetik**
+- App-Icon auf der Startseite ohne Schlagschatten — einheitlich „clean" wie auf
+  der Präsidienauswahl. (Kein „Was ist neu"-Popup, da rein optisch.)
+
 ## v0.9.1 — 2026-06-04
 **Verfeinerungen rund um Verbünde**
 - **Behoben:** „CCP beitreten" listete zusammengeführte CCPs einzeln. Jetzt werden
