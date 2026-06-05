@@ -96,11 +96,14 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.11.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.12.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 var WHATS_NEW = {
+  '0.12.0': [
+    'Neu in den Hilfestellungen: eine auf-/zuklappbare Kurzanleitung (Installieren, Erfassen, Verwalten, Mehrgeräte, Offline …) — jederzeit offline im Gerät.'
+  ],
   '0.11.0': [
     'Patientenfoto antippen → Vollbild-Ansicht (zum Schließen erneut tippen). Bequemer als hineinzoomen.'
   ],
@@ -1376,8 +1379,18 @@ function vPatient(){
 }
 function sel(a,b){return a===b?" selected":"";}
 function vHelp(){
-  var h='<button class="ghost" data-action="showintro" style="margin-bottom:14px">▶ Einführung erneut ansehen</button>'+
-    '<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
+  var kb=function(t,b){return '<details style="margin:6px 0"><summary style="cursor:pointer;font-weight:600;padding:4px 0">'+t+'</summary><div class="helpa" style="padding:4px 0 8px">'+b+'</div></details>';};
+  var h='<button class="ghost" data-action="showintro" style="margin-bottom:14px">▶ Einführung erneut ansehen</button>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Kurzanleitung</div>'+
+    kb('Installieren','Link/Code öffnen → in Safari <b>Teilen → „Zum Home-Bildschirm"</b> → ARGUS vom Homescreen öffnen → <b>Code eingeben</b> (danach ~30 Tage Ruhe).')+
+    kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>.')+
+    kb('Patient erfassen','<b>Patient erfassen</b> → <b>tacSTART</b> (geführt) oder direkt eine <b>Kategorie</b> (T-1…T-5). Nummer kommt automatisch — auf die Haut notieren. Unten am zuletzt Angelegten: Prio · TQ · öffnen · Verwerfen.')+
+    kb('Patient verwalten','Über <b>Patientenübersicht</b> (Kacheln, PRIO/gPA, „Alle Patienten") oder <b>öffnen</b>. Im Detail: Vitalwerte (+ Verlauf), Maßnahmen A–E, Verletzungen, <b>Foto</b> (antippen = Vollbild), Kategorie, Prio, TQ-Timer.')+
+    kb('Abtransport','Im Patienten <b>Abtransport → gPA</b>, oder in der Kategorieliste alle transportfertigen sammeln. Ausgecheckte (gPA) lassen sich zurückholen.')+
+    kb('Mehrere Geräte','Wer einen Patienten bearbeitet, <b>sperrt</b> ihn kurz für andere. Beim Verlassen / nach 45 s gibt die Sperre automatisch frei. <b>MasterMedic</b> kann übernehmen.')+
+    kb('Offline & Updates','Offline läuft alles weiter und gleicht später ab („⏳ nicht synchronisiert" zeigt Offenes). Bei neuer Version „<b>Jetzt aktualisieren</b>" tippen. Version steht unten auf der Startseite.')+
+    '</div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
     '<div class="helpa">Gehfähig → T-3. Sonst Atmung prüfen: keine Spontanatmung auch nach Freimachen → keine Auto-Kategorie (Einzelfall). Atmung nur nach Freimachen → T-1. Bei Spontanatmung: AF außerhalb 10–30 → T-1; kein Radialispuls → T-1; folgt nicht Befehlen → T-1. Alle vier ok (Atmung, AF, Puls, Befehle) → T-2.</div></div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kategorien</div>';
   CATORDER.forEach(function(cat){var c=CATS[cat];h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span><span class="helpa">'+c.nm+'</span></div>';});

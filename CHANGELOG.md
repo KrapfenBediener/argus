@@ -6,6 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.12.0 — 2026-06-04
+**Kurzanleitung in der App**
+- Hilfestellungen enthalten jetzt einen auf-/zuklappbaren Abschnitt „Kurzanleitung"
+  (Installieren, CCP eröffnen/beitreten, Erfassen, Verwalten, Abtransport,
+  Mehrgeräte, Offline/Updates) — Inhalt aus `docs/TESTER-ANLEITUNG.md`, jederzeit
+  offline im Gerät verfügbar.
+
 ## v0.11.1 — 2026-06-04
 **Erfassungs-Bestätigung als dezenter Flash**
 - Beim Anlegen (direkt + tacSTART) erscheint kurz eine zentrierte, **nicht-
