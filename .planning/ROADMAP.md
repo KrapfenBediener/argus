@@ -109,6 +109,9 @@ und Produktion.
   bereinigen; alte Codes nicht übernehmen → frische Codes inkl. neuem MasterToken
   (der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
 - **Backup-/Löschkonzept** dokumentieren und testen (DSGVO).
+- ✅ **Vorbereitet (2026-06-04):** vollständiges DB-Schema als Code
+  (`supabase/migrations/0000_base_schema.sql` + `0001_…`), Aufbau-Runbook
+  `docs/PROD-SETUP.md` → Prod-Projekt wird zum Ein-Schritt-Apply.
 
 ## Phase 6 — Betriebsbereitschaft & Open Beta ⬜
 **Ziel:** Die App ist legal, organisatorisch und dokumentarisch bereit für
@@ -123,6 +126,8 @@ einen erweiterten Testkreis und perspektivisch echten Einsatz.
 - **Feldtest** (LebEL-Übung oder vergleichbar): echte Geräte, echte Lage,
   Sperre / Rolle / Merge unter realen Netzbedingungen.
 - **Open Beta:** breiterer Testkreis, strukturiertes Feedback-Verfahren.
+- ✅ **Vorbereitet (2026-06-04):** DSB-Gesprächsvorlage `docs/DSB-BRIEFING.md`
+  und `docs/TESTER-ANLEITUNG.md` (nützt schon dem laufenden Testkreis).
 
 ## Phase 7 — Governance & Nutzerverzeichnis ⬜
 **Ziel:** Administrative Verwaltung ohne die pseudonyme Feld-UX zu
