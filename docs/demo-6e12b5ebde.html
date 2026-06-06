@@ -47,6 +47,9 @@
   .brand{display:flex;align-items:center;gap:10px}
   .badge{display:inline-block;background:var(--acc);color:#fff;font-weight:700;letter-spacing:1px;border-radius:10px;padding:7px 12px;font-size:15px}
   .brand .tag{font-size:12px;color:var(--mut);font-family:var(--mono)}
+  .brand .logo{height:30px;width:auto;display:block}
+  .brand .wm{font-weight:700;letter-spacing:1.6px;font-size:17px;color:var(--acc)}
+  .cta-logo{height:46px;width:auto;margin:0 auto 16px;display:block}
   .navlinks{display:flex;gap:22px;margin-left:auto;font-size:14px;color:var(--mut)}
   .navlinks a:hover{color:var(--tx)}
   .nav .btn{margin-left:18px}
@@ -183,7 +186,8 @@
 <header>
   <div class="wrap nav">
     <div class="brand">
-      <span class="badge">ARGUS</span>
+      <img class="logo" src="../assets/argus-mark.png" alt="ARGUS Logo">
+      <span class="wm">ARGUS</span>
       <span class="tag">Sichtung &amp; Lageführung</span>
     </div>
     <nav class="navlinks">
@@ -462,6 +466,7 @@
 <section id="kontakt">
 <div class="wrap">
   <div class="cta">
+    <img class="cta-logo" src="../assets/argus-mark-light.png" alt="ARGUS">
     <div class="kicker" style="color:#ffb784">Closed Beta · v0.16</div>
     <h2>ARGUS im eigenen Bereich testen.</h2>
     <p>Zugang nach Absprache mit Träger und Datenschutzbeauftragtem. DSB-Briefing, Datenmodell, Compliance-Doku und Feldtest-Drehbuch liegen bereit.</p>
@@ -477,7 +482,7 @@
 <!-- ══════ FOOTER ══════ -->
 <footer>
 <div class="wrap foot">
-  <div class="brand"><span class="badge">ARGUS</span><span class="tag">Digitale Sichtung &amp; Lageführung</span></div>
+  <div class="brand"><img class="logo" src="../assets/argus-mark.png" alt="ARGUS Logo"><span class="wm">ARGUS</span><span class="tag">Digitale Sichtung &amp; Lageführung</span></div>
   <div>© 2026 Gabor Szeman · Alle Rechte vorbehalten · Proprietär</div>
 </div>
 </footer>
