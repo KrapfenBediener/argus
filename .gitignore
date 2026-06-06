@@ -40,3 +40,36 @@ supabase-config.js
 argus-backup-*.json
 ARGUS-Backups/
 backups/
+
+# ── Interne Unterlagen: NICHT veröffentlichen (GitHub Pages serviert das Repo öffentlich) ──
+/ZEITLOG.md
+/MARKEN-UND-NAMENS-CHECK.md
+# Interne Planungs-/Compliance-Docs
+docs/ARCHITECTURE.md
+docs/BACKUP.md
+docs/COMPLIANCE.md
+docs/DATA_MODEL.md
+docs/DSB-BRIEFING.html
+docs/DSB-BRIEFING.md
+docs/FEATURES_MULTIUSER.md
+docs/FELDTEST-DREHBUCH.md
+docs/PROD-SETUP.md
+docs/PRODUCT_SPEC.md
+docs/ROADMAP.md
+docs/TEST-CHECKLISTE.md
+docs/TESTER-ANLEITUNG.md
+docs/PROJEKT-UEBERSICHT.html
+docs/UPDATE_v0.9_zu_v0.12.html
+# Präsentationen/Decks (intern)
+docs/PRAESENTATION.html
+docs/PRAESENTATION-LAUNCH.html
+docs/PITCH-DECK.html
+docs/PITCH-DECK-APPLE.html
+docs/PITCH-DECK-APPLE-MUSTER.html
+# Website-Quelle (öffentlich nur die obfuskierte Demo-Kopie)
+docs/WEBSITE.html
+# Arbeitsreste
+/files.zip
+/extracted/
+/.claude/
+# Öffentlich bleiben bewusst: docs/UI-AUSBLICK.html, docs/demo-*.html, docs/fonts/, assets/, ARGUS_Icon.png, index.html, LICENSE
