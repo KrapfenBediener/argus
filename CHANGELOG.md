@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.16.2 — 2026-06-06
+**„Verletzungen" entschlackt**
+- Symbol-Spalte (`O/#/X/B`) vor jedem Verletzungseintrag entfernt — der Klartext
+  („Region – Art", z. B. „Arm re – Amputation") stand ohnehin daneben.
+- Zugehörige **Legende** „O = Wunde · # = Fraktur · X = Amputation · B = Verbrennung" entfernt.
+- Aufgeräumt: ungenutzte `artCode()`-Funktion entfernt; `ARTS` auf reine Namensliste
+  reduziert, Dropdown-Befüllung angepasst. Erfassung (Region + Art) unverändert.
+
 ## v0.16.1 — 2026-06-05
 **Qualitäts-Review — kleine Härtungen (intern)**
 - `whatsNewModal`: lokale Variable `sb` umbenannt (überschattete die globale

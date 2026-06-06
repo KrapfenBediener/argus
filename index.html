@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.16.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.16.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -109,6 +109,9 @@ var UPDATE_SHEETS = {
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html'   /* deckt v0.9.0 → v0.12.x ab */
 };
 var WHATS_NEW = {
+  '0.16.2': [
+    'Verletzungen-Liste aufgeräumt: jeder Eintrag zeigt direkt den Klartext (z. B. „Arm re – Amputation"). Die frühere Symbol-Spalte (O/#/X/B) samt Legende entfällt.'
+  ],
   '0.16.0': [
     'Bewusstseinslage jetzt auf Deutsch: WASB (Wach · Ansprechbar · Schmerzreiz · Bewusstlos) statt AVPU. Bestehende Einträge wurden automatisch umgestellt.'
   ],
@@ -666,8 +669,7 @@ var TXG=[
   ["E – Exposure",[["waerme","Wärmeerhalt"],["schiene","Schienung"],["hws","HWS-Immo."]]]
 ];
 var REGIONS=["Kopf","Hals","Thorax","Abdomen","Becken","Arm li","Arm re","Bein li","Bein re","Rücken"];
-var ARTS=[["Wunde","O"],["Fraktur","#"],["Amputation","X"],["Verbrennung","B"]];
-function artCode(a){for(var i=0;i<ARTS.length;i++)if(ARTS[i][0]===a)return ARTS[i][1];return "";}
+var ARTS=["Wunde","Fraktur","Amputation","Verbrennung"];
 var CHK = [
   ["sec","AUFBAU"],
   ["a1","Geeignete Örtlichkeit?","Witterung/Licht · hochgemeldet · gekennzeichnet · Platz"],
@@ -1403,13 +1405,13 @@ function vPatient(){
 
   h+='<div class="sech">Verletzungen</div><div class="card">';
   if(p.inj.length===0)h+='<div class="muted" style="font-size:13px;margin-bottom:8px">noch keine Einträge</div>';
-  p.inj.forEach(function(it,idx){h+='<div class="injrow"><span class="pill" style="background:var(--surf2);color:var(--tx);min-width:22px;text-align:center">'+artCode(it.a)+'</span><span style="flex:1">'+esc(it.r)+' – '+esc(it.a)+'</span><button class="delx" data-action="delinj" data-idx="'+idx+'">×</button></div>';});
+  p.inj.forEach(function(it,idx){h+='<div class="injrow"><span style="flex:1">'+esc(it.r)+' – '+esc(it.a)+'</span><button class="delx" data-action="delinj" data-idx="'+idx+'">×</button></div>';});
   h+='<div class="row" style="margin-top:10px"><select data-field="injRegion" style="flex:1">';
   REGIONS.forEach(function(r){h+='<option>'+r+'</option>';});
   h+='</select><select data-field="injArt" style="flex:1">';
-  ARTS.forEach(function(a){h+='<option>'+a[0]+'</option>';});
+  ARTS.forEach(function(a){h+='<option>'+a+'</option>';});
   h+='</select><button class="txbtn" data-action="addinj" style="width:auto;padding:0 16px">＋</button></div>';
-  h+='<div class="hint" style="margin-top:6px">O = Wunde · # = Fraktur · X = Amputation · B = Verbrennung</div></div>';
+  h+='</div>';
 
   h+='<div class="sech">Vitalwerte</div><div class="card"><div class="grid3">'+
     '<div><label class="fieldlab">AF</label>'+vinp("af",p.vit.af)+'</div>'+
