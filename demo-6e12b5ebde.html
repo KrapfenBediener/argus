@@ -1,0 +1,469 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · Digitale Sichtung &amp; Lageführung</title>
+<meta name="description" content="ARGUS – digitales Erfassungs- und Sichtungswerkzeug für den Casualty Collection Point. Pseudonym, offline-fähig, in Echtzeit.">
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --t5b:#3a3d41;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.55}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+  /* ── Header ── */
+  header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.86);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line)}
+  .nav{display:flex;align-items:center;gap:18px;height:60px}
+  .brand{display:flex;align-items:center;gap:10px}
+  .badge{display:inline-block;background:var(--acc);color:#fff;font-weight:700;letter-spacing:1px;border-radius:10px;padding:7px 12px;font-size:15px}
+  .brand .tag{font-size:12px;color:var(--mut);font-family:var(--mono)}
+  .navlinks{display:flex;gap:22px;margin-left:auto;font-size:14px;color:var(--mut)}
+  .navlinks a:hover{color:var(--tx)}
+  .nav .btn{margin-left:18px}
+  @media(max-width:760px){ .navlinks,.brand .tag{display:none} .nav .btn{margin-left:auto} }
+
+  /* ── Buttons ── */
+  .btn{display:inline-block;background:var(--acc);color:#fff;border-radius:9px;padding:10px 18px;font-size:14px;font-weight:600;border:1px solid var(--acc);white-space:nowrap}
+  .btn:hover{background:#11151b}
+  .btn-ghost{background:#fff;color:var(--tx);border:1px solid var(--line)}
+  .btn-ghost:hover{background:var(--surf2)}
+  .btn-row{display:flex;gap:12px;flex-wrap:wrap;margin-top:22px}
+
+  /* ── Sektion-Grundlagen ── */
+  section{padding:64px 0}
+  .kicker{font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--prio)}
+  .kicker.slate{color:var(--mut)}
+  h2{font-size:clamp(26px,3.6vw,38px);line-height:1.12;letter-spacing:-.01em;margin:10px 0 0;font-weight:700}
+  .lead{font-size:clamp(16px,1.7vw,19px);color:var(--mut);margin-top:14px;max-width:60ch}
+  .sec-head{margin-bottom:34px}
+  .sec-head.center{text-align:center}
+  .sec-head.center .lead{margin-left:auto;margin-right:auto}
+
+  /* ── Hero ── */
+  .hero{padding:58px 0 56px}
+  .hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:54px;align-items:center}
+  .hero h1{font-size:clamp(32px,5vw,52px);line-height:1.06;letter-spacing:-.02em;margin:14px 0 0;font-weight:700}
+  .hero .lead{font-size:clamp(17px,1.9vw,21px)}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+  .chip{background:#fff;border:1px solid var(--line);border-radius:980px;padding:7px 14px;font-size:13px;font-weight:600;color:var(--tx)}
+  .chip .d{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  @media(max-width:820px){ .hero-grid{grid-template-columns:1fr;gap:36px} }
+
+  /* ── Geräte-Mockup (aus UI-AUSBLICK) ── */
+  .device{border:2px solid var(--line);border-radius:16px;background:var(--surf);overflow:hidden;margin:0 auto;box-shadow:0 10px 34px rgba(0,0,0,.08)}
+  .phone{max-width:300px}
+  .tablet{max-width:560px}
+  .desktop{max-width:920px}
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;gap:8px;padding:9px 13px;font-size:13px}
+  .dot{width:9px;height:9px;border-radius:50%;background:#ffffff55}
+  .screen{padding:14px}
+  .arg-logo{width:48px;height:48px;border-radius:12px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin:6px auto 4px;letter-spacing:1px}
+  .countbar{display:flex;gap:5px;margin:10px 0}
+  .cnt{flex:1;border-radius:9px;padding:7px 2px;text-align:center;color:#fff}
+  .cnt .n{display:block;font-family:var(--mono);font-weight:700;font-size:18px;line-height:1}
+  .cnt .l{font-size:10px;opacity:.95}
+  .navrow{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:8px;font-size:13px}
+  .navrow .ic{width:26px;height:26px;border-radius:7px;background:var(--surf2);display:flex;align-items:center;justify-content:center}
+  .navrow b{font-weight:600}
+  .navrow small{display:block;color:var(--mut);font-size:11px}
+  .tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .bigcat{border-radius:11px;padding:14px 12px;color:#fff;display:flex;justify-content:space-between;align-items:center;font-weight:600}
+  .bigcat .cc{font-family:var(--mono);font-size:20px}
+  .mono{font-family:var(--mono)}
+  /* Desktop-Layouts (aus UI-AUSBLICK) */
+  .dgrid{display:grid;grid-template-columns:200px 1fr;gap:0}
+  .side{background:#fff;border-right:1px solid var(--line);padding:14px}
+  .side .sh{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:2px 0 8px}
+  .side .it{padding:8px 10px;border-radius:8px;font-size:13.5px;margin-bottom:3px}
+  .side .it.on{background:var(--acc);color:#fff}
+  .dmain{padding:16px}
+  .mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .mh h3{margin:0;font-size:16px}
+  .mbtn{background:var(--acc);color:#fff;border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 11px;border-bottom:1px solid var(--line)}
+  th{background:var(--surf2);color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  tr:last-child td{border-bottom:0}
+  .pill{display:inline-block;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;color:#fff}
+  .lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .ccpcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:12px}
+  .ccpcard .ct{font-weight:600;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between}
+  .mini{display:flex;gap:4px}
+  .mini .m{flex:1;border-radius:6px;text-align:center;color:#fff;padding:5px 0}
+  .mini .m .n{display:block;font-family:var(--mono);font-weight:700;font-size:15px;line-height:1}
+  .mini .m .l{font-size:9px;opacity:.95}
+  .totbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .tot{flex:1;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px;text-align:center;min-width:96px}
+  .tot .n{font-family:var(--mono);font-weight:700;font-size:20px}
+  .tot .l{font-size:11px;color:var(--mut)}
+  @media(max-width:680px){ .dgrid{grid-template-columns:1fr} .side{border-right:0;border-bottom:1px solid var(--line)} .lgrid{grid-template-columns:1fr 1fr} }
+
+  /* ── Feature-Karten ── */
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+  .grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px 22px}
+  .card .ico{width:42px;height:42px;border-radius:11px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+  .card .ico svg{width:22px;height:22px}
+  .card h3{margin:0 0 6px;font-size:18px;font-weight:600;letter-spacing:-.01em}
+  .card p{margin:0;font-size:14.5px;color:var(--mut);line-height:1.5}
+  .card.note-l{border-left:4px solid var(--ready)}
+  @media(max-width:860px){ .grid3{grid-template-columns:1fr 1fr} }
+  @media(max-width:560px){ .grid3,.grid2{grid-template-columns:1fr} }
+
+  /* ── Geräte-Reihe ── */
+  .devrow{display:grid;grid-template-columns:1fr 1.5fr;gap:24px;align-items:center}
+  .devrow .capd{font-size:12.5px;color:var(--mut);text-align:center;margin-top:10px;font-family:var(--mono)}
+  @media(max-width:820px){ .devrow{grid-template-columns:1fr} }
+
+  /* ── Schritte ── */
+  .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;counter-reset:s}
+  .step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:20px 18px}
+  .step .no{font-family:var(--mono);font-weight:700;color:var(--prio);font-size:14px}
+  .step h4{margin:8px 0 4px;font-size:15.5px;font-weight:600}
+  .step p{margin:0;font-size:13.5px;color:var(--mut);line-height:1.5}
+  @media(max-width:820px){ .steps{grid-template-columns:1fr 1fr} }
+  @media(max-width:480px){ .steps{grid-template-columns:1fr} }
+
+  /* ── Status-Pills ── */
+  .statusrow{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+  .spill{background:#fff;border:1px solid var(--line);border-radius:980px;padding:8px 14px;font-size:13.5px;color:var(--tx);display:flex;align-items:center;gap:8px}
+  .spill .pd{width:9px;height:9px;border-radius:50%}
+
+  /* ── CTA-Band (Schiefer-Fläche) ── */
+  .cta{background:var(--acc);border-radius:18px;padding:44px 40px;text-align:center;color:#fff;box-shadow:0 14px 40px rgba(0,0,0,.16)}
+  .cta h2{color:#fff;margin:0}
+  .cta p{color:#c7ccd2;margin:12px auto 0;max-width:52ch;font-size:16px}
+  .cta .btn-row{justify-content:center}
+  .cta .btn{background:#fff;color:var(--acc);border-color:#fff}
+  .cta .btn:hover{background:#eef0f2}
+  .cta .btn-ghost{background:transparent;color:#fff;border-color:#ffffff55}
+  .cta .btn-ghost:hover{background:#ffffff14}
+
+  /* ── Disclaimer-Note ── */
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--prio);border-radius:10px;padding:12px 15px;font-size:13.5px;color:var(--mut);max-width:760px;margin:30px auto 0}
+
+  footer{padding:40px 0;border-top:1px solid var(--line);background:#fff}
+  .foot{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--mut)}
+  .foot .badge{font-size:13px;padding:6px 10px}
+</style>
+</head>
+<body>
+
+<!-- ══════ HEADER ══════ -->
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <span class="badge">ARGUS</span>
+      <span class="tag">Sichtung &amp; Lageführung</span>
+    </div>
+    <nav class="navlinks">
+      <a href="#funktionen">Funktionen</a>
+      <a href="#geraete">Mehrgeräte</a>
+      <a href="#pc">PC-Ansichten</a>
+      <a href="#datenschutz">Datenschutz</a>
+      <a href="#status">Status</a>
+    </nav>
+    <a href="#kontakt" class="btn">Closed Beta</a>
+  </div>
+</header>
+
+<!-- ══════ HERO ══════ -->
+<section class="hero">
+<div class="wrap hero-grid">
+  <div>
+    <div class="kicker">Digitale Sichtung &amp; Lageführung</div>
+    <h1>Klarheit, wenn es zählt.</h1>
+    <p class="lead">ARGUS ersetzt die handschriftliche Sichtung am Casualty Collection Point. Patienten erfassen, kategorisieren und verwalten — pseudonym, offline-fähig, geräteübergreifend in Echtzeit.</p>
+    <div class="btn-row">
+      <a href="#kontakt" class="btn">Beta-Zugang anfragen</a>
+      <a href="#funktionen" class="btn btn-ghost">Funktionen ansehen</a>
+    </div>
+    <div class="chips">
+      <span class="chip"><span class="d" style="background:var(--t3)"></span>Offline-first</span>
+      <span class="chip"><span class="d" style="background:var(--ready)"></span>Echtzeit-Sync</span>
+      <span class="chip"><span class="d" style="background:var(--acc)"></span>Pseudonym</span>
+      <span class="chip"><span class="d" style="background:var(--prio)"></span>PWA — kein App-Store</span>
+    </div>
+  </div>
+  <div>
+    <div class="device phone">
+      <div class="topbar"><span class="dot"></span> ARGUS · 🟢 Echtzeit</div>
+      <div class="screen">
+        <div class="arg-logo">ARGUS</div>
+        <div class="countbar">
+          <div class="cnt" style="background:var(--t1)"><span class="n">3</span><span class="l">T-1</span></div>
+          <div class="cnt" style="background:var(--t2);color:#3A2C00"><span class="n">5</span><span class="l">T-2</span></div>
+          <div class="cnt" style="background:var(--t3)"><span class="n">7</span><span class="l">T-3</span></div>
+          <div class="cnt" style="background:var(--t5)"><span class="n">1</span><span class="l">T-5</span></div>
+        </div>
+        <div class="navrow"><span class="ic">＋</span><span><b>Patient erfassen</b><small>tacSTART oder direkt</small></span></div>
+        <div class="navrow"><span class="ic">▦</span><span><b>Patientenübersicht</b><small>Kategorien, Listen</small></span></div>
+        <div class="navrow"><span class="ic">☑</span><span><b>Checkliste CCP</b><small>Aufbau &amp; Leitung</small></span></div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ══════ PROBLEM ══════ -->
+<section style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">Die Realität heute</div>
+    <h2>Beim MANV zählt jede Minute.<br>Die Lageführung läuft auf Papier.</h2>
+  </div>
+  <div class="grid3">
+    <div class="card"><h3>Keine gemeinsame Liste</h3><p>Jedes Gerät hat seinen eigenen Stand. Überblick nur, solange laut kommuniziert wird.</p></div>
+    <div class="card"><h3>Kein Echtzeit-Lagebild</h3><p>Wie viele T-1? Wie viele transportfertig? Antwort: nachzählen — in der Ausnahmesituation kostet das Zeit.</p></div>
+    <div class="card"><h3>Papier unter Stress</h3><p>Handschrift, Licht, Handschuhe. Karten gehen verloren, und die Daten sterben mit dem Einsatz.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ══════ FUNKTIONEN ══════ -->
+<section id="funktionen">
+<div class="wrap">
+  <div class="sec-head center">
+    <div class="kicker">Funktionen</div>
+    <h2>Gebaut für eine Hand, Handschuhe und kein Netz.</h2>
+    <p class="lead">Der häufige Fall — ein einzelner CCP — bleibt so schlicht wie bisher. Alles Weitere ordnet sich der Einfachheit unter.</p>
+  </div>
+  <div class="grid3">
+    <div class="card">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></div>
+      <h3>Erfassen in einem Tipp</h3>
+      <p>Direkte Kategorie oder geführte tacSTART-Sichtung. Die laufende Nummer kommt automatisch — geräteübergreifend, ohne Doppelvergabe.</p>
+    </div>
+    <div class="card">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1.3"/><circle cx="4.5" cy="12" r="1.3"/><circle cx="4.5" cy="18" r="1.3"/></svg></div>
+      <h3>tacSTART, Schritt für Schritt</h3>
+      <p>Der Algorithmus führt durch jeden Entscheidungsknoten und schlägt die Kategorie vor. Entscheiden tut der Mensch — T-5 nie automatisch.</p>
+    </div>
+    <div class="card">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div>
+      <h3>Alle Daten am Patienten</h3>
+      <p>Vitalwerte (WASB), Verletzungen, Maßnahmen A–E, Tourniquet-Timer, Foto. Der TQ-Timer läuft auch im gesperrten Zustand weiter.</p>
+    </div>
+    <div class="card">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="13" height="14" rx="2"/><path d="M16 9l5-2v10l-5-2"/></svg></div>
+      <h3>Foto zur Identifikation</h3>
+      <p>Kamera, automatisch verkleinert, lokal gespeichert. Antippen für Vollbild — die schnellste Wiedererkennung im Getümmel.</p>
+    </div>
+    <div class="card">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div>
+      <h3>Prio &amp; Sammel-Auscheckung</h3>
+      <p>Transport priorisieren, transportfertig markieren und ganze Kategorien beim Abtransport in einem Schritt auschecken.</p>
+    </div>
+    <div class="card">
+      <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><circle cx="12" cy="20" r="1"/></svg></div>
+      <h3>Local-first &amp; PWA</h3>
+      <p>Auf dem Homescreen installierbar, Vollbild, ohne App-Store. Jedes Gerät arbeitet auch ohne Netz weiter und gleicht später ab.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ══════ MEHRGERÄTE ══════ -->
+<section id="geraete" style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">Mehrgeräte</div>
+    <h2>Eine Codebasis. Jeder Bildschirm.</h2>
+    <p class="lead">Dasselbe ARGUS passt sich an: schlicht im Feld auf dem Smartphone, luftiger auf dem Tablet, breit für Administration und Lagedashboard auf dem PC.</p>
+  </div>
+  <div class="devrow">
+    <div>
+      <div class="device phone">
+        <div class="topbar"><span class="dot"></span> ARGUS · CCP A</div>
+        <div class="screen">
+          <div class="countbar">
+            <div class="cnt" style="background:var(--t1)"><span class="n">4</span><span class="l">T-1</span></div>
+            <div class="cnt" style="background:var(--t2);color:#3A2C00"><span class="n">5</span><span class="l">T-2</span></div>
+            <div class="cnt" style="background:var(--t3)"><span class="n">7</span><span class="l">T-3</span></div>
+            <div class="cnt" style="background:var(--t5)"><span class="n">1</span><span class="l">T-5</span></div>
+          </div>
+          <div class="navrow"><span class="ic">＋</span><span><b>Patient erfassen</b><small>tacSTART oder direkt</small></span></div>
+          <div class="navrow"><span class="ic">▦</span><span><b>Patientenübersicht</b><small>17 aktive Patienten</small></span></div>
+        </div>
+      </div>
+      <div class="capd">Smartphone · Feld-Oberfläche</div>
+    </div>
+    <div>
+      <div class="device tablet">
+        <div class="topbar"><span class="dot"></span> ARGUS · 🟢 Echtzeit-Modus · PP Karlsruhe</div>
+        <div class="screen">
+          <div class="countbar">
+            <div class="cnt" style="background:var(--t1)"><span class="n">3</span><span class="l">T-1</span></div>
+            <div class="cnt" style="background:var(--t2);color:#3A2C00"><span class="n">5</span><span class="l">T-2</span></div>
+            <div class="cnt" style="background:var(--t3)"><span class="n">7</span><span class="l">T-3</span></div>
+            <div class="cnt" style="background:var(--t5)"><span class="n">1</span><span class="l">T-5</span></div>
+            <div class="cnt" style="background:var(--prio)"><span class="n">2</span><span class="l">PRIO</span></div>
+            <div class="cnt" style="background:var(--surf2);color:var(--mut)"><span class="n">4</span><span class="l">gPA</span></div>
+          </div>
+          <div class="tiles">
+            <div class="bigcat" style="background:var(--t1)"><span>T-1 · sofort</span><span class="cc">3</span></div>
+            <div class="bigcat" style="background:var(--t2);color:#3A2C00"><span>T-2 · dringend</span><span class="cc">5</span></div>
+            <div class="bigcat" style="background:var(--t3)"><span>T-3 · leicht</span><span class="cc">7</span></div>
+            <div class="bigcat" style="background:var(--t5);border:1px solid var(--t5b)"><span>T-5 · verstorben</span><span class="cc">1</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="capd">Tablet · luftiger, 2-spaltig</div>
+    </div>
+  </div>
+  <div class="note" style="border-left-color:var(--ready)">Auf großen Schirmen kommen <b>Administration</b> (Zugangscodes, Geräte, Audit-Log) und das <b>FLZ-Lagedashboard</b> (read-only, anonyme Zahlen je Kategorie) dazu — siehe unten.</div>
+</div>
+</section>
+
+<!-- ══════ PC-ANSICHTEN ══════ -->
+<section id="pc">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker slate">PC · große Schirme</div>
+    <h2>Administration und Lagedashboard.</h2>
+    <p class="lead">Was im Feld bewusst schlicht bleibt, nutzt am PC die Breite: Zugänge verwalten und das Lagebild über alle CCPs hinweg lesen — eine Codebasis, ein Backend.</p>
+  </div>
+
+  <!-- Desktop · Administration -->
+  <div class="device desktop" style="margin-bottom:26px">
+    <div class="topbar"><span class="dot"></span> ARGUS · Administration · MasterToken</div>
+    <div class="dgrid">
+      <div class="side">
+        <div class="sh">Präsidien</div>
+        <div class="it on">PP Karlsruhe</div>
+        <div class="it">PP Mannheim</div>
+        <div class="it">Schulungsumgebung</div>
+        <div class="sh" style="margin-top:14px">Bereiche</div>
+        <div class="it">Zugangscodes</div>
+        <div class="it">Geräte / Nutzer</div>
+        <div class="it">Audit-Log</div>
+      </div>
+      <div class="dmain">
+        <div class="mh"><h3>Zugangscodes — PP Karlsruhe</h3><span class="mbtn">+ Neuer Link</span></div>
+        <table>
+          <tr><th>Code</th><th>Typ</th><th>Status</th><th>Erstellt</th><th></th></tr>
+          <tr><td class="mono">MTEC-9PF7</td><td>Dauerhaft</td><td><span class="pill" style="background:var(--t3)">aktiv</span></td><td>03.06.</td><td>widerrufen</td></tr>
+          <tr><td class="mono">CDSR-J9VB</td><td>Einmalig (24 h)</td><td><span class="pill" style="background:var(--mut)">verbraucht</span></td><td>04.06.</td><td>—</td></tr>
+          <tr><td class="mono">8TVL-5E4U</td><td>Einmalig (24 h)</td><td><span class="pill" style="background:var(--t3)">offen</span></td><td>05.06.</td><td>widerrufen</td></tr>
+          <tr><td class="mono">LAGE-FLZ1</td><td>Beobachter</td><td><span class="pill" style="background:var(--ready)">read-only</span></td><td>05.06.</td><td>widerrufen</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div class="capd" style="text-align:center;font-size:12.5px;color:var(--mut);font-family:var(--mono);margin:-14px 0 26px">PC · Administration (Phase 7: Codes/Nutzer verwalten)</div>
+
+  <!-- Desktop · FLZ-Lagedashboard -->
+  <div class="device desktop">
+    <div class="topbar"><span class="dot"></span> ARGUS · Lageübersicht · Beobachter · PP Karlsruhe</div>
+    <div class="dmain">
+      <div class="totbar">
+        <div class="tot"><div class="n">3</div><div class="l">aktive CCPs</div></div>
+        <div class="tot"><div class="n">28</div><div class="l">Patienten gesamt</div></div>
+        <div class="tot"><div class="n" style="color:var(--t1)">6</div><div class="l">T-1</div></div>
+        <div class="tot"><div class="n" style="color:var(--prio)">5</div><div class="l">Prio-Transport</div></div>
+        <div class="tot"><div class="n" style="color:var(--ready)">9</div><div class="l">gPA / abtransportiert</div></div>
+      </div>
+      <div class="lgrid">
+        <div class="ccpcard"><div class="ct"><span>CCP A · Marktplatz</span><span class="mono" style="color:var(--mut)">12</span></div>
+          <div class="mini"><div class="m" style="background:var(--t1)"><span class="n">2</span><span class="l">T1</span></div><div class="m" style="background:var(--t2);color:#3A2C00"><span class="n">3</span><span class="l">T2</span></div><div class="m" style="background:var(--t3)"><span class="n">6</span><span class="l">T3</span></div><div class="m" style="background:var(--t5)"><span class="n">1</span><span class="l">T5</span></div></div></div>
+        <div class="ccpcard"><div class="ct"><span>CCP B · Bahnhof</span><span class="mono" style="color:var(--mut)">9</span></div>
+          <div class="mini"><div class="m" style="background:var(--t1)"><span class="n">3</span><span class="l">T1</span></div><div class="m" style="background:var(--t2);color:#3A2C00"><span class="n">2</span><span class="l">T2</span></div><div class="m" style="background:var(--t3)"><span class="n">4</span><span class="l">T3</span></div><div class="m" style="background:var(--t5)"><span class="n">0</span><span class="l">T5</span></div></div></div>
+        <div class="ccpcard"><div class="ct"><span>CCP C · Stadthalle</span><span class="mono" style="color:var(--mut)">7</span></div>
+          <div class="mini"><div class="m" style="background:var(--t1)"><span class="n">1</span><span class="l">T1</span></div><div class="m" style="background:var(--t2);color:#3A2C00"><span class="n">2</span><span class="l">T2</span></div><div class="m" style="background:var(--t3)"><span class="n">4</span><span class="l">T3</span></div><div class="m" style="background:var(--t5)"><span class="n">0</span><span class="l">T5</span></div></div></div>
+      </div>
+      <div class="note" style="border-left-color:var(--ready);margin:14px 0 0">Keine Patientendetails, keine Namen oder Fotos — nur Zahlen je Kategorie. Aktualisiert sich automatisch.</div>
+    </div>
+  </div>
+  <div class="capd" style="text-align:center;font-size:12.5px;color:var(--mut);font-family:var(--mono);margin:14px 0 0">PC · FLZ-Lagedashboard (Phase 8: read-only, anonyme Zahlen)</div>
+</div>
+</section>
+
+<!-- ══════ WIE ES FUNKTIONIERT ══════ -->
+<section>
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker slate">Im Einsatz</div>
+    <h2>Von der Nummer auf der Haut bis zum Abtransport.</h2>
+  </div>
+  <div class="steps">
+    <div class="step"><div class="no">01</div><h4>Erfassen</h4><p>Laufende Nummer auf die Haut, Patient mit einem Tipp anlegen.</p></div>
+    <div class="step"><div class="no">02</div><h4>Sichten</h4><p>tacSTART oder direkte Kategorie T-1 bis T-5 zuordnen.</p></div>
+    <div class="step"><div class="no">03</div><h4>Verwalten</h4><p>Vitalwerte, Maßnahmen, TQ-Zeit, Prio, Foto — alles am Patienten.</p></div>
+    <div class="step"><div class="no">04</div><h4>Auschecken</h4><p>Transportfertig markieren und beim Abtransport auschecken.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ══════ DATENSCHUTZ ══════ -->
+<section id="datenschutz" style="background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker">Vertrauen</div>
+    <h2>Datenschutz ist kein Feature. Es ist das Fundament.</h2>
+  </div>
+  <div class="grid2">
+    <div class="card note-l"><h3>Pseudonymität</h3><p>Patienten werden über eine laufende Nummer identifiziert. Klarnamen sind optional. Kein Profil, kein Konto im Feld.</p></div>
+    <div class="card note-l"><h3>EU-Hosting &amp; Verschlüsselung</h3><p>EU-Region (Frankfurt). TLS in der Übertragung, Verschlüsselung at rest. Daten verlassen die EU nicht unkontrolliert.</p></div>
+    <div class="card note-l"><h3>Code → Ticket → RLS</h3><p>8-stelliger Zugangscode → signiertes Ticket → serverseitige Row-Level-Security. Ohne Ticket kein Zugriff — kein Login, kein Passwort im Feld.</p></div>
+    <div class="card note-l"><h3>Offline-fähig</h3><p>Local-first: jedes Gerät arbeitet auch ohne Netz weiter und gleicht beim Wiederverbinden automatisch ab. Kein Funkloch bremst den Einsatz.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ══════ STATUS ══════ -->
+<section id="status">
+<div class="wrap">
+  <div class="sec-head">
+    <div class="kicker slate">Wo wir stehen</div>
+    <h2>Erprobt. Abgesichert. Bereit für den nächsten Schritt.</h2>
+    <p class="lead">Im Feld bereits in einer Großübung erprobt. Aktuell in der Closed Beta auf dem Weg zum Echtbetrieb.</p>
+  </div>
+  <div class="statusrow">
+    <span class="spill"><span class="pd" style="background:var(--t3)"></span>Phasen 0–4 · PWA, Backend, Auth, RLS</span>
+    <span class="spill"><span class="pd" style="background:var(--t3)"></span>Beta-Härtung · v0.4 – v0.16</span>
+    <span class="spill"><span class="pd" style="background:var(--prio)"></span>DSB-Gespräch · Tor zum Echtbetrieb</span>
+    <span class="spill"><span class="pd" style="background:var(--mut)"></span>Produktiv-Infra &amp; Feldtest</span>
+    <span class="spill"><span class="pd" style="background:var(--mut)"></span>FLZ-Lagedashboard</span>
+  </div>
+</div>
+</section>
+
+<!-- ══════ CTA ══════ -->
+<section id="kontakt">
+<div class="wrap">
+  <div class="cta">
+    <div class="kicker" style="color:#ffb784">Closed Beta · v0.16</div>
+    <h2>ARGUS im eigenen Bereich testen.</h2>
+    <p>Zugang nach Absprache mit Träger und Datenschutzbeauftragtem. DSB-Briefing, Datenmodell, Compliance-Doku und Feldtest-Drehbuch liegen bereit.</p>
+    <div class="btn-row">
+      <a href="#" class="btn">Beta-Zugang anfragen</a>
+      <a href="#" class="btn btn-ghost">DSB-Briefing ansehen</a>
+    </div>
+  </div>
+  <div class="note">ARGUS ist ein Sichtungs- und Lageführungswerkzeug für Übungs- und Einsatzlagen. tacSTART-Vorschläge sind Entscheidungsunterstützung und kein Ersatz für die ärztliche bzw. fachliche Beurteilung. Einsatz nur nach Abstimmung mit Träger und Datenschutzbeauftragtem.</div>
+</div>
+</section>
+
+<!-- ══════ FOOTER ══════ -->
+<footer>
+<div class="wrap foot">
+  <div class="brand"><span class="badge">ARGUS</span><span class="tag">Digitale Sichtung &amp; Lageführung</span></div>
+  <div>© 2026 Gabor Szeman · Alle Rechte vorbehalten · Proprietär</div>
+</div>
+</footer>
+
+</body>
+</html>
