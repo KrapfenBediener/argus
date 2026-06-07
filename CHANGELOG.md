@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.17.2 — 2026-06-08
+**Fußzeile auch auf der Präsidien-Auswahl/Freischalt-Seite**
+- `vPraesidium()` (First Page: Präsidium auswählen/freischalten) zeigt jetzt ebenfalls
+  die einheitliche Fußzeile (`appFooter()`): Version · Neuerungen · ©.
+  (v0.17.1 hatte sie nur auf dem „Kein Zugang"- und dem Landing-Screen.)
+
 ## v0.17.1 — 2026-06-08
 **„Neuerungen" auf der Startseite vor dem Login**
 - Volle Fußzeile (Version · Neuerungen · ©) jetzt auch auf der First Page (`vLocked`,

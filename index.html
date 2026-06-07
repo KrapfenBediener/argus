@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.17.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.17.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -583,6 +583,7 @@ function vPraesidium(){
   if(_isMaster){
     h+='<button class="navbtn" data-action="openadmin" style="margin-top:10px"><span class="ic">⚙️</span><span><span class="t">Administration</span><br><span class="s">Zugangs-Links teilen · Codes</span></span></button>';
   }
+  h+=appFooter();
   return h;
 }
 function vAdmin(){
