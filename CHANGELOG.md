@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.17.1 — 2026-06-08
+**„Neuerungen" auf der Startseite vor dem Login**
+- Volle Fußzeile (Version · Neuerungen · ©) jetzt auch auf der First Page (`vLocked`,
+  „Kein Zugang"-Screen) — „Neuerungen" (inkl. Sheet-Link) ist damit schon vor dem
+  Freischalten erreichbar.
+- Fußzeile in `appFooter()` zusammengeführt → eine Quelle für Version/Neuerungen/©.
+- Kein „Was ist neu"-Popup, kein eigenes Sheet (zu klein).
+
 ## v0.17.0 — 2026-06-08
 **AT-MIST-Übergabekarte bei Auscheckung**
 - Ausgecheckte Patienten (gPA) zeigen im Detail statt des Formulars eine gesperrte

@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.17.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.17.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -525,7 +525,7 @@ function vLocked(){
   h+='<input id="inv-input" placeholder="XXXX-XXXX (8-stelliger Code)" style="font-family:monospace;font-size:15px;letter-spacing:2px;text-transform:uppercase">';
   h+='<button class="prim" data-action="checkinvite" style="margin-top:10px">Zugang prüfen</button>';
   h+='</div>';
-  h+='<p class="hint" style="text-align:center;margin-top:16px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · Nur für autorisierte Nutzer</p>';
+  h+=appFooter('Nur für autorisierte Nutzer');
   return h;
 }
 function vInstall(){
@@ -1609,7 +1609,7 @@ function vStart(){
   h += '<button class="ghost" data-action="nav" data-view="help" style="margin-top:8px;font-size:13px">❓ Hilfestellungen & Kurzanleitung</button>';
   h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
   h += '🏗 '+esc(_praesidiumName||'—')+' · wechseln</button>';
-  h += '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · <a href="#" data-action="whatsnew" style="color:var(--mut)">Neuerungen</a> · © 2026 Gabor Szeman</p>';
+  h += appFooter();
   return h;
 }
 
@@ -1664,6 +1664,11 @@ function cmpVer(a,b){
 /* Zeigt die Highlights aller Versionen NEUER als sinceV (kumulativ — wer mehrere
  * Updates verpasst hat, sieht alle relevanten Neuerungen). sinceV=null → alle
  * vorhandenen. recentCap begrenzt die Anzahl (für den „Neuerungen"-Button). */
+/* Einheitliche Fußzeile (Version · Neuerungen · ©). `extra` = optionale 2. Zeile. */
+function appFooter(extra){
+  return '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · <a href="#" data-action="whatsnew" style="color:var(--mut)">Neuerungen</a> · © 2026 Gabor Szeman</p>'+
+    (extra?'<p class="hint" style="text-align:center;margin-top:4px;font-size:11px">'+extra+'</p>':'');
+}
 function whatsNewModal(sinceV, recentCap){
   var keys=Object.keys(WHATS_NEW).sort(cmpVer);
   if(sinceV){ keys=keys.filter(function(k){return cmpVer(k,sinceV)>0;}); }
