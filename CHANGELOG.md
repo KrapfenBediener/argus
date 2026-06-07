@@ -6,6 +6,18 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.17.0 — 2026-06-08
+**AT-MIST-Übergabekarte bei Auscheckung**
+- Ausgecheckte Patienten (gPA) zeigen im Detail statt des Formulars eine gesperrte
+  **Vorlese-Karte** in AT-MIST-Reihenfolge (neue `vHandover()`): Kopf (Nr · Kategorie ·
+  PRIO) → A · T (auto: TQ-Dauer + „erfasst vor …") → M (aus MOI/Unfallhergang) →
+  I (Verletzungen) → S (Befund) → T (Maßnahmen).
+- **Bearbeitung gesperrt** (eingefrorener Snapshot); „↩ Zurückholen → aktiv" zum Korrigieren.
+- **Vitalwerte:** nur erhobene Werte; keine → „Keine Vitalwerte erhoben". PFC-Verlauf
+  (protokollierte Messungen) als einklappbarer Block, Default zu — Default später je nach RD-Rückmeldung.
+- Reine Darstellung vorhandener Daten — nichts wird übertragen (kein Drittsystem/PZC/QR);
+  Pseudonymität & Systemgrenze „ARGUS endet an der Übergabe" gewahrt, MDR-neutral.
+
 ## v0.16.2 — 2026-06-06
 **„Verletzungen" entschlackt**
 - Symbol-Spalte (`O/#/X/B`) vor jedem Verletzungseintrag entfernt — der Klartext

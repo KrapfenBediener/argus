@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.16.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.17.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -109,6 +109,9 @@ var UPDATE_SHEETS = {
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html'   /* deckt v0.9.0 → v0.12.x ab */
 };
 var WHATS_NEW = {
+  '0.17.0': [
+    'Übergabe-Karte beim Auschecken: Ausgecheckte Patienten (gPA) zeigen jetzt eine gesperrte AT-MIST-Karte zum Vorlesen an die gPA — mit Zeiten (TQ-Dauer), Befund und Maßnahmen. Zum Ändern: „↩ Zurückholen".'
+  ],
   '0.16.2': [
     'Verletzungen-Liste aufgeräumt: jeder Eintrag zeigt direkt den Klartext (z. B. „Arm re – Amputation"). Die frühere Symbol-Spalte (O/#/X/B) samt Legende entfällt.'
   ],
@@ -1355,6 +1358,7 @@ function vPatient(){
   function vinp(field,val){return '<input data-kind="vit" data-field="'+field+'" value="'+esc(val)+'" inputmode="numeric">';}
   var li=lockInfo(p);
   var ro=(state.readonly===true);
+  if(p.status==='gpa') return vHandover(p,c);   /* ausgecheckt → Vorlese-/Übergabe-Karte (gesperrt) */
   var h='';
   if(ro){
     h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:13px;margin-bottom:12px">'+
@@ -1457,6 +1461,88 @@ function vPatient(){
     h+='<button class="prim" data-action="gpa" data-id="'+p.id+'" style="background:var(--ready);color:#fff">Abtransport → gPA</button>';
   }
   h+='<p class="hint" style="text-align:center;margin-top:8px">Eingaben werden automatisch gespeichert.</p>';
+  h+='</div>';
+  return h;
+}
+/* ── Übergabe-Karte (gPA): Vorlese-Modus in AT-MIST-Reihenfolge ──────────────
+ * Reine Darstellung bereits erfasster Daten. Nichts wird übertragen, kein
+ * Drittsystem, kein PZC/QR/Foto. Ausgecheckte Patienten sind gesperrt; zum
+ * Korrigieren „↩ Zurückholen". MDR-neutral (keine neue klinische Ausgabe). */
+function vHandover(p,c){
+  function amRow(letter,label,valueHtml,first){
+    return '<div style="display:flex;gap:11px;padding:12px 0'+(first?'':';border-top:1px solid var(--line)')+'">'+
+      '<span class="mono" style="width:32px;height:32px;border-radius:8px;background:var(--acc);color:#fff;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+letter+'</span>'+
+      '<div style="flex:1;min-width:0">'+
+      '<div style="font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;font-weight:700">'+label+'</div>'+
+      '<div style="font-size:16px;font-weight:600;line-height:1.35;margin-top:2px">'+valueHtml+'</div></div></div>';
+  }
+  function vc(l,v){return '<div style="background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:6px 8px"><div style="font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px">'+l+'</div><div class="mono" style="font-size:15px;font-weight:700;margin-top:1px">'+(v?esc(v):'—')+'</div></div>';}
+  var dim='<span style="color:#9aa0a6;font-weight:400;font-style:italic">— nicht erfasst</span>';
+
+  /* A — Alter / Geschlecht (optional, Pseudonymität) */
+  var ap=[]; if(p.age)ap.push(esc(p.age)+' J'); var g=p.gender==='m'?'männl.':(p.gender==='w'?'weibl.':''); if(g)ap.push(g);
+  var aVal=ap.length?ap.join(' · '):dim;
+  /* T — Zeiten (automatisch) */
+  var tp=[];
+  if(p.tqStart)tp.push('<span style="color:var(--t1);font-weight:700">Tourniquet liegt seit '+fmtDur(nowMs()-p.tqStart)+'</span>');
+  if(p.created)tp.push('<span style="font-size:13px;color:var(--mut);font-weight:400">erfasst '+ageStr(p.created)+'</span>');
+  var tVal=tp.length?tp.join('<br>'):dim;
+  /* M — Mechanismus (aus MOI/Unfallhergang) */
+  var mVal=p.moi?esc(p.moi):dim;
+  /* I — Verletzungen */
+  var il=[]; (p.inj||[]).forEach(function(it){il.push(esc(it.r)+' – '+esc(it.a));}); if(p.injury)il.push(esc(p.injury));
+  var iVal=il.length?il.join('<br>'):dim;
+  /* S — Befund / Vitalwerte: nur erhobene Werte; PFC-Verlauf einklappbar (Default zu) */
+  var v=p.vit||{};
+  var vpairs=[['WASB',v.avpu],['AF',v.af],['SpO₂',v.spo2],['HF',v.hf],['RR',v.rr],['Schmerz',v.pain]].filter(function(x){return x[1]!=null&&x[1]!=='';});
+  var sVal;
+  if(vpairs.length){
+    sVal='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:4px">'+vpairs.map(function(x){return vc(x[0],x[1]);}).join('')+'</div>';
+  }else{
+    sVal='<div style="margin-top:4px;font-weight:600;color:var(--mut)">Keine Vitalwerte erhoben</div>';
+  }
+  if(p.allergies)sVal+='<div style="margin-top:7px;color:var(--t1);font-weight:600;font-size:13.5px">⚠ Allergien: '+esc(p.allergies)+'</div>';
+  var vlog=(p.vit&&Array.isArray(p.vit.log))?p.vit.log:[];
+  if(vlog.length){
+    sVal+='<details style="margin-top:8px"><summary style="cursor:pointer;font-size:12.5px;color:var(--mut);font-weight:600">Verlauf — '+vlog.length+' protokollierte Messung'+(vlog.length>1?'en':'')+'</summary>'+
+      '<div style="margin-top:5px;border:1px solid var(--line);border-radius:8px;overflow:hidden">';
+    vlog.forEach(function(m){
+      var tm=m.t?new Date(m.t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—';
+      var parts=[];
+      if(m.af)parts.push('AF '+esc(m.af)); if(m.spo2)parts.push('SpO₂ '+esc(m.spo2));
+      if(m.hf)parts.push('HF '+esc(m.hf)); if(m.rr)parts.push('RR '+esc(m.rr));
+      if(m.avpu)parts.push('WASB '+esc(m.avpu)); if(m.pain)parts.push('Schmerz '+esc(m.pain));
+      sVal+='<div style="display:flex;gap:8px;padding:6px 9px;border-top:1px solid var(--line);font-size:12px"><span class="mono" style="font-weight:700;flex-shrink:0">'+tm+'</span><span style="color:var(--mut)">'+(parts.join(' · ')||'—')+'</span></div>';
+    });
+    sVal+='</div></details>';
+  }
+  /* T — Maßnahmen (Treatment) */
+  var tl=[];
+  if(p.tqStart)tl.push('Tourniquet · '+fmtDur(nowMs()-p.tqStart));
+  TXG.forEach(function(grp){grp[1].forEach(function(f){ if(p.tx&&p.tx[f[0]]) tl.push(esc(f[1])); });});
+  var ttVal=tl.length?tl.map(function(x){return '▸ '+x;}).join('<br>'):dim;
+
+  var h='<div id="patbody">';
+  h+='<div class="card" style="background:var(--surf2);border:1px solid var(--line);padding:11px 13px;display:flex;align-items:center;gap:9px;margin-bottom:10px">'+
+     '<span style="font-size:15px">🔒</span><div style="flex:1">'+
+     '<div style="font-weight:600">Ausgecheckt → gPA · Übergabe-Karte</div>'+
+     '<div class="hint" style="margin-top:2px">Bearbeitung gesperrt · der Reihe nach vorlesen</div></div></div>';
+  h+='<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px">'+
+     '<span class="pnum" style="font-size:30px">'+pno(p)+'</span>'+
+     '<span class="pill" style="font-size:14px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+' '+c.nm+'</span>'+
+     (p.prio?'<span class="pill" style="font-size:13px;background:var(--prio);color:#fff">PRIO</span>':'')+
+     (p.name?'<span style="flex-basis:100%;font-size:14px;color:var(--mut);margin-top:2px">Name: '+esc(p.name)+'</span>':'')+
+     '</div>';
+  h+='<div class="card" style="padding:4px 14px 12px">';
+  h+=amRow('A','Alter / Geschlecht',aVal,true);
+  h+=amRow('T','Zeiten',tVal);
+  h+=amRow('M','Mechanismus',mVal);
+  h+=amRow('I','Verletzungen',iVal);
+  h+=amRow('S','Befund / Vitalwerte',sVal);
+  h+=amRow('T','Maßnahmen',ttVal);
+  h+='</div>';
+  h+='<button class="prim" data-action="reactivate" data-id="'+p.id+'" style="background:var(--acc);color:#fff;margin-top:12px">↩ Zurückholen → aktiv (zum Korrigieren)</button>';
+  h+='<p class="hint" style="text-align:center;margin-top:8px">Übergabe an die gPA — der Reihe nach vorlesen.</p>';
   h+='</div>';
   return h;
 }
