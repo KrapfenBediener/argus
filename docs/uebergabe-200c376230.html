@@ -1,0 +1,231 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Internes Design-Mockup, nicht funktional. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ARGUS · AT-MIST Übergabekarte (Mockup)</title>
+<style>
+  /* Selbst gehostete Schriften (kein Google-CDN — DSGVO) */
+  @font-face{font-family:'IBM Plex Sans';font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-weight:700;font-display:swap;src:url(fonts/ibm-plex-mono-700.woff2) format('woff2')}
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;padding:22px 14px 60px}
+  .wrap{max-width:880px;margin:0 auto}
+  header{text-align:center;margin-bottom:6px}
+  .badge{display:inline-block;background:var(--acc);color:#fff;font-weight:700;letter-spacing:1px;border-radius:12px;padding:9px 16px;font-size:18px}
+  h1{font-size:20px;margin:14px 0 2px}
+  .sub{font-family:var(--mono);font-size:13px;color:var(--mut)}
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--prio);border-radius:10px;padding:11px 14px;margin:16px auto;font-size:13px;max-width:760px}
+
+  .stage{display:grid;grid-template-columns:360px 1fr;gap:30px;align-items:start;margin-top:24px}
+  @media(max-width:760px){ .stage{grid-template-columns:1fr} }
+
+  /* Geräte-Rahmen (UI-AUSBLICK) */
+  .device{border:2px solid var(--line);border-radius:18px;background:var(--surf);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.08)}
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:14px;font-weight:600}
+  .topbar .back{opacity:.85}
+  .topbar .rt{margin-left:auto;font-size:11px;font-weight:600;opacity:.85;display:flex;align-items:center;gap:5px}
+
+  /* Vorlese-Hinweis */
+  .hl{background:#fff8ec;border-bottom:1px solid #f0e2c6;padding:7px 14px;font-size:12px;color:#8a6d22;display:flex;align-items:center;gap:7px}
+
+  /* Sperr-Banner */
+  .lock{display:flex;align-items:center;gap:9px;background:var(--surf2);border-bottom:1px solid var(--line);padding:9px 14px;font-size:12.5px;color:var(--mut)}
+  .lock .lk{font-size:14px}
+  .relock{margin-left:auto;background:#fff;border:1px solid var(--line);border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;color:var(--acc);white-space:nowrap}
+
+  /* Kopf */
+  .head{padding:14px;background:#fff;border-bottom:1px solid var(--line)}
+  .head .num{font-family:var(--mono);font-size:32px;font-weight:700;line-height:1;letter-spacing:.5px}
+  .head .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .pill{border-radius:7px;padding:5px 10px;font-size:12.5px;font-weight:700;color:#fff}
+
+  /* AT-MIST-Block */
+  .am-row{display:flex;gap:12px;padding:13px 14px;border-bottom:1px solid var(--line);background:#fff}
+  .am-row:last-child{border-bottom:none}
+  .am-chip{width:34px;height:34px;border-radius:9px;background:var(--acc);color:#fff;font-weight:700;font-size:16px;font-family:var(--mono);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .am-body{flex:1;min-width:0}
+  .am-k{font-size:10.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;font-weight:700}
+  .am-v{font-size:16px;color:var(--tx);font-weight:600;line-height:1.35;margin-top:2px}
+  .am-v.empty{color:#9aa0a6;font-weight:400;font-style:italic}
+  .am-v.crit{color:var(--t1);font-weight:700}
+  .am-sub{font-size:12px;color:var(--mut);font-weight:400;margin-top:2px}
+  .tag{display:inline-block;background:var(--surf2);color:var(--mut);font-size:10.5px;font-weight:600;border-radius:5px;padding:2px 7px;margin-left:6px;vertical-align:middle}
+  /* Mechanismus-Chips (Ein-Tipp) */
+  .mchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+  .mc{border:1px solid var(--line);background:#fff;border-radius:16px;padding:5px 11px;font-size:12px;color:var(--mut);font-weight:600}
+  .mc.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  /* Vitalwerte-Inline */
+  .vit{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:6px}
+  .vit .v{background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
+  .vit .vl{font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+  .vit .vv{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--tx);line-height:1.1;margin-top:1px}
+  .vit .vv.warn{color:var(--t1)}
+  /* Maßnahmen-Liste */
+  .tx{margin-top:4px;display:flex;flex-direction:column;gap:5px}
+  .txi{display:flex;gap:8px;align-items:flex-start;font-size:14.5px;font-weight:500}
+  .txi .b{color:var(--t3)}
+  .txi .b.red{color:var(--t1)}
+
+  .foot{padding:11px 14px;font-size:11.5px;color:var(--mut);background:var(--surf);display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px}
+
+  /* Erklärspalte */
+  .exp h2{font-size:15px;margin:0 0 10px}
+  .exp ul{margin:0 0 18px;padding-left:0;list-style:none}
+  .exp li{position:relative;padding:8px 0 8px 26px;font-size:13.5px;border-bottom:1px solid var(--line);line-height:1.45}
+  .exp li::before{content:"✓";position:absolute;left:2px;top:8px;color:var(--t3);font-weight:700}
+  .exp li b{color:var(--tx)}
+  .exp .k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--acc);margin:18px 0 8px}
+  .exp li.warn::before{content:"!";color:var(--prio)}
+  footer{margin-top:30px;text-align:center;font-size:11.5px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">ARGUS</div>
+    <h1>AT-MIST-Übergabekarte bei Auscheckung</h1>
+    <div class="sub">Mockup · nicht funktional · zeigt den Vorlese-Modus eines ausgecheckten Patienten</div>
+  </header>
+
+  <div class="note"><b>So funktioniert es:</b> Beim Auschecken (Abtransport → gPA) wird der Patient <b>gesperrt</b>
+  und der Detail-Screen rendert sich als <b>Vorlese-Karte</b> in AT-MIST-Reihenfolge. Es wird <b>nichts übertragen</b>,
+  keine Drittsysteme, kein Papier, keine Hardware — nur die vorhandenen Daten neu sortiert. Korrigieren = kurz „reinholen".</div>
+
+  <div class="stage">
+
+    <!-- Phone -->
+    <div class="device">
+      <div class="topbar"><span class="back">‹</span> Übergabe-Karte <span class="rt">🔒 ausgecheckt</span></div>
+      <div class="hl">🗣 Bei Übergabe an die gPA der Reihe nach vorlesen</div>
+      <div class="lock"><span class="lk">🔒</span> Ausgecheckt → gPA · Bearbeitung gesperrt <span class="relock">↩ Reinholen</span></div>
+
+      <!-- Kopf: was die gPA zuerst braucht -->
+      <div class="head">
+        <div class="num">A-04</div>
+        <div class="badges">
+          <span class="pill" style="background:var(--t1)">T-1 · sofort</span>
+          <span class="pill" style="background:var(--prio)">PRIO-Transport</span>
+        </div>
+      </div>
+
+      <!-- AT-MIST -->
+      <div class="am-row">
+        <div class="am-chip">A</div>
+        <div class="am-body">
+          <div class="am-k">Alter / Geschlecht</div>
+          <div class="am-v empty">— nicht erfasst (optional)</div>
+        </div>
+      </div>
+
+      <div class="am-row">
+        <div class="am-chip">T</div>
+        <div class="am-body">
+          <div class="am-k">Zeiten</div>
+          <div class="am-v crit">Tourniquet liegt seit 0:47</div>
+          <div class="am-sub">erfasst vor 23 min · ausgecheckt 14:32</div>
+        </div>
+      </div>
+
+      <div class="am-row">
+        <div class="am-chip">M</div>
+        <div class="am-body">
+          <div class="am-k">Mechanismus</div>
+          <div class="am-v">Schuss <span class="tag">Lage-Standard</span></div>
+          <div class="mchips">
+            <span class="mc on">Schuss</span><span class="mc">Stich</span><span class="mc">Explosion</span>
+            <span class="mc">Sturz</span><span class="mc">Quetschung</span><span class="mc">Brand</span><span class="mc">mediz.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="am-row">
+        <div class="am-chip">I</div>
+        <div class="am-body">
+          <div class="am-k">Verletzungen</div>
+          <div class="am-v">Bein re – Amputation<br>Abdomen – Wunde</div>
+        </div>
+      </div>
+
+      <div class="am-row">
+        <div class="am-chip">S</div>
+        <div class="am-body">
+          <div class="am-k">Befund / Vitalwerte</div>
+          <div class="vit">
+            <div class="v"><div class="vl">WASB</div><div class="vv">A</div></div>
+            <div class="v"><div class="vl">AF</div><div class="vv warn">32</div></div>
+            <div class="v"><div class="vl">SpO₂</div><div class="vv warn">85%</div></div>
+            <div class="v"><div class="vl">HF</div><div class="vv warn">148</div></div>
+            <div class="v"><div class="vl">RR</div><div class="vv">60/p</div></div>
+            <div class="v"><div class="vl">Schmerz</div><div class="vv">10</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="am-row">
+        <div class="am-chip">T</div>
+        <div class="am-body">
+          <div class="am-k">Maßnahmen (Treatment)</div>
+          <div class="tx">
+            <div class="txi"><span class="b red">▸</span> Tourniquet Bein re · 0:47</div>
+            <div class="txi"><span class="b">▸</span> Druckverband Abdomen</div>
+            <div class="txi"><span class="b">▸</span> Wärmeerhalt · O₂</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="foot">
+        <span>Erfasst von: Müller</span>
+        <span>CCP A · PP Karlsruhe</span>
+      </div>
+    </div>
+
+    <!-- Erklärspalte -->
+    <div class="exp">
+      <h2>Was die Vorschau zeigt</h2>
+
+      <div class="k">Verhalten</div>
+      <ul>
+        <li><b>Auschecken sperrt</b> den Patienten und schaltet in den <b>Vorlese-Modus</b> — der Snapshot ist eingefroren, damit sich beim Vorlesen nichts ändert.</li>
+        <li><b>„↩ Reinholen"</b> ist der frictionslose Korrekturweg: zurückholen → korrigieren → erneut auschecken.</li>
+        <li><b>Eigener Präsentations-Layout</b> (groß, hoher Kontrast, sequenziell) — nicht die dichte Eingabemaske.</li>
+      </ul>
+
+      <div class="k">Die AT-MIST-Entscheidungen</div>
+      <ul>
+        <li><b>Kopf zuerst:</b> Nummer, Kategorie, PRIO/transportfertig — was die gPA in 2 Sekunden braucht.</li>
+        <li><b>A (Alter)</b> ist optional → zeigt sauber <b>„— nicht erfasst"</b> (Pseudonymität bleibt).</li>
+        <li><b>T (Zeiten)</b> wird <b>automatisch</b> gefüllt aus TQ-Start & Erfassung — „TQ seit 0:47" ist die kritischste Einzelinfo, rot hervorgehoben.</li>
+        <li><b>M (Mechanismus)</b> mit <b>Lage-Standard</b> vorbelegt + <b>Ein-Tipp-Override</b> für Abweichungen (kein Tippen, handschuhtauglich).</li>
+        <li><b>I · S · T</b> kommen unverändert aus den schon erfassten ARGUS-Feldern (Verletzungen, Vitalwerte, Maßnahmen).</li>
+      </ul>
+
+      <div class="k">Bewusst NICHT enthalten</div>
+      <ul>
+        <li class="warn">Keine Übertragung an Dritte, kein PZC, kein QR, kein Foto — Pseudonymität & Systemgrenze „ARGUS endet an der Übergabe" gewahrt.</li>
+        <li class="warn">MDR-neutral: reine Darstellung erfasster Daten, kein neuer klinischer Output.</li>
+        <li>Offene Doktrin-Frage (extern): muss zusätzlich ein <b>physischer Träger</b> am Patienten mitlaufen? → mit Träger/RD klären.</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <footer>Mockup · ARGUS · © 2026 Gabor Szeman · Endgültige Gestaltung kann abweichen</footer>
+
+</div>
+</body>
+</html>
