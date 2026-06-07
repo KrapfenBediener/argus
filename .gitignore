@@ -59,7 +59,9 @@ docs/ROADMAP.md
 docs/TEST-CHECKLISTE.md
 docs/TESTER-ANLEITUNG.md
 docs/PROJEKT-UEBERSICHT.html
-docs/UPDATE_v0.9_zu_v0.12.html
+# Hinweis: docs/UPDATE_*.html sind NUTZERSEITIG (aus der App verlinkt) → öffentlich, NICHT ignorieren.
+# Interne Design-Mockups
+docs/UI-UEBERGABE-KARTE.html
 # Präsentationen/Decks (intern)
 docs/PRAESENTATION.html
 docs/PRAESENTATION-LAUNCH.html

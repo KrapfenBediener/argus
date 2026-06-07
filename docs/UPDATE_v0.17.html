@@ -1,0 +1,105 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · Update v0.17.0</title>
+<style>
+  /* Selbst gehostete Schriften (kein Google-CDN — DSGVO) */
+  @font-face{font-family:'IBM Plex Sans';font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  :root{
+    --bg:#ffffff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;padding:22px 14px 40px}
+  .wrap{max-width:680px;margin:0 auto}
+  header{text-align:center;margin-bottom:8px}
+  .badge{display:inline-block;background:var(--acc);color:#fff;font-weight:700;letter-spacing:1px;border-radius:14px;padding:10px 18px;font-size:20px}
+  h1{font-size:21px;margin:14px 0 4px}
+  .ver{font-family:var(--mono);font-size:14px;color:var(--mut)}
+  .lead{background:#fff;border:1px solid var(--line);border-left:4px solid var(--ready);border-radius:12px;padding:13px 15px;margin:18px 0;font-size:14px}
+  .lead b{color:var(--ready)}
+  .sec{margin:22px 0 8px;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--mut)}
+  .card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 15px;margin-bottom:10px}
+  .card .t{font-weight:600;font-size:15.5px;display:flex;align-items:center;gap:9px}
+  .ic{font-size:19px;width:24px;text-align:center;flex:none}
+  .d{font-size:14px;color:#33373b;margin-top:5px}
+  .tag{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:2px 7px;vertical-align:middle;margin-left:4px}
+  .tag-neu{background:var(--t3);color:#fff}
+  .tag-geaendert{background:var(--prio);color:#fff}
+  .atmist{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .ch{display:flex;align-items:center;gap:7px;background:var(--surf2);border:1px solid var(--line);border-radius:8px;padding:5px 9px;font-size:12.5px}
+  .ch b{font-family:var(--mono);background:var(--acc);color:#fff;border-radius:5px;padding:1px 6px;font-size:12px}
+  code{font-family:var(--mono);background:var(--surf2);padding:1px 5px;border-radius:5px;font-size:13px}
+  footer{margin-top:24px;text-align:center;font-size:12px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">ARGUS</div>
+    <h1>Was hat sich geändert?</h1>
+    <div class="ver">Update &nbsp;→&nbsp; v0.17.0</div>
+  </header>
+
+  <div class="lead">
+    <b>So aktualisierst du:</b> App schließen und neu öffnen. Erscheint
+    „<b>Jetzt aktualisieren</b>", antippen. Die Versionsnummer steht unten auf der
+    Startseite — sie sollte <b>v0.17.0</b> zeigen. <b>Kein</b> neuer Code nötig.
+  </div>
+
+  <div class="sec">Übergabe an die gPA</div>
+
+  <div class="card">
+    <div class="t"><span class="ic">🗣</span> Übergabe-Karte beim Auschecken <span class="tag tag-neu">neu</span></div>
+    <div class="d">Wenn du einen Patienten <b>auscheckst</b> (<code>Abtransport → gPA</code>) und ihn danach wieder öffnest, zeigt ARGUS statt des Formulars eine <b>Karte zum Vorlesen</b> — in fester <b>AT-MIST</b>-Reihenfolge. So gibst du die Übergabe ruhig und vollständig, unabhängig von der Erfahrung.</div>
+    <div class="atmist">
+      <span class="ch"><b>A</b> Alter</span>
+      <span class="ch"><b>T</b> Zeiten</span>
+      <span class="ch"><b>M</b> Mechanismus</span>
+      <span class="ch"><b>I</b> Verletzungen</span>
+      <span class="ch"><b>S</b> Befund</span>
+      <span class="ch"><b>T</b> Maßnahmen</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="t"><span class="ic">🔒</span> Gesperrt — mit Zurückholen <span class="tag tag-neu">neu</span></div>
+    <div class="d">Ausgecheckte Patienten sind <b>gesperrt</b> (eingefrorener Stand fürs Vorlesen). Stimmt etwas nicht, holst du sie über „<b>↩ Zurückholen → aktiv</b>" kurz zurück, korrigierst und checkst erneut aus.</div>
+  </div>
+
+  <div class="card">
+    <div class="t"><span class="ic">⏱</span> Zeiten automatisch <span class="tag tag-neu">neu</span></div>
+    <div class="d">Bei <b>T (Zeiten)</b> steht die <b>Tourniquet-Liegedauer</b> und „erfasst vor …" — automatisch aus deinen Eingaben, ohne extra Tippen. Die TQ-Zeit ist beim Vorlesen rot hervorgehoben.</div>
+  </div>
+
+  <div class="card">
+    <div class="t"><span class="ic">🩺</span> Vitalwerte: nur was erhoben wurde <span class="tag tag-geaendert">geändert</span></div>
+    <div class="d">Die Karte zeigt <b>nur die tatsächlich gemessenen</b> Werte; wurden keine erhoben, steht „<b>Keine Vitalwerte erhoben</b>". Mehrfach protokollierte Messungen (Prolonged Field Care) liegen als <b>einklappbarer Verlauf</b> darunter.</div>
+  </div>
+
+  <div class="sec">Wichtig zu wissen</div>
+
+  <div class="card">
+    <div class="t"><span class="ic">🔐</span> Nichts wird weitergeleitet <span class="tag tag-neu">neu</span></div>
+    <div class="d">Die Übergabe-Karte ist <b>reines Vorlesen</b> deiner Daten — es wird <b>nichts</b> an andere Systeme übertragen. Pseudonymität bleibt gewahrt, ARGUS endet an der Übergabe.</div>
+  </div>
+
+  <footer>
+    ARGUS Beta · Stand v0.17.0 · Bitte Feedback immer <b>mit Versionsnummer</b> (Startseite, unten) melden.<br>
+    © 2026 Gabor Szeman
+  </footer>
+
+</div>
+</body>
+</html>
