@@ -6,6 +6,21 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.0 — 2026-06-08
+**Geführtes Training (Schulungsumgebung)**
+- Neuer **opt-in Übungsmodus**: ein Drehbuch-Coach (`renderCoach`, `TRAIN_LESSONS`) führt
+  Schritt für Schritt durch den Kern-Ablauf (CCP eröffnen → Checkliste → Erfassen →
+  tacSTART → Verwalten → Übersicht → Prio → Auscheckung/Übergabekarte).
+- **Geräte-lokaler Sandbox:** in `_training` erstellte/bearbeitete Patienten tragen
+  `training:true` → werden NIE synchronisiert (wie `demo`). Single-user, beliebig viele
+  gleichzeitig, kein Fremd-Reset, keine Verschmutzung echter/geteilter Daten.
+- Einstieg **automatisch über die Schulungsumgebung** (Button „🎓 Geführtes Training").
+- Coach als eigenständiges Fixed-Overlay, Aufruf in `try/catch` → kann den App-Render
+  nie brechen. „Beenden" entfernt die Übungsdaten lokal.
+- Datenschicht an 5 Stellen `training` wie `demo` behandelt (addPatient, savePatient,
+  flushPendingPatients, loadPatients ×2) — der Nicht-Trainings-Pfad bleibt unverändert.
+- Update-Sheet `docs/UPDATE_v0.18.html`, in `UPDATE_SHEETS` registriert.
+
 ## v0.17.2 — 2026-06-08
 **Fußzeile auch auf der Präsidien-Auswahl/Freischalt-Seite**
 - `vPraesidium()` (First Page: Präsidium auswählen/freischalten) zeigt jetzt ebenfalls
