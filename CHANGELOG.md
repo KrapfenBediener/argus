@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.2 — 2026-06-08
+**Training: zwei Bugfixes**
+- **Auto-Weiter blieb nach „Checkliste" hängen:** Lektionen, deren Ziel auf der Startseite
+  liegt (`home:true`), leuchten jetzt erst den **„‹ Zurück"-Button** an, wenn man auf einer
+  Unteransicht ist — so führt der Spotlight sauber zurück und weiter. Panel-Schlüssel
+  berücksichtigt den Hinweistext (kein „eingefrorener" Hinweis mehr).
+- **Tutorial klebte nach App-Neustart:** Training wird **nicht mehr** über den Neustart
+  fortgeführt (Boot setzt `_training` zurück, localStorage-Flags entfernt). Ein **frischer
+  Start** räumt verwaiste Übungsdaten ab und beginnt bei Lektion 1.
+
 ## v0.18.1 — 2026-06-08
 **Training jetzt interaktiv (Spotlight + Auto-Weiter)**
 - Statt des kleinen Textfelds: großes Anweisungs-Panel + **Spotlight** auf das jeweilige
