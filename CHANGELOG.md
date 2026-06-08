@@ -6,6 +6,18 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.3 — 2026-06-08
+**Training robuster & lehrreicher**
+- **tacSTART-Spotlight** zielt jetzt nur auf den Einstiegs-Button (`.navbtn[data-action="tacstart"]`),
+  nicht mehr auf den „nochmal"-Knopf (der dieselbe Aktion trägt) → Patient #2 lässt sich anlegen,
+  Auto-Weiter greift. Lektionstext nennt das „Patient anlegen"-Bestätigen.
+- **Checkliste** ist jetzt **manuell** (öffnen, abhaken, „Weiter") statt sofort weiterzuspringen.
+- **Definierter Einstieg:** Start setzt die Ansicht passend (Home, wenn CCP offen; sonst Start) →
+  zuverlässiger zweiter Durchlauf ohne Schulungs-Reset.
+- „Wechsle zur Ansicht"-Hinweis nur noch bei Auto-Lektionen (manuelle zeigen ihn nicht).
+- Lektionstexte überarbeitet — erklären jeweils kurz das *Warum*, sodass das Intro allein zum
+  Einarbeiten reicht.
+
 ## v0.18.2 — 2026-06-08
 **Training: zwei Bugfixes**
 - **Auto-Weiter blieb nach „Checkliste" hängen:** Lektionen, deren Ziel auf der Startseite

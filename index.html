@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.18.3';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1687,23 +1687,23 @@ function cmpVer(a,b){
  * demo) → single-user, beliebig viele gleichzeitig, kein Fremd-Reset. Opt-in.
  * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen. */
 var TRAIN_LESSONS=[
-  {t:'Willkommen im Übungsmodus', x:'Das hier passiert nur auf DEINEM Gerät — niemand sieht deine Übung, nichts wird übertragen. Folge einfach den Hinweisen; beenden kannst du jederzeit.'},
-  {t:'Übungs-CCP eröffnen', x:'Richte deine Übungs-Sammelstelle ein.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
-  {t:'Checkliste CCP', x:'In der Checkliste strukturierst du Aufbau und Leitung — hak ruhig ein paar Punkte ab.', home:true, sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
-  {t:'Patient erfassen öffnen', x:'Hier legst du Verletzte an — direkt oder geführt per tacSTART.', home:true, sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
-  {t:'Ersten Patienten direkt anlegen', x:'Wähle direkt eine Kategorie. Die laufende Nummer vergibt ARGUS automatisch.', sel:'[data-action="addcat"]', doit:'Tippe eine Kategorie (z. B. T-2)', adv:function(){return trainCount()>=1;}},
-  {t:'Zweiten per tacSTART sichten', x:'Diesmal geführt: beantworte die Fragen, ARGUS schlägt eine Kategorie vor — du entscheidest.', sel:'[data-action="tacstart"]', doit:'Tippe „tacSTART"', adv:function(){return trainCount()>=2;}},
-  {t:'Übersicht & Lagebild', x:'Oben die Zahlen je Kategorie, darunter die Listen — so liest du die Lage auf einen Blick.', home:true, sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
-  {t:'Patient verwalten', x:'Öffne einen Patienten und trag etwas ein: Vitalwerte, eine Maßnahme, den TQ-Timer oder eine Verletzung.', adv:function(){return trainSome(function(p){return p.tqStart||(p.inj&&p.inj.length)||p.vit.af||p.vit.spo2||(p.tx&&Object.keys(p.tx).some(function(k){return p.tx[k];}));});}},
-  {t:'Prio & transportfertig', x:'Markiere einen Patienten als „Prio-Transport" und/oder als „transportfertig".', adv:function(){return trainSome(function(p){return p.prio||p.ready;});}},
-  {t:'Auschecken & Übergabekarte', x:'Checke einen Patienten aus („Abtransport → gPA"). Öffne ihn danach erneut: die AT-MIST-Übergabekarte zum Vorlesen erscheint.', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
-  {t:'Geschafft! 🎉', x:'Das war der Kern-Ablauf — Erfassen, Sichten, Verwalten, Übergeben. Wiederhole alles beliebig. „Beenden" entfernt die Übungsdaten von diesem Gerät.'}
+  {t:'Willkommen', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt. Folge den lila Hinweisen; mit „Weiter" geht es los.'},
+  {t:'CCP eröffnen', x:'Eine CCP ist deine Sammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
+  {t:'Checkliste CCP', x:'Die Checkliste führt dich durch Aufbau und Leitung (Örtlichkeit, Sicherung, Rollen, Material …). Öffne sie, hak ein paar Punkte ab — dann unten auf „Weiter".', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"'},
+  {t:'Patient erfassen', x:'Hier legst du Verletzte an — direkt einer Kategorie oder geführt per tacSTART.', home:true, sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
+  {t:'Direkt anlegen', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe eine Kategorie (z. B. T-2)', adv:function(){return trainCount()>=1;}},
+  {t:'Sichten mit tacSTART', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
+  {t:'Übersicht & Lagebild', x:'Oben die Zahlen je Kategorie (Rot/Gelb/Grün …), darunter die Listen — so behältst du die Lage im Blick.', home:true, sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
+  {t:'Patient verwalten', x:'Öffne einen Patienten und dokumentiere am Verletzten: Vitalwerte, eine Maßnahme (cABCDE), den Tourniquet-Timer oder eine Verletzung.', adv:function(){return trainSome(function(p){return p.tqStart||(p.inj&&p.inj.length)||p.vit.af||p.vit.spo2||(p.tx&&Object.keys(p.tx).some(function(k){return p.tx[k];}));});}},
+  {t:'Prio & transportfertig', x:'Steuere den Abtransport: dringende Fälle als „Prio-Transport", versorgte als „transportfertig" markieren.', adv:function(){return trainSome(function(p){return p.prio||p.ready;});}},
+  {t:'Auschecken & Übergabe', x:'Beim Abtransport checkst du den Patienten aus („Abtransport → gPA"). Öffnest du ihn danach erneut, erscheint die AT-MIST-Übergabekarte zum Vorlesen.', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
+  {t:'Geschafft! 🎉', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben — genau das brauchst du im Einsatz. „Beenden" räumt die Übungsdaten ab.'}
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
 function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
 function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; }catch(e){} }
 function trainSave(){ try{ localStorage.setItem('argus_training',_training?'1':'0'); localStorage.setItem('argus_train_step',String(_trainStep)); }catch(e){} }
-async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} _trainStep=0; }   /* frischer Start: alte Übungsdaten weg, ab Lektion 1 */ _training=true; trainSave(); try{await loadPatients();}catch(e){} render(); }
+async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} _trainStep=0; state.view=_ccpId?'home':'start'; }   /* frischer Start: Übungsdaten weg, ab Lektion 1, definierter Einstieg */ _training=true; trainSave(); try{await loadPatients();}catch(e){} render(); }
 async function trainReset(){ try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && pp.training) await sDel(lk[i]); } }catch(e){} }
 async function endTraining(){
   var ok=await confirmModal('Training beenden?\n\nDie Übungsdaten auf diesem Gerät werden entfernt. Echte CCPs sind nicht betroffen.','Beenden');
@@ -1778,7 +1778,7 @@ function renderCoach(){
         '<button data-tc="end" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">Beenden &amp; Übungsdaten löschen</button></div></div>';
     }else{
       var doit=(doitTxt&&target)?'<div style="margin-top:11px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#6A1B9A">👆 '+esc(doitTxt)+'</div>'
-              :((L.sel||L.home)&&!target?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Wechsle zur passenden Ansicht — der Hinweis erscheint dann von selbst.</div>':'');
+              :((L.adv&&(L.sel||L.home)&&!target)?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Wechsle zur passenden Ansicht — der Hinweis erscheint dann von selbst.</div>':'');
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
         '<div style="padding:15px 17px 0">'+
         '<div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6A1B9A">🎓 Lektion '+(_trainStep+1)+' / '+n+'<span style="margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0;font-size:10.5px">nur dieses Gerät</span></div>'+
