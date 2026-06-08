@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.3';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.18.4';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -209,7 +209,7 @@ var _lastView       = null;   /* für Scroll-Reset nur bei View-Wechsel */
 var _openCcpCount   = -1;     /* offene (nicht abgeschlossene) CCPs im Präsidium; -1 = unbekannt */
 var _schulDirty     = -1;     /* Schulungsumgebung verändert? -1 unbekannt · 0 sauber · 1 verändert */
 var DEMO_MEDICS = ['Dr. Berg','San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt']; /* Master-Medics der Demo-CCPs (Schulungs-Reset) */
-var _training=false, _trainStep=0;   /* Geführtes Training (geräte-lokaler Übungs-Sandbox) */
+var _training=false, _trainStep=0, _trainMax=0, _trainCelebrate=false;   /* Geführtes Training (geräte-lokaler Übungs-Sandbox) */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -1703,22 +1703,25 @@ function trainCount(){ return patients.filter(function(p){return p.training;}).l
 function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
 function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; }catch(e){} }
 function trainSave(){ try{ localStorage.setItem('argus_training',_training?'1':'0'); localStorage.setItem('argus_train_step',String(_trainStep)); }catch(e){} }
-async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} _trainStep=0; state.view=_ccpId?'home':'start'; }   /* frischer Start: Übungsdaten weg, ab Lektion 1, definierter Einstieg */ _training=true; trainSave(); try{await loadPatients();}catch(e){} render(); }
+async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} _trainStep=0; _trainMax=0; _trainCelebrate=false; state.view=_ccpId?'home':'start'; }   /* frischer Start: Übungsdaten weg, ab Lektion 1, definierter Einstieg */ _training=true; trainSave(); try{await loadPatients();}catch(e){} render(); }
 async function trainReset(){ try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && pp.training) await sDel(lk[i]); } }catch(e){} }
 async function endTraining(){
   var ok=await confirmModal('Training beenden?\n\nDie Übungsdaten auf diesem Gerät werden entfernt. Echte CCPs sind nicht betroffen.','Beenden');
   if(!ok) return;
   _training=false; trainSave(); try{await trainReset(); await loadPatients();}catch(e){} render();
 }
-function trainStep(d){ _trainStep=Math.max(0,Math.min(TRAIN_LESSONS.length,_trainStep+d)); trainSave(); renderCoach(); }
-/* Auto-Weiter: springt zur nächsten Lektion, sobald deren Ziel-Zustand erreicht ist. */
+function trainStep(d){
+  if(d>0){ _trainCelebrate=false; _trainStep=Math.min(_trainStep+1,TRAIN_LESSONS.length); if(_trainStep>_trainMax)_trainMax=_trainStep; }
+  else { _trainCelebrate=false; _trainStep=Math.max(0,_trainStep-1); }
+  trainSave(); renderCoach();
+}
+/* Erkennt, dass der aktuelle Schritt erledigt ist → Zwischenanzeige „Gut gemacht".
+ * Nur an der Front (nicht im Review) und nicht während laufender Zwischenanzeige. */
 function trainCheckAdvance(){
-  var guard=0;
-  while(_trainStep<TRAIN_LESSONS.length){
-    var L=TRAIN_LESSONS[_trainStep], ok=false;
-    if(L.adv){ try{ ok=!!L.adv(); }catch(e){ ok=false; } }
-    if(ok){ _trainStep++; trainSave(); if(++guard>30) break; } else break;
-  }
+  if(_trainCelebrate || _trainStep>=TRAIN_LESSONS.length || _trainStep<_trainMax) return;
+  var L=TRAIN_LESSONS[_trainStep], ok=false;
+  if(L.adv){ try{ ok=!!L.adv(); }catch(e){ ok=false; } }
+  if(ok) _trainCelebrate=true;
 }
 /* Spotlight: 4 Abdunkel-Rechtecke um das Ziel-Element (robust, ohne z-index-Tricks). */
 var _trainSpotStep=-1;
@@ -1728,9 +1731,18 @@ function trainRect(id,x,y,w,h){
   d.style.left=x+'px'; d.style.top=y+'px'; d.style.width=w+'px'; d.style.height=h+'px';
 }
 function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
+/* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
+function trainScrollTo(target){
+  try{
+    var r=target.getBoundingClientRect();
+    var avail=Math.max(140, window.innerHeight-235);
+    var delta=(r.top + r.height/2) - (avail/2);
+    if(window.scrollBy) window.scrollBy({top:delta, behavior:'smooth'});
+  }catch(e){}
+}
 function trainSpotlight(target){
   if(!target){ trainClearSpot(); _trainSpotStep=-1; return; }
-  if(_trainSpotStep!==_trainStep){ _trainSpotStep=_trainStep; try{ target.scrollIntoView({block:'center'}); }catch(e){} }
+  if(_trainSpotStep!==_trainStep){ _trainSpotStep=_trainStep; trainScrollTo(target); }
   var r=target.getBoundingClientRect(), pad=6;
   var x=Math.max(0,r.left-pad), y=Math.max(0,r.top-pad), w=r.width+2*pad, h=r.height+2*pad;
   var vw=window.innerWidth, vh=window.innerHeight;
@@ -1756,7 +1768,7 @@ function renderCoach(){
   var n=TRAIN_LESSONS.length, fin=_trainStep>=n;
   var L=fin?null:TRAIN_LESSONS[_trainStep];
   var target=null, doitTxt=null;
-  if(L){
+  if(L && !_trainCelebrate){
     doitTxt=L.doit||null;
     if(L.sel) target=document.querySelector(L.sel);
     /* Ziel liegt auf der Startseite, wir sind aber auf einer Unteransicht → erst „zurück". */
@@ -1765,8 +1777,8 @@ function renderCoach(){
   try{ trainSpotlight(target); }catch(e){ trainClearSpot(); }
   var el=document.getElementById('train-coach');
   if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }
-  var pct=Math.round((Math.min(_trainStep,n)/n)*100);
-  var key=(fin?'fin':('s'+_trainStep))+'|'+(doitTxt||'')+'|'+(target?'t':'n');
+  var pct=Math.round(((Math.min(_trainStep,n)+(_trainCelebrate?1:0))/n)*100);
+  var key=(fin?'fin':((_trainCelebrate?'c':'s')+_trainStep))+'|'+(doitTxt||'')+'|'+(target?'t':'n');
   if(el.getAttribute('data-k')!==key){
     el.setAttribute('data-k',key);
     var head='<div style="height:6px;background:var(--surf2)"><i style="display:block;height:100%;width:'+pct+'%;background:#6A1B9A"></i></div>';
@@ -1776,6 +1788,17 @@ function renderCoach(){
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">Gut gemacht — du kannst es jederzeit erneut starten.</div></div>'+
         '<div style="display:flex;gap:9px;padding:14px 17px 16px"><button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">‹</button>'+
         '<button data-tc="end" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">Beenden &amp; Übungsdaten löschen</button></div></div>';
+    }else if(_trainCelebrate){
+      var nx=TRAIN_LESSONS[_trainStep+1];
+      var nextTxt=nx?('Als Nächstes: <b>'+esc(nx.t)+'</b>'):'Du bist gleich fertig.';
+      var navHint=(nx&&nx.home&&state.view!=='home')?'<div style="margin-top:9px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#6A1B9A">↩ Geh dafür zurück zur Startseite (‹ oben links)</div>':'';
+      el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
+        '<div style="padding:15px 17px 0"><div style="font-size:20px;font-weight:700;color:#2E7D32">✓ Gut gemacht!</div>'+
+        '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">'+nextTxt+'</div>'+navHint+'</div>'+
+        '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
+        '<button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">‹</button>'+
+        '<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">Weiter ›</button>'+
+        '</div></div>';
     }else{
       var doit=(doitTxt&&target)?'<div style="margin-top:11px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#6A1B9A">👆 '+esc(doitTxt)+'</div>'
               :((L.adv&&(L.sel||L.home)&&!target)?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Wechsle zur passenden Ansicht — der Hinweis erscheint dann von selbst.</div>':'');

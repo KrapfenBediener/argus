@@ -6,6 +6,15 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.4 — 2026-06-08
+**Training: Zwischenanzeige, Zurück-Funktion, zentrierter Spotlight**
+- **„✓ Gut gemacht!"-Zwischenanzeige** nach jedem erledigten Schritt — mit Vorschau auf die
+  nächste Lektion und Navigations-Hinweis (z. B. „geh zurück zur Startseite"), dann erst „Weiter".
+- **Zurück (‹) funktioniert jetzt:** Review-Modus — wer zurückblättert, wird nicht mehr sofort
+  per Auto-Weiter nach vorn geschoben (`_trainMax`-Frontier). Vorwärts wieder bis zur Front.
+- **Ziel-Button wird zentriert** in den Bereich *über* dem Panel gescrollt (`trainScrollTo`) —
+  nicht mehr hinter der Lektionsanzeige versteckt (z. B. „Übersicht & Lagebild").
+
 ## v0.18.3 — 2026-06-08
 **Training robuster & lehrreicher**
 - **tacSTART-Spotlight** zielt jetzt nur auf den Einstiegs-Button (`.navbtn[data-action="tacstart"]`),
