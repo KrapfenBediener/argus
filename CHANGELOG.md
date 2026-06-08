@@ -6,6 +6,26 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.4 — 2026-06-08
+**Training: kein manuelles Zurücksetzen mehr, gPA sichtbar, AT-MIST einzeln**
+- **Schulungsumgebung muss nicht mehr jedes Mal zurückgesetzt werden.** „CCP eröffnen" legt im
+  Training jetzt einen **lokalen Ephemer-CCP** an (`train-ccp`, nie Cloud) statt eines echten
+  Cloud-CCP, der sich angesammelt hat. Trainingsstart räumt vorab auf (ohne CCP starten), Beenden
+  räumt Übungs-CCP **und** -Daten ab → das Training läuft beliebig oft hintereinander. Behebt
+  zugleich ein Cloud-Leck (Übungs-CCPs landeten in der Schulungs-Cloud).
+- **Isolation verschärft:** während des Trainings werden ausschließlich Übungs-Patienten geladen
+  (kein Durchmischen mit lokal gecachten Echtdaten).
+- **„Abtransport → gPA" nicht mehr vom Panel verdeckt:** während des Trainings gibt es genug
+  Scroll-Raum, sodass auch der unterste Button über das Coach-Panel gescrollt wird.
+- **„CCP abschließen"-Lektion:** Verweis auf „CCP löschen" entfernt (das Highlight bleibt auf
+  „abschließen").
+- **„Zuletzt angelegt":** „(gegen Doppelerfassung)" gestrichen.
+- **Übergabekarte:** jedes AT-MIST-Feld wird jetzt **einzeln** erklärt und umrahmt (Kopf · A · T ·
+  M · I · S · T) statt gruppiert.
+- 36 Lektionen; Ablauf-Logik per Probeläufen 19/19 grün.
+
+---
+
 ## v0.19.3 — 2026-06-08
 **Training: zwei neue Lektionen, Bereich-Highlights, Panel-Verdeckung & Inhaltskorrekturen**
 - **Neue Home-Lektion „CCP abschließen"** inkl. Voraussetzung (nur als **MasterMedic**) — die
