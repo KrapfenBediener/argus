@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.8';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.18.9';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1694,9 +1694,11 @@ var TRAIN_LESSONS=[
   {t:'Direkt anlegen', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
   {t:'Sichten mit tacSTART', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
   {t:'Übersicht & Lagebild', x:'Oben die Zahlen je Kategorie (Rot/Gelb/Grün …), darunter die Listen — so behältst du die Lage im Blick.', home:true, sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
-  {t:'Patient verwalten', x:'Öffne einen Patienten und dokumentiere am Verletzten: Vitalwerte, eine Maßnahme (cABCDE), den Tourniquet-Timer oder eine Verletzung.', adv:function(){return trainSome(function(p){return p.tqStart||(p.inj&&p.inj.length)||(p.vit&&(p.vit.af||p.vit.spo2))||(p.tx&&Object.keys(p.tx).some(function(k){return p.tx[k];}));});}},
-  {t:'Prio & transportfertig', x:'Steuere den Abtransport: dringende Fälle als „Prio-Transport", versorgte als „transportfertig" markieren.', adv:function(){return trainSome(function(p){return p.prio||p.ready;});}},
-  {t:'Auschecken & Übergabe', x:'Beim Abtransport checkst du den Patienten aus („Abtransport → gPA"). Öffnest du ihn danach erneut, erscheint die AT-MIST-Übergabekarte zum Vorlesen.', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
+  {t:'Patienten öffnen', x:'Jetzt versorgst du am Patienten. Öffne einen — über „Alle Patienten", dann den Patienten selbst.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="all"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':'Tippe „Alle Patienten"';}, adv:function(){return state.view==='patient';}},
+  {t:'Tourniquet-Timer', x:'Bei kritischer Blutung zählt die Zeit: Starte den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
+  {t:'Transportfertig markieren', x:'Ist der Patient versorgt und bereit, markierst du ihn als „transportfertig".', sel:'[data-action="ready"]', doit:'Tippe „als transportfertig markieren"', adv:function(){return trainSome(function(p){return p.ready;});}},
+  {t:'Abtransport → gPA', x:'Beim Abtransport checkst du den Patienten aus — damit verlässt er den CCP Richtung gPA.', sel:'[data-action="gpa"]', doit:'Tippe „Abtransport → gPA"', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
+  {t:'Übergabekarte ansehen', x:'Öffne den ausgecheckten Patienten erneut — es erscheint die AT-MIST-Übergabekarte. Genau diese liest du bei der Übergabe an die gPA vor.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="gpa"]':null);}, doit:function(){return state.view==='catlist'?'Tippe den ausgecheckten Patienten':'Tippe die „gPA"-Kachel';}, adv:function(){return state.view==='patient'&&state.edit&&state.edit.status==='gpa';}},
   {t:'Geschafft! 🎉', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben — genau das brauchst du im Einsatz. „Beenden" räumt die Übungsdaten ab.'}
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
@@ -1737,8 +1739,14 @@ function trainRect(id,x,y,w,h){
 function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
 /* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
 function trainScrollTo(target){
-  try{ target.scrollIntoView({block:'center',inline:'nearest'}); }
-  catch(e){ try{ target.scrollIntoView(); }catch(e2){} }
+  try{
+    var doc=document.scrollingElement||document.documentElement||document.body;
+    var r=target.getBoundingClientRect();
+    var curY=(window.pageYOffset!=null?window.pageYOffset:(doc?doc.scrollTop:0))||0;
+    var center=Math.max(110,(window.innerHeight-235)/2);   /* Mitte des Bereichs ÜBER dem Panel */
+    var newY=Math.max(0, curY + r.top - (center - r.height/2));
+    window.scrollTo(0,newY);                                 /* zwei-Argument-Form: iOS-PWA-kompatibel */
+  }catch(e){ try{ target.scrollIntoView(); }catch(e2){} }
 }
 function trainSpotlight(target, spotKey){
   if(!target){ trainClearSpot(); _trainSpotKey=''; return; }
@@ -1769,12 +1777,13 @@ function renderCoach(){
   var L=fin?null:TRAIN_LESSONS[_trainStep];
   var target=null, doitTxt=null, backRedirect=false;
   if(L){
-    doitTxt=L.doit||null;
-    if(L.sel) target=document.querySelector(L.sel);
+    doitTxt=(typeof L.doit==='function')?L.doit():(L.doit||null);
+    var sel=(typeof L.sel==='function')?L.sel():L.sel;
+    if(sel) target=document.querySelector(sel);
     /* Ziel liegt auf der Startseite, wir sind aber auf einer Unteransicht → Übergang „zurück". */
     if(!target && L.home && state.view!=='home'){ target=document.getElementById('backbtn'); backRedirect=true; }
   }
-  var spotKey=target?((backRedirect?'B':'S')+_trainStep):'';
+  var spotKey=target?((backRedirect?'B':'S')+_trainStep+'|'+(doitTxt||'')):'';
   try{ trainSpotlight(target, spotKey); }catch(e){ trainClearSpot(); }
   var el=document.getElementById('train-coach');
   if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }

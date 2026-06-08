@@ -6,6 +6,18 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.9 — 2026-06-08
+**Training: gPA-Übergabe integriert, granularer, Scroll endgültig gefixt**
+- **Scroll-Fix:** `window.scrollTo(0,y)` (zwei-Argument-Form, iOS-Standalone-PWA-kompatibel) statt
+  der Optionen-Form → das Ziel (z. B. „Patientenübersicht") liegt verlässlich zentriert über dem
+  Panel, nicht mehr dahinter.
+- **„Patient verwalten" granular & forced** aufgeteilt mit Spotlight je Aktion:
+  Patient öffnen → **Tourniquet-Timer** → **transportfertig** → **Abtransport → gPA** →
+  **Übergabekarte ansehen**. `sel`/`doit` jetzt auch als Funktion (ansichtsabhängig: Kategorie/Patient).
+- **gPA-Übergabe + AT-MIST-Kartenansicht** ins forced-Intro integriert (öffnet den ausgecheckten
+  Patienten erneut → Vorlese-Karte).
+- 13 Lektionen; Ablauf-Logik per Probeläufen 14/14 grün (inkl. „nach Abtransport nicht in die Karte springen").
+
 ## v0.18.8 — 2026-06-08
 **Training: linearer ("forced") Ablauf + zuverlässiges Zentrieren**
 - **Kein freies Vor-/Zurück-Toggeln mehr** — das war die Hauptquelle der Edge-Case-Bugs
