@@ -6,6 +6,21 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.2 — 2026-06-08
+**Training: „Abtransport → gPA"-Hänger endgültig behoben + freies Scrollen**
+- **Echte Ursache des gPA-Hängers gefunden:** `loadPatients()` hat im Training **trotzdem einen
+  Cloud-Query** ausgeführt (es hängte nur zusätzlich die lokalen Übungs-Patienten an). „Abtransport
+  → gPA" ist die **einzige** Aktion, die mitten im Schritt `loadPatients()` aufruft → im
+  Echtzeit-Modus ein Netz-Call → Verzögerung/Hänger → Schritt blockierte und das Intro ließ sich
+  nicht beenden. Jetzt ist der **gesamte Trainingsablauf cloud-frei** (loadPatients/savePatient/
+  addPatient/pushLock alle training-geschützt) — passt zur Isolations-Regel.
+- **Scroll-Fix „Patienten öffnen":** Der Spotlight hat bei **jedem** Re-Render zum Ziel
+  zurückgescrollt → man konnte nicht nach unten zu „Alle Patienten" scrollen. Jetzt wird nur bei
+  einem **neuen Ziel** zentriert (Erst-Paint via rAF); danach ist freies Scrollen möglich.
+- 30 Lektionen; Ablauf-Logik per Probeläufen 18/18 grün.
+
+---
+
 ## v0.19.1 — 2026-06-08
 **Training: gPA-Hänger behoben, Checkliste erkundbar, Lila entfernt**
 - **Bugfix „Abtransport → gPA" (Lektion hing, Intro ließ sich nicht beenden):** `pushLock` hatte

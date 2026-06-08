@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1052,7 +1052,7 @@ async function flushPendingPatients(arr, client, ccpIds){
 }
 async function loadPatients(){
   var client=sb();
-  if(client && _ccpId){
+  if(client && _ccpId && !_training){   /* Training: rein lokal — nie Cloud (Isolation + kein Netz-Hänger mitten im Ablauf) */
     try{
       var ccpIds=[_ccpId];
       if(_mergeGroupId){
@@ -1774,10 +1774,10 @@ function trainScrollTo(target){
     sc.scrollTop=Math.max(0, sc.scrollTop + (r.top + r.height/2 - center));
   }catch(e){ try{ target.scrollIntoView(); }catch(e2){} }
 }
-function trainSpotlight(target, spotKey, mode){
+function trainSpotlight(target, spotKey, mode, forceScroll){
   if(!target){ trainClearSpot(); _trainSpotKey=''; return; }
-  _trainSpotKey=spotKey;
-  trainScrollTo(target);                              /* scrollt nur, wenn das Ziel außerhalb des freien Bands liegt */
+  var changed=_trainSpotKey!==spotKey; _trainSpotKey=spotKey;
+  if(changed||forceScroll) trainScrollTo(target);    /* NUR bei neuem Ziel zentrieren → der Nutzer kann frei scrollen (z. B. zu „Alle Patienten") */
   var r=target.getBoundingClientRect();
   var pad=6;
   var x=Math.max(0,r.left-pad), y=Math.max(0,r.top-pad), w=r.width+2*pad, h=r.height+2*pad;
@@ -1821,9 +1821,11 @@ function renderCoach(){
   }
   var spotKey=target?((backRedirect?'B':'S')+_trainStep+'|'+(doitTxt||'')):'';
   var spotMode=(L&&L.mode)||'explain';
-  try{ trainSpotlight(target, spotKey, spotMode); }catch(e){ trainClearSpot(); }
-  /* Erstes Zeichnen kann auf noch nicht „gesetztem" Layout passieren → eine Frame später nachmessen/-zentrieren. */
-  if(target && window.requestAnimationFrame){ requestAnimationFrame(function(){ if(_training && _trainSpotKey===spotKey){ try{ trainSpotlight(target, spotKey, spotMode); }catch(e){} } }); }
+  var wasKey=_trainSpotKey;
+  try{ trainSpotlight(target, spotKey, spotMode, false); }catch(e){ trainClearSpot(); }
+  /* NUR bei neuem Ziel eine Frame später nachzentrieren (Erst-Paint). Bei gleichem Ziel NICHT — sonst würde
+   * jedes Re-Render zurückscrollen und freies Scrollen (z. B. zu „Alle Patienten") verhindern. */
+  if(target && spotKey!==wasKey && window.requestAnimationFrame){ requestAnimationFrame(function(){ if(_training && _trainSpotKey===spotKey){ try{ trainSpotlight(target, spotKey, spotMode, true); }catch(e){} } }); }
   var el=document.getElementById('train-coach');
   if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }
   var pct=Math.round((Math.min(_trainStep,n)/n)*100);
