@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.6 — 2026-06-08
+**Training: Übergangs-Hinweis + getestet**
+- **Übergangs-Hinweis** an View-Wechseln: Steht der nächste Schritt auf der Startseite, du bist
+  aber noch auf einer Unteransicht, zeigt das Panel „↩ Zurück zur Startseite — dann weiter mit …"
+  (statt direkt die nächste Lektion einzublenden). Der ‹-Button wird dabei hervorgehoben.
+- **Härtung:** „Patient verwalten"-Bedingung greift nicht mehr auf `p.vit.af` zu, wenn `vit` fehlt
+  (defensiv geguardet).
+- **Automatisierte Probeläufe** der Ablauf-Logik (Happy Path, Zurück/Review, 2. Start mit offenem
+  CCP, Mehrfach-Ketten) — 19/19 grün. Per JavaScriptCore gegen den echten Code geprüft.
+
 ## v0.18.5 — 2026-06-08
 **Training: Ton, Beenden, Fokus**
 - **„Gut gemacht"-Panel entfernt** (war nach jedem Schritt + bevormundend). Stattdessen eine
