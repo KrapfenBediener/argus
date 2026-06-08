@@ -6,6 +6,28 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.0 — 2026-06-08
+**Geführtes Intro komplett neu aufgebaut (sauberes 3-Modus-Modell)**
+Die über viele Iterationen gewachsene Intro-Sequenz wurde verworfen und von Grund auf neu gebaut.
+Drei klar getrennte Lektions-Modi lösen die wiederkehrenden Symptome (Top-Element abgeschnitten,
+„nur ansehen" aber Buttons aktiv, springende Reihenfolge) strukturell:
+- **explain** — nur ansehen: Ziel wird hervorgehoben, ist aber **nicht antippbar** (transparenter
+  Blocker im Spotlight-Loch); weiter geht es ausschließlich über „Weiter".
+- **do** — geführte Aktion: nur das Ziel ist antippbar, Auto-Weiter bei Erledigung.
+- **choice** — mehrere gültige Wege: nichts ist blockiert (z. B. Kachel *oder* „Alle Patienten").
+
+Weitere Korrekturen:
+- **Scroll-Band an die echte `sticky`-Topbar (~44px) + dynamische Panelhöhe** angepasst. Vorher
+  galt eine 56px-Annahme + zu hohe Verdeckungs-Schwelle → die Zähler-Leiste (Top ≈58px) wurde
+  fälschlich als „verdeckt" gewertet und unnötig verscrollt/abgeschnitten. Jetzt: scrollt **nur**,
+  wenn das Ziel wirklich außerhalb des freien Bands liegt — Top-Elemente bleiben stehen.
+- **Strikt von oben nach unten erklärt:** Startbildschirm (Zähler → Status & Bediener → Checkliste →
+  Patient erfassen → Patientenübersicht → Hilfe) und Patienten-Detail (Prio → Foto → Kategorie →
+  TQ-Timer → Maßnahmen → Verletzungen → Vitalwerte).
+- 29 Lektionen; Ablauf-Logik per Probeläufen 17/17 grün.
+
+---
+
 ## v0.18.12 — 2026-06-08
 **Training: Erst-Zentrieren-Fix, fehlende Highlights ergänzt, mehr Patienten-Funktionen**
 - **Erstes Zentrieren je Schritt sitzt jetzt** — eine zusätzliche Nachmessung per

@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.12';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1687,31 +1687,41 @@ function cmpVer(a,b){
  * demo) → single-user, beliebig viele gleichzeitig, kein Fremd-Reset. Opt-in.
  * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen. */
 var TRAIN_LESSONS=[
-  {t:'Willkommen', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt. Folge den lila Hinweisen; mit „Weiter" geht es los.'},
-  {t:'CCP eröffnen', x:'Eine CCP ist deine Sammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
-  {t:'Überblick: die Lage-Zähler', x:'Ganz oben — je Sichtungskategorie die aktuelle Zahl: T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage. Nur ansehen, dann „Weiter".', sel:'.countbar'},
-  {t:'Überblick: Patient erfassen', x:'Mit diesem Feld legst du neue Verletzte an — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz. Nur ansehen, dann „Weiter".', sel:'[data-action="nav"][data-view="capture"]'},
-  {t:'Überblick: Patientenübersicht', x:'Hier siehst du später alle Patienten nach Kategorie sortiert und steuerst Prio, transportfertig und Abtransport. Nur ansehen, dann „Weiter".', sel:'[data-action="nav"][data-view="overview"]'},
-  {t:'Checkliste CCP', x:'Die Checkliste führt dich durch Aufbau und Leitung (Örtlichkeit, Sicherung, Rollen, Material …). Öffne sie, hak ein paar Punkte ab — dann unten auf „Weiter".', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"'},
-  {t:'Patient erfassen', x:'Hier legst du Verletzte an — direkt einer Kategorie oder geführt per tacSTART.', home:true, sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
-  {t:'Direkt anlegen', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
-  {t:'Sichten mit tacSTART', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
-  {t:'Übersicht & Lagebild', x:'Oben die Zahlen je Kategorie (Rot/Gelb/Grün …), darunter die Listen — so behältst du die Lage im Blick.', home:true, sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
-  {t:'Patienten öffnen', x:'Jetzt versorgst du am Patienten. Zwei Wege zur Liste: Tippe oben eine Sichtungs-Kachel (z. B. T-1) — nur diese Kategorie — ODER „Alle Patienten" für die Gesamtliste. Dann tippe den Patienten an.', free:true, sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
-  {t:'Vitalwerte erfassen', x:'Im Patienten-Detail hältst du die Vitalwerte fest — Atemfrequenz, SpO₂, Herzfrequenz, RR … Sie fließen automatisch in die spätere Übergabekarte. Nur ansehen, dann „Weiter".', sel:'#ph-vit'},
-  {t:'Maßnahmen (cABCDE)', x:'Hier dokumentierst du durchgeführte Maßnahmen entlang des cABCDE-Schemas: kritische Blutung, Atemweg, Beatmung, Kreislauf, weitere. Nur ansehen, dann „Weiter".', sel:'#ph-tx'},
-  {t:'Verletzungen', x:'Verletzungen erfasst du kurz nach Region und Art — eindeutig und schnell. Nur ansehen, dann „Weiter".', sel:'#ph-inj'},
-  {t:'Foto zur Identifikation', x:'Optional ein Foto (pseudonym, nur lokal auf dem Gerät) — hilft, den Patienten ohne Namen sicher wiederzuerkennen. Nur ansehen, dann „Weiter".', sel:'#ph-foto'},
-  {t:'Kategorie & Prio', x:'Verschlechtert sich der Zustand, verschiebst du die Sichtungs-Kategorie. Mit „Prio-Transport" markierst du besonders dringliche Abtransporte. Nur ansehen, dann „Weiter".', sel:'#ph-cat'},
-  {t:'Tourniquet-Timer', x:'Bei kritischer Blutung zählt die Zeit: Starte den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
-  {t:'Transportfertig markieren', x:'Ist der Patient versorgt und bereit, markierst du ihn als „transportfertig".', sel:'[data-action="ready"]', doit:'Tippe „als transportfertig markieren"', adv:function(){return trainSome(function(p){return p.ready;});}},
-  {t:'Abtransport → gPA', x:'Beim Abtransport checkst du den Patienten aus — damit verlässt er den CCP Richtung gPA.', sel:'[data-action="gpa"]', doit:'Tippe „Abtransport → gPA"', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
-  {t:'Übergabekarte ansehen', x:'Öffne den ausgecheckten Patienten erneut — es erscheint die AT-MIST-Übergabekarte zum Vorlesen an die gPA. Schau sie dir an; mit „Weiter" gehen wir sie Punkt für Punkt durch.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="gpa"]':null);}, doit:function(){return state.view==='catlist'?'Tippe den ausgecheckten Patienten':'Tippe die „gPA"-Kachel';}, adv:function(){return state.view==='patient'&&state.edit&&state.edit.status==='gpa';}},
-  {t:'Die Karte erklärt (1/3)', x:'Oben der Kopf: laufende Nummer, Sichtungs-Kategorie und ggf. PRIO. Dann beginnt das AT-MIST-Schema — A: Alter/Geschlecht (soweit bekannt). So weiß die gPA sofort, wen sie übernimmt.', sel:'[data-am="A"]'},
-  {t:'Die Karte erklärt (2/3)', x:'T: Zeiten — z. B. wie lange das Tourniquet schon liegt (kritisch für die Weiterversorgung). M: Mechanismus — was ist passiert. I: Verletzungen — die festgehaltenen Befunde.', sel:'[data-am="M"]'},
-  {t:'Die Karte erklärt (3/3)', x:'S: Befund/Vitalwerte (WASB, AF, SpO₂ …). T: Maßnahmen — was wurde am Patienten gemacht. Alles in fester Reihenfolge zum flüssigen Vorlesen. Die Karte ist gesperrt: ein eingefrorener Stand, damit sich beim Vorlesen nichts mehr ändert.', sel:'[data-am="TT"]'},
-  {t:'Korrigieren: „Zurückholen"', x:'Stimmt nach dem Auschecken doch etwas nicht? Mit „↩ Zurückholen → aktiv" (unten in der Karte) holst du den Patienten kurz in den aktiven Bestand zurück, korrigierst Vitalwerte/Maßnahmen und checkst ihn erneut aus. So bleibt die Übergabe immer korrekt — und nichts geht verloren.', free:true, sel:'[data-action="reactivate"]'},
-  {t:'Geschafft! 🎉', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben — genau das brauchst du im Einsatz. „Beenden" räumt die Übungsdaten ab.'}
+  {t:'Willkommen', mode:'explain', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt oder synchronisiert. Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
+  {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
+
+  {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
+  {t:'Status & Bediener', mode:'explain', x:'Darunter der Status: 🟢 Echtzeit-Modus (mit Verbindung) oder 🔴 Lokaler Modus (offline — funktioniert trotzdem voll). Hier stehen auch dein Bediener-Kürzel und ob noch etwas nicht synchronisiert ist.', sel:'.banner'},
+  {t:'Knopf: Checkliste CCP', mode:'explain', x:'Der erste Knopf: die Checkliste für Aufbau und Leitung der Sammelstelle (Örtlichkeit, Sicherung, Rollen, Material …). Gleich öffnen wir sie selbst.', sel:'[data-action="nav"][data-view="checklist"]'},
+  {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
+  {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
+  {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen und Merksätze — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
+
+  {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es. Öffne die Checkliste CCP, schau dich kurz um — dann kommst du mit ‹ oben links wieder zurück.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
+  {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
+  {t:'Direkt anlegen', mode:'do', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
+  {t:'Sichten mit tacSTART', mode:'do', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
+
+  {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
+  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Zwei Wege: oben eine Sichtungs-Kachel (nur diese Kategorie) ODER „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
+
+  {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
+  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto (pseudonym, nur lokal) — hilft, den Patienten ohne Namen sicher wiederzuerkennen.', sel:'#ph-foto'},
+  {t:'Detail: Kategorie wechseln', mode:'explain', x:'Verschlechtert sich der Zustand, verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie.', sel:'#ph-cat'},
+  {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
+  {t:'Detail: Maßnahmen (cABCDE)', mode:'explain', x:'Hier dokumentierst du durchgeführte Maßnahmen entlang des cABCDE-Schemas: kritische Blutung, Atemweg, Beatmung, Kreislauf, weitere.', sel:'#ph-tx'},
+  {t:'Detail: Verletzungen', mode:'explain', x:'Verletzungen erfasst du kurz nach Region und Art — eindeutig und schnell.', sel:'#ph-inj'},
+  {t:'Detail: Vitalwerte', mode:'explain', x:'Vitalwerte — Atemfrequenz, SpO₂, Herzfrequenz, RR … Sie fließen automatisch in die spätere Übergabekarte.', sel:'#ph-vit'},
+
+  {t:'Transportfertig markieren', mode:'do', x:'Ist der Patient versorgt und bereit, markierst du ihn als „transportfertig".', sel:'[data-action="ready"]', doit:'Tippe „als transportfertig markieren"', adv:function(){return trainSome(function(p){return p.ready;});}},
+  {t:'Abtransport → gPA', mode:'do', x:'Beim Abtransport checkst du den Patienten aus — damit verlässt er den CCP Richtung gPA (Patientenablage / Rettungsmittel).', sel:'[data-action="gpa"]', doit:'Tippe „Abtransport → gPA"', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
+
+  {t:'Übergabekarte öffnen', mode:'choice', x:'Öffne den ausgecheckten Patienten erneut — es erscheint die AT-MIST-Übergabekarte zum Vorlesen an die gPA. Über die „gPA"-Kachel und dann den Patienten.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="gpa"]':null);}, doit:function(){return state.view==='catlist'?'Tippe den Patienten':'Tippe die „gPA"-Kachel';}, adv:function(){return state.view==='patient'&&state.edit&&state.edit.status==='gpa';}},
+  {t:'Karte: Kopf & A', mode:'explain', x:'Oben der Kopf: laufende Nummer, Kategorie, ggf. PRIO. Dann das AT-MIST-Schema — A: Alter/Geschlecht (soweit bekannt). So weiß die gPA sofort, wen sie übernimmt.', sel:'[data-am="A"]'},
+  {t:'Karte: T · M · I', mode:'explain', x:'T: Zeiten — z. B. wie lange das Tourniquet schon liegt (kritisch). M: Mechanismus — was ist passiert. I: Verletzungen — die festgehaltenen Befunde.', sel:'[data-am="M"]'},
+  {t:'Karte: S · T', mode:'explain', x:'S: Befund/Vitalwerte. T: Maßnahmen — was wurde gemacht. Alles in fester Reihenfolge zum flüssigen Vorlesen. Die Karte ist gesperrt — ein eingefrorener Stand, damit sich beim Vorlesen nichts ändert.', sel:'[data-am="TT"]'},
+  {t:'Korrigieren: „Zurückholen"', mode:'explain', x:'Stimmt doch etwas nicht? Mit „↩ Zurückholen → aktiv" holst du den Patienten kurz in den aktiven Bestand zurück, korrigierst und checkst erneut aus. So bleibt die Übergabe immer korrekt — nichts geht verloren.', sel:'[data-action="reactivate"]'},
+  {t:'Geschafft! 🎉', mode:'explain', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben. „Beenden" räumt die Übungsdaten ab — danach kannst du es jederzeit wiederholen.'}
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
 function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
@@ -1748,23 +1758,26 @@ function trainRect(id,x,y,w,h){
   if(!d){ d=document.createElement('div'); d.id=id; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; document.body.appendChild(d); }
   d.style.left=x+'px'; d.style.top=y+'px'; d.style.width=w+'px'; d.style.height=h+'px';
 }
-function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
+function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring','train-block'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
 /* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
 function trainScrollTo(target){
   try{
     var sc=document.scrollingElement||document.documentElement||document.body;
+    var panel=document.getElementById('train-coach');
+    var ph=panel?panel.offsetHeight:230;
     var r=target.getBoundingClientRect();
-    var safeTop=66, safeBottom=window.innerHeight-244, center=(safeTop+safeBottom)/2;
-    sc.scrollTop=Math.max(0, sc.scrollTop + (r.top + r.height/2 - center));  /* Ziel sofort mittig in den freien Bereich */
+    var safeTop=54, safeBottom=window.innerHeight-ph-14;       /* unter sticky-Topbar / über dem Coach-Panel */
+    if(safeBottom-safeTop<70) safeBottom=safeTop+70;
+    if(r.top>=safeTop && r.bottom<=safeBottom) return;         /* schon frei sichtbar → NICHT scrollen (Top-Elemente bleiben unangetastet) */
+    var center=(safeTop+safeBottom)/2;
+    sc.scrollTop=Math.max(0, sc.scrollTop + (r.top + r.height/2 - center));
   }catch(e){ try{ target.scrollIntoView(); }catch(e2){} }
 }
-function trainSpotlight(target, spotKey, free){
+function trainSpotlight(target, spotKey, mode){
   if(!target){ trainClearSpot(); _trainSpotKey=''; return; }
-  var changed=_trainSpotKey!==spotKey; _trainSpotKey=spotKey;
+  _trainSpotKey=spotKey;
+  trainScrollTo(target);                              /* scrollt nur, wenn das Ziel außerhalb des freien Bands liegt */
   var r=target.getBoundingClientRect();
-  /* Verdeckt (hinter Header/Panel) oder außerhalb? → sichtbar scrollen, dann neu messen. */
-  var occluded=(r.top<64)||(r.bottom>(window.innerHeight-238))||(r.bottom<=0)||(r.top>=window.innerHeight);
-  if(changed||occluded){ trainScrollTo(target); r=target.getBoundingClientRect(); }
   var pad=6;
   var x=Math.max(0,r.left-pad), y=Math.max(0,r.top-pad), w=r.width+2*pad, h=r.height+2*pad;
   var vw=window.innerWidth, vh=window.innerHeight;
@@ -1772,7 +1785,14 @@ function trainSpotlight(target, spotKey, free){
   trainRect('train-db',0,y+h,vw,Math.max(0,vh-(y+h)));
   trainRect('train-dl',0,y,x,h);
   trainRect('train-dr',x+w,y,Math.max(0,vw-(x+w)),h);
-  ['train-dt','train-db','train-dl','train-dr'].forEach(function(id){var d=document.getElementById(id);if(d)d.style.pointerEvents=free?'none':'auto';});  /* free: andere Buttons bleiben antippbar */
+  var block=(mode!=='choice');                        /* choice: nichts blockieren (mehrere Wege antippbar) */
+  ['train-dt','train-db','train-dl','train-dr'].forEach(function(id){var d=document.getElementById(id);if(d)d.style.pointerEvents=block?'auto':'none';});
+  /* explain: Ziel hervorheben, aber NICHT antippbar — transparenter Blocker im „Loch". */
+  var bl=document.getElementById('train-block');
+  if(mode==='explain'){
+    if(!bl){ bl=document.createElement('div'); bl.id='train-block'; bl.style.position='fixed'; bl.style.zIndex='8000'; bl.style.background='transparent'; document.body.appendChild(bl); }
+    bl.style.left=x+'px'; bl.style.top=y+'px'; bl.style.width=w+'px'; bl.style.height=h+'px';
+  } else if(bl&&bl.parentNode){ bl.parentNode.removeChild(bl); }
   var ring=document.getElementById('train-ring');
   if(!ring){ ring=document.createElement('div'); ring.id='train-ring'; ring.style.position='fixed'; ring.style.zIndex='8001'; ring.style.pointerEvents='none'; ring.style.borderRadius='12px'; ring.style.boxShadow='0 0 0 3px #6A1B9A,0 0 0 9px rgba(106,27,154,.30)'; document.body.appendChild(ring); }
   ring.style.left=x+'px'; ring.style.top=y+'px'; ring.style.width=w+'px'; ring.style.height=h+'px';
@@ -1799,10 +1819,10 @@ function renderCoach(){
     if(!target && L.home && state.view!=='home'){ target=document.getElementById('backbtn'); backRedirect=true; }
   }
   var spotKey=target?((backRedirect?'B':'S')+_trainStep+'|'+(doitTxt||'')):'';
-  var freeSpot=!!(L&&L.free);
-  try{ trainSpotlight(target, spotKey, freeSpot); }catch(e){ trainClearSpot(); }
+  var spotMode=(L&&L.mode)||'explain';
+  try{ trainSpotlight(target, spotKey, spotMode); }catch(e){ trainClearSpot(); }
   /* Erstes Zeichnen kann auf noch nicht „gesetztem" Layout passieren → eine Frame später nachmessen/-zentrieren. */
-  if(target && window.requestAnimationFrame){ requestAnimationFrame(function(){ if(_training && _trainSpotKey===spotKey){ try{ trainSpotlight(target, spotKey, freeSpot); }catch(e){} } }); }
+  if(target && window.requestAnimationFrame){ requestAnimationFrame(function(){ if(_training && _trainSpotKey===spotKey){ try{ trainSpotlight(target, spotKey, spotMode); }catch(e){} } }); }
   var el=document.getElementById('train-coach');
   if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }
   var pct=Math.round((Math.min(_trainStep,n)/n)*100);
