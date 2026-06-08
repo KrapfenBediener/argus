@@ -2,7 +2,7 @@
 
 - **Milestone:** Closed Beta V1 — läuft
 - **Aktuelle Phase:** Test-/Härtungsfenster — Phase 5 bewusst aufgeschoben,
-  bis die App ausgiebiger getestet ist
+  bis die App ausgiebiger getestet ist. **App live: v0.19.5** (Stand 2026-06-08).
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -95,6 +95,36 @@
 - **Laufend:** Verständlichkeit/Begriffe für Laien [Zobel #6].
 - **Organisatorisch:** DSB-Gespräch vor PP-/Landes-Umsetzung [Zobel #5];
   Vertriebs-/Erweiterungsidee PTLS/Personensammelstelle [Schill] — geparkt.
+
+### Härtungsfenster nach Phase 4.5 (2026-06-05 … 06-08) — v0.16 → v0.19.5
+Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster (keine geplante Phase;
+Phase 5 bleibt aufgeschoben):
+
+- **AT-MIST-Übergabekarte (v0.17.0):** Beim Auschecken (→ gPA) erscheint eine
+  gesperrte Vorlese-Karte (Kopf + A/T/M/I/S/T) für die strukturierte Übergabe an die
+  gPA. Bewusste Abgrenzung: ARGUS bleibt Polizei/CCP-fokussiert, Schnittstelle =
+  Übergabe (IVENA eHealth recherchiert, Integration verworfen).
+- **Geführtes interaktives Training (v0.18.0 → v0.19.5):** kompletter geführter
+  36-Lektionen-Durchlauf durch die App, erreichbar über die Schulungsumgebung.
+  - Geräte-LOKALER Sandbox: Übungsdaten (`training:true`) werden NIE synchronisiert;
+    eigener lokaler Ephemer-CCP (`train-ccp`) → kein Cloud-Leck, **kein manuelles
+    Zurücksetzen** der Schulungsumgebung nötig, beliebig oft wiederholbar.
+  - 3-Modus-Modell (explain / do / choice), Spotlight mit Verdeckungs-Erkennung,
+    Scroll auf sticky-Topbar + Panelhöhe abgestimmt, design-konform (Schiefer statt Lila).
+  - Erst-Intro (Onboarding) verweist am Ende auf das Training (5. Slide).
+  - **DAUERREGEL:** bei jeder UI-/Funktionsänderung das Trainings-Drehbuch
+    (`TRAIN_LESSONS`) mit-anpassen.
+- **Produkt-Website** im ARGUS-Design — unauffindbar + `noindex` auf GitHub Pages
+  deployt (Demo). Referenz-Optik: `docs/UI-AUSBLICK.html`.
+- **IP-/Doc-Hygiene:** interne Planungs-/Compliance-Docs und experimentelle Decks aus
+  dem öffentlichen Repo entöffentlicht (`.gitignore`); `UPDATE_*.html` bleiben öffentlich
+  (aus der App verlinkt). Royal-Stil-Logos verworfen. Marken-/Domain-Schritte bis nach
+  DSB / Pol-BW zurückgestellt.
+- **Design-Sprache fixiert:** `docs/UI-AUSBLICK.html` = verbindliche Optik (IBM Plex,
+  hell, Schiefer `#1f2530` als Chrome, Triage-Farben nur funktional). Kein Apple-/Royal-Stil.
+
+*Testing weiterhin ohne `node` — Logikprüfung via JavaScriptCore (`osascript -l JavaScript`),
+kein Browser verfügbar.*
 
 ### Offene Audit-Punkte (geparkt, nach Bedarf angehen)
 - Laufnummern-Kollision bei parallelem Anlegen: **Doppelnummer-Warnung eingebaut**

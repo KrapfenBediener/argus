@@ -1,7 +1,9 @@
 # CCP-App (ARGUS) — Roadmap
 
-> **Stand: 2026-06-04** — Phase 4 abgeschlossen; danach Beta-Härtung aus Tester-
-> Feedback (v0.4.0–v0.15.0, siehe Phase 4.5). App live auf **v0.15.0**.
+> **Stand: 2026-06-08** — Phase 4 abgeschlossen; danach Beta-Härtung aus Tester-
+> Feedback (v0.4.0–v0.15.0, siehe Phase 4.5) und anschließend Feature-/Schulungs-
+> Arbeit im Test-/Härtungsfenster (v0.16–v0.19.5, siehe „Härtungsfenster nach 4.5").
+> App live auf **v0.19.5**.
 > Nächster realer Schritt: **DSB-Gespräch** (`docs/DSB-BRIEFING.md`) → es bestimmt,
 > was Phase 5/6 konkret brauchen.
 >
@@ -111,6 +113,21 @@ Eingabeart `pointer`, NICHT Geräte-Sniffing):
   bleibt aber dieselbe Codebasis/Backend.
 - Native App (Phase 9) ist hierfür **nicht** nötig — Responsive Web deckt alle Schirme
   aus einem Code ab. Mockup-Ausblick: `docs/UI-AUSBLICK.html`.
+
+## Härtungsfenster nach Phase 4.5 (2026-06-05 … 06-08) — v0.16 → v0.19.5
+Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster (keine geplante Phase —
+Phase 5 bleibt aufgeschoben). Details: `.planning/STATE.md`.
+
+- ✅ **AT-MIST-Übergabekarte (v0.17):** gesperrte Vorlese-Karte beim Auschecken → gPA
+  (strukturierte Übergabe). Abgrenzung: ARGUS bleibt Polizei/CCP-fokussiert
+  (IVENA-Integration geprüft & verworfen).
+- ✅ **Geführtes interaktives Training (v0.18 → v0.19.5):** 36-Lektionen-Durchlauf
+  über die Schulungsumgebung; geräte-lokaler Sandbox (nie Cloud, lokaler Ephemer-CCP),
+  3-Modus-Spotlight, Onboarding-Intro verweist darauf. DAUERREGEL: Drehbuch bei jeder
+  UI-Änderung mitpflegen.
+- ✅ **Produkt-Website** im ARGUS-Design (Demo, `noindex`/unauffindbar auf Pages).
+- ✅ **IP-/Doc-Hygiene:** interne Docs/Decks entöffentlicht (`.gitignore`);
+  Design-Sprache fixiert (`docs/UI-AUSBLICK.html` verbindlich).
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
