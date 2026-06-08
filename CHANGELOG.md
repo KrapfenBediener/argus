@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.1 — 2026-06-08
+**Training jetzt interaktiv (Spotlight + Auto-Weiter)**
+- Statt des kleinen Textfelds: großes Anweisungs-Panel + **Spotlight** auf das jeweilige
+  Ziel-Element (4 Abdunkel-Rechtecke um das Element, robust ohne z-index-Tricks).
+- **Auto-Weiter:** die Lektion springt automatisch weiter, sobald ihr Ziel-Zustand
+  erreicht ist (CCP eröffnet, Patient angelegt, ausgecheckt …) — via `trainCheckAdvance`.
+- Ziel-Erkennung über stabile `data-action`/`data-view`-Selektoren (nicht Pixel) → bricht
+  nicht bei jeder UI-Änderung; Scroll/Resize halten den Spotlight in Position.
+- „Beenden" räumt Spotlight, Panel und Übungsdaten ab. Kein „Was ist neu"-Popup (Verfeinerung).
+
 ## v0.18.0 — 2026-06-08
 **Geführtes Training (Schulungsumgebung)**
 - Neuer **opt-in Übungsmodus**: ein Drehbuch-Coach (`renderCoach`, `TRAIN_LESSONS`) führt

@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.18.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1687,17 +1687,20 @@ function cmpVer(a,b){
  * demo) → single-user, beliebig viele gleichzeitig, kein Fremd-Reset. Opt-in.
  * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen. */
 var TRAIN_LESSONS=[
-  {t:'Willkommen im Übungsmodus', x:'Das hier passiert nur auf DEINEM Gerät — niemand sieht deine Übung, nichts wird übertragen. Tippe dich mit „Weiter" durch; beenden kannst du jederzeit.'},
-  {t:'Übungs-CCP eröffnen', x:'Tippe „＋ Neue CCP eröffnen" und richte deine Übungs-Sammelstelle ein.'},
-  {t:'Checkliste CCP', x:'Öffne „Checkliste CCP" und hak ein paar Aufbaupunkte ab — so strukturierst du Aufbau und Leitung.'},
-  {t:'Ersten Patienten erfassen', x:'Tippe „＋ Patient erfassen" und lege einen Verletzten direkt in einer Kategorie (T-1 bis T-3) an. Die laufende Nummer vergibt ARGUS automatisch.'},
-  {t:'Sichten mit tacSTART', x:'Lege einen weiteren Patienten an — diesmal über „tacSTART". Beantworte die Fragen; ARGUS schlägt eine Kategorie vor (du entscheidest).'},
-  {t:'Patient verwalten', x:'Öffne einen Patienten: trag Vitalwerte ein, setze Maßnahmen (A–E), starte den TQ-Timer und füge eine Verletzung hinzu.'},
-  {t:'Übersicht & Lagebild', x:'Geh in „Patientenübersicht": oben die Zahlen je Kategorie, darunter die Listen. So liest du die Lage auf einen Blick.'},
-  {t:'Prio & transportfertig', x:'Markiere einen Patienten als „Prio-Transport" und einen anderen als „transportfertig".'},
-  {t:'Auschecken & Übergabekarte', x:'Checke einen transportfertigen Patienten aus („Abtransport → gPA"). Öffne ihn danach erneut: die AT-MIST-Übergabekarte zum Vorlesen erscheint.'},
+  {t:'Willkommen im Übungsmodus', x:'Das hier passiert nur auf DEINEM Gerät — niemand sieht deine Übung, nichts wird übertragen. Folge einfach den Hinweisen; beenden kannst du jederzeit.'},
+  {t:'Übungs-CCP eröffnen', x:'Richte deine Übungs-Sammelstelle ein.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
+  {t:'Checkliste CCP', x:'In der Checkliste strukturierst du Aufbau und Leitung — hak ruhig ein paar Punkte ab.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
+  {t:'Patient erfassen öffnen', x:'Hier legst du Verletzte an — direkt oder geführt per tacSTART.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
+  {t:'Ersten Patienten direkt anlegen', x:'Wähle direkt eine Kategorie. Die laufende Nummer vergibt ARGUS automatisch.', sel:'[data-action="addcat"]', doit:'Tippe eine Kategorie (z. B. T-2)', adv:function(){return trainCount()>=1;}},
+  {t:'Zweiten per tacSTART sichten', x:'Diesmal geführt: beantworte die Fragen, ARGUS schlägt eine Kategorie vor — du entscheidest.', sel:'[data-action="tacstart"]', doit:'Tippe „tacSTART"', adv:function(){return trainCount()>=2;}},
+  {t:'Übersicht & Lagebild', x:'Oben die Zahlen je Kategorie, darunter die Listen — so liest du die Lage auf einen Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
+  {t:'Patient verwalten', x:'Öffne einen Patienten und trag etwas ein: Vitalwerte, eine Maßnahme, den TQ-Timer oder eine Verletzung.', adv:function(){return trainSome(function(p){return p.tqStart||(p.inj&&p.inj.length)||p.vit.af||p.vit.spo2||(p.tx&&Object.keys(p.tx).some(function(k){return p.tx[k];}));});}},
+  {t:'Prio & transportfertig', x:'Markiere einen Patienten als „Prio-Transport" und/oder als „transportfertig".', adv:function(){return trainSome(function(p){return p.prio||p.ready;});}},
+  {t:'Auschecken & Übergabekarte', x:'Checke einen Patienten aus („Abtransport → gPA"). Öffne ihn danach erneut: die AT-MIST-Übergabekarte zum Vorlesen erscheint.', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
   {t:'Geschafft! 🎉', x:'Das war der Kern-Ablauf — Erfassen, Sichten, Verwalten, Übergeben. Wiederhole alles beliebig. „Beenden" entfernt die Übungsdaten von diesem Gerät.'}
 ];
+function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
+function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
 function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; }catch(e){} }
 function trainSave(){ try{ localStorage.setItem('argus_training',_training?'1':'0'); localStorage.setItem('argus_train_step',String(_trainStep)); }catch(e){} }
 async function startTraining(){ _training=true; if(_trainStep>=TRAIN_LESSONS.length)_trainStep=0; trainSave(); try{await loadPatients();}catch(e){} render(); }
@@ -1708,43 +1711,88 @@ async function endTraining(){
   _training=false; trainSave(); try{await trainReset(); await loadPatients();}catch(e){} render();
 }
 function trainStep(d){ _trainStep=Math.max(0,Math.min(TRAIN_LESSONS.length,_trainStep+d)); trainSave(); renderCoach(); }
-/* Coach-Overlay: eigenständiges Fixed-Element am Body (nicht Teil der Views) →
- * überlebt Re-Renders, kann die App-Anzeige nicht brechen. */
-function renderCoach(){
-  var el=document.getElementById('train-coach');
-  var ap=document.getElementById('app');
-  if(!_training){ if(el&&el.parentNode)el.parentNode.removeChild(el); if(ap)ap.style.paddingBottom=''; return; }
-  if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9000;box-shadow:0 -6px 22px rgba(0,0,0,.12)'; document.body.appendChild(el); }
-  if(ap)ap.style.paddingBottom='185px';
-  var n=TRAIN_LESSONS.length, fin=_trainStep>=n;
-  var key=fin?'fin':('s'+_trainStep);
-  if(el.getAttribute('data-k')===key) return;   /* unverändert → kein Flicker beim Auto-Refresh */
-  el.setAttribute('data-k',key);
-  var pct=Math.round((Math.min(_trainStep,n)/n)*100);
-  var head='<div style="height:5px;background:var(--surf2)"><i style="display:block;height:100%;background:#6A1B9A;width:'+pct+'%"></i></div>';
-  if(fin){
-    el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-top:1px solid var(--line)">'+head+
-      '<div style="padding:12px 15px"><div style="font-weight:700;font-size:15px">🎓 Training abgeschlossen</div>'+
-      '<div style="font-size:13px;color:#33373b;margin-top:3px">Gut gemacht — du kannst es jederzeit erneut starten.</div>'+
-      '<div style="display:flex;gap:8px;margin-top:11px"><button data-tc="prev" style="flex:1;border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px;font-weight:600;color:var(--mut)">‹ Zurück</button>'+
-      '<button data-tc="end" style="flex:2;border:0;border-radius:9px;padding:10px;font-weight:700;background:#6A1B9A;color:#fff">Beenden &amp; Übungsdaten löschen</button></div></div></div>';
-  }else{
-    var L=TRAIN_LESSONS[_trainStep];
-    el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-top:1px solid var(--line)">'+head+
-      '<div style="padding:11px 15px 13px">'+
-      '<div style="display:flex;align-items:center;gap:8px;font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:#6A1B9A">🎓 Lektion '+(_trainStep+1)+' / '+n+'<span style="margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0">nur dieses Gerät</span></div>'+
-      '<div style="font-weight:700;font-size:15.5px;margin-top:5px">'+esc(L.t)+'</div>'+
-      '<div style="font-size:13.5px;color:#33373b;margin-top:3px;line-height:1.45">'+esc(L.x)+'</div>'+
-      '<div style="display:flex;gap:8px;margin-top:11px">'+
-      '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px 13px;font-weight:600;color:var(--mut)">Beenden</button>'+
-      (_trainStep>0?'<button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:9px;padding:10px 13px;font-weight:600;color:var(--mut)">‹</button>':'')+
-      '<button data-tc="next" style="flex:1;border:0;border-radius:9px;padding:10px;font-weight:700;background:#6A1B9A;color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>'+
-      '</div></div></div>';
+/* Auto-Weiter: springt zur nächsten Lektion, sobald deren Ziel-Zustand erreicht ist. */
+function trainCheckAdvance(){
+  var guard=0;
+  while(_trainStep<TRAIN_LESSONS.length){
+    var L=TRAIN_LESSONS[_trainStep], ok=false;
+    if(L.adv){ try{ ok=!!L.adv(); }catch(e){ ok=false; } }
+    if(ok){ _trainStep++; trainSave(); if(++guard>30) break; } else break;
   }
-  var b;
-  if((b=el.querySelector('[data-tc=next]')))b.onclick=function(){trainStep(1);};
-  if((b=el.querySelector('[data-tc=prev]')))b.onclick=function(){trainStep(-1);};
-  if((b=el.querySelector('[data-tc=end]')))b.onclick=function(){endTraining();};
+}
+/* Spotlight: 4 Abdunkel-Rechtecke um das Ziel-Element (robust, ohne z-index-Tricks). */
+var _trainSpotStep=-1;
+function trainRect(id,x,y,w,h){
+  var d=document.getElementById(id);
+  if(!d){ d=document.createElement('div'); d.id=id; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; document.body.appendChild(d); }
+  d.style.left=x+'px'; d.style.top=y+'px'; d.style.width=w+'px'; d.style.height=h+'px';
+}
+function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
+function trainSpotlight(target){
+  if(!target){ trainClearSpot(); _trainSpotStep=-1; return; }
+  if(_trainSpotStep!==_trainStep){ _trainSpotStep=_trainStep; try{ target.scrollIntoView({block:'center'}); }catch(e){} }
+  var r=target.getBoundingClientRect(), pad=6;
+  var x=Math.max(0,r.left-pad), y=Math.max(0,r.top-pad), w=r.width+2*pad, h=r.height+2*pad;
+  var vw=window.innerWidth, vh=window.innerHeight;
+  trainRect('train-dt',0,0,vw,y);
+  trainRect('train-db',0,y+h,vw,Math.max(0,vh-(y+h)));
+  trainRect('train-dl',0,y,x,h);
+  trainRect('train-dr',x+w,y,Math.max(0,vw-(x+w)),h);
+  var ring=document.getElementById('train-ring');
+  if(!ring){ ring=document.createElement('div'); ring.id='train-ring'; ring.style.position='fixed'; ring.style.zIndex='8001'; ring.style.pointerEvents='none'; ring.style.borderRadius='12px'; ring.style.boxShadow='0 0 0 3px #6A1B9A,0 0 0 9px rgba(106,27,154,.30)'; document.body.appendChild(ring); }
+  ring.style.left=x+'px'; ring.style.top=y+'px'; ring.style.width=w+'px'; ring.style.height=h+'px';
+}
+function trainTeardown(){
+  trainClearSpot();
+  var el=document.getElementById('train-coach'); if(el&&el.parentNode)el.parentNode.removeChild(el);
+  var ap=document.getElementById('app'); if(ap)ap.style.paddingBottom='';
+}
+/* Coach: großes Panel unten + Spotlight aufs Ziel. Eigenständig am Body, Aufruf in
+ * try/catch → kann den App-Render nie brechen. */
+function renderCoach(){
+  if(!_training){ trainTeardown(); return; }
+  try{ trainCheckAdvance(); }catch(e){}
+  var ap=document.getElementById('app'); if(ap)ap.style.paddingBottom='230px';
+  var n=TRAIN_LESSONS.length, fin=_trainStep>=n;
+  var L=fin?null:TRAIN_LESSONS[_trainStep];
+  var target=(L&&L.sel)?document.querySelector(L.sel):null;
+  try{ trainSpotlight(target); }catch(e){ trainClearSpot(); }
+  var el=document.getElementById('train-coach');
+  if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }
+  var pct=Math.round((Math.min(_trainStep,n)/n)*100);
+  var key=(fin?'fin':('s'+_trainStep))+(target?'+':'-');
+  if(el.getAttribute('data-k')!==key){
+    el.setAttribute('data-k',key);
+    var head='<div style="height:6px;background:var(--surf2)"><i style="display:block;height:100%;width:'+pct+'%;background:#6A1B9A"></i></div>';
+    if(fin){
+      el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
+        '<div style="padding:15px 17px 0"><div style="font-size:20px;font-weight:700">🎓 Training abgeschlossen</div>'+
+        '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">Gut gemacht — du kannst es jederzeit erneut starten.</div></div>'+
+        '<div style="display:flex;gap:9px;padding:14px 17px 16px"><button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">‹</button>'+
+        '<button data-tc="end" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">Beenden &amp; Übungsdaten löschen</button></div></div>';
+    }else{
+      var doit=(L.doit&&target)?'<div style="margin-top:11px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#6A1B9A">👆 '+esc(L.doit)+'</div>'
+              :(L.sel&&!target?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Wechsle zur passenden Ansicht — der Hinweis erscheint dann von selbst.</div>':'');
+      el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
+        '<div style="padding:15px 17px 0">'+
+        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6A1B9A">🎓 Lektion '+(_trainStep+1)+' / '+n+'<span style="margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0;font-size:10.5px">nur dieses Gerät</span></div>'+
+        '<div style="font-size:20px;font-weight:700;letter-spacing:-.01em;margin-top:9px">'+esc(L.t)+'</div>'+
+        '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">'+esc(L.x)+'</div>'+doit+'</div>'+
+        '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
+        '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">Beenden</button>'+
+        (_trainStep>0?'<button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">‹</button>':'')+
+        '<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>'+
+        '</div></div>';
+    }
+    var b;
+    if((b=el.querySelector('[data-tc=next]')))b.onclick=function(){trainStep(1);};
+    if((b=el.querySelector('[data-tc=prev]')))b.onclick=function(){trainStep(-1);};
+    if((b=el.querySelector('[data-tc=end]')))b.onclick=function(){endTraining();};
+  }
+}
+if(typeof window!=='undefined'){
+  window.addEventListener('scroll',function(){ if(_training){ try{renderCoach();}catch(e){} } },{passive:true});
+  window.addEventListener('resize',function(){ if(_training){ try{renderCoach();}catch(e){} } });
 }
 function appFooter(extra){
   return '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · <a href="#" data-action="whatsnew" style="color:var(--mut)">Neuerungen</a> · © 2026 Gabor Szeman</p>'+
