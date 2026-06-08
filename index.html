@@ -1724,7 +1724,7 @@ function trainCheckAdvance(){
 var _trainSpotStep=-1;
 function trainRect(id,x,y,w,h){
   var d=document.getElementById(id);
-  if(!d){ d=document.createElement('div'); d.id=id; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; document.body.appendChild(d); }
+  if(!d){ d=document.createElement('div'); d.id=id; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; d.style.pointerEvents='none'; document.body.appendChild(d); }
   d.style.left=x+'px'; d.style.top=y+'px'; d.style.width=w+'px'; d.style.height=h+'px';
 }
 function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
