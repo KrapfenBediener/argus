@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.5 — 2026-06-08
+**Training: Ton, Beenden, Fokus**
+- **„Gut gemacht"-Panel entfernt** (war nach jedem Schritt + bevormundend). Stattdessen eine
+  dezente, neutrale Kurzbestätigung als Toast („Schritt erledigt ✓") nur bei tatsächlichem
+  Fortschritt; Abschluss-Text neutralisiert.
+- **Beenden:** Spotlight/Panel werden VOR dem Bestätigungsdialog entfernt → der Dialog liegt
+  frei im Vordergrund (nicht mehr hinter der Abdunklung); bei Abbruch wird wiederhergestellt.
+- **Fokus erzwungen:** Die Abdunklung **blockiert** jetzt die übrigen Buttons — nur der
+  hervorgehobene (für den Schritt relevante) ist tippbar. Panel-Knöpfe (Weiter/Zurück/Beenden)
+  bleiben darüber bedienbar; Schritte ohne Spotlight bleiben frei bedienbar.
+
 ## v0.18.4 — 2026-06-08
 **Training: Zwischenanzeige, Zurück-Funktion, zentrierter Spotlight**
 - **„✓ Gut gemacht!"-Zwischenanzeige** nach jedem erledigten Schritt — mit Vorschau auf die
