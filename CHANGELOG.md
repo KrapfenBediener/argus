@@ -6,6 +6,21 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.1 — 2026-06-08
+**Training: gPA-Hänger behoben, Checkliste erkundbar, Lila entfernt**
+- **Bugfix „Abtransport → gPA" (Lektion hing, Intro ließ sich nicht beenden):** `pushLock` hatte
+  als einziger Cloud-Aufruf im Trainingsablauf **keinen Training-Schutz** → im Echtzeit-Modus ein
+  Backend-Call für den Übungs-Patienten (Isolations-Leck + möglicher Netz-Hänger, der den Schritt
+  blockierte). Jetzt zusätzlich `!p.training`.
+- **Checkliste-Einführung:** eigener Schritt „In der Checkliste" — du kannst die Liste in Ruhe
+  ansehen und durchscrollen, **bevor** der „Zurück zur Startseite"-Hinweis erscheint (vorher
+  überlagerte er sie sofort).
+- **Lila entfernt:** das Training nutzt jetzt durchgehend Schiefer (`--acc`) als Chrome und einen
+  weiß-umrandeten Schiefer-Spotlight-Ring — design-konform zur ARGUS-Sprache, kein Lila mehr.
+- 30 Lektionen; Ablauf-Logik per Probeläufen 18/18 grün.
+
+---
+
 ## v0.19.0 — 2026-06-08
 **Geführtes Intro komplett neu aufgebaut (sauberes 3-Modus-Modell)**
 Die über viele Iterationen gewachsene Intro-Sequenz wurde verworfen und von Grund auf neu gebaut.

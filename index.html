@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1158,7 +1158,7 @@ function lockInfo(p){
  * So bleibt die Sperre eine eigene, klar steuerbare Größe. */
 async function pushLock(p){
   var client=sb();
-  if(client && _ccpId && p && !p.demo){
+  if(client && _ccpId && p && !p.demo && !p.training){   /* Übungsdaten nie an die Cloud — sonst Leck + möglicher Netz-Hänger */
     try{ await client.from('patients').update({locked_by:p.lockedBy||null, locked_at:p.lockedAt||null}).eq('id',p.id); }catch(e){}
   }
 }
@@ -1615,7 +1615,7 @@ function vStart(){
   }
   /* Geführtes Training — automatisch über die Schulungsumgebung verfügbar. */
   if(_praesidiumName==='Schulungsumgebung'){
-    h += '<button class="prim" data-action="starttraining" style="margin-top:10px;background:#6A1B9A;border-color:#6A1B9A">🎓 Geführtes Training '+(_training?'fortsetzen':'starten')+'</button>';
+    h += '<button class="prim" data-action="starttraining" style="margin-top:10px;background:var(--acc);border-color:var(--acc)">🎓 Geführtes Training '+(_training?'fortsetzen':'starten')+'</button>';
   }
   /* Reset-Button nur, wenn die Schulungsumgebung verändert wurde (oder Zustand
    * unbekannt/offline) — im Originalzustand ausgeblendet. */
@@ -1697,7 +1697,8 @@ var TRAIN_LESSONS=[
   {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
   {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen und Merksätze — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
 
-  {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es. Öffne die Checkliste CCP, schau dich kurz um — dann kommst du mit ‹ oben links wieder zurück.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
+  {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
+  {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.'},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
   {t:'Direkt anlegen', mode:'do', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
   {t:'Sichten mit tacSTART', mode:'do', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
@@ -1794,7 +1795,7 @@ function trainSpotlight(target, spotKey, mode){
     bl.style.left=x+'px'; bl.style.top=y+'px'; bl.style.width=w+'px'; bl.style.height=h+'px';
   } else if(bl&&bl.parentNode){ bl.parentNode.removeChild(bl); }
   var ring=document.getElementById('train-ring');
-  if(!ring){ ring=document.createElement('div'); ring.id='train-ring'; ring.style.position='fixed'; ring.style.zIndex='8001'; ring.style.pointerEvents='none'; ring.style.borderRadius='12px'; ring.style.boxShadow='0 0 0 3px #6A1B9A,0 0 0 9px rgba(106,27,154,.30)'; document.body.appendChild(ring); }
+  if(!ring){ ring=document.createElement('div'); ring.id='train-ring'; ring.style.position='fixed'; ring.style.zIndex='8001'; ring.style.pointerEvents='none'; ring.style.borderRadius='12px'; ring.style.boxShadow='0 0 0 2px #1f2530,0 0 0 5px #fff,0 0 0 10px rgba(31,37,48,.30)'; document.body.appendChild(ring); }
   ring.style.left=x+'px'; ring.style.top=y+'px'; ring.style.width=w+'px'; ring.style.height=h+'px';
 }
 function trainTeardown(){
@@ -1829,33 +1830,33 @@ function renderCoach(){
   var key=(fin?'fin':('s'+_trainStep))+'|'+(doitTxt||'')+'|'+(target?'t':'n')+'|'+(backRedirect?'b':'');
   if(el.getAttribute('data-k')!==key){
     el.setAttribute('data-k',key);
-    var head='<div style="height:6px;background:var(--surf2)"><i style="display:block;height:100%;width:'+pct+'%;background:#6A1B9A"></i></div>';
+    var head='<div style="height:6px;background:var(--surf2)"><i style="display:block;height:100%;width:'+pct+'%;background:var(--acc)"></i></div>';
     if(fin){
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
         '<div style="padding:15px 17px 0"><div style="font-size:20px;font-weight:700">🎓 Training abgeschlossen</div>'+
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">Du hast den kompletten Ablauf durchgespielt — jederzeit wiederholbar.</div></div>'+
         '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
-        '<button data-tc="end" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">Beenden &amp; Übungsdaten löschen</button></div></div>';
+        '<button data-tc="end" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--acc);color:#fff">Beenden &amp; Übungsdaten löschen</button></div></div>';
     }else if(backRedirect){
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
-        '<div style="padding:15px 17px 0"><div style="font-size:18px;font-weight:700;color:#6A1B9A">↩ Zurück zur Startseite</div>'+
+        '<div style="padding:15px 17px 0"><div style="font-size:18px;font-weight:700;color:var(--acc)">↩ Zurück zur Startseite</div>'+
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">Alles klar. Wenn du hier fertig bist, tippe oben links auf <b>‹</b> — dann geht es weiter mit <b>'+esc(L.t)+'</b>.</div></div>'+
         '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
         '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">Beenden</button>'+
         '<button data-tc="skip" style="flex:1;border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px;font-weight:600;color:var(--mut)">Überspringen ›</button>'+
         '</div></div>';
     }else{
-      var doit=(doitTxt&&target)?'<div style="margin-top:11px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#6A1B9A">👆 '+esc(doitTxt)+'</div>'
+      var doit=(doitTxt&&target)?'<div style="margin-top:11px;background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:var(--acc)">👆 '+esc(doitTxt)+'</div>'
               :((L.adv&&(L.sel||L.home)&&!target)?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Wechsle zur passenden Ansicht — der Hinweis erscheint dann von selbst.</div>':'');
       var canNext=!(L.adv&&_trainStep>=_trainMax);   /* „Weiter" erst frei, wenn Aufgabe erledigt (sonst übernimmt Auto-Weiter) */
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
         '<div style="padding:15px 17px 0">'+
-        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6A1B9A">🎓 Lektion '+(_trainStep+1)+' / '+n+'<span style="margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0;font-size:10.5px">nur dieses Gerät</span></div>'+
+        '<div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--acc)">🎓 Lektion '+(_trainStep+1)+' / '+n+'<span style="margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0;font-size:10.5px">nur dieses Gerät</span></div>'+
         '<div style="font-size:20px;font-weight:700;letter-spacing:-.01em;margin-top:9px">'+esc(L.t)+'</div>'+
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">'+esc(L.x)+'</div>'+doit+'</div>'+
         '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
         '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">Beenden</button>'+
-        (canNext?'<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>':'<button data-tc="nextoff" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--surf2);color:#9aa0a6">Aufgabe erledigen …</button>')+
+        (canNext?'<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--acc);color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>':'<button data-tc="nextoff" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--surf2);color:#9aa0a6">Aufgabe erledigen …</button>')+
         '</div>'+
         (canNext?'':'<div style="text-align:center;padding:0 0 12px"><a href="#" data-tc="skip" style="font-size:12.5px;color:var(--mut);text-decoration:none">Schritt überspringen ›</a></div>')+
         '</div>';
