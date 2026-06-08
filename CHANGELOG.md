@@ -6,6 +6,18 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.10 — 2026-06-08
+**Training: Scroll endgültig robust + mehr Erklärung**
+- **Verdeckungs-Erkennung + sauberes Zentrieren:** Der Spotlight prüft jetzt, ob das Ziel hinter
+  Header/Panel (oder außerhalb) liegt, und scrollt nur dann — via `scrollIntoView({block:'nearest'})`
+  + `scroll-margin` (Header-/Panel-Zone). Rects werden **nach** dem Scroll gemessen → kein Versatz
+  mehr (das vorige `window.scrollTo` hatte alle Highlights verschoben).
+- **Neue Lektion „Die CCP-Ansicht im Überblick"** direkt nach der CCP-Eröffnung: erklärt die Zähler
+  (T-1…T-5, PRIO, gPA) und die Hauptfunktionen, bevor die erste echte Lektion startet.
+- **Übergabekarte-Lektion** erklärt jetzt das A/T/M/I/S/T-Schema und warum die Karte gesperrt ist;
+  neue Lektion **„Korrigieren: Zurückholen"** (was „↩ Zurückholen → aktiv" bewirkt).
+- 15 Lektionen; Ablauf-Logik per Probeläufen 15/15 grün.
+
 ## v0.18.9 — 2026-06-08
 **Training: gPA-Übergabe integriert, granularer, Scroll endgültig gefixt**
 - **Scroll-Fix:** `window.scrollTo(0,y)` (zwei-Argument-Form, iOS-Standalone-PWA-kompatibel) statt
