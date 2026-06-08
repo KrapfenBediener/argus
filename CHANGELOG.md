@@ -6,6 +6,22 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.12 — 2026-06-08
+**Training: Erst-Zentrieren-Fix, fehlende Highlights ergänzt, mehr Patienten-Funktionen**
+- **Erstes Zentrieren je Schritt sitzt jetzt** — eine zusätzliche Nachmessung per
+  `requestAnimationFrame` korrigiert das Erst-Paint-Layout (vorher konnte genau das *erste*
+  Spotlight daneben liegen, bis ein Re-Render kam).
+- **Highlighting dort ergänzt, wo es fehlte:** „Patienten öffnen" (Spotlight auf die Zähler-Leiste,
+  **nicht-blockierend** — Kachel *oder* „Alle Patienten" frei wählbar), Übergabekarte
+  (A-/M-/Maßnahmen-Zeile) und der **„Zurückholen"-Button**.
+- **Neue Erklär-Lektionen für die übrigen Patienten-Funktionen** — Vitalwerte, Maßnahmen (cABCDE),
+  Verletzungen, Foto, Kategorie & Prio — je mit Spotlight auf den jeweiligen Abschnitt (vorher
+  sprang das Intro vom TQ-Timer direkt zu „transportfertig").
+- Neuer nicht-blockierender Spotlight-Modus (`free`) für Schritte mit mehreren gültigen Wegen.
+- 25 Lektionen; Ablauf-Logik per Probeläufen 17/17 grün.
+
+---
+
 ## v0.18.11 — 2026-06-08
 **Training: Scroll auf direktes `scrollTop`, Erklärungen in Einzelschritte**
 - **Scroll endgültig auf die simpelste, zuverlässigste Methode:** direktes `scrollingElement.scrollTop`
