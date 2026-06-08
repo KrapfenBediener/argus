@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.7 — 2026-06-08
+**Training: Weiter-Sperre, Ziel zentrieren, Buttons robust**
+- **„Weiter" erst frei, wenn die Aufgabe erledigt ist:** Bei Aktions-Schritten ist die Schaltfläche
+  gesperrt (grau „Aufgabe erledigen …") — Fortschritt nur durch die Aufgabe (Auto-Weiter). Bei
+  manuellen Schritten und im Review ist „Weiter" normal nutzbar.
+- **Ziel zentriert beim Ansichts-Rückkehr:** Der Spotlight scrollt jetzt auch, wenn sich das Ziel
+  INNERHALB eines Schritts ändert (Übergang „Zurück" → dann „Patientenübersicht") → der Button
+  wird mittig über dem Panel angezeigt, nicht mehr dahinter versteckt (`spotKey` statt nur Schritt).
+- **Zurück/Weiter robuster:** Button-Klicks werden bei jedem Coach-Render neu verdrahtet (nicht nur
+  beim Panel-Neuaufbau) → „‹"-Zurück greift zuverlässig.
+
 ## v0.18.6 — 2026-06-08
 **Training: Übergangs-Hinweis + getestet**
 - **Übergangs-Hinweis** an View-Wechseln: Steht der nächste Schritt auf der Startseite, du bist

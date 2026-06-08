@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.6';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.18.7';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1728,7 +1728,7 @@ function trainCheckAdvance(){
   if(adv){ trainSave(); try{ toast('Schritt erledigt ✓'); }catch(e){} }
 }
 /* Spotlight: 4 Abdunkel-Rechtecke um das Ziel-Element (robust, ohne z-index-Tricks). */
-var _trainSpotStep=-1;
+var _trainSpotKey='';
 function trainRect(id,x,y,w,h){
   var d=document.getElementById(id);
   if(!d){ d=document.createElement('div'); d.id=id; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; document.body.appendChild(d); }
@@ -1744,9 +1744,9 @@ function trainScrollTo(target){
     if(window.scrollBy) window.scrollBy({top:delta, behavior:'smooth'});
   }catch(e){}
 }
-function trainSpotlight(target){
-  if(!target){ trainClearSpot(); _trainSpotStep=-1; return; }
-  if(_trainSpotStep!==_trainStep){ _trainSpotStep=_trainStep; trainScrollTo(target); }
+function trainSpotlight(target, spotKey){
+  if(!target){ trainClearSpot(); _trainSpotKey=''; return; }
+  if(_trainSpotKey!==spotKey){ _trainSpotKey=spotKey; trainScrollTo(target); }
   var r=target.getBoundingClientRect(), pad=6;
   var x=Math.max(0,r.left-pad), y=Math.max(0,r.top-pad), w=r.width+2*pad, h=r.height+2*pad;
   var vw=window.innerWidth, vh=window.innerHeight;
@@ -1778,7 +1778,8 @@ function renderCoach(){
     /* Ziel liegt auf der Startseite, wir sind aber auf einer Unteransicht → Übergang „zurück". */
     if(!target && L.home && state.view!=='home'){ target=document.getElementById('backbtn'); backRedirect=true; }
   }
-  try{ trainSpotlight(target); }catch(e){ trainClearSpot(); }
+  var spotKey=target?((backRedirect?'B':'S')+_trainStep):'';
+  try{ trainSpotlight(target, spotKey); }catch(e){ trainClearSpot(); }
   var el=document.getElementById('train-coach');
   if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }
   var pct=Math.round((Math.min(_trainStep,n)/n)*100);
@@ -1803,6 +1804,7 @@ function renderCoach(){
     }else{
       var doit=(doitTxt&&target)?'<div style="margin-top:11px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#6A1B9A">👆 '+esc(doitTxt)+'</div>'
               :((L.adv&&(L.sel||L.home)&&!target)?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Wechsle zur passenden Ansicht — der Hinweis erscheint dann von selbst.</div>':'');
+      var canNext=!(L.adv&&_trainStep>=_trainMax);   /* „Weiter" erst frei, wenn Aufgabe erledigt (sonst übernimmt Auto-Weiter) */
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
         '<div style="padding:15px 17px 0">'+
         '<div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#6A1B9A">🎓 Lektion '+(_trainStep+1)+' / '+n+'<span style="margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0;font-size:10.5px">nur dieses Gerät</span></div>'+
@@ -1811,14 +1813,14 @@ function renderCoach(){
         '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
         '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">Beenden</button>'+
         (_trainStep>0?'<button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">‹</button>':'')+
-        '<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>'+
+        (canNext?'<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>':'<button data-tc="nextoff" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--surf2);color:#9aa0a6">Aufgabe erledigen …</button>')+
         '</div></div>';
     }
-    var b;
-    if((b=el.querySelector('[data-tc=next]')))b.onclick=function(){trainStep(1);};
-    if((b=el.querySelector('[data-tc=prev]')))b.onclick=function(){trainStep(-1);};
-    if((b=el.querySelector('[data-tc=end]')))b.onclick=function(){endTraining();};
   }
+  var b;
+  if((b=el.querySelector('[data-tc=next]')))b.onclick=function(){trainStep(1);};
+  if((b=el.querySelector('[data-tc=prev]')))b.onclick=function(){trainStep(-1);};
+  if((b=el.querySelector('[data-tc=end]')))b.onclick=function(){endTraining();};
 }
 if(typeof window!=='undefined'){
   window.addEventListener('scroll',function(){ if(_training){ try{renderCoach();}catch(e){} } },{passive:true});
