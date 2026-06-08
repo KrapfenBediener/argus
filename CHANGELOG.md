@@ -6,6 +6,21 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.11 — 2026-06-08
+**Training: Scroll auf direktes `scrollTop`, Erklärungen in Einzelschritte**
+- **Scroll endgültig auf die simpelste, zuverlässigste Methode:** direktes `scrollingElement.scrollTop`
+  (kein `scrollTo`/`scrollIntoView`/`scrollBy` mehr — die hatten auf der iOS-PWA je anders versagt).
+  Das Ziel wird mittig in den freien Bereich zwischen Header und Coach-Panel gesetzt; die Markierung
+  wird **nach** dem Scroll gemessen → kein Versatz, nichts mehr hinter dem Panel.
+- **CCP-Ansicht in Einzel-Erklärungen aufgeteilt:** „die Lage-Zähler" → „Patient erfassen" →
+  „Patientenübersicht", je eine Karte mit „Weiter" (statt einer großen Erklärung).
+- **„Patienten öffnen"** erklärt jetzt beide Wege: Sichtungs-Kachel (nur diese Kategorie) ODER
+  „Alle Patienten"; in der Übersicht kein erzwungener Spotlight mehr.
+- **Übergabekarte in 3 Schritten erklärt** (Kopf + A · T/M/I · S/T + warum gesperrt).
+- 20 Lektionen; Ablauf-Logik per Probeläufen 20/20 grün.
+
+---
+
 ## v0.18.10 — 2026-06-08
 **Training: Scroll endgültig robust + mehr Erklärung**
 - **Verdeckungs-Erkennung + sauberes Zentrieren:** Der Spotlight prüft jetzt, ob das Ziel hinter

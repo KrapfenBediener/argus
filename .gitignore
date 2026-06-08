@@ -62,6 +62,8 @@ docs/PROJEKT-UEBERSICHT.html
 # Hinweis: docs/UPDATE_*.html sind NUTZERSEITIG (aus der App verlinkt) → öffentlich, NICHT ignorieren.
 # Interne Design-Mockups
 docs/UI-UEBERGABE-KARTE.html
+docs/UI-TRAINING-MOCKUP.html
+docs/UI-TRAINING-INTERAKTIV.html
 # Präsentationen/Decks (intern)
 docs/PRAESENTATION.html
 docs/PRAESENTATION-LAUNCH.html

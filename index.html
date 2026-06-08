@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.10';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.18.11';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1689,17 +1689,22 @@ function cmpVer(a,b){
 var TRAIN_LESSONS=[
   {t:'Willkommen', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt. Folge den lila Hinweisen; mit „Weiter" geht es los.'},
   {t:'CCP eröffnen', x:'Eine CCP ist deine Sammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
-  {t:'Die CCP-Ansicht im Überblick', x:'Das ist deine CCP-Übersicht. GANZ OBEN die Zähler je Sichtungskategorie — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben) — plus PRIO (prioritärer Transport) und gPA (abtransportiert). Sie zeigen jederzeit die Lage. DARUNTER die Hauptfunktionen: „Patient erfassen", „Patientenübersicht" und „Checkliste CCP". Die gehen wir jetzt der Reihe nach durch.'},
+  {t:'Überblick: die Lage-Zähler', x:'Ganz oben — je Sichtungskategorie die aktuelle Zahl: T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage. Nur ansehen, dann „Weiter".', sel:'.countbar'},
+  {t:'Überblick: Patient erfassen', x:'Mit diesem Feld legst du neue Verletzte an — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz. Nur ansehen, dann „Weiter".', sel:'[data-action="nav"][data-view="capture"]'},
+  {t:'Überblick: Patientenübersicht', x:'Hier siehst du später alle Patienten nach Kategorie sortiert und steuerst Prio, transportfertig und Abtransport. Nur ansehen, dann „Weiter".', sel:'[data-action="nav"][data-view="overview"]'},
   {t:'Checkliste CCP', x:'Die Checkliste führt dich durch Aufbau und Leitung (Örtlichkeit, Sicherung, Rollen, Material …). Öffne sie, hak ein paar Punkte ab — dann unten auf „Weiter".', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"'},
   {t:'Patient erfassen', x:'Hier legst du Verletzte an — direkt einer Kategorie oder geführt per tacSTART.', home:true, sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
   {t:'Direkt anlegen', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
   {t:'Sichten mit tacSTART', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
   {t:'Übersicht & Lagebild', x:'Oben die Zahlen je Kategorie (Rot/Gelb/Grün …), darunter die Listen — so behältst du die Lage im Blick.', home:true, sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
-  {t:'Patienten öffnen', x:'Jetzt versorgst du am Patienten. Öffne einen — über „Alle Patienten", dann den Patienten selbst.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="all"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':'Tippe „Alle Patienten"';}, adv:function(){return state.view==='patient';}},
+  {t:'Patienten öffnen', x:'Jetzt versorgst du am Patienten. Zwei Wege zur Liste: Tippe oben eine Sichtungs-Kachel (z. B. T-1) — dann siehst du nur diese Kategorie — ODER „Alle Patienten" für die Gesamtliste. Anschließend tippe den Patienten an.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':null;}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':null;}, adv:function(){return state.view==='patient';}},
   {t:'Tourniquet-Timer', x:'Bei kritischer Blutung zählt die Zeit: Starte den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
   {t:'Transportfertig markieren', x:'Ist der Patient versorgt und bereit, markierst du ihn als „transportfertig".', sel:'[data-action="ready"]', doit:'Tippe „als transportfertig markieren"', adv:function(){return trainSome(function(p){return p.ready;});}},
   {t:'Abtransport → gPA', x:'Beim Abtransport checkst du den Patienten aus — damit verlässt er den CCP Richtung gPA.', sel:'[data-action="gpa"]', doit:'Tippe „Abtransport → gPA"', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
-  {t:'Übergabekarte ansehen', x:'Öffne den ausgecheckten Patienten erneut — es erscheint die AT-MIST-Übergabekarte. Sie zeigt alles in fester Reihenfolge zum Vorlesen an die gPA: A (Alter), T (Zeiten, z. B. TQ-Dauer), M (Mechanismus), I (Verletzungen), S (Befund/Vitalwerte) und T (Maßnahmen). So gibst du auch unter Stress eine vollständige, geordnete Übergabe. Die Karte ist gesperrt — ein eingefrorener Stand, damit sich beim Vorlesen nichts ändert.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="gpa"]':null);}, doit:function(){return state.view==='catlist'?'Tippe den ausgecheckten Patienten':'Tippe die „gPA"-Kachel';}, adv:function(){return state.view==='patient'&&state.edit&&state.edit.status==='gpa';}},
+  {t:'Übergabekarte ansehen', x:'Öffne den ausgecheckten Patienten erneut — es erscheint die AT-MIST-Übergabekarte zum Vorlesen an die gPA. Schau sie dir an; mit „Weiter" gehen wir sie Punkt für Punkt durch.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="gpa"]':null);}, doit:function(){return state.view==='catlist'?'Tippe den ausgecheckten Patienten':'Tippe die „gPA"-Kachel';}, adv:function(){return state.view==='patient'&&state.edit&&state.edit.status==='gpa';}},
+  {t:'Die Karte erklärt (1/3)', x:'Oben der Kopf: laufende Nummer, Sichtungs-Kategorie und ggf. PRIO. Dann beginnt das AT-MIST-Schema — A: Alter/Geschlecht (soweit bekannt). So weiß die gPA sofort, wen sie übernimmt.'},
+  {t:'Die Karte erklärt (2/3)', x:'T: Zeiten — z. B. wie lange das Tourniquet schon liegt (kritisch für die Weiterversorgung). M: Mechanismus — was ist passiert. I: Verletzungen — die festgehaltenen Befunde.'},
+  {t:'Die Karte erklärt (3/3)', x:'S: Befund/Vitalwerte (WASB, AF, SpO₂ …). T: Maßnahmen — was wurde am Patienten gemacht. Alles in fester Reihenfolge zum flüssigen Vorlesen. Die Karte ist gesperrt: ein eingefrorener Stand, damit sich beim Vorlesen nichts mehr ändert.'},
   {t:'Korrigieren: „Zurückholen"', x:'Stimmt nach dem Auschecken doch etwas nicht? Mit „↩ Zurückholen → aktiv" (unten in der Karte) holst du den Patienten kurz in den aktiven Bestand zurück, korrigierst Vitalwerte/Maßnahmen und checkst ihn erneut aus. So bleibt die Übergabe immer korrekt — und nichts geht verloren.'},
   {t:'Geschafft! 🎉', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben — genau das brauchst du im Einsatz. „Beenden" räumt die Übungsdaten ab.'}
 ];
@@ -1742,9 +1747,10 @@ function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-r
 /* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
 function trainScrollTo(target){
   try{
-    target.style.scrollMarginTop='72px';        /* unter dem App-Header */
-    target.style.scrollMarginBottom='244px';     /* über dem Coach-Panel */
-    target.scrollIntoView({block:'nearest'});    /* nur so weit nötig, container-aware, sofort */
+    var sc=document.scrollingElement||document.documentElement||document.body;
+    var r=target.getBoundingClientRect();
+    var safeTop=66, safeBottom=window.innerHeight-244, center=(safeTop+safeBottom)/2;
+    sc.scrollTop=Math.max(0, sc.scrollTop + (r.top + r.height/2 - center));  /* Ziel sofort mittig in den freien Bereich */
   }catch(e){ try{ target.scrollIntoView(); }catch(e2){} }
 }
 function trainSpotlight(target, spotKey){
