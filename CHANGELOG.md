@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.5 — 2026-06-08
+**Erst-Intro verweist aufs geführte Training**
+- Das Erstinstallations-Intro hat jetzt eine **5. Slide „Erst mal üben?"**, die am Ende auf das
+  „Geführte Training" auf der Startseite hinweist (gefahrloses Üben, nichts wird geteilt). Vorher
+  endete das Intro nach „Mehrere Geräte" ohne Hinweis auf das Training.
+
+---
+
 ## v0.19.4 — 2026-06-08
 **Training: kein manuelles Zurücksetzen mehr, gPA sichtbar, AT-MIST einzeln**
 - **Schulungsumgebung muss nicht mehr jedes Mal zurückgesetzt werden.** „CCP eröffnen" legt im

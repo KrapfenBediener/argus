@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.4';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.5';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -186,7 +186,8 @@ var INTRO_STEPS = [
   {icon:'🛡️', title:'Willkommen bei ARGUS', text:'ARGUS erfasst und sichtet Patienten am CCP — einhändig bedienbar, offline-fähig und für mehrere Geräte gleichzeitig.'},
   {icon:'＋', title:'Patienten erfassen', text:'„Patient erfassen" → geführt mit tacSTART oder direkt eine Kategorie (T-1…T-5). Die laufende Nummer vergibt ARGUS automatisch.'},
   {icon:'▦', title:'Übersicht & Bearbeiten', text:'Über die Kacheln oder „Alle Patienten" findest du jeden Fall. Antippen öffnet Vitalwerte, Maßnahmen, Foto und Kategorie.'},
-  {icon:'⇄', title:'Mehrere Geräte', text:'Alle im selben CCP teilen dieselbe Liste. Wer einen Patienten bearbeitet, sperrt ihn kurz. Offline läuft alles weiter und gleicht sich später ab.'}
+  {icon:'⇄', title:'Mehrere Geräte', text:'Alle im selben CCP teilen dieselbe Liste. Wer einen Patienten bearbeitet, sperrt ihn kurz. Offline läuft alles weiter und gleicht sich später ab.'},
+  {icon:'🎓', title:'Erst mal üben?', text:'Auf der Startseite findest du „Geführtes Training" — es führt dich Schritt für Schritt durch den kompletten Ablauf. Ideal zum gefahrlosen Üben: nichts wird dabei geteilt oder gespeichert.'}
 ];
 var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
 var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
