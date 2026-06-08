@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.3';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1259,7 +1259,7 @@ function vCapture(){
   /* Kontext: nächste Nummer + zuletzt angelegter Patient (gegen Doppelerfassung).
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
    * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
-  h+='<div class="card" style="margin-top:12px;padding:12px">';
+  h+='<div class="card" id="cap-last" style="margin-top:12px;padding:12px">';
   h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+nextNum()+'</span></div>';
   var lc=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
   if(lc){
@@ -1540,7 +1540,7 @@ function vHandover(p,c){
      '<span style="font-size:15px">🔒</span><div style="flex:1">'+
      '<div style="font-weight:600">Ausgecheckt → gPA · Übergabe-Karte</div>'+
      '<div class="hint" style="margin-top:2px">Bearbeitung gesperrt · der Reihe nach vorlesen</div></div></div>';
-  h+='<div class="card" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px">'+
+  h+='<div class="card" data-am="hdr" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px">'+
      '<span class="pnum" style="font-size:30px">'+pno(p)+'</span>'+
      '<span class="pill" style="font-size:14px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+' '+c.nm+'</span>'+
      (p.prio?'<span class="pill" style="font-size:13px;background:var(--prio);color:#fff">PRIO</span>':'')+
@@ -1696,19 +1696,21 @@ var TRAIN_LESSONS=[
   {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
   {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
   {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen und Merksätze — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
+  {t:'CCP abschließen', mode:'explain', x:'Ganz unten gibt es „CCP abschließen" — blendet die CCP aus der Auswahl aus, die Daten bleiben erhalten. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle) — nur diese darf abschließen. Mit dem MasterToken lässt sich eine CCP zusätzlich ganz löschen.', sel:'[data-action="ccpclose"]'},
 
   {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.'},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
   {t:'Direkt anlegen', mode:'do', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
+  {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt (gegen Doppelerfassung) — samt nächster Nummer. Du kannst direkt „Prio" setzen oder den „TQ"-Timer starten, „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg.', sel:'#cap-last'},
   {t:'Sichten mit tacSTART', mode:'do', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
   {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Zwei Wege: oben eine Sichtungs-Kachel (nur diese Kategorie) ODER „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
-  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto (pseudonym, nur lokal) — hilft, den Patienten ohne Namen sicher wiederzuerkennen.', sel:'#ph-foto'},
-  {t:'Detail: Kategorie wechseln', mode:'explain', x:'Verschlechtert sich der Zustand, verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie.', sel:'#ph-cat'},
+  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Identifikation — du brauchst keinen Namen (pseudonym). Es wird mit dem Patienten geteilt und ist für alle im selben CCP sichtbar.', sel:'#ph-foto'},
+  {t:'Detail: Kategorie wechseln', mode:'explain', x:'Ändert sich der Zustand — verschlechtert ODER verbessert — verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie (Re-Triage, in beide Richtungen).', sel:'#ph-cat'},
   {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
   {t:'Detail: Maßnahmen (cABCDE)', mode:'explain', x:'Hier dokumentierst du durchgeführte Maßnahmen entlang des cABCDE-Schemas: kritische Blutung, Atemweg, Beatmung, Kreislauf, weitere.', sel:'#ph-tx'},
   {t:'Detail: Verletzungen', mode:'explain', x:'Verletzungen erfasst du kurz nach Region und Art — eindeutig und schnell.', sel:'#ph-inj'},
@@ -1718,9 +1720,9 @@ var TRAIN_LESSONS=[
   {t:'Abtransport → gPA', mode:'do', x:'Beim Abtransport checkst du den Patienten aus — damit verlässt er den CCP Richtung gPA (Patientenablage / Rettungsmittel).', sel:'[data-action="gpa"]', doit:'Tippe „Abtransport → gPA"', adv:function(){return trainSome(function(p){return p.status==='gpa';});}},
 
   {t:'Übergabekarte öffnen', mode:'choice', x:'Öffne den ausgecheckten Patienten erneut — es erscheint die AT-MIST-Übergabekarte zum Vorlesen an die gPA. Über die „gPA"-Kachel und dann den Patienten.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="gpa"]':null);}, doit:function(){return state.view==='catlist'?'Tippe den Patienten':'Tippe die „gPA"-Kachel';}, adv:function(){return state.view==='patient'&&state.edit&&state.edit.status==='gpa';}},
-  {t:'Karte: Kopf & A', mode:'explain', x:'Oben der Kopf: laufende Nummer, Kategorie, ggf. PRIO. Dann das AT-MIST-Schema — A: Alter/Geschlecht (soweit bekannt). So weiß die gPA sofort, wen sie übernimmt.', sel:'[data-am="A"]'},
-  {t:'Karte: T · M · I', mode:'explain', x:'T: Zeiten — z. B. wie lange das Tourniquet schon liegt (kritisch). M: Mechanismus — was ist passiert. I: Verletzungen — die festgehaltenen Befunde.', sel:'[data-am="M"]'},
-  {t:'Karte: S · T', mode:'explain', x:'S: Befund/Vitalwerte. T: Maßnahmen — was wurde gemacht. Alles in fester Reihenfolge zum flüssigen Vorlesen. Die Karte ist gesperrt — ein eingefrorener Stand, damit sich beim Vorlesen nichts ändert.', sel:'[data-am="TT"]'},
+  {t:'Karte: Kopf & A', mode:'explain', x:'Oben der Kopf: laufende Nummer, Kategorie, ggf. PRIO. Dann das AT-MIST-Schema — A: Alter/Geschlecht (soweit bekannt). So weiß die gPA sofort, wen sie übernimmt.', sel:'[data-am="hdr"],[data-am="A"]'},
+  {t:'Karte: T · M · I', mode:'explain', x:'T: Zeiten — z. B. wie lange das Tourniquet schon liegt (kritisch). M: Mechanismus — was ist passiert. I: Verletzungen — die festgehaltenen Befunde.', sel:'[data-am="T1"],[data-am="M"],[data-am="I"]'},
+  {t:'Karte: S · T', mode:'explain', x:'S: Befund/Vitalwerte. T: Maßnahmen — was wurde gemacht. Alles in fester Reihenfolge zum flüssigen Vorlesen. Die Karte ist gesperrt — ein eingefrorener Stand, damit sich beim Vorlesen nichts ändert.', sel:'[data-am="S"],[data-am="TT"]'},
   {t:'Korrigieren: „Zurückholen"', mode:'explain', x:'Stimmt doch etwas nicht? Mit „↩ Zurückholen → aktiv" holst du den Patienten kurz in den aktiven Bestand zurück, korrigierst und checkst erneut aus. So bleibt die Übergabe immer korrekt — nichts geht verloren.', sel:'[data-action="reactivate"]'},
   {t:'Geschafft! 🎉', mode:'explain', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben. „Beenden" räumt die Übungsdaten ab — danach kannst du es jederzeit wiederholen.'}
 ];
@@ -1761,24 +1763,28 @@ function trainRect(id,x,y,w,h){
 }
 function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring','train-block'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
 /* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
-function trainScrollTo(target){
+function trainUnionRect(nodes){
+  var Lf=1e9,Tf=1e9,Rf=-1e9,Bf=-1e9,any=false;
+  for(var i=0;i<nodes.length;i++){ var eln=nodes[i]; if(!eln||!eln.getBoundingClientRect) continue; var r=eln.getBoundingClientRect(); if(r.width||r.height){ any=true; if(r.left<Lf)Lf=r.left; if(r.top<Tf)Tf=r.top; if(r.right>Rf)Rf=r.right; if(r.bottom>Bf)Bf=r.bottom; } }
+  return any?{left:Lf,top:Tf,right:Rf,bottom:Bf,width:Rf-Lf,height:Bf-Tf}:null;
+}
+function trainScrollToRect(rect){
   try{
     var sc=document.scrollingElement||document.documentElement||document.body;
     var panel=document.getElementById('train-coach');
     var ph=panel?panel.offsetHeight:230;
-    var r=target.getBoundingClientRect();
     var safeTop=54, safeBottom=window.innerHeight-ph-14;       /* unter sticky-Topbar / über dem Coach-Panel */
     if(safeBottom-safeTop<70) safeBottom=safeTop+70;
-    if(r.top>=safeTop && r.bottom<=safeBottom) return;         /* schon frei sichtbar → NICHT scrollen (Top-Elemente bleiben unangetastet) */
+    if(rect.top>=safeTop && rect.bottom<=safeBottom) return;   /* schon frei sichtbar → NICHT scrollen (Top-Elemente bleiben unangetastet) */
     var center=(safeTop+safeBottom)/2;
-    sc.scrollTop=Math.max(0, sc.scrollTop + (r.top + r.height/2 - center));
-  }catch(e){ try{ target.scrollIntoView(); }catch(e2){} }
+    sc.scrollTop=Math.max(0, sc.scrollTop + (rect.top + rect.height/2 - center));
+  }catch(e){}
 }
-function trainSpotlight(target, spotKey, mode, forceScroll){
-  if(!target){ trainClearSpot(); _trainSpotKey=''; return; }
+function trainSpotlight(nodes, spotKey, mode, forceScroll){
+  if(!nodes || !nodes.length){ trainClearSpot(); _trainSpotKey=''; return; }
   var changed=_trainSpotKey!==spotKey; _trainSpotKey=spotKey;
-  if(changed||forceScroll) trainScrollTo(target);    /* NUR bei neuem Ziel zentrieren → der Nutzer kann frei scrollen (z. B. zu „Alle Patienten") */
-  var r=target.getBoundingClientRect();
+  var r=trainUnionRect(nodes); if(!r){ trainClearSpot(); return; }
+  if(changed||forceScroll){ trainScrollToRect(r); var r2=trainUnionRect(nodes); if(r2) r=r2; }   /* NUR bei neuem Ziel zentrieren → freies Scrollen bleibt möglich */
   var pad=6;
   var x=Math.max(0,r.left-pad), y=Math.max(0,r.top-pad), w=r.width+2*pad, h=r.height+2*pad;
   var vw=window.innerWidth, vh=window.innerHeight;
@@ -1811,21 +1817,17 @@ function renderCoach(){
   var ap=document.getElementById('app'); if(ap)ap.style.paddingBottom='230px';
   var n=TRAIN_LESSONS.length, fin=_trainStep>=n;
   var L=fin?null:TRAIN_LESSONS[_trainStep];
-  var target=null, doitTxt=null, backRedirect=false;
+  var nodes=null, doitTxt=null, backRedirect=false;
   if(L){
     doitTxt=(typeof L.doit==='function')?L.doit():(L.doit||null);
     var sel=(typeof L.sel==='function')?L.sel():L.sel;
-    if(sel) target=document.querySelector(sel);
+    if(sel){ var _nl=document.querySelectorAll(sel); if(_nl.length) nodes=_nl; }
     /* Ziel liegt auf der Startseite, wir sind aber auf einer Unteransicht → Übergang „zurück". */
-    if(!target && L.home && state.view!=='home'){ target=document.getElementById('backbtn'); backRedirect=true; }
+    if(!nodes && L.home && state.view!=='home'){ var _bb=document.getElementById('backbtn'); if(_bb){ nodes=[_bb]; backRedirect=true; } }
   }
+  var target=nodes?nodes[0]:null;
   var spotKey=target?((backRedirect?'B':'S')+_trainStep+'|'+(doitTxt||'')):'';
   var spotMode=(L&&L.mode)||'explain';
-  var wasKey=_trainSpotKey;
-  try{ trainSpotlight(target, spotKey, spotMode, false); }catch(e){ trainClearSpot(); }
-  /* NUR bei neuem Ziel eine Frame später nachzentrieren (Erst-Paint). Bei gleichem Ziel NICHT — sonst würde
-   * jedes Re-Render zurückscrollen und freies Scrollen (z. B. zu „Alle Patienten") verhindern. */
-  if(target && spotKey!==wasKey && window.requestAnimationFrame){ requestAnimationFrame(function(){ if(_training && _trainSpotKey===spotKey){ try{ trainSpotlight(target, spotKey, spotMode, true); }catch(e){} } }); }
   var el=document.getElementById('train-coach');
   if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }
   var pct=Math.round((Math.min(_trainStep,n)/n)*100);
@@ -1868,6 +1870,11 @@ function renderCoach(){
   if((b=el.querySelector('[data-tc=next]')))b.onclick=function(){trainStep(1);};
   if((b=el.querySelector('[data-tc=skip]')))b.onclick=function(e){if(e&&e.preventDefault)e.preventDefault();trainStep(1);};
   if((b=el.querySelector('[data-tc=end]')))b.onclick=function(){endTraining();};
+  /* Spotlight ZULETZT — das Panel (samt Höhe) steht jetzt, damit der Scroll die echte Panelhöhe kennt
+   * und das Ziel nicht hinter dem Panel landet. NUR bei neuem Ziel zentrieren → freies Scrollen bleibt möglich. */
+  var wasKey=_trainSpotKey;
+  try{ trainSpotlight(nodes, spotKey, spotMode, false); }catch(e){ trainClearSpot(); }
+  if(target && spotKey!==wasKey && window.requestAnimationFrame){ requestAnimationFrame(function(){ if(_training && _trainSpotKey===spotKey){ try{ trainSpotlight(nodes, spotKey, spotMode, true); }catch(e){} } }); }
 }
 if(typeof window!=='undefined'){
   window.addEventListener('scroll',function(){ if(_training){ try{renderCoach();}catch(e){} } },{passive:true});

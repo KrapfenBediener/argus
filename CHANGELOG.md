@@ -6,6 +6,24 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.3 — 2026-06-08
+**Training: zwei neue Lektionen, Bereich-Highlights, Panel-Verdeckung & Inhaltskorrekturen**
+- **Neue Home-Lektion „CCP abschließen"** inkl. Voraussetzung (nur als **MasterMedic**) — die
+  Startseite ist jetzt vollständig von oben nach unten erklärt.
+- **Neue Erfassungs-Lektion „Zuletzt angelegt — Sofort-Maßnahmen":** der zuletzt angelegte Patient
+  wird unten gezeigt, mit Sofortaktionen Prio / TQ-Timer / öffnen / Verwerfen.
+- **Übergabekarte: ganze Bereiche werden gehighlightet** statt nur einer Zeile — „Kopf & A",
+  „T · M · I" und „S · T" umrahmen jeweils alle zugehörigen Zeilen (Mehrfach-Spotlight via Union-Box).
+- **„Abtransport → gPA": Highlight nicht mehr vom Panel verdeckt.** Das Coach-Panel wird jetzt
+  **vor** dem Spotlight aufgebaut → der Scroll kennt die echte Panelhöhe und schiebt das Ziel sauber
+  darüber.
+- **Foto-Lektion korrigiert:** das Foto wird mit dem Patienten geteilt (für alle im CCP sichtbar) —
+  nicht „nur lokal".
+- **Kategorie-Lektion:** Re-Triage in **beide** Richtungen (Verschlechterung *und* Verbesserung).
+- 32 Lektionen; Ablauf-Logik per Probeläufen 19/19 grün.
+
+---
+
 ## v0.19.2 — 2026-06-08
 **Training: „Abtransport → gPA"-Hänger endgültig behoben + freies Scrollen**
 - **Echte Ursache des gPA-Hängers gefunden:** `loadPatients()` hat im Training **trotzdem einen
