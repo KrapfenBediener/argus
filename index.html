@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.18.7';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.18.8';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1737,12 +1737,8 @@ function trainRect(id,x,y,w,h){
 function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
 /* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
 function trainScrollTo(target){
-  try{
-    var r=target.getBoundingClientRect();
-    var avail=Math.max(140, window.innerHeight-235);
-    var delta=(r.top + r.height/2) - (avail/2);
-    if(window.scrollBy) window.scrollBy({top:delta, behavior:'smooth'});
-  }catch(e){}
+  try{ target.scrollIntoView({block:'center',inline:'nearest'}); }
+  catch(e){ try{ target.scrollIntoView(); }catch(e2){} }
 }
 function trainSpotlight(target, spotKey){
   if(!target){ trainClearSpot(); _trainSpotKey=''; return; }
@@ -1791,7 +1787,7 @@ function renderCoach(){
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
         '<div style="padding:15px 17px 0"><div style="font-size:20px;font-weight:700">🎓 Training abgeschlossen</div>'+
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">Du hast den kompletten Ablauf durchgespielt — jederzeit wiederholbar.</div></div>'+
-        '<div style="display:flex;gap:9px;padding:14px 17px 16px"><button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">‹</button>'+
+        '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
         '<button data-tc="end" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">Beenden &amp; Übungsdaten löschen</button></div></div>';
     }else if(backRedirect){
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
@@ -1799,7 +1795,7 @@ function renderCoach(){
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">Alles klar. Wenn du hier fertig bist, tippe oben links auf <b>‹</b> — dann geht es weiter mit <b>'+esc(L.t)+'</b>.</div></div>'+
         '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
         '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">Beenden</button>'+
-        (_trainStep>0?'<button data-tc="prev" style="flex:1;border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px;font-weight:600;color:var(--mut)">‹ Lektion zurück</button>':'')+
+        '<button data-tc="skip" style="flex:1;border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px;font-weight:600;color:var(--mut)">Überspringen ›</button>'+
         '</div></div>';
     }else{
       var doit=(doitTxt&&target)?'<div style="margin-top:11px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:#6A1B9A">👆 '+esc(doitTxt)+'</div>'
@@ -1812,14 +1808,15 @@ function renderCoach(){
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">'+esc(L.x)+'</div>'+doit+'</div>'+
         '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
         '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">Beenden</button>'+
-        (_trainStep>0?'<button data-tc="prev" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">‹</button>':'')+
         (canNext?'<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:#6A1B9A;color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>':'<button data-tc="nextoff" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--surf2);color:#9aa0a6">Aufgabe erledigen …</button>')+
-        '</div></div>';
+        '</div>'+
+        (canNext?'':'<div style="text-align:center;padding:0 0 12px"><a href="#" data-tc="skip" style="font-size:12.5px;color:var(--mut);text-decoration:none">Schritt überspringen ›</a></div>')+
+        '</div>';
     }
   }
   var b;
   if((b=el.querySelector('[data-tc=next]')))b.onclick=function(){trainStep(1);};
-  if((b=el.querySelector('[data-tc=prev]')))b.onclick=function(){trainStep(-1);};
+  if((b=el.querySelector('[data-tc=skip]')))b.onclick=function(e){if(e&&e.preventDefault)e.preventDefault();trainStep(1);};
   if((b=el.querySelector('[data-tc=end]')))b.onclick=function(){endTraining();};
 }
 if(typeof window!=='undefined'){

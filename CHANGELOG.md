@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.18.8 — 2026-06-08
+**Training: linearer ("forced") Ablauf + zuverlässiges Zentrieren**
+- **Kein freies Vor-/Zurück-Toggeln mehr** — das war die Hauptquelle der Edge-Case-Bugs
+  (Toggle × Auto-Weiter × Spotlight-Neupositionierung). Der „‹ Lektion zurück"-Button ist raus.
+- Stattdessen je Aufgaben-Schritt ein dezentes **„Schritt überspringen ›"** als Notausgang,
+  falls die Auto-Erkennung mal nicht greift.
+- **Scroll via nativem `scrollIntoView({block:'center'})`** statt `window.scrollBy` (das auf der
+  iOS-Standalone-PWA nicht zuverlässig griff) → das Ziel (z. B. „Patientenübersicht") liegt jetzt
+  verlässlich zentriert über dem Panel statt dahinter.
+- Probeläufe der Ablauf-Logik inkl. Überspringen: 13/13 grün.
+
 ## v0.18.7 — 2026-06-08
 **Training: Weiter-Sperre, Ziel zentrieren, Buttons robust**
 - **„Weiter" erst frei, wenn die Aufgabe erledigt ist:** Bei Aktions-Schritten ist die Schaltfläche
