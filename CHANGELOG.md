@@ -6,6 +6,19 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.7 — 2026-06-09
+**Training: eigene „CCP beitreten"-Lektion + präzise Doppel-Markierung**
+- **„CCP beitreten" ist jetzt eine eigene Erklär-Lektion** (Highlight + Erklärung) **vor**
+  „CCP eröffnen" — danach geht es regulär mit dem Eröffnen weiter. (Der Hinweis aus
+  v0.19.6 in der Eröffnen-Lektion wurde dafür wieder entfernt.)
+- **Lektion „Patienten öffnen" markiert jetzt nur die beiden relevanten Buttons** —
+  die Sichtungs-Kacheln **oben** und „Alle Patienten" **unten**; der Bereich dazwischen
+  bleibt abgedunkelt. Dafür kann der Spotlight nun **mehrere getrennte Löcher** (Dim mit
+  einem Loch pro Ziel statt einem großen Union-Loch). Einzel-Ziele unverändert.
+- 37 Lektionen; Ablauf-Logik per Probeläufen 20/20, Dim-Tiling verifiziert.
+
+---
+
 ## v0.19.6 — 2026-06-09
 **Training: zwei kleine Vollständigkeits-Ergänzungen**
 - **Lektion „CCP eröffnen":** Hinweis ergänzt, was „⇄ CCP beitreten" bewirkt (weitere

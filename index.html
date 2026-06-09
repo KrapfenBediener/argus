@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.6';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.7';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1689,7 +1689,8 @@ function cmpVer(a,b){
  * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen. */
 var TRAIN_LESSONS=[
   {t:'Willkommen', mode:'explain', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt oder synchronisiert. Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
-  {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste. (Daneben „⇄ CCP beitreten": damit steigen weitere Geräte über den geteilten Einladungslink/Code in eine bereits eröffnete CCP ein — du eröffnest jetzt selbst eine.)', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
+  {t:'CCP beitreten', mode:'explain', x:'Auf der Startseite hast du zwei Wege: eine CCP neu eröffnen — oder mit „⇄ CCP beitreten" einer bereits eröffneten CCP beitreten (über den geteilten Einladungslink/Code). Alle im selben CCP sehen dieselbe Patientenliste. Gleich eröffnest du selbst eine.', sel:'[data-action="joinccp"]'},
+  {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
 
   {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
   {t:'Status & Bediener', mode:'explain', x:'Darunter der Status: 🟢 Echtzeit-Modus (mit Verbindung) oder 🔴 Lokaler Modus (offline — funktioniert trotzdem voll). Hier stehen auch dein Bediener-Kürzel und ob noch etwas nicht synchronisiert ist.', sel:'.banner'},
@@ -1766,7 +1767,7 @@ function trainRect(id,x,y,w,h){
   if(!d){ d=document.createElement('div'); d.id=id; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; document.body.appendChild(d); }
   d.style.left=x+'px'; d.style.top=y+'px'; d.style.width=w+'px'; d.style.height=h+'px';
 }
-function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring','train-block'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); var rs=document.querySelectorAll('.train-ring'); for(var i=0;i<rs.length;i++){ if(rs[i].parentNode)rs[i].parentNode.removeChild(rs[i]); } }
+function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring','train-block'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); ['.train-dim','.train-block','.train-ring'].forEach(function(sel){ var es=document.querySelectorAll(sel); for(var i=0;i<es.length;i++){ if(es[i].parentNode)es[i].parentNode.removeChild(es[i]); } }); }
 /* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
 function trainUnionRect(nodes){
   var Lf=1e9,Tf=1e9,Rf=-1e9,Bf=-1e9,any=false;
@@ -1785,37 +1786,42 @@ function trainScrollToRect(rect){
     sc.scrollTop=Math.max(0, sc.scrollTop + (rect.top + rect.height/2 - center));
   }catch(e){}
 }
+/* Dim-Overlay mit EINEM Loch pro Ziel (mehrere Ziele → mehrere Löcher; alles dazwischen bleibt dunkel).
+ * Annahme: Löcher überlappen sich vertikal nicht (nach oben sortiert) — passt für gestapelte Ziele. */
+function trainDim(holes, vw, vh, block){
+  var rects=[], prevB=0, i;
+  for(i=0;i<holes.length;i++){
+    var ho=holes[i];
+    if(ho.y>prevB) rects.push([0,prevB,vw,ho.y-prevB]);               /* Band oberhalb / zwischen den Löchern */
+    if(ho.x>0) rects.push([0,ho.y,ho.x,ho.h]);                         /* links neben dem Loch */
+    var rx=ho.x+ho.w; if(rx<vw) rects.push([rx,ho.y,vw-rx,ho.h]);      /* rechts neben dem Loch */
+    if(ho.y+ho.h>prevB) prevB=ho.y+ho.h;
+  }
+  if(prevB<vh) rects.push([0,prevB,vw,vh-prevB]);                      /* Band unterhalb */
+  var k=0;
+  for(i=0;i<rects.length;i++){ var c=rects[i]; if(c[2]<=0||c[3]<=0)continue; var id='train-dim-'+k; k++; var d=document.getElementById(id); if(!d){ d=document.createElement('div'); d.id=id; d.className='train-dim'; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; document.body.appendChild(d); } d.style.left=c[0]+'px'; d.style.top=c[1]+'px'; d.style.width=c[2]+'px'; d.style.height=c[3]+'px'; d.style.pointerEvents=block?'auto':'none'; }
+  var ex; while((ex=document.getElementById('train-dim-'+k))){ if(ex.parentNode)ex.parentNode.removeChild(ex); k++; }
+}
+/* Pro Loch ein Element (Ring oder transparenter Blocker), wiederverwendet + Überzählige entfernt. */
+function trainHoleEls(prefix, cls, z, holes, decorate){
+  var k=0,i;
+  for(i=0;i<holes.length;i++){ var ho=holes[i]; var id=prefix+k; k++; var e=document.getElementById(id); if(!e){ e=document.createElement('div'); e.id=id; e.className=cls; e.style.position='fixed'; e.style.zIndex=z; document.body.appendChild(e); if(decorate)decorate(e); } e.style.left=ho.x+'px'; e.style.top=ho.y+'px'; e.style.width=ho.w+'px'; e.style.height=ho.h+'px'; }
+  var ex; while((ex=document.getElementById(prefix+k))){ if(ex.parentNode)ex.parentNode.removeChild(ex); k++; }
+}
 function trainSpotlight(nodes, spotKey, mode, forceScroll){
   if(!nodes || !nodes.length){ trainClearSpot(); _trainSpotKey=''; return; }
   var changed=_trainSpotKey!==spotKey; _trainSpotKey=spotKey;
-  var r=trainUnionRect(nodes); if(!r){ trainClearSpot(); return; }
-  if(changed||forceScroll){ trainScrollToRect(r); var r2=trainUnionRect(nodes); if(r2) r=r2; }   /* NUR bei neuem Ziel zentrieren → freies Scrollen bleibt möglich */
-  var pad=6;
-  var x=Math.max(0,r.left-pad), y=Math.max(0,r.top-pad), w=r.width+2*pad, h=r.height+2*pad;
-  var vw=window.innerWidth, vh=window.innerHeight;
-  trainRect('train-dt',0,0,vw,y);
-  trainRect('train-db',0,y+h,vw,Math.max(0,vh-(y+h)));
-  trainRect('train-dl',0,y,x,h);
-  trainRect('train-dr',x+w,y,Math.max(0,vw-(x+w)),h);
+  var u=trainUnionRect(nodes); if(!u){ trainClearSpot(); return; }
+  if(changed||forceScroll){ trainScrollToRect(u); var u2=trainUnionRect(nodes); if(u2) u=u2; }   /* NUR bei neuem Ziel zentrieren → freies Scrollen bleibt möglich */
+  var pad=6, vw=window.innerWidth, vh=window.innerHeight, i;
+  var holes=[];
+  for(i=0;i<nodes.length;i++){ var el=nodes[i]; if(!el||!el.getBoundingClientRect)continue; var rr=el.getBoundingClientRect(); if(!(rr.width||rr.height))continue; holes.push({x:Math.max(0,rr.left-pad),y:Math.max(0,rr.top-pad),w:rr.width+2*pad,h:rr.height+2*pad}); }
+  if(!holes.length){ trainClearSpot(); return; }
+  holes.sort(function(a,b){return a.y-b.y;});
   var block=(mode!=='choice');                        /* choice: nichts blockieren (mehrere Wege antippbar) */
-  ['train-dt','train-db','train-dl','train-dr'].forEach(function(id){var d=document.getElementById(id);if(d)d.style.pointerEvents=block?'auto':'none';});
-  /* explain: Ziel hervorheben, aber NICHT antippbar — transparenter Blocker im „Loch". */
-  var bl=document.getElementById('train-block');
-  if(mode==='explain'){
-    if(!bl){ bl=document.createElement('div'); bl.id='train-block'; bl.style.position='fixed'; bl.style.zIndex='8000'; bl.style.background='transparent'; document.body.appendChild(bl); }
-    bl.style.left=x+'px'; bl.style.top=y+'px'; bl.style.width=w+'px'; bl.style.height=h+'px';
-  } else if(bl&&bl.parentNode){ bl.parentNode.removeChild(bl); }
-  /* Ein Ring PRO Ziel (mehrere gültige Optionen → mehrere Ringe; das Dim-Loch bleibt die Union). */
-  var rk=0;
-  for(var ri=0;ri<nodes.length;ri++){
-    var rel=nodes[ri]; if(!rel||!rel.getBoundingClientRect) continue;
-    var rr=rel.getBoundingClientRect(); if(!(rr.width||rr.height)) continue;
-    var rid='train-ring-'+rk; rk++;
-    var ring=document.getElementById(rid);
-    if(!ring){ ring=document.createElement('div'); ring.id=rid; ring.className='train-ring'; ring.style.position='fixed'; ring.style.zIndex='8001'; ring.style.pointerEvents='none'; ring.style.borderRadius='12px'; ring.style.boxShadow='0 0 0 2px #1f2530,0 0 0 5px #fff,0 0 0 10px rgba(31,37,48,.30)'; document.body.appendChild(ring); }
-    ring.style.left=Math.max(0,rr.left-pad)+'px'; ring.style.top=Math.max(0,rr.top-pad)+'px'; ring.style.width=(rr.width+2*pad)+'px'; ring.style.height=(rr.height+2*pad)+'px';
-  }
-  var rex; while((rex=document.getElementById('train-ring-'+rk))){ if(rex.parentNode)rex.parentNode.removeChild(rex); rk++; }
+  trainDim(holes, vw, vh, block);                     /* ein Loch je Ziel → Bereiche dazwischen bleiben dunkel */
+  trainHoleEls('train-block-','train-block','8000', mode==='explain'?holes:[], function(e){ e.style.background='transparent'; });   /* explain: Ziel sichtbar, aber nicht antippbar */
+  trainHoleEls('train-ring-','train-ring','8001', holes, function(e){ e.style.pointerEvents='none'; e.style.borderRadius='12px'; e.style.boxShadow='0 0 0 2px #1f2530,0 0 0 5px #fff,0 0 0 10px rgba(31,37,48,.30)'; });   /* ein Ring je Ziel */
 }
 function trainTeardown(){
   trainClearSpot();
