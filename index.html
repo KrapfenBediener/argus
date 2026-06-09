@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.7';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.8';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1689,7 +1689,7 @@ function cmpVer(a,b){
  * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen. */
 var TRAIN_LESSONS=[
   {t:'Willkommen', mode:'explain', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt oder synchronisiert. Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
-  {t:'CCP beitreten', mode:'explain', x:'Auf der Startseite hast du zwei Wege: eine CCP neu eröffnen — oder mit „⇄ CCP beitreten" einer bereits eröffneten CCP beitreten (über den geteilten Einladungslink/Code). Alle im selben CCP sehen dieselbe Patientenliste. Gleich eröffnest du selbst eine.', sel:'[data-action="joinccp"]'},
+  {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du alle offenen CCPs in deinem Präsidium und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Alternativ eröffnest du gleich selbst einen neuen.', sel:'[data-action="joinccp"]'},
   {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
 
   {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
@@ -1812,7 +1812,9 @@ function trainSpotlight(nodes, spotKey, mode, forceScroll){
   if(!nodes || !nodes.length){ trainClearSpot(); _trainSpotKey=''; return; }
   var changed=_trainSpotKey!==spotKey; _trainSpotKey=spotKey;
   var u=trainUnionRect(nodes); if(!u){ trainClearSpot(); return; }
-  if(changed||forceScroll){ trainScrollToRect(u); var u2=trainUnionRect(nodes); if(u2) u=u2; }   /* NUR bei neuem Ziel zentrieren → freies Scrollen bleibt möglich */
+  /* NUR bei neuem Ziel zentrieren — und NUR bei einem einzelnen Ziel. Bei mehreren Zielen ist die
+   * Union breit; zentrieren würde beide an den Rand drücken → dann gar nicht scrollen. */
+  if((changed||forceScroll) && nodes.length<=1){ trainScrollToRect(u); var u2=trainUnionRect(nodes); if(u2) u=u2; }
   var pad=6, vw=window.innerWidth, vh=window.innerHeight, i;
   var holes=[];
   for(i=0;i<nodes.length;i++){ var el=nodes[i]; if(!el||!el.getBoundingClientRect)continue; var rr=el.getBoundingClientRect(); if(!(rr.width||rr.height))continue; holes.push({x:Math.max(0,rr.left-pad),y:Math.max(0,rr.top-pad),w:rr.width+2*pad,h:rr.height+2*pad}); }

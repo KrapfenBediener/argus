@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.8 — 2026-06-09
+**Training: „CCP beitreten"-Text korrigiert + Doppel-Highlight nicht mehr zentriert**
+- **„CCP beitreten"-Lektion** beschreibt jetzt korrekt, was passiert: man sieht **alle offenen
+  CCPs im eigenen Präsidium** und tritt einem davon bei (vorher fälschlich „über Link/Code").
+- **Lektion „Patienten öffnen":** bei **mehreren** markierten Zielen wird **nicht mehr zentriert** —
+  eine breite Union zu zentrieren drückte beide Buttons an den Rand, sodass keiner richtig sichtbar
+  war. Jetzt bleiben beide an ihrer natürlichen Position gut sichtbar. Einzel-Ziele zentrieren weiter.
+
+---
+
 ## v0.19.7 — 2026-06-09
 **Training: eigene „CCP beitreten"-Lektion + präzise Doppel-Markierung**
 - **„CCP beitreten" ist jetzt eine eigene Erklär-Lektion** (Highlight + Erklärung) **vor**
