@@ -6,6 +6,16 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.6 — 2026-06-09
+**Training: zwei kleine Vollständigkeits-Ergänzungen**
+- **Lektion „CCP eröffnen":** Hinweis ergänzt, was „⇄ CCP beitreten" bewirkt (weitere
+  Geräte steigen über Einladungslink/Code in eine bereits eröffnete CCP ein).
+- **Lektion „Patienten öffnen":** beide Wege werden jetzt markiert — die Sichtungs-
+  Kacheln **oben** UND der „Alle Patienten"-Button **unten**. Der Spotlight zeichnet dafür
+  **pro Ziel einen eigenen Ring** (mehrere gültige Optionen → mehrere Ringe).
+
+---
+
 ## v0.19.5 — 2026-06-08
 **Erst-Intro verweist aufs geführte Training**
 - Das Erstinstallations-Intro hat jetzt eine **5. Slide „Erst mal üben?"**, die am Ende auf das

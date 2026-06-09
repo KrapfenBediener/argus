@@ -96,7 +96,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.5';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.6';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -1689,7 +1689,7 @@ function cmpVer(a,b){
  * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen. */
 var TRAIN_LESSONS=[
   {t:'Willkommen', mode:'explain', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt oder synchronisiert. Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
-  {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
+  {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste. (Daneben „⇄ CCP beitreten": damit steigen weitere Geräte über den geteilten Einladungslink/Code in eine bereits eröffnete CCP ein — du eröffnest jetzt selbst eine.)', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
 
   {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
   {t:'Status & Bediener', mode:'explain', x:'Darunter der Status: 🟢 Echtzeit-Modus (mit Verbindung) oder 🔴 Lokaler Modus (offline — funktioniert trotzdem voll). Hier stehen auch dein Bediener-Kürzel und ob noch etwas nicht synchronisiert ist.', sel:'.banner'},
@@ -1707,7 +1707,7 @@ var TRAIN_LESSONS=[
   {t:'Sichten mit tacSTART', mode:'do', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
-  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Zwei Wege: oben eine Sichtungs-Kachel (nur diese Kategorie) ODER „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
+  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Zwei Wege (beide markiert): oben eine Sichtungs-Kachel (nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,[data-action="opencat"][data-cat="all"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
   {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Identifikation — du brauchst keinen Namen (pseudonym). Es wird mit dem Patienten geteilt und ist für alle im selben CCP sichtbar.', sel:'#ph-foto'},
@@ -1766,7 +1766,7 @@ function trainRect(id,x,y,w,h){
   if(!d){ d=document.createElement('div'); d.id=id; d.style.position='fixed'; d.style.zIndex='8000'; d.style.background='rgba(16,20,26,.58)'; document.body.appendChild(d); }
   d.style.left=x+'px'; d.style.top=y+'px'; d.style.width=w+'px'; d.style.height=h+'px';
 }
-function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring','train-block'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); }
+function trainClearSpot(){ ['train-dt','train-db','train-dl','train-dr','train-ring','train-block'].forEach(function(id){ var e=document.getElementById(id); if(e&&e.parentNode)e.parentNode.removeChild(e); }); var rs=document.querySelectorAll('.train-ring'); for(var i=0;i<rs.length;i++){ if(rs[i].parentNode)rs[i].parentNode.removeChild(rs[i]); } }
 /* Scrollt das Ziel mittig in den Bereich ÜBER dem Panel (sonst sitzt es dahinter versteckt). */
 function trainUnionRect(nodes){
   var Lf=1e9,Tf=1e9,Rf=-1e9,Bf=-1e9,any=false;
@@ -1805,9 +1805,17 @@ function trainSpotlight(nodes, spotKey, mode, forceScroll){
     if(!bl){ bl=document.createElement('div'); bl.id='train-block'; bl.style.position='fixed'; bl.style.zIndex='8000'; bl.style.background='transparent'; document.body.appendChild(bl); }
     bl.style.left=x+'px'; bl.style.top=y+'px'; bl.style.width=w+'px'; bl.style.height=h+'px';
   } else if(bl&&bl.parentNode){ bl.parentNode.removeChild(bl); }
-  var ring=document.getElementById('train-ring');
-  if(!ring){ ring=document.createElement('div'); ring.id='train-ring'; ring.style.position='fixed'; ring.style.zIndex='8001'; ring.style.pointerEvents='none'; ring.style.borderRadius='12px'; ring.style.boxShadow='0 0 0 2px #1f2530,0 0 0 5px #fff,0 0 0 10px rgba(31,37,48,.30)'; document.body.appendChild(ring); }
-  ring.style.left=x+'px'; ring.style.top=y+'px'; ring.style.width=w+'px'; ring.style.height=h+'px';
+  /* Ein Ring PRO Ziel (mehrere gültige Optionen → mehrere Ringe; das Dim-Loch bleibt die Union). */
+  var rk=0;
+  for(var ri=0;ri<nodes.length;ri++){
+    var rel=nodes[ri]; if(!rel||!rel.getBoundingClientRect) continue;
+    var rr=rel.getBoundingClientRect(); if(!(rr.width||rr.height)) continue;
+    var rid='train-ring-'+rk; rk++;
+    var ring=document.getElementById(rid);
+    if(!ring){ ring=document.createElement('div'); ring.id=rid; ring.className='train-ring'; ring.style.position='fixed'; ring.style.zIndex='8001'; ring.style.pointerEvents='none'; ring.style.borderRadius='12px'; ring.style.boxShadow='0 0 0 2px #1f2530,0 0 0 5px #fff,0 0 0 10px rgba(31,37,48,.30)'; document.body.appendChild(ring); }
+    ring.style.left=Math.max(0,rr.left-pad)+'px'; ring.style.top=Math.max(0,rr.top-pad)+'px'; ring.style.width=(rr.width+2*pad)+'px'; ring.style.height=(rr.height+2*pad)+'px';
+  }
+  var rex; while((rex=document.getElementById('train-ring-'+rk))){ if(rex.parentNode)rex.parentNode.removeChild(rex); rk++; }
 }
 function trainTeardown(){
   trainClearSpot();
