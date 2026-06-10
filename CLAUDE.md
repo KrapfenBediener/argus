@@ -56,7 +56,16 @@ Die gesamte Datenhaltung der bestehenden App läuft durch eine dünne, **asynchr
 
 ## Datenschutz & Recht (vor offizieller Nutzung klären)
 
-Siehe `docs/COMPLIANCE.md`. Kurz: EU-Hosting, Verschlüsselung, pseudonyme Daten, Zugriffskontrolle, Löschkonzept; mögliche Einstufung als Medizinprodukt-Software wegen der tacSTART-Kategorievorschläge. **Das ist keine Rechtsberatung** – mit Datenschutzbeauftragtem und Träger der Organisation abzustimmen.
+**Zentrale Arbeitsgrundlage: `docs/datenschutz/`** — vollständiges Dossier (00–08:
+VVT, Rechtsgrundlagen, DSFA, TOM, Löschkonzept, Supabase-AVV, Einwilligung,
+Maßnahmenplan) plus **`docs/datenschutz/DATENSCHUTZ-SPEC.md`** mit den konkreten
+Umsetzungs-Tasks T1–T6 inkl. Akzeptanzkriterien. Bei Datenschutz-Arbeit IMMER zuerst
+die SPEC lesen. Kurzkontext: Polizei BW als Verantwortlicher, Eigentümer bleibt
+Gabor Szeman (→ § 82 PolG BW Auftragsverarbeitung), ARGUS ist Durchgangsspeicher
+(Export an Trägerdoku, kurze Löschfristen), Foto-Härtung + Auto-Löschung sind
+Bedingung für den Echtbetrieb. Ältere Hinweissammlung: `docs/COMPLIANCE.md`;
+MDR-Frage (tacSTART) weiterhin offen. **Keine Rechtsberatung** — DSB/Träger
+entscheiden.
 
 ## Wie man die bestehende App startet
 

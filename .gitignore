@@ -44,7 +44,9 @@ backups/
 # ── Interne Unterlagen: NICHT veröffentlichen (GitHub Pages serviert das Repo öffentlich) ──
 /ZEITLOG.md
 /MARKEN-UND-NAMENS-CHECK.md
+/LIZENZ-SCHUTZPAKET.md
 # Interne Planungs-/Compliance-Docs
+docs/datenschutz/
 docs/ARCHITECTURE.md
 docs/BACKUP.md
 docs/COMPLIANCE.md
