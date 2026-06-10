@@ -150,7 +150,7 @@ umsetzen — laut DSFA Bedingung für jeden Echtbetrieb. Läuft im Test-/Härtun
 
 **Plans:** 6 Pläne in 5 Wellen (geplant 2026-06-10):
 - [ ] 04.8-01-PLAN.md — T8: Supabase-JS lokal vendoren, IBM-Plex self-hosten (Wave 1)
-- [ ] 04.8-02-PLAN.md — DB-Fundament: Migration 0002 (Einsatz-Lebenszyklus, Purge, Governance-RPCs, pg_cron) (Wave 1)
+- [x] 04.8-02-PLAN.md — DB-Fundament: Migration 0002 (Einsatz-Lebenszyklus, Purge, Governance-RPCs, pg_cron) (Wave 1) ✅ 2026-06-10
 - [ ] 04.8-03-PLAN.md — T2 App: Übergabe-Export, „Einsatz abschließen", lokale Bereinigung (Wave 2)
 - [ ] 04.8-04-PLAN.md — T1 App: Foto-Schalter (Default aus, synct), Foto-Lebenszyklus Normalansicht (Wave 3)
 - [ ] 04.8-05-PLAN.md — T1 App: Governance-Panel (Foto-Zugriff protokolliert, Fristverlängerung) (Wave 4)

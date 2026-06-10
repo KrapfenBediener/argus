@@ -141,11 +141,22 @@ kein Browser verfügbar.*
 
 ---
 
-## Nächste Phase: 4.8 — Datenschutz-Härtung (GEPLANT 2026-06-10, bereit zur Ausführung)
+## Aktuelle Phase: 4.8 — Datenschutz-Härtung (IN AUSFÜHRUNG, Stand 2026-06-10)
 
 **Planung abgeschlossen:** 6 Pläne in 5 Wellen (`.planning/phases/04.8-datenschutz-haertung/`),
 Plan-Checker-Durchlauf bestanden (1 MAJOR + 4 MINOR gefunden und eingearbeitet, Commit 54baaf2).
 Einziger nicht-autonomer Punkt: Plan 04.8-02 braucht einen ephemeren Supabase-PAT (Checkpoint).
+
+**Ausführungsstand (Welle 1):**
+- **04.8-02 ✅ (2026-06-10):** Migration `0002_phase48_datenschutz.sql` geschrieben,
+  live angewendet (Management API, idempotent) und verifiziert — Einsatz-Lebenszyklus-
+  Spalten, `purge_log`/`governance_log`, 5 `argus_*`-RPCs, RLS-Split (abgeschlossener
+  Einsatz für Nicht-Master schreibgesperrt, per REST nicht umkehrbar), pg_cron-Job
+  `argus_purge` (stündlich, läuft — Free Tier hat pg_cron). Details:
+  `.planning/phases/04.8-datenschutz-haertung/04.8-02-SUMMARY.md`. Commit 8fcb675.
+  **Noch zu pushen** (Executor-Umgebung ohne GitHub-Credentials).
+- **PAT widerrufen:** der für 04.8-02 genutzte ephemere PAT ist noch aktiv →
+  im Supabase-Dashboard widerrufen (zusammen mit dem offenen Alt-PAT aus Phase 4).
 
 DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
 2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),
