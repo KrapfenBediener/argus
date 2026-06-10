@@ -2,7 +2,7 @@
 
 - **Milestone:** Closed Beta V1 — läuft
 - **Aktuelle Phase:** 4.8 Datenschutz-Härtung (in Ausführung) — Phase 5 bewusst
-  aufgeschoben, bis die App ausgiebiger getestet ist. **App live: v0.21.0**
+  aufgeschoben, bis die App ausgiebiger getestet ist. **App live: v0.21.1**
   (Stand 2026-06-10).
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
@@ -191,6 +191,26 @@ Einziger nicht-autonomer Punkt: Plan 04.8-02 braucht einen ephemeren Supabase-PA
   `.planning/phases/04.8-datenschutz-haertung/04.8-04-SUMMARY.md`.
   Commits 121d6db · 0ef87ef · f716d65. **Gepusht** (14d91bc..f716d65) —
   GitHub Pages deployt v0.21.0.
+
+**Ausführungsstand (Welle 4):**
+- **04.8-05 ✅ (2026-06-10, v0.21.1):** T1 App-Teil 2 — Foto-Governance-Panel
+  (View `governance`, Einstieg in der Administration, nur `_isMaster` =
+  MasterUser-Token, getrennt vom MasterMedic): Liste via
+  `argus_governance_list` (gruppiert nach CCP, Status abgeschlossen/offen,
+  Frist de-DE, **ohne** Bilddaten); Foto-Einzelabruf via
+  `argus_governance_photo` (Kürzel-Pflicht, Overlay mit Protokoll-Hinweis —
+  jeder Abruf = serverseitiger `governance_log`-Eintrag); Fristverlängerung
+  `argus_extend_photo_frist` (+72 h, Pflicht-Begründung mit Leer-Abweisung,
+  confirmModal mit Export-Hinweis „zuständige Stelle"); Wiedervorlage-Block
+  (Frist abgelaufen / < 24 h, `fristStatus` JSC-getestet 10/10); einklappbare
+  Protokoll-Ansicht (letzte 100 `governance_log`-Einträge). Verlängern-Knopf
+  nur bei gesetzter Frist (sonst würde der RPC bei offenem Einsatz eine
+  Löschfrist ERZEUGEN — dokumentierte Abweichung). Panel nur online (kein
+  Einsatz-Werkzeug, Local-first unberührt). Drehbuch geprüft: keine
+  Lektionsänderung (reine MasterUser-Funktion). Release v0.21.1 (SW v39,
+  kein eigenes Update-Sheet — v0.21-Sheet deckt die Foto-Härtung ab). Details:
+  `.planning/phases/04.8-datenschutz-haertung/04.8-05-SUMMARY.md`.
+  Commits 2e82f03 · a68fc4e · 5b284ff.
 
 DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
 2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),
