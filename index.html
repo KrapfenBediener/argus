@@ -1764,6 +1764,10 @@ function vOverview(){
 }
 function vCatlist(){
   var cat=state.cat, c=catDef(cat), special=!CATS[cat];
+  /* Sortierung ausschließlich über CCP-Kennung + laufende Nummer. Eine Such-,
+   * Sortier- oder Filterfunktion über das Namensfeld ist aus Datenschutzgründen
+   * bewusst NICHT vorgesehen (T3 Namensfeld-Härtung, DATENSCHUTZ-SPEC) —
+   * Patienten werden über die Nummer identifiziert, nicht über den Namen. */
   var list=bucketPatients(cat).sort(function(a,b){
     var ca=a.ccp||"A",cb=b.ccp||"A";
     if(ca!==cb)return ca<cb?-1:1;
@@ -1785,9 +1789,11 @@ function vCatlist(){
     /* In den Sammel-Listen (Alle/Prio/gPA) zusätzlich Kategorie zeigen. */
     var catPill = special ? '<span class="pill" style="background:'+cc.bg+';color:'+cc.fg+(cc.bd?';border:1px solid '+cc.bd:'')+'">'+cc.label+'</span>' : '';
     var gpaPill = (p.status==='gpa') ? '<span class="pill" style="background:var(--surf2);color:var(--mut)">gPA</span>' : '';
+    /* T3 Namensfeld-Härtung: Die Liste zeigt bewusst KEINEN Namen — Nummer +
+     * Pills identifizieren den Patienten; Hauptzeile ist die Sichtungszeit/TQ.
+     * Der Name erscheint nur im Übergabe-Kontext (Übergabekarte/Export). */
     h+='<button class="patrow" data-action="openpat" data-id="'+p.id+'"><span class="pnum"'+(isd?' style="color:var(--prio)"':'')+'>'+pno(p)+(isd?' ⚠':'')+'</span>'+
-      '<span style="flex:1"><span style="font-weight:500">'+(esc(p.name)||"—")+'</span>'+
-      '<br><span class="hint js-age" data-ts="'+p.lastTriage+'">'+ageStr(p.lastTriage)+'</span>'+
+      '<span style="flex:1"><span class="hint js-age" data-ts="'+p.lastTriage+'">'+ageStr(p.lastTriage)+'</span>'+
       (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+p.tqStart+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
       catPill+
       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
@@ -1846,8 +1852,9 @@ function vPatient(){
   CATORDER.forEach(function(cat){var cc=CATS[cat];var on=p.cat===cat;h+='<button data-action="movecat" data-id="'+p.id+'" data-cat="'+cat+'" style="background:'+(on?cc.bg:"var(--surf2)")+';color:'+(on?cc.fg:"var(--mut)")+';border-color:'+(on?cc.bg:"var(--line)")+'">'+cc.label+'</button>';});
   h+='</div>';
 
-  h+='<div class="sech">Stammdaten</div><div class="card">'+
+  h+='<div class="sech" id="ph-stamm">Stammdaten</div><div class="card">'+
     '<label class="fieldlab">Name (optional)</label>'+inp("name",p.name)+
+    '<div class="hint" style="margin-top:4px">Nur erfassen, wenn für Versorgung/Übergabe erforderlich.</div>'+
     '<div style="height:9px"></div><div class="grid3">'+
     '<div><label class="fieldlab">Alter</label>'+inp("age",p.age)+'</div>'+
     '<div><label class="fieldlab">Geschl.</label><select data-kind="pat" data-field="gender"><option value=""'+sel(p.gender,"")+'>—</option><option value="m"'+sel(p.gender,"m")+'>m</option><option value="w"'+sel(p.gender,"w")+'>w</option></select></div>'+
@@ -1901,11 +1908,12 @@ function vPatient(){
   }
   h+='</div>';
 
-  h+='<div class="sech">Verlauf / Karte</div><div class="card">'+
+  h+='<div class="sech" id="ph-karte">Verlauf / Karte</div><div class="card">'+
     '<label class="fieldlab">MOI / Unfallhergang</label><textarea data-kind="pat" data-field="moi">'+esc(p.moi)+'</textarea>'+
     '<div style="height:9px"></div><label class="fieldlab">Verletzung / Erkrankung (Freitext)</label><textarea data-kind="pat" data-field="injury">'+esc(p.injury)+'</textarea>'+
     '<div style="height:9px"></div><label class="fieldlab">Erstversorger</label>'+inp("fr",p.fr)+
-    '<div style="height:9px"></div><label class="fieldlab">Notizen</label><textarea data-kind="pat" data-field="notes">'+esc(p.notes)+'</textarea></div>';
+    '<div style="height:9px"></div><label class="fieldlab">Notizen</label><textarea data-kind="pat" data-field="notes">'+esc(p.notes)+'</textarea>'+
+    '<div class="hint" style="margin-top:6px">Keine Namen Dritter — nur versorgungsrelevante Fakten.</div></div>';
 
   if(p.status==='gpa'){
     h+='<div class="card" style="background:var(--surf2);border:1px solid var(--line);padding:11px;margin-bottom:8px"><span style="font-weight:600">↩ Bereits abtransportiert (gPA)</span><div class="hint" style="margin-top:3px">Falls versehentlich ausgecheckt: hier zurück in den aktiven Bestand holen.</div></div>';
