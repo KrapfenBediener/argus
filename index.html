@@ -103,7 +103,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.8';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.19.9';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -118,6 +118,9 @@ var UPDATE_SHEETS = {
   '0.18.0': 'docs/UPDATE_v0.18.html'           /* Geführtes Training */
 };
 var WHATS_NEW = {
+  '0.19.9': [
+    'Schrift und Technik werden jetzt vollständig lokal geladen — die App ruft beim Start keine Drittanbieter-Server mehr auf und ist offline noch robuster.'
+  ],
   '0.18.0': [
     'Geführtes Training: In der Schulungsumgebung führt dich ein Schritt-für-Schritt-Drehbuch durch alle Funktionen — komplett lokal auf deinem Gerät, ohne andere zu stören. Start über „🎓 Geführtes Training".'
   ],

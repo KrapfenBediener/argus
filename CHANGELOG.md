@@ -6,6 +6,19 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.19.9 — 2026-06-10
+**Datenschutz-Härtung (T8): keine Laufzeit-Requests an Drittanbieter mehr**
+- **Supabase-JS lokal eingebunden:** `vendor/supabase.js` (feste Version 2.108.1, UMD)
+  statt cdn.jsdelivr.net — kein CDN-Aufruf beim Start, keine IP-Übermittlung an jsdelivr.
+- **IBM-Plex-Schriften self-hosted:** `fonts/*.woff2` (Sans 400/500/600, Mono 500/600)
+  mit `@font-face` direkt in der App statt fonts.googleapis.com/fonts.gstatic.com.
+- **Service Worker:** Precache enthält jetzt vendor/ + fonts/ (offline robuster);
+  Google-Fonts-Sonderbehandlung im fetch-Handler entfernt; Cache-Bump v36.
+- `THIRD_PARTY_NOTICES.md` auf lokale Einbindung aktualisiert.
+- Keine sichtbare UI-Änderung — daher kein Update-Sheet, Training unverändert.
+
+---
+
 ## v0.19.8 — 2026-06-09
 **Training: „CCP beitreten"-Text korrigiert + Doppel-Highlight nicht mehr zentriert**
 - **„CCP beitreten"-Lektion** beschreibt jetzt korrekt, was passiert: man sieht **alle offenen
