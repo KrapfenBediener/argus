@@ -236,6 +236,7 @@ var _training=false, _trainStep=0, _trainMax=0, _trainCelebrate=false;   /* Gef�
 var _closeTyp=null, _closeFrist=null;   /* Einsatz-Abschluss: gewählter Typ + Lösch-Frist während des Workflows */
 var _selfClosing=false;                 /* eigenes Gerät schließt gerade ab → Realtime-Echo nicht doppelt behandeln */
 var _remoteCloseHandling=false;         /* Guard gegen Mehrfach-Auslösung der Fremd-Erkennung (applyMeta läuft auch im Refresh) */
+var _govList=null, _govErr=null;        /* Foto-Governance (T1, 04.8-05): Liste aus argus_governance_list · Fehlertext. Nur Master, nur online. */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -642,6 +643,85 @@ function vAdmin(){
     });
   }
   h+='<p class="hint" style="text-align:center;margin-top:6px;font-size:11px">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen".</p>';
+  h+='<button class="navbtn" data-action="opengovernance" style="margin-top:10px"><span class="ic">🛡</span><span><span class="t">Foto-Governance</span><br><span class="s">Fotos ausgecheckter Patienten · Fristen · Protokoll</span></span></button>';
+  return h;
+}
+/* ── Foto-Governance (T1, 04.8-05) ───────────────────────────────────────────
+ * Geschützter Teil des Foto-Lebenszyklus: Zugriff NUR mit MasterUser-Token
+ * (_isMaster, Governance-Rolle — NICHT der MasterMedic, der hat einen normalen
+ * User-Token). Die Liste (argus_governance_list) enthält bewusst KEINE Fotos —
+ * erst der Einzelabruf (argus_governance_photo) liefert das Foto und erzeugt
+ * serverseitig den Protokoll-Eintrag (Kürzel + Zeitstempel) in governance_log.
+ * Nur online: Governance ist kein Einsatz-Werkzeug — Local-first gilt für den
+ * Einsatzbetrieb und bleibt davon unberührt. */
+function govFmt(ms){
+  if(ms==null) return '—';
+  return new Date(+ms).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr';
+}
+async function loadGovernanceList(){
+  _govList=null; _govErr=null;
+  if(state.view==='governance') render();
+  var client=sb();
+  if(!client){ _govErr='Keine Backend-Verbindung. Das Panel funktioniert nur online.'; if(state.view==='governance') render(); return; }
+  try{
+    var r=await client.rpc('argus_governance_list');
+    if(r.error){ _govErr=r.error.message||'Abruf fehlgeschlagen'; }
+    else { _govList=Array.isArray(r.data)?r.data:[]; }
+  }catch(e){ _govErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.view==='governance') render();
+}
+function vGovernance(){
+  /* Defensive Prüfung — die View ist nur über den Master-Bereich erreichbar,
+   * rendert aber ohne MasterUser-Token grundsätzlich nichts Inhaltliches. */
+  if(!_isMaster){
+    return '<div class="card"><p class="muted" style="text-align:center;padding:14px 0">Zugriff nur mit MasterUser-Token (Governance-Rolle).</p></div>';
+  }
+  var h='<div class="card" style="padding:13px 14px">';
+  h+='<div style="font-weight:600;font-size:16px">🛡 Foto-Governance</div>';
+  h+='<div class="hint" style="margin-top:3px">Fotos ausgecheckter Patienten und abgeschlossener Einsätze — jeder Foto-Abruf wird mit Kürzel und Zeitpunkt protokolliert.</div>';
+  h+='<div class="hint" style="margin-top:3px">Funktioniert nur online — Governance ist kein Einsatz-Werkzeug.</div>';
+  h+='</div>';
+  if(_govErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_govErr)+'</div></div>';
+    h+='<button class="ghost" data-action="govreload">↻ Erneut laden</button>';
+    return h;
+  }
+  if(_govList===null){
+    h+='<p class="muted" style="text-align:center;padding:20px">Lade…</p>';
+    return h;
+  }
+  /* Gruppierung nach CCP/Einsatz — Fotos selbst sind hier NIE enthalten. */
+  var groups={}, order=[];
+  _govList.forEach(function(g){
+    var k=g.ccp_id||'?';
+    if(!groups[k]){ groups[k]={ccp_id:g.ccp_id,kennung:g.kennung,frist:g.photo_purge_after,pats:[]}; order.push(k); }
+    groups[k].pats.push(g);
+  });
+  if(!order.length){
+    h+='<p class="muted" style="text-align:center;padding:20px">Kein Foto im Governance-Bestand.<br><span class="hint">Hier erscheinen Fotos, sobald Patienten ausgecheckt oder Einsätze abgeschlossen sind.</span></p>';
+  }
+  order.forEach(function(k){ h+=govGroupCard(groups[k]); });
+  h+='<button class="ghost" data-action="govreload" style="margin-top:6px">↻ Aktualisieren</button>';
+  return h;
+}
+function govGroupCard(grp){
+  var closed = grp.frist!=null; /* photo_purge_after wird erst beim Einsatz-Abschluss gesetzt */
+  var h='<div class="card">';
+  h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+  h+='<span class="mono" style="font-size:17px;font-weight:600">CCP '+esc(grp.kennung||'?')+'</span>';
+  h+='<span class="pill" style="background:var(--surf2);color:var(--mut)">'+(closed?'Einsatz abgeschlossen':'Einsatz offen')+'</span>';
+  h+='</div>';
+  h+= closed
+    ? '<div class="hint" style="margin-top:4px">Endgültige Foto-Löschung: '+govFmt(grp.frist)+'</div>'
+    : '<div class="hint" style="margin-top:4px">Foto-Löschfrist beginnt mit dem Einsatz-Abschluss (Abschluss + 72 Std).</div>';
+  grp.pats.forEach(function(p){
+    h+='<div class="patrow" style="margin-top:9px;margin-bottom:0">';
+    h+='<span class="pnum">'+esc(String(p.num!=null?p.num:'?'))+'</span>';
+    h+='<span style="flex:1"><span class="pill" style="background:var(--surf2);color:var(--mut)">'+(p.status==='gpa'?'ausgecheckt (gPA)':'aktiv')+'</span></span>';
+    h+='<button class="txbtn" data-action="govphoto" data-pid="'+esc(p.patient_id)+'" data-num="'+esc(String(p.num!=null?p.num:''))+'">Foto anzeigen</button>';
+    h+='</div>';
+  });
+  h+='</div>';
   return h;
 }
 function ccpJoinModal(list){
@@ -1441,13 +1521,14 @@ function countPrio(){return patients.filter(function(p){return p.status==="activ
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration",einsatzexport:"Übergabe-Export"};
+  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration",einsatzexport:"Übergabe-Export",governance:"Foto-Governance"};
   $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
   else if(v==="install")h=vInstall();
   else if(v==="praesidium")h=vPraesidium();
   else if(v==="admin")h=vAdmin();
+  else if(v==="governance")h=vGovernance();
   else if(v==="start")h=vStart();
   else if(v==="home")h=vHome();
   else if(v==="checklist")h=vChecklist();
@@ -2539,6 +2620,39 @@ document.addEventListener("click",async function(e){
     catch(e){ await promptModal(albl+' — '+apname+' (kopieren):',aurl); }
     return;
   }
+  if(a==="opengovernance"){
+    if(!_isMaster){toast("Nur MasterToken");return;}
+    go("governance"); loadGovernanceList(); return;
+  }
+  if(a==="govreload"){ loadGovernanceList(); return; }
+  if(a==="govphoto"){
+    if(!_isMaster){toast("Nur MasterToken");return;}
+    var gpid=el.getAttribute("data-pid"), gpnum=el.getAttribute("data-num");
+    /* Kürzel erzwingen — der RPC verweigert leere Kürzel (Protokoll-Pflicht).
+     * Wie der setoperator-Fluss, aber OHNE MasterMedic-Übernahme: das
+     * Governance-Gerät ist kein Einsatz-Gerät. */
+    if(!(operator&&operator.trim())){
+      var gko=await promptModal("Bediener-Kürzel (z. B. Streife / Name) — für das Zugriffs-Protokoll erforderlich:","");
+      if(gko===null||!gko.trim()){toast("Ohne Kürzel kein Foto-Abruf");return;}
+      operator=gko.trim(); await setOperatorStore(operator);
+    }
+    var gcl=sb(); if(!gcl){toast("Keine Backend-Verbindung");return;}
+    var gr; try{ gr=await gcl.rpc('argus_governance_photo',{p_patient_id:gpid,p_kuerzel:operator}); }
+    catch(e){ gr={error:{message:'keine Verbindung'}}; }
+    if(gr.error){ toast("Foto-Abruf fehlgeschlagen: "+(gr.error.message||"keine Verbindung")); return; }
+    var gphoto=gr.data&&gr.data.photo;
+    if(!gphoto){ toast("Kein Foto vorhanden — bereits endgültig gelöscht?"); loadGovernanceList(); return; }
+    var gts=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    var govz=document.createElement('div');
+    govz.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:12px';
+    govz.innerHTML='<img src="'+gphoto+'" alt="Patientenfoto" style="max-width:100%;max-height:78%;object-fit:contain;border-radius:8px">'+
+      '<div style="color:#cfd6df;font-size:12.5px;text-align:center;max-width:480px">Patient Nr. '+esc(gpnum||'?')+' · Dieser Abruf wurde protokolliert ('+esc(operator)+', '+esc(gts)+' Uhr).</div>'+
+      '<div style="position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300">✕</div>';
+    document.body.appendChild(govz);
+    govz.addEventListener('click',function(){ if(govz.parentNode)govz.parentNode.removeChild(govz); });
+    loadGovernanceList(); /* Protokoll/Liste nachziehen — der eigene Abruf wird sichtbar */
+    return;
+  }
   if(a==="checkunlock"){
     var uinp=document.getElementById('unlock-input');
     await doUnlock(uinp?uinp.value:''); return;
@@ -2945,6 +3059,7 @@ async function back(){
   else if(state.view==="catlist"){go("overview");}
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
   else if(state.view==="home"){await loadOpenCcpCount();go("start");}
+  else if(state.view==="governance"){go("admin");}
   else if(state.view==="admin"){go("praesidium");}
   else if(state.view==="help"){ go(_ccpId?"home":"start"); }
   else{go("home");}
@@ -2958,7 +3073,7 @@ setInterval(function(){
   if(tb&&state.edit&&state.edit.tqStart){tb.textContent="TQ läuft · "+fmtDur(nowMs()-state.edit.tqStart)+" — stoppen";}
 },1000);
 setInterval(async function(){
-  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
+  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport"||state.view==="governance")return;
   await loadMeta();await loadPatients();await loadChecklist();
   await checkIncomingMergeRequest();
   render();
