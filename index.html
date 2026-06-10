@@ -1393,6 +1393,12 @@ async function savePatient(p){
 var LOCK_TTL = 45000; /* 45 s Ablauf nach letztem Lebenszeichen */
 var _lockBeat = 0;
 function isMasterMedic(){ return !!((operator && masterMedic && operator===masterMedic) || _isMaster); }
+/* T1 Foto-Lebenszyklus: Ist das Foto in der NORMALANSICHT sichtbar? Ab Auscheckung
+ * (status 'gpa') nirgends mehr (Liste, Detail, Zoom) — das Datenfeld p.photo bleibt
+ * dabei unangetastet: „↩ Zurückholen" (reactivate) reaktiviert das Foto ohne Neufoto.
+ * Die endgültige Löschung übernimmt ausschließlich der Server-Purge (72 Std nach
+ * Abschluss) bzw. die lokale Einsatz-Bereinigung — NIE die Auscheckung selbst. */
+function photoVisible(p){ return !!(p && p.photo && p.status!=='gpa'); }
 function lockInfo(p){
   if(!p||!p.lockedBy||!p.lockedAt) return {locked:false,by:null,mine:false,age:Infinity};
   var age=nowMs()-p.lockedAt;
@@ -1617,7 +1623,7 @@ function vCatlist(){
       (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+p.tqStart+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
       catPill+
       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
-      (p.photo?'<span class="pill" style="background:var(--surf2);color:var(--mut)">📷</span>':'')+
+      (photoVisible(p)?'<span class="pill" style="background:var(--surf2);color:var(--mut)">📷</span>':'')+
       (function(){var l=lockInfo(p);return (l.locked&&!l.mine)?'<span class="pill" style="background:var(--surf2);color:var(--prio);border:1px solid var(--prio)">🔒 '+esc(l.by)+'</span>':'';})()+
       gpaPill+
       (p.ready&&p.status!=='gpa'?'<span class="pill" style="background:var(--ready);color:#fff">fertig</span>':'')+'</button>';
@@ -1653,7 +1659,7 @@ function vPatient(){
    * nur die Aufnahme ist gesperrt; „Foto entfernen" bleibt verfügbar. */
   var fotoHint='<div class="hint" style="margin-top:6px">Nur zur Wiedererkennung (statt Name). Wird mit den Geräten dieses Einsatzes geteilt. Nach dem Einsatz 72 Std nur für die Leitung einsehbar, danach automatisch gelöscht.</div>';
   h+='<div class="sech" id="ph-foto">Foto zur Identifikation</div><div class="card">';
-  if(p.photo){
+  if(photoVisible(p)){
     h+='<img src="'+p.photo+'" alt="Patientenfoto" data-action="photozoom" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;cursor:pointer">';
     h+='<div class="hint" style="text-align:center;margin-top:4px;font-size:11px">Antippen zum Vergrößern</div>';
     h+='<div class="row" style="margin-top:9px">'+
@@ -2787,7 +2793,9 @@ document.addEventListener("click",async function(e){
   if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();flashConfirm(pno(np),CATS[cat].label);return;}
   if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();flashConfirm(pno(np2),CATS[cat2].label);return;}
   if(a==="photozoom"){
-    var pzsrc=state.edit&&state.edit.photo; if(!pzsrc) return;
+    /* T1: ab Auscheckung (gpa) kein Zoom mehr — photoVisible deckt auch fehlendes Foto ab. */
+    if(!photoVisible(state.edit)) return;
+    var pzsrc=state.edit.photo;
     var ovz=document.createElement('div');
     ovz.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.93);display:flex;align-items:center;justify-content:center;padding:12px';
     ovz.innerHTML='<img src="'+pzsrc+'" alt="Patientenfoto" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px">'+
