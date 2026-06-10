@@ -222,6 +222,8 @@ var _schulDirty     = -1;     /* Schulungsumgebung verändert? -1 unbekannt · 0
 var DEMO_MEDICS = ['Dr. Berg','San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt']; /* Master-Medics der Demo-CCPs (Schulungs-Reset) */
 var _training=false, _trainStep=0, _trainMax=0, _trainCelebrate=false;   /* Geführtes Training (geräte-lokaler Übungs-Sandbox) */
 var _closeTyp=null, _closeFrist=null;   /* Einsatz-Abschluss: gewählter Typ + Lösch-Frist während des Workflows */
+var _selfClosing=false;                 /* eigenes Gerät schließt gerade ab → Realtime-Echo nicht doppelt behandeln */
+var _remoteCloseHandling=false;         /* Guard gegen Mehrfach-Auslösung der Fremd-Erkennung (applyMeta läuft auch im Refresh) */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -278,6 +280,12 @@ function patToRow(p){
 }
 function applyMeta(row){
   if(!row) return;
+  /* Abschluss-Erkennung (Realtime-Pfad, zwingend): trifft eine abgeschlossene
+   * oder getombstonete ccps-Row ein (ccps-Realtime-UPDATE, loadMeta, Refresh)
+   * → Hinweis-Modal + cleanupClosedEinsatz() via handleRemoteClose(). Ohne
+   * diesen Pfad erführen online bleibende Geräte den Abschluss erst beim
+   * Neustart und schrieben bis dahin gegen die RLS-Sperre an (_dirty-Queue). */
+  if(_ccpId && !_training && isCcpClosedRow(row)){ handleRemoteClose(); return; }
   if(typeof row.master_medic==='string') masterMedic=row.master_medic;
   if(typeof row.kennung==='string' && row.kennung) _ccpKennung=row.kennung;
   if('merge_group_id' in row) _mergeGroupId=row.merge_group_id||null;
@@ -989,7 +997,7 @@ function ccpAdminUI(){
   var h='';
   var isMM=operator&&masterMedic&&operator===masterMedic;
   if(isMM){
-    h+='<button class="navbtn" data-action="ccpclose" style="margin-top:10px"><span class="ic">✓</span><span><span class="t">CCP abschließen</span><br><span class="s">Aus der Auswahl ausblenden · Daten bleiben</span></span></button>';
+    h+='<button class="navbtn" data-action="ccpclose" style="margin-top:10px"><span class="ic">🏁</span><span><span class="t">Einsatz abschließen</span><br><span class="s">Übergabe-Export · sperrt alle Geräte · Löschung nach Frist</span></span></button>';
   }
   if(_isMaster){
     if(_mergeGroupId){
@@ -1036,6 +1044,204 @@ async function leaveCurrentCcp(){
   _ccpId=null; localStorage.removeItem('argus_ccp_id');
   _mergeGroupId=null; _ccpKennung='A'; _demoMerged=false; ccpMerged=false; patients=[];
   try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && !pp.demo) await sDel(lk[i]); } }catch(e){}
+}
+/* ════════ Einsatz-Lebenszyklus: abschließen, sperren, bereinigen ════════════
+ * Der MasterMedic schließt den Einsatz ab (Typ + Lösch-Frist, optionaler
+ * Übergabe-Export), der Server sperrt ihn (argus_close_einsatz: closed_at,
+ * purge_after, join_token=null — bei Verbund für alle CCPs der Gruppe).
+ * ARGUS ist Durchgangsspeicher: jedes Gerät entfernt seinen lokalen Bestand
+ * zum abgeschlossenen Einsatz — sofort via Realtime, sonst beim nächsten
+ * Start/Reconnect. Offline blockiert nichts (argus_pending_close-Queue). */
+
+/* Abgeschlossen? closed_at gesetzt ODER Tombstone: der Server-Purge leert die
+ * ccps-Row (ort='', master_medic='', join_token=null), löscht sie aber nicht. */
+function isCcpClosedRow(row){
+  if(!row) return false;
+  if(row.closed_at) return true;
+  return ('join_token' in row) && !row.join_token && !(row.ort||'') && !(row.master_medic||'');
+}
+/* Lokale Bereinigung zum abgeschlossenen Einsatz. Demo-/Trainingsdaten bleiben. */
+async function cleanupClosedEinsatz(){
+  try{
+    var keys=await sList("ccp_pat_");
+    for(var i=0;i<keys.length;i++){
+      var p=await sGet(keys[i]);
+      if(p && !p.demo && !p.training) await sDel(keys[i]);
+    }
+  }catch(e){}
+  await sDel("ccp_checklist");
+  await sDel("ccp_mastermedic");
+  await sDel("ccp_merged");
+  try{ localStorage.removeItem('argus_ccp_id'); }catch(e){}
+  /* argus_invite nur entfernen, wenn er ein 32-hex-Join-Token trägt (Beitritt
+   * zum jetzt geschlossenen CCP) — NICHT den 8-stelligen Zugangs-Code
+   * (Unterscheidung wie extractInviteToken vs. extractInviteCode). */
+  try{
+    var inv=localStorage.getItem('argus_invite')||'';
+    if(/^[a-f0-9]{32}$/i.test(inv.trim())) localStorage.removeItem('argus_invite');
+  }catch(e){}
+  if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
+  _ccpId=null; _mergeGroupId=null; _ccpKennung='A';
+  masterMedic=''; _demoMerged=false; ccpMerged=false;
+  checklist={hdr:{},items:{}};
+  patients=patients.filter(function(p){return p.demo||p.training;});
+  try{ await loadPatients(); }catch(e){}
+}
+/* Fremd-Erkennung: dieses Gerät erfährt (Start/Reconnect/Realtime), dass der
+ * Einsatz abgeschlossen wurde → Hinweis-Modal + lokale Bereinigung. */
+function handleRemoteClose(){
+  if(_remoteCloseHandling || _selfClosing) return;
+  _remoteCloseHandling=true;
+  (async function(){
+    try{ await confirmModal("Einsatz wurde abgeschlossen.\n\nDie lokalen Daten zu diesem Einsatz werden jetzt von diesem Gerät entfernt.","OK"); }catch(e){}
+    await cleanupClosedEinsatz();
+    await loadOpenCcpCount();
+    state.edit=null; state.readonly=false; state.lastCreatedId=null;
+    go("start");
+    toast("Lokale Einsatzdaten entfernt");
+    _remoteCloseHandling=false;
+  })();
+}
+/* Explizite Abschluss-Prüfung für (a) den App-Start nach loadMeta() und
+ * (b) den online-Handler. true = Bereinigung angestoßen. Offline ohne
+ * Information: nichts tun (local-first, keine Blockade). */
+async function checkClosedEinsatz(){
+  if(!_ccpId || _training) return false;
+  var client=sb(); if(!client || navigator.onLine===false) return false;
+  try{
+    var r=await client.from('ccps').select('*').eq('id',_ccpId).maybeSingle();
+    if(r && r.data && isCcpClosedRow(r.data)){ handleRemoteClose(); return true; }
+  }catch(e){}
+  return false;
+}
+/* Typ-Wahl beim Abschluss: Übung (14 Tage) / Einsatz (30 Tage); „Frist
+ * anpassen" schaltet die freie Frist-Eingabe (1–365 Tage) dazu. */
+function closeTypModal(){
+  return new Promise(function(resolve){
+    var ov=document.createElement("div");ov.className="modalov";
+    var custom=false;
+    ov.innerHTML='<div class="modalbx" style="max-width:360px">'+
+      '<div class="modalmsg" style="margin-bottom:14px">Was wird abgeschlossen? Der Typ bestimmt die Lösch-Frist.</div>'+
+      '<button class="mc-typ card" data-typ="uebung" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🎓 Übung</div><div class="hint" style="margin-top:3px">Löschung nach 14 Tagen</div></button>'+
+      '<button class="mc-typ card" data-typ="einsatz" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🚨 Einsatz</div><div class="hint" style="margin-top:3px">Löschung nach 30 Tagen</div></button>'+
+      '<button class="ghost mc-custom" style="margin:0 0 10px">Frist anpassen…</button>'+
+      '<button class="ghost mc-cancel" style="margin:0">Abbrechen</button></div>';
+    document.body.appendChild(ov);
+    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    var cb=ov.querySelector('.mc-custom');
+    cb.addEventListener('click',function(){
+      custom=!custom;
+      cb.style.borderColor=custom?'var(--acc)':'';
+      cb.style.color=custom?'var(--acc)':'';
+      cb.textContent=custom?'✓ Eigene Frist — Typ antippen, dann Tage eingeben':'Frist anpassen…';
+    });
+    Array.prototype.forEach.call(ov.querySelectorAll('.mc-typ'),function(b){
+      b.addEventListener('click',function(){done({typ:b.getAttribute('data-typ'),custom:custom});});
+    });
+    ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
+    ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
+  });
+}
+/* Export-Angebot vor dem Abschluss — drei klare Wege statt Ja/Nein-Mehrdeutigkeit. */
+function exportChoiceModal(){
+  return new Promise(function(resolve){
+    var ov=document.createElement("div");ov.className="modalov";
+    ov.innerHTML='<div class="modalbx" style="max-width:360px">'+
+      '<div class="modalmsg" style="margin-bottom:14px">Übergabe-Export erstellen? Alle Patienten als Datei (JSON) und druckbare AT-MIST-Gesamtansicht — die Übergabe an die dauerhafte Einsatzdokumentation. Ohne Fotos.</div>'+
+      '<button class="prim mc-exp" style="margin:0 0 10px">Export ansehen &amp; erstellen</button>'+
+      '<button class="ghost mc-skip" style="margin:0 0 10px">Ohne Export abschließen</button>'+
+      '<button class="ghost mc-cancel" style="margin:0">Abbrechen</button></div>';
+    document.body.appendChild(ov);
+    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    ov.querySelector('.mc-exp').addEventListener('click',function(){done('export');});
+    ov.querySelector('.mc-skip').addEventListener('click',function(){done('skip');});
+    ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
+    ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
+  });
+}
+/* Geführte Modal-Strecke „Einsatz abschließen" (nur MasterMedic, nie Training). */
+async function closeEinsatzWorkflow(){
+  if(_training){ toast("Im Training nicht verfügbar — Training über „Beenden“ abschließen"); return; }
+  if(!isMasterMedic()){ toast("Nur MasterMedic kann den Einsatz abschließen"); return; }
+  /* (a) Bestätigung mit Klartext-Folgen */
+  var ok=await confirmModal("Einsatz abschließen?\n\n• Der Einsatz wird für ALLE Geräte gesperrt.\n• Die Daten werden nach der gewählten Frist automatisch gelöscht.\n• Fotos werden 72 Std nach Abschluss gelöscht.\n\nDas kann nicht rückgängig gemacht werden.","Weiter");
+  if(!ok) return;
+  /* (b) Typ + Frist (Übung 14 / Einsatz 30 Tage, anpassbar 1–365) */
+  var selTyp=await closeTypModal(); if(!selTyp) return;
+  var frist=selTyp.typ==='uebung'?14:30;
+  if(selTyp.custom){
+    var v=await promptModal("Lösch-Frist in Tagen (1–365):",String(frist));
+    if(v==null) return;
+    var n=parseInt(String(v).trim(),10);
+    if(!isFinite(n)||n<1||n>365){ toast("Ungültige Frist — 1 bis 365 Tage"); return; }
+    frist=n;
+  }
+  _closeTyp=selTyp.typ; _closeFrist=frist;
+  /* (c) Export-Angebot */
+  var choice=await exportChoiceModal();
+  if(choice===null){ _closeTyp=null; _closeFrist=null; return; }
+  if(choice==='export'){ await loadPatients(); go("einsatzexport"); return; }   /* Abschluss dort über „Einsatz jetzt abschließen" */
+  await finalizeCloseEinsatz();
+}
+/* (d) Abschluss: RPC argus_close_einsatz; offline wird die Absicht gequeuet
+ * (argus_pending_close) und die lokale Wirkung sofort ausgeführt. */
+async function finalizeCloseEinsatz(){
+  var typ=_closeTyp, frist=_closeFrist;
+  _closeTyp=null; _closeFrist=null;
+  if(!typ||!frist){ toast("Abschluss abgebrochen"); return; }
+  _selfClosing=true;
+  var done=false, rejected=null;
+  if(_ccpId){
+    var client=sb(), resp=null;
+    if(client && navigator.onLine!==false){
+      try{ resp=await client.rpc('argus_close_einsatz',{p_ccp_id:_ccpId,p_typ:typ,p_frist_tage:frist}); }catch(e){ resp=null; }
+    }
+    if(resp && !resp.error && resp.data && !resp.data.error){ done=true; }
+    else if(resp && resp.data && resp.data.error){ rejected=resp.data.error; }
+    if(rejected){
+      /* Server hat ABGELEHNT (z. B. keine Berechtigung) — nicht queuen, nichts löschen. */
+      _selfClosing=false;
+      await confirmModal("Abschluss fehlgeschlagen:\n\n"+rejected,"OK");
+      return;
+    }
+    if(!done){
+      /* Offline / Verbindungsfehler: Absicht merken, bei Reconnect nachziehen
+       * (flushPendingClose). Lokale Wirkung trotzdem sofort — keine Blockade. */
+      try{ localStorage.setItem('argus_pending_close', JSON.stringify({ccpId:_ccpId,typ:typ,fristTage:frist,ts:nowMs()})); }catch(e){}
+    }
+  }
+  await cleanupClosedEinsatz();
+  await loadOpenCcpCount();
+  state.edit=null; state.readonly=false; state.lastCreatedId=null;
+  go("start");
+  toast(done?("Einsatz abgeschlossen — Löschung in "+frist+" Tagen"):"Abschluss wird bei Verbindung übertragen");
+  _selfClosing=false;
+}
+/* Reine Lese-/Validierungslogik der Offline-Abschluss-Queue (per JSC testbar):
+ * null → nichts zu tun; {drop:true} → Key kaputt/unvollständig, nur löschen;
+ * sonst {ccpId,typ,fristTage} → RPC fällig. */
+function pendingCloseRead(raw){
+  if(!raw) return null;
+  var pc=null; try{ pc=JSON.parse(raw); }catch(e){ return {drop:true}; }
+  if(!pc || !pc.ccpId || !pc.typ || !pc.fristTage) return {drop:true};
+  return {ccpId:pc.ccpId, typ:pc.typ, fristTage:pc.fristTage};
+}
+/* Offline gequeueten Abschluss nachziehen — aufgerufen im init-Block und im
+ * online-Handler. Queue wird abgebaut, sobald der Server geantwortet hat
+ * (Erfolg ODER endgültige Ablehnung); nur Transportfehler → später erneut. */
+async function flushPendingClose(){
+  var raw=null; try{ raw=localStorage.getItem('argus_pending_close'); }catch(e){}
+  var pc=pendingCloseRead(raw);
+  if(!pc) return;
+  if(pc.drop){ try{ localStorage.removeItem('argus_pending_close'); }catch(e){} return; }
+  var client=sb(); if(!client || navigator.onLine===false) return;
+  try{
+    var r=await client.rpc('argus_close_einsatz',{p_ccp_id:pc.ccpId,p_typ:pc.typ,p_frist_tage:pc.fristTage});
+    if(r && !r.error){
+      try{ localStorage.removeItem('argus_pending_close'); }catch(e2){}
+      if(r.data && !r.data.error) toast("Einsatz-Abschluss übertragen");
+    }
+  }catch(e){}
 }
 /* Offline-Robustheit: lokal noch nicht synchronisierte Patienten in die
  * Cloud-Liste einmischen und — wenn online — nachschieben. Konfliktlösung per
@@ -1334,6 +1540,12 @@ function vOverview(){
   });
   h+='<button class="navbtn" data-action="opencat" data-cat="all" style="margin-top:10px"><span class="ic">≡</span><span><span class="t">Alle Patienten</span><br><span class="s">Gesamtliste — direkt antippen</span></span></button>';
   h+='<p class="hint" style="text-align:center;margin-top:10px">Kachel oben oder Kategorie antippen → Liste → Patient antippen</p>';
+  /* Einsatz-Abschluss: nur MasterMedic, nie im Training (im lokalen
+   * Trainings-Sandbox gibt es keinen echten Einsatz abzuschließen). */
+  if(isMasterMedic() && !_training){
+    h+='<button class="ghost" data-action="closeeinsatz" style="margin-top:14px">🏁 Einsatz abschließen</button>';
+    h+='<p class="hint" style="text-align:center;margin-top:5px">Übergabe-Export · sperrt alle Geräte · Löschung nach Frist</p>';
+  }
   if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
     /* Einheitlich echtes geräteübergreifendes Zusammenführen — auch in der
@@ -2444,12 +2656,14 @@ document.addEventListener("click",async function(e){
     await realMergeLeave();render();toast("Zusammenführung aufgelöst");
     return;
   }
+  if(a==="closeeinsatz"){ await closeEinsatzWorkflow(); return; }
+  if(a==="exportjson"){ await exportEinsatzJson(); return; }
+  if(a==="exportback"){ _closeTyp=null; _closeFrist=null; go("overview"); return; }
+  if(a==="closeeinsatznow"){ await finalizeCloseEinsatz(); return; }
   if(a==="ccpclose"){
-    var okc=await confirmModal("Diesen CCP abschließen?\n\nEr wird aus der Auswahl ausgeblendet, die Daten bleiben erhalten.","Abschließen");
-    if(!okc)return;
-    var ccx=sb();
-    if(ccx&&_ccpId){try{await ccx.from('ccps').update({closed_at:nowMs()}).eq('id',_ccpId);}catch(e){}}
-    await leaveCurrentCcp();await loadOpenCcpCount();toast("CCP abgeschlossen");go("start");return;
+    /* Früher: nur ausblenden („Daten bleiben"). Jetzt einheitlich der
+     * Einsatz-Lebenszyklus: Abschluss mit Lösch-Frist + Bereinigung. */
+    await closeEinsatzWorkflow(); return;
   }
   if(a==="ccpdelete"){
     if(!_isMaster){toast("Nur mit MasterToken-Freischaltung möglich");return;}
@@ -2634,6 +2848,7 @@ document.addEventListener("click",async function(e){
 function go(view){state.view=view;if(view==="capture")state.capMode="menu";render();if(view==="start"||view==="home")maybeShowIntro();}
 async function back(){
   if(state.view==="patient"){await releasePatientLock();state.readonly=false;go("catlist");}
+  else if(state.view==="einsatzexport"){_closeTyp=null;_closeFrist=null;go("overview");}
   else if(state.view==="catlist"){go("overview");}
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
   else if(state.view==="home"){await loadOpenCcpCount();go("start");}
@@ -2650,7 +2865,7 @@ setInterval(function(){
   if(tb&&state.edit&&state.edit.tqStart){tb.textContent="TQ läuft · "+fmtDur(nowMs()-state.edit.tqStart)+" — stoppen";}
 },1000);
 setInterval(async function(){
-  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help")return;
+  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
   await loadMeta();await loadPatients();await loadChecklist();
   await checkIncomingMergeRequest();
   render();
@@ -2811,7 +3026,17 @@ setInterval(async function(){
   var storedCcp=localStorage.getItem('argus_ccp_id');
   if(storedCcp) _ccpId=storedCcp;
 
+  /* Offline gequeueter Einsatz-Abschluss? Jetzt (online) nachziehen. */
+  await flushPendingClose();
+  /* Opportunistischer Purge-Lauf — Fallback zu pg_cron (z. B. pausiertes
+   * Free-Tier-Projekt, das erst durch App-Traffic aufwacht). Fire-and-forget. */
+  try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
+
   await loadMeta();
+  /* Abschluss-Erkennung (a) App-Start: wurde der Einsatz abgeschlossen, während
+   * dieses Gerät weg war? → Hinweis-Modal + cleanupClosedEinsatz() (über
+   * handleRemoteClose; loadMeta()→applyMeta() prüft denselben Zustand). */
+  await checkClosedEinsatz();
   await loadPatients();
   await loadChecklist();
   await loadOpenCcpCount();
@@ -2840,6 +3065,15 @@ document.addEventListener('visibilitychange', function(){
 window.addEventListener('online', function(){
   refreshJwtIfNeeded();
   checkForUpdate();
-  if(_ccpId && sb()){ loadPatients().then(function(){ render(); }); }
+  flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
+  try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
+  if(_ccpId && sb()){
+    /* Abschluss-Erkennung (b) Reconnect: erst prüfen, ob der Einsatz inzwischen
+     * abgeschlossen wurde (→ Hinweis + cleanupClosedEinsatz), sonst normal laden. */
+    checkClosedEinsatz().then(function(closed){
+      if(closed || !_ccpId) return;
+      loadPatients().then(function(){ render(); });
+    });
+  }
 });
 </script>
