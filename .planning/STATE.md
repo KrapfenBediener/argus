@@ -169,8 +169,9 @@ Einziger nicht-autonomer Punkt: Plan 04.8-02 braucht einen ephemeren Supabase-PA
   jetzt in den neuen Workflow (Abweichung, dokumentiert). Drehbuch + Release
   v0.20.0 (SW v37, UPDATE_v0.20.html). JSC-Tests 23/23 PASS. Details:
   `.planning/phases/04.8-datenschutz-haertung/04.8-03-SUMMARY.md`.
-  Commits 5a7b03c · 0454595 · 378ccab. **Push offen** (GitHub-Credentials
-  werden erneuert) — GitHub Pages deployt erst mit dem nächsten Push.
+  Commits 5a7b03c · 0454595 · 378ccab. **Gepusht** (c291e6f..9d5a362, Credentials
+  waren wieder gültig) — GitHub Pages deployt v0.20.0; damit ist auch der noch
+  offene 04.8-02-Stand (8fcb675) mit hochgegangen.
 
 DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
 2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),
