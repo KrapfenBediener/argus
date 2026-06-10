@@ -6,6 +6,31 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.21.0 — 2026-06-10
+**Foto-Härtung (T1, Teil 1): Schalter „Fotos erlauben", Foto-Lebenszyklus in der Normalansicht**
+- **Schalter „Fotos erlauben" (nur MasterMedic/Eröffner, Default AUS):** in der
+  Patientenübersicht; synct über `ccps.photos_allowed` (Realtime + `loadMeta`)
+  auf alle Geräte des Einsatzes — im Verbund werden alle CCP-Rows der
+  merge_group aktualisiert. Einschalten mit Folge-Erklärung (Teilen +
+  automatische Löschung) per confirmModal.
+- **Kamera-Gating:** Bei Schalter AUS sind Aufnahme-Label und „Neues Foto"
+  ausgeblendet (zusätzlich defensiver Abbruch im Upload-Handler); bestehende
+  Fotos bleiben sichtbar, „Foto entfernen" bleibt verfügbar.
+- **Zweck-Hinweis am Kamera-Button:** Nur zur Wiedererkennung (statt Name),
+  geteilt mit den Geräten des Einsatzes, nach dem Einsatz 72 Std nur für die
+  Leitung einsehbar, danach automatisch gelöscht.
+- **Foto ab Auscheckung geschützt:** Für gPA-Patienten ist das Foto in der
+  Normalansicht nirgends mehr abrufbar (Listen-Pill, Detail, Zoom — zentrale
+  Render-Bedingung `photoVisible(p)`); „↩ Zurückholen" reaktiviert das Foto
+  ohne Neufoto. Das Datenfeld bleibt unangetastet — endgültige Löschung nur
+  per Server-Purge (72 Std nach Abschluss) bzw. lokale Einsatz-Bereinigung.
+- **Training:** Foto-Lektion ans neue Verhalten angepasst + neue Erklär-Lektion
+  zum Schalter; im Trainings-Sandbox ist `_photosAllowed` lokal an (train-ccp
+  synct nie — kein Cloud-Leck), Reset beim Beenden.
+- Update-Sheet `docs/UPDATE_v0.21.html`; SW-Cache v38.
+
+---
+
 ## v0.20.0 — 2026-06-10
 **Einsatz-Lebenszyklus (T2): „Einsatz abschließen", Übergabe-Export, automatische Löschung**
 - **Einsatz abschließen (nur MasterMedic):** geführte Modal-Strecke in der

@@ -103,7 +103,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.20.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.21.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -116,9 +116,15 @@ var UPDATE_SHEETS = {
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html',  /* deckt v0.9.0 → v0.12.x ab */
   '0.17.0': 'docs/UPDATE_v0.17.html',          /* AT-MIST-Übergabekarte */
   '0.18.0': 'docs/UPDATE_v0.18.html',          /* Geführtes Training */
-  '0.20.0': 'docs/UPDATE_v0.20.html'           /* Einsatz abschließen + Übergabe-Export */
+  '0.20.0': 'docs/UPDATE_v0.20.html',          /* Einsatz abschließen + Übergabe-Export */
+  '0.21.0': 'docs/UPDATE_v0.21.html'           /* Foto-Schalter + Foto-Lebenszyklus */
 };
 var WHATS_NEW = {
+  '0.21.0': [
+    'Fotos erlauben (MasterMedic): Patientenfotos sind jetzt standardmäßig aus. Die Leitung schaltet sie je Einsatz in der Patientenübersicht ein — erst dann erscheint der Kamera-Button auf allen Geräten.',
+    'Fotos nach Abtransport geschützt: Ab dem Auschecken (gPA) ist das Foto in der App nicht mehr sichtbar. „↩ Zurückholen" zeigt es wieder — ohne neues Foto.',
+    'Automatische Foto-Löschung: Nach dem Einsatz-Abschluss werden Fotos 72 Std später endgültig gelöscht. Sie dienen nur der Wiedererkennung — statt Name.'
+  ],
   '0.20.0': [
     'Einsatz abschließen (MasterMedic): In der Patientenübersicht beendest du den Einsatz — mit optionalem Übergabe-Export: alle Patienten als Datei (JSON) plus druckbare AT-MIST-Gesamtansicht.',
     'Automatische Löschung: Nach dem Abschluss werden die Einsatzdaten nach der gewählten Frist gelöscht (Übung 14 Tage, Einsatz 30 Tage, anpassbar) — Fotos bereits 72 Std nach Abschluss. Alle Geräte räumen ihren lokalen Bestand automatisch.'
@@ -815,7 +821,8 @@ async function setMasterMedic(v){
  * die an einer anderen Row hängen, einen abweichenden Zustand). Im Training nie
  * in die Cloud schreiben (train-ccp ist geräte-lokal). */
 async function setPhotosAllowed(v){
-  _photosAllowed=!!v; await sSet("ccp_photos_allowed",!!v);
+  _photosAllowed=!!v;
+  if(!_training) await sSet("ccp_photos_allowed",!!v);   /* Trainings-Zustand nie persistieren (sonst verschmutzter Offline-Fallback nach Trainingsende) */
   var client=sb();
   if(client && _ccpId && !_training){
     try{
@@ -2098,7 +2105,17 @@ function cmpVer(a,b){
  * Drehbuch-Tutorial im geräte-LOKALEN Übungs-Sandbox: in `_training` erstellte/
  * bearbeitete Patienten tragen training:true → werden NIE synchronisiert (wie
  * demo) → single-user, beliebig viele gleichzeitig, kein Fremd-Reset. Opt-in.
- * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen. */
+ * DAUERREGEL: Bei UI-/Funktionsänderungen dieses Drehbuch (TRAIN_LESSONS) mitpflegen.
+ *
+ * Foto-Schalter im Training (T1, gewählte Variante — BEIDES kombiniert):
+ * _photosAllowed wird für die Trainingsdauer LOKAL auf true gesetzt (start/
+ * trainLoad; Reset in endTraining). Begründung: Der Trainings-CCP ('train-ccp')
+ * ist geräte-lokal und synct nie → kein Cloud-Leck; so zeigt das Training die
+ * echte Kamera-UI samt Zweck-Hinweis statt der Deaktiviert-Meldung. Die
+ * Foto-Lektion bleibt trotzdem 'explain' (keine Aufnahme-Pflicht — niemand soll
+ * im Training gezwungen sein, ein reales Foto zu machen). setPhotosAllowed()
+ * schreibt im Training nie in die Cloud; applyMeta/loadMeta überschreiben den
+ * Trainings-Zustand nicht (Guards dort). */
 var TRAIN_LESSONS=[
   {t:'Willkommen', mode:'explain', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt oder synchronisiert. Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
   {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du alle offenen CCPs in deinem Präsidium und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Alternativ eröffnest du gleich selbst einen neuen.', sel:'[data-action="joinccp"]'},
@@ -2120,10 +2137,14 @@ var TRAIN_LESSONS=[
   {t:'Sichten mit tacSTART', mode:'do', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
+  /* Foto-Schalter: nur sichtbar, wenn der Übende MasterMedic seines Übungs-CCP ist
+   * (Normalfall — der Eröffner wird automatisch MasterMedic). Fehlt das Element,
+   * zeigt der Coach die Lektion ohne Spotlight — kein Blocker. */
+  {t:'Fotos erlauben (MasterMedic)', mode:'explain', x:'Patientenfotos sind standardmäßig AUS. Nur die Leitung (MasterMedic) schaltet sie hier je Einsatz ein — erst dann erscheint der Kamera-Button auf allen Geräten. Fotos dienen nur der Wiedererkennung und werden nach dem Einsatz automatisch gelöscht. Im Training ist der Schalter für dich schon an.', sel:'[data-action="togglephotos"]'},
   {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Zwei Wege (beide markiert): oben eine Sichtungs-Kachel (nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,[data-action="opencat"][data-cat="all"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
-  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Identifikation — du brauchst keinen Namen (pseudonym). Es wird mit dem Patienten geteilt und ist für alle im selben CCP sichtbar.', sel:'#ph-foto'},
+  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Es erscheint nur, wenn die Leitung „Fotos erlauben" eingeschaltet hat (im Training ist das für dich schon an). Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
   {t:'Detail: Kategorie wechseln', mode:'explain', x:'Ändert sich der Zustand — verschlechtert ODER verbessert — verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie (Re-Triage, in beide Richtungen).', sel:'#ph-cat'},
   {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
   {t:'Detail: Maßnahmen (cABCDE)', mode:'explain', x:'Hier dokumentierst du durchgeführte Maßnahmen entlang des cABCDE-Schemas: kritische Blutung, Atemweg, Beatmung, Kreislauf, weitere.', sel:'#ph-tx'},
@@ -2151,16 +2172,16 @@ var TRAIN_LESSONS=[
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
 function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
-function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; }catch(e){} }
+function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; if(_training)_photosAllowed=true; }catch(e){} }   /* Reload mitten im Training: Foto-Schalter lokal wieder an (s. Kommentar oben) */
 function trainSave(){ try{ localStorage.setItem('argus_training',_training?'1':'0'); localStorage.setItem('argus_train_step',String(_trainStep)); }catch(e){} }
-async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; trainSave(); try{await loadPatients();}catch(e){} render(); }
+async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; _photosAllowed=true; trainSave(); try{await loadPatients();}catch(e){} render(); }   /* Foto-Schalter lokal an (train-ccp synct nie → kein Cloud-Leck) */
 async function trainReset(){ try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && pp.training) await sDel(lk[i]); } }catch(e){} }
 async function endTraining(){
   /* Overlay (Spotlight + Panel) VOR dem Dialog entfernen, sonst liegt es im Vordergrund. */
   try{ trainClearSpot(); var pe=document.getElementById('train-coach'); if(pe&&pe.parentNode)pe.parentNode.removeChild(pe); }catch(e){}
   var ok=await confirmModal('Training beenden?\n\nDie Übungsdaten auf diesem Gerät werden entfernt. Echte CCPs sind nicht betroffen.','Beenden');
   if(!ok){ try{ renderCoach(); }catch(e){} return; }
-  _training=false; trainSave(); try{ trainTeardown(); }catch(e){} try{await trainReset();}catch(e){} if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
+  _training=false; _photosAllowed=false; trainSave(); try{ trainTeardown(); }catch(e){}   /* Foto-Schalter zurück auf Default AUS (nach dem Training gibt es keinen aktiven CCP mehr) */ try{await trainReset();}catch(e){} if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
 }
 function trainStep(d){
   if(d>0){ _trainStep=Math.min(_trainStep+1,TRAIN_LESSONS.length); if(_trainStep>_trainMax)_trainMax=_trainStep; }
