@@ -6,6 +6,33 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.20.0 — 2026-06-10
+**Einsatz-Lebenszyklus (T2): „Einsatz abschließen", Übergabe-Export, automatische Löschung**
+- **Einsatz abschließen (nur MasterMedic):** geführte Modal-Strecke in der
+  Patientenübersicht — Typ wählen (**Übung → 14 Tage** / **Einsatz → 30 Tage**,
+  Frist anpassbar 1–365), optionaler Übergabe-Export, dann sperrt der Server den
+  Einsatz (`argus_close_einsatz`: closed_at, purge_after, join_token=null — bei
+  Verbund für alle CCPs der Gruppe). Der bisherige „CCP abschließen"-Knopf (Home)
+  führt einheitlich in den neuen Workflow.
+- **Übergabe-Export:** alle Patienten **maschinenlesbar (JSON, via iOS-Teilen
+  oder Download)** und **druckbar (AT-MIST-Gesamtansicht, eine Karte pro
+  Patient)**. Name nur, wenn erfasst; **Fotos nie enthalten** (bewusste
+  Entscheidung — das Governance-Panel bleibt der einzige Foto-Export-Pfad).
+- **Lokale Bereinigung auf allen Geräten:** abgeschlossene Einsätze werden vom
+  Gerät entfernt — sofort über den ccps-Realtime-UPDATE (closed_at/Tombstone in
+  `applyMeta`), sonst beim nächsten Start/Reconnect. Hinweis-Modal vor der
+  Bereinigung; Demo-/Trainingsdaten bleiben unberührt.
+- **Offline blockiert nicht:** Abschluss wird als `argus_pending_close` gemerkt,
+  lokal sofort wirksam und bei Verbindung automatisch übertragen
+  (`flushPendingClose` im Start- und online-Pfad).
+- **Opportunistischer Purge:** App stößt `argus_run_purge` beim Start/Reconnect
+  fire-and-forget an (Fallback zu pg_cron auf pausierten Free-Tier-Projekten).
+- **Training:** Lektion „Einsatz abschließen" (Startseiten-Knopf) aktualisiert +
+  neue Erklär-Lektion zum Einsatz-Lebenszyklus nach der Übergabekarten-Strecke.
+- Update-Sheet `docs/UPDATE_v0.20.html`; SW-Cache v37.
+
+---
+
 ## v0.19.9 — 2026-06-10
 **Datenschutz-Härtung (T8): keine Laufzeit-Requests an Drittanbieter mehr**
 - **Supabase-JS lokal eingebunden:** `vendor/supabase.js` (feste Version 2.108.1, UMD)

@@ -103,7 +103,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.19.9';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.20.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -115,9 +115,14 @@ var APP_VERSION = '0.19.9';  /* Sichtbare App-Version (für Tester-Feedback). Si
 var UPDATE_SHEETS = {
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html',  /* deckt v0.9.0 → v0.12.x ab */
   '0.17.0': 'docs/UPDATE_v0.17.html',          /* AT-MIST-Übergabekarte */
-  '0.18.0': 'docs/UPDATE_v0.18.html'           /* Geführtes Training */
+  '0.18.0': 'docs/UPDATE_v0.18.html',          /* Geführtes Training */
+  '0.20.0': 'docs/UPDATE_v0.20.html'           /* Einsatz abschließen + Übergabe-Export */
 };
 var WHATS_NEW = {
+  '0.20.0': [
+    'Einsatz abschließen (MasterMedic): In der Patientenübersicht beendest du den Einsatz — mit optionalem Übergabe-Export: alle Patienten als Datei (JSON) plus druckbare AT-MIST-Gesamtansicht.',
+    'Automatische Löschung: Nach dem Abschluss werden die Einsatzdaten nach der gewählten Frist gelöscht (Übung 14 Tage, Einsatz 30 Tage, anpassbar) — Fotos bereits 72 Std nach Abschluss. Alle Geräte räumen ihren lokalen Bestand automatisch.'
+  ],
   '0.19.9': [
     'Schrift und Technik werden jetzt vollständig lokal geladen — die App ruft beim Start keine Drittanbieter-Server mehr auf und ist offline noch robuster.'
   ],
@@ -2062,7 +2067,7 @@ var TRAIN_LESSONS=[
   {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
   {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
   {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen und Merksätze — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
-  {t:'CCP abschließen', mode:'explain', x:'Ganz unten „CCP abschließen": blendet die CCP aus der Auswahl aus, die Daten bleiben erhalten. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle) — nur diese Rolle darf eine CCP abschließen.', sel:'[data-action="ccpclose"]'},
+  {t:'Einsatz abschließen', mode:'explain', x:'Ganz unten „Einsatz abschließen": beendet den Einsatz für ALLE Geräte — mit optionalem Übergabe-Export. Danach werden die Daten nach einer Frist automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
 
   {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.'},
@@ -2094,6 +2099,11 @@ var TRAIN_LESSONS=[
   {t:'Karte: S — Befund', mode:'explain', x:'S wie Signs: Befund und Vitalwerte (WASB, AF, SpO₂, HF, RR, Schmerz) — soweit erhoben.', sel:'[data-am="S"]'},
   {t:'Karte: T — Maßnahmen', mode:'explain', x:'T wie Treatment: die durchgeführten Maßnahmen. Alles steht in fester Reihenfolge zum flüssigen Vorlesen — und die Karte ist gesperrt (eingefrorener Stand), damit sich beim Vorlesen nichts mehr ändert.', sel:'[data-am="TT"]'},
   {t:'Korrigieren: „Zurückholen"', mode:'explain', x:'Stimmt doch etwas nicht? Mit „↩ Zurückholen → aktiv" holst du den Patienten kurz in den aktiven Bestand zurück, korrigierst und checkst erneut aus. So bleibt die Übergabe immer korrekt — nichts geht verloren.', sel:'[data-action="reactivate"]'},
+
+  /* Einsatz-Lebenszyklus: nur erklären — der echte Abschluss läuft nie im
+   * Trainings-Sandbox; der Knopf ist im Training ausgeblendet (kein Selektor,
+   * keine do-Pflicht — sonst Kollision mit dem Spotlight). */
+  {t:'Einsatz abschließen', mode:'explain', x:'Nach dem Einsatz: In der Patientenübersicht (oder auf der Startseite) schließt der MasterMedic den Einsatz ab — Typ wählen (Übung oder Einsatz), optional den Übergabe-Export erzeugen: alle Patienten als Datei plus druckbare AT-MIST-Ansicht. Danach ist der Einsatz für alle Geräte gesperrt; die Daten löschen sich automatisch nach der Frist (Übung 14 Tage, Einsatz 30 Tage), Fotos schon nach 72 Std. Hier im Training nur zur Info — es gibt nichts abzuschließen.'},
   {t:'Geschafft! 🎉', mode:'explain', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben. „Beenden" räumt die Übungsdaten ab — danach kannst du es jederzeit wiederholen.'}
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
