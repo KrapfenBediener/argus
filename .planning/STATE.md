@@ -141,10 +141,17 @@ kein Browser verfügbar.*
 
 ---
 
-## Nächste Phase: 5 — Produktionsinfrastruktur
+## Nächste Phase: 4.8 — Datenschutz-Härtung
 
-Pro-Tier, separates Produktionsprojekt, Production-Repo-Schnitt, Backup-/Löschkonzept.
-Siehe `.planning/ROADMAP.md`.
+DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
+2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),
+T1 Foto-Härtung + Governance-Panel, T3 Namensfeld-Härtung, T8 externe
+Laufzeit-Abhängigkeiten entfernen. T4 (Audit-Log) bleibt bis DSB-Votum gesperrt.
+Danach: Phase 5 — Produktionsinfrastruktur (Pro-Tier, separates Prod-Projekt,
+Repo-Schnitt, Backup-/Löschkonzept). Siehe `.planning/ROADMAP.md`.
+
+*Hinweis 2026-06-10: `docs/datenschutz/` und weitere interne Unterlagen sind
+gitignored — Repo ist public.*
 
 ---
 

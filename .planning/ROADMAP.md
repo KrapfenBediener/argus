@@ -129,6 +129,25 @@ Phase 5 bleibt aufgeschoben). Details: `.planning/STATE.md`.
 - ✅ **IP-/Doc-Hygiene:** interne Docs/Decks entöffentlicht (`.gitignore`);
   Design-Sprache fixiert (`docs/UI-AUSBLICK.html` verbindlich).
 
+## Phase 4.8 — Datenschutz-Härtung ⬜
+**Ziel:** Die DSB-unabhängigen P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md`
+umsetzen — laut DSFA Bedingung für jeden Echtbetrieb. Läuft im Test-/Härtungsfenster,
+**vor** Phase 5; das DSB-Gespräch wird dadurch nicht entwertet, sondern vorbereitet.
+
+- **T2 — „Einsatz abschließen" + automatische Löschung** (Fundament: Einsatz-
+  Lebenszyklus, Übergabe-Export, Lösch-Timer, Cloud-Purge, lokale Bereinigung).
+- **T1 — Foto-Härtung + Governance-Panel** (Foto-Schalter Default aus, Foto-
+  Lebenszyklus mit 72-h-Löschung nach Einsatzabschluss → baut auf T2 auf,
+  MasterUser-/Governance-Zugriff protokolliert, Fristverlängerung mit Begründung).
+- **T3 — Namensfeld-Härtung** (UI-Hinweise, keine Namens-Suche/-Spalte,
+  Freitextfeld-Hinweise, Drehbuch-Lektion).
+- **T8 — Externe Laufzeit-Abhängigkeiten entfernen** (Supabase-JS lokal,
+  IBM-Plex self-hosted — keine Requests an jsdelivr/Google mehr).
+- Begleitend gem. SPEC: Drehbuch/Lektionen bei jeder UI-Änderung mitziehen,
+  `08-MASSNAHMENPLAN.md` synchron halten.
+- **Explizit NICHT in dieser Phase:** T4 Audit-Log (gesperrt bis DSB-Votum
+  „JI-Regime"), T5–T7 (P2, eigene Folgephase oder nach DSB).
+
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
 kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
