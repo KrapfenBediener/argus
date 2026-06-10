@@ -1,8 +1,9 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** Test-/Härtungsfenster — Phase 5 bewusst aufgeschoben,
-  bis die App ausgiebiger getestet ist. **App live: v0.19.5** (Stand 2026-06-08).
+- **Aktuelle Phase:** 4.8 Datenschutz-Härtung (in Ausführung) — Phase 5 bewusst
+  aufgeschoben, bis die App ausgiebiger getestet ist. **App live: v0.21.0**
+  (Stand 2026-06-10).
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -172,6 +173,24 @@ Einziger nicht-autonomer Punkt: Plan 04.8-02 braucht einen ephemeren Supabase-PA
   Commits 5a7b03c · 0454595 · 378ccab. **Gepusht** (c291e6f..9d5a362, Credentials
   waren wieder gültig) — GitHub Pages deployt v0.20.0; damit ist auch der noch
   offene 04.8-02-Stand (8fcb675) mit hochgegangen.
+
+**Ausführungsstand (Welle 3):**
+- **04.8-04 ✅ (2026-06-10, v0.21.0):** T1 App-Teil 1 — einsatzweiter Schalter
+  „Fotos erlauben" (Default AUS, nur MasterMedic/Eröffner, synct über
+  `ccps.photos_allowed` via Realtime/`loadMeta`; im Verbund Update aller Rows
+  der merge_group), Kamera-Gating in `vPatient` (Aufnahme-Elemente nur bei
+  Schalter an, bestehende Fotos bleiben sichtbar, defensiver Upload-Abbruch),
+  Zweck-Hinweis (Wiedererkennung statt Name, 72 Std, automatische Löschung).
+  Foto ab Auscheckung (gPA) komplett aus der Normalansicht (zentrale
+  Render-Bedingung `photoVisible(p)` für Listen-Pill/Detail/Zoom); „Zurückholen"
+  reaktiviert ohne Neufoto, `p.photo` bleibt unangetastet (Governance-Fenster
+  04.8-05 bleibt möglich). Training: Foto-Lektion angepasst + Schalter-Lektion
+  neu; `_photosAllowed` im Trainings-Sandbox lokal an (train-ccp synct nie).
+  Release v0.21.0 (SW v38, UPDATE_v0.21.html). JSC: Syntax OK, photoVisible
+  7/7 PASS. Details:
+  `.planning/phases/04.8-datenschutz-haertung/04.8-04-SUMMARY.md`.
+  Commits 121d6db · 0ef87ef · f716d65. **Gepusht** (14d91bc..f716d65) —
+  GitHub Pages deployt v0.21.0.
 
 DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
 2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),
