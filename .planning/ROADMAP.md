@@ -129,7 +129,7 @@ Phase 5 bleibt aufgeschoben). Details: `.planning/STATE.md`.
 - ✅ **IP-/Doc-Hygiene:** interne Docs/Decks entöffentlicht (`.gitignore`);
   Design-Sprache fixiert (`docs/UI-AUSBLICK.html` verbindlich).
 
-## Phase 4.8 — Datenschutz-Härtung ⬜
+## Phase 4.8 — Datenschutz-Härtung ✅ 2026-06-10
 **Ziel:** Die DSB-unabhängigen P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md`
 umsetzen — laut DSFA Bedingung für jeden Echtbetrieb. Läuft im Test-/Härtungsfenster,
 **vor** Phase 5; das DSB-Gespräch wird dadurch nicht entwertet, sondern vorbereitet.
@@ -154,7 +154,12 @@ umsetzen — laut DSFA Bedingung für jeden Echtbetrieb. Läuft im Test-/Härtun
 - [x] 04.8-03-PLAN.md — T2 App: Übergabe-Export, „Einsatz abschließen", lokale Bereinigung (Wave 2) ✅ 2026-06-10 (v0.20.0)
 - [x] 04.8-04-PLAN.md — T1 App: Foto-Schalter (Default aus, synct), Foto-Lebenszyklus Normalansicht (Wave 3) ✅ 2026-06-10 (v0.21.0)
 - [x] 04.8-05-PLAN.md — T1 App: Governance-Panel (Foto-Zugriff protokolliert, Fristverlängerung) (Wave 4) ✅ 2026-06-10 (v0.21.1)
-- [ ] 04.8-06-PLAN.md — T3: Namensfeld-Härtung + Statusführung der Phase (Wave 5)
+- [x] 04.8-06-PLAN.md — T3: Namensfeld-Härtung + Statusführung der Phase (Wave 5) ✅ 2026-06-10 (v0.22.0)
+
+**Phase abgeschlossen (2026-06-10, v0.22.0):** Alle 6 Pläne umgesetzt — T8, T2,
+T1 (Schalter + Lebenszyklus + Governance-Panel), T3. Bewusst offen: Einsatz-Schalter
+fürs Namensfeld (erst nach DSB-Votum), T4 Audit-Log (gesperrt bis DSB-Votum
+„JI-Regime"), Live-Verifikationen am echten Gerät (Governance-Panel, 72-h-Lauf).
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —

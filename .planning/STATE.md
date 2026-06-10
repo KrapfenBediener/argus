@@ -1,9 +1,9 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.8 Datenschutz-Härtung (in Ausführung) — Phase 5 bewusst
-  aufgeschoben, bis die App ausgiebiger getestet ist. **App live: v0.21.1**
-  (Stand 2026-06-10).
+- **Aktuelle Phase:** 4.8 Datenschutz-Härtung **abgeschlossen** (2026-06-10) —
+  Phase 5 bewusst aufgeschoben, bis die App ausgiebiger getestet ist.
+  **App live: v0.22.0** (Stand 2026-06-10).
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -18,6 +18,7 @@
 | 2 | Join-Flow & Authentifizierung | ✅ |
 | 3 | Mehrgeräte-Features verdrahten | ✅ 2026-06-03 |
 | 4 | Serverseitige Absicherung (JWT + RLS) | ✅ 2026-06-03 |
+| 4.8 | Datenschutz-Härtung (T8, T2, T1, T3) | ✅ 2026-06-10 |
 
 ---
 
@@ -142,7 +143,7 @@ kein Browser verfügbar.*
 
 ---
 
-## Aktuelle Phase: 4.8 — Datenschutz-Härtung (IN AUSFÜHRUNG, Stand 2026-06-10)
+## Phase 4.8 — Datenschutz-Härtung (ABGESCHLOSSEN 2026-06-10, v0.22.0)
 
 **Planung abgeschlossen:** 6 Pläne in 5 Wellen (`.planning/phases/04.8-datenschutz-haertung/`),
 Plan-Checker-Durchlauf bestanden (1 MAJOR + 4 MINOR gefunden und eingearbeitet, Commit 54baaf2).
@@ -211,6 +212,26 @@ Einziger nicht-autonomer Punkt: Plan 04.8-02 braucht einen ephemeren Supabase-PA
   kein eigenes Update-Sheet — v0.21-Sheet deckt die Foto-Härtung ab). Details:
   `.planning/phases/04.8-datenschutz-haertung/04.8-05-SUMMARY.md`.
   Commits 2e82f03 · a68fc4e · 5b284ff.
+
+**Ausführungsstand (Welle 5 — Phasenabschluss):**
+- **04.8-06 ✅ (2026-06-10, v0.22.0):** T3 Namensfeld-Härtung — Hinweis am
+  Namensfeld („Nur erfassen, wenn für Versorgung/Übergabe erforderlich."),
+  Patientenliste ohne Namens-Spalte (einziger Renderer `vCatlist`, gilt für
+  Kategorie/Alle/Prio/gPA — Nummer + Pills identifizieren, Sichtungszeit/TQ als
+  Hauptzeile), keine Namens-Suche/-Sortierung/-Filterung (Grep-Beleg + Kommentar
+  an der Sortier-Stelle), Freitext-Hinweis „Keine Namen Dritter — nur
+  versorgungsrelevante Fakten." („Verlauf / Karte"), Übergabekarte/Export
+  unangetastet (Name im Übergabe-Kontext weiterhin, wenn erfasst). Drehbuch:
+  neue Lektion „Stammdaten: pseudonym" (Spotlight `#ph-stamm`). Einsatz-Schalter
+  fürs Namensfeld bewusst NICHT gebaut (zurückgestellt bis DSB-Votum). Release
+  v0.22.0 (SW v40, kein eigenes Update-Sheet — WHATS_NEW genügt). Interne
+  Statusführung synchron gezogen (SPEC-Akzeptanzkriterien, Maßnahmenplan —
+  lokal, gitignored). Details:
+  `.planning/phases/04.8-datenschutz-haertung/04.8-06-SUMMARY.md`.
+
+**→ Phase 4.8 abgeschlossen.** Bewusst offen: Namensfeld-Einsatz-Schalter
+(nach DSB-Votum), T4 Audit-Log (gesperrt bis DSB-Votum „JI-Regime"),
+Live-Verifikationen am echten Gerät (Governance-Panel, 72-h-Foto-Lauf).
 
 DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
 2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),

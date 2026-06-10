@@ -6,6 +6,30 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.22.0 — 2026-06-10
+**Namensfeld-Härtung (T3): sparsame Namenserfassung, namenlose Patientenliste — Abschluss Phase 4.8**
+- **Hinweis am Namensfeld** (Stammdaten): „Nur erfassen, wenn für
+  Versorgung/Übergabe erforderlich." — das Namensfeld bleibt optional wie bisher.
+- **Patientenliste ohne Namen:** Der einzige Listen-Renderer (gilt für
+  Kategorie-, Alle-, Prio- und gPA-Liste) zeigt keinen Namen mehr — Nummer +
+  Pills identifizieren den Patienten (pseudonym), die Sichtungszeit-/TQ-Zeile
+  rückt als Hauptzeile auf. Tippfläche und Optik unverändert.
+- **Keine Namens-Suche/-Sortierung/-Filterung:** belegt und per Kommentar an der
+  Sortier-Stelle festgeschrieben — sortiert wird ausschließlich über
+  CCP-Kennung + laufende Nummer, gefiltert nur über Kategorie/Status/Prio.
+- **Freitext-Hinweis** unter MOI/Verletzung/Erstversorger/Notizen („Verlauf /
+  Karte"): „Keine Namen Dritter — nur versorgungsrelevante Fakten."
+- **Übergabe-Kontext unangetastet:** Übergabekarte (AT-MIST) und Übergabe-Export
+  zeigen den Namen weiterhin, wenn erfasst — von der Härtung ausdrücklich
+  ausgenommen.
+- **Drehbuch:** neue Lektion „Stammdaten: pseudonym" (Nummer statt Name, Name
+  nur wenn nötig, keine Namen Dritter in Freitexten), Spotlight auf die
+  Stammdaten-Card (`#ph-stamm`).
+- Kein eigener Namens-Schalter analog zum Foto-Schalter — bewusst zurückgestellt
+  (erst nach DSB-Votum). Kein eigenes Update-Sheet (kleine sichtbare Änderung —
+  „Was ist neu" genügt).
+- SW-Cache v40.
+
 ## v0.21.1 — 2026-06-10
 **Foto-Härtung (T1, Teil 2): Governance-Panel — geschützte Foto-Einsicht, Fristverlängerung, Protokoll**
 - **Foto-Governance (nur MasterUser-Token, `_isMaster`):** neuer Bereich in der

@@ -103,7 +103,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.21.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.22.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -120,6 +120,10 @@ var UPDATE_SHEETS = {
   '0.21.0': 'docs/UPDATE_v0.21.html'           /* Foto-Schalter + Foto-Lebenszyklus */
 };
 var WHATS_NEW = {
+  '0.22.0': [
+    'Sparsame Namenserfassung: Am Namensfeld und an den Freitextfeldern stehen jetzt kurze Hinweise — Name nur erfassen, wenn für Versorgung/Übergabe nötig; keine Namen Dritter in Freitexten.',
+    'Patientenliste zeigt konsequent Nummern statt Namen — die Nummer identifiziert den Patienten (pseudonym). Auf der Übergabekarte und im Übergabe-Export erscheint der Name weiterhin, wenn erfasst.'
+  ],
   '0.21.1': [
     'Foto-Governance (nur Leitungs-Geräte mit MasterUser-Token): Fotos ausgecheckter Patienten und abgeschlossener Einsätze sind jetzt in einem geschützten Bereich einsehbar — jeder Abruf wird protokolliert. Foto-Fristen lassen sich dort nur mit Begründung um je 72 Std verlängern.'
   ],
@@ -2315,6 +2319,7 @@ var TRAIN_LESSONS=[
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
   {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Es erscheint nur, wenn die Leitung „Fotos erlauben" eingeschaltet hat (im Training ist das für dich schon an). Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
   {t:'Detail: Kategorie wechseln', mode:'explain', x:'Ändert sich der Zustand — verschlechtert ODER verbessert — verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie (Re-Triage, in beide Richtungen).', sel:'#ph-cat'},
+  {t:'Stammdaten: pseudonym', mode:'explain', x:'ARGUS arbeitet pseudonym: Die NUMMER identifiziert den Patienten, nicht der Name. Den Namen nur erfassen, wenn er für Versorgung oder Übergabe wirklich nötig ist — die Patientenliste zeigt bewusst nur Nummern. Und in Freitexte (Hergang, Verletzung, Notizen) gehören keine Namen Dritter — nur versorgungsrelevante Fakten.', sel:'#ph-stamm'},
   {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
   {t:'Detail: Maßnahmen (cABCDE)', mode:'explain', x:'Hier dokumentierst du durchgeführte Maßnahmen entlang des cABCDE-Schemas: kritische Blutung, Atemweg, Beatmung, Kreislauf, weitere.', sel:'#ph-tx'},
   {t:'Detail: Verletzungen', mode:'explain', x:'Verletzungen erfasst du kurz nach Region und Art — eindeutig und schnell.', sel:'#ph-inj'},
