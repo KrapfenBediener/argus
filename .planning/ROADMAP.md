@@ -170,18 +170,32 @@ Owner-Entscheid 2026-06-10: konsolidieren jetzt, DSB-abhängige Teile bleiben Ph
 **Bewusst vorgezogen** (vor 5/6): reine Verwaltungsoberfläche, keine Abhängigkeit auf
 Produktions-Infra; respektiert aber den DSB-Gate (siehe „NICHT in dieser Phase").
 
+**Einsatzprotokoll-Modell (Owner-Entscheid 2026-06-10, ersetzt die Foto-Governance-
+Mechanik aus 4.8):**
+- CCP-Abschluss schreibt den Einsatz als **Einsatzprotokoll** fest; danach Zugriff
+  **nur** über das Governance-Panel, **jeder Protokoll-Aufruf wird protokolliert**
+  (nicht mehr nur der Foto-Einzelabruf).
+- **Fotos: harte Löschung 72 h nach Abschluss, KEINE Verlängerung.** Beweisbedarf
+  → Sicherung durch zuständige Stelle innerhalb der 72 h.
+- **Einsatzprotokoll (Daten ohne Fotos): Grundfrist ebenfalls 72 h**, aber mit
+  Pflicht-Begründung **verlängerbar** (protokolliert, Wiedervorlage). Ersetzt die
+  bisherige 14/30-Tage-Grundfrist aus T2 → Löschkonzept (Dok. 05, intern) nachziehen.
+  Der Übergabe-Export beim Abschluss ist damit der einzige dauerhafte Weg in die
+  Trägerdoku.
+
 - **Eigene Desktop-Seite** im ARGUS-Design (`docs/UI-AUSBLICK.html` verbindlich),
-  eigener Einstieg/URL, MasterToken-/JWT-geschützt — Feld-PWA bleibt schlank.
-- **Konsolidiert die bestehenden Leitungs-Funktionen:**
-  - Admin-Panel (Zugangs-Codes/Links erstellen: dauerhaft/24 h/einmalig)
-  - Foto-Governance aus Phase 4.8 (protokollierter Foto-Einzelabruf,
-    Fristverlängerung mit Pflicht-Begründung, Wiedervorlage, Protokoll-Ansicht) —
-    nutzt die vorhandenen RPCs/`governance_log`/RLS **unverändert weiter**, nur neues UI-Zuhause
-  - optional: Nutzer-/Code-Sperre (`revoked`-Flag + Re-Check beim Start) — Sicherheitsgewinn, DSB-unabhängig
-- **Offene Designfragen (→ discuss/plan):** Auth-Mechanik für eine eigenständige
-  Seite (Code→JWT-Exchange wiederverwenden vs. eigener Master-Login); ob die
-  Foto-Governance aus der Feld-App **entfernt** oder nur **verlinkt** wird;
-  Desktop-Layout/Navigation; Wiederverwendung von `vendor/supabase.js`.
+  eigener Einstieg/URL (nicht erratbar, `noindex` — Muster `docs/demo-*.html`),
+  Login = MasterToken → bestehender Code/JWT-Exchange (`argus_exchange_code`),
+  Session flüchtig (sessionStorage). Feld-PWA bleibt schlank.
+- **Bereiche (Direkteinstieg, keine Zwischenseite):**
+  - **Zugänge** — Codes/Links erstellen (dauerhaft/24 h/einmalig) + **Code-Sperre**
+    (`revoked`-Flag + Re-Check beim Start; DSB-unabhängiger Sicherheitsgewinn)
+  - **Einsatzprotokolle** — abgeschlossene Einsätze einsehen (protokolliert),
+    Fotos darin bis zur 72-h-Löschung, Protokoll-Frist verlängern, Wiedervorlage
+  - **Protokoll** — `governance_log` + Lösch-Läufe (`purge_log`)
+- **Rückbau in der Feld-App:** Governance-View/-Einstieg aus `index.html` entfernen
+  (kam erst mit v0.21.1); Foto-Fristverlängerung wird zur **Protokoll**-Frist-
+  verlängerung umgewidmet; Abschluss-Workflow: feste 72-h-Grundfrist statt 14/30-Wahl.
 - **Explizit NICHT in dieser Phase (bleibt Phase 7, DSB-abhängig):**
   personenscharfes **Audit-/Einsatzprotokoll** (= T4, gesperrt bis DSB-Votum
   „JI-Regime"), **echte Admin-Identitäten** (Supabase Auth/Magic-Link),
