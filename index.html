@@ -221,6 +221,7 @@ var _openCcpCount   = -1;     /* offene (nicht abgeschlossene) CCPs im Präsidiu
 var _schulDirty     = -1;     /* Schulungsumgebung verändert? -1 unbekannt · 0 sauber · 1 verändert */
 var DEMO_MEDICS = ['Dr. Berg','San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt']; /* Master-Medics der Demo-CCPs (Schulungs-Reset) */
 var _training=false, _trainStep=0, _trainMax=0, _trainCelebrate=false;   /* Geführtes Training (geräte-lokaler Übungs-Sandbox) */
+var _closeTyp=null, _closeFrist=null;   /* Einsatz-Abschluss: gewählter Typ + Lösch-Frist während des Workflows */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -1195,7 +1196,7 @@ function countPrio(){return patients.filter(function(p){return p.status==="activ
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration"};
+  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration",einsatzexport:"Übergabe-Export"};
   $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
@@ -1209,6 +1210,7 @@ function render(){
   else if(v==="overview")h=vOverview();
   else if(v==="catlist")h=vCatlist();
   else if(v==="patient")h=vPatient();
+  else if(v==="einsatzexport")h=vExportPrint();
   else if(v==="help")h=vHelp();
   $("app").innerHTML=h;
   try{ renderCoach(); }catch(e){}   /* Coach niemals den App-Render brechen lassen */
@@ -1568,6 +1570,146 @@ function vHandover(p,c){
   h+='<button class="prim" data-action="reactivate" data-id="'+p.id+'" style="background:var(--acc);color:#fff;margin-top:12px">↩ Zurückholen → aktiv (zum Korrigieren)</button>';
   h+='<p class="hint" style="text-align:center;margin-top:8px">Übergabe an die gPA — der Reihe nach vorlesen.</p>';
   h+='</div>';
+  return h;
+}
+/* ── Übergabe-Export (Einsatz-Abschluss): JSON + druckbare Gesamtansicht ─────
+ * Der Export ist die Übergabe an die dauerhafte Einsatzdokumentation des
+ * Trägers — ARGUS selbst bleibt Durchgangsspeicher mit kurzen Löschfristen. */
+
+/* Reiner Feld-Mapper für den Export (kein DOM — per JSC isoliert testbar).
+ * Row-Format wie patToRow, aber mit bewussten Auslassungen:
+ *  (a) leere optionale String-Felder werden WEGGELASSEN (insb. name) —
+ *      „Export enthält Name nur, wenn erfasst" ist damit strukturell erfüllt;
+ *  (b) photo wird IMMER weggelassen — BEWUSSTE ENTSCHEIDUNG, kein Versehen:
+ *      das Foto ist ein streng befristetes Wiedererkennungsmittel und gehört
+ *      nicht in die dauerhafte Trägerdoku. Das Governance-Panel bleibt der
+ *      einzige Foto-Export-Pfad. (Nebeneffekt: keine base64-aufgeblähten
+ *      JSON-Dateien, die das iOS-Share-Limit sprengen.)
+ *  (c) Sperr-Spalten (locked_by/locked_at) sind reine Laufzeit-Koordination
+ *      und entfallen ebenfalls. vit (inkl. vit.log) bleibt vollständig. */
+function exportRowFromPatient(p){
+  var row={ id:p.id, num:p.num, ccp:p.ccp||'A', cat:p.cat, status:p.status||'active',
+    prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null,
+    created:p.created, last_triage:p.lastTriage, updated:p.updated,
+    vit:p.vit||{}, tx:p.tx||{}, inj:p.inj||[] };
+  var opt=[['name',p.name],['age',p.age],['gender',p.gender],['allergies',p.allergies],
+    ['pup_re',p.pupRe],['pup_li',p.pupLi],['moi',p.moi],['injury',p.injury],
+    ['fr',p.fr],['notes',p.notes],['by',p.by]];
+  for(var i=0;i<opt.length;i++){
+    if(opt[i][1]!=null && String(opt[i][1]).trim()!=='') row[opt[i][0]]=opt[i][1];
+  }
+  /* KEIN row.photo — siehe Kommentar oben (Governance-Panel = einziger Foto-Export-Pfad). */
+  return row;
+}
+/* Export-Objekt: Kopf + alle Patienten des aktuellen CCP/Verbunds
+ * (demo-/training-Datensätze ausgeschlossen). */
+function buildEinsatzExport(){
+  var pats=patients.filter(function(p){return !p.demo && !p.training;});
+  var ks={}; pats.forEach(function(p){ks[p.ccp||'A']=true;});
+  var kArr=Object.keys(ks).sort(); if(!kArr.length) kArr=[_ccpKennung||'A'];
+  return {
+    format:'argus-einsatz-export',
+    exportiert_am:new Date().toISOString(),
+    app_version:APP_VERSION,
+    ccp_kennungen:kArr,
+    ort:(checklist.hdr&&checklist.hdr.ort)||'',
+    einsatz_typ:_closeTyp||null,
+    bediener:operator||'',
+    patienten_anzahl:pats.length,
+    patienten:pats.map(exportRowFromPatient)
+  };
+}
+/* JSON-Datei teilen (Web Share API mit File — funktioniert in der iOS-PWA);
+ * Fallback: Blob + temporärer Download-Link. Fehler enden im toast(). */
+async function exportEinsatzJson(){
+  try{
+    var ex=buildEinsatzExport();
+    var fname='argus-einsatz-'+(ex.ccp_kennungen||['A']).join('')+'-'+new Date().toISOString().slice(0,10)+'.json';
+    var blob=new Blob([JSON.stringify(ex,null,2)],{type:'application/json'});
+    if(navigator.share && navigator.canShare && window.File){
+      try{
+        var file=new File([blob],fname,{type:'application/json'});
+        if(navigator.canShare({files:[file]})){ await navigator.share({files:[file]}); toast("Export geteilt"); return; }
+      }catch(eSh){ if(eSh && eSh.name==='AbortError') return; /* Nutzer hat abgebrochen */ }
+    }
+    var a=document.createElement('a'); var url=URL.createObjectURL(blob);
+    a.href=url; a.download=fname; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(url); if(a.parentNode)a.parentNode.removeChild(a); },800);
+    toast("Export gespeichert: "+fname);
+  }catch(err){ toast("Export fehlgeschlagen"); }
+}
+/* Kompakte Druck-/Vorlese-Karte eines Patienten für die Gesamtansicht —
+ * gleiche AT-MIST-Reihenfolge wie die Übergabekarte (vHandover), nur dichter.
+ * KEINE Fotos (kein img-Tag): der Export geht an die Trägerdoku. */
+function exportPrintCard(p){
+  p=normalize(p);
+  var c=CATS[p.cat]||CATS.T3;
+  var dim='<span style="color:#9aa0a6;font-style:italic">— nicht erfasst</span>';
+  function row(letter,label,val){
+    return '<div style="display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line)">'+
+      '<span class="mono" style="width:22px;height:22px;border-radius:6px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+letter+'</span>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700">'+label+'</div>'+
+      '<div style="font-size:13.5px;line-height:1.4">'+val+'</div></div></div>';
+  }
+  var ap=[]; if(p.age)ap.push(esc(p.age)+' J');
+  var g=p.gender==='m'?'männl.':(p.gender==='w'?'weibl.':''); if(g)ap.push(g);
+  var tp=[];
+  if(p.tqStart)tp.push('<b style="color:var(--t1)">TQ seit '+fmtDur(nowMs()-p.tqStart)+'</b>');
+  if(p.created)tp.push('erfasst '+ageStr(p.created));
+  var il=[]; (p.inj||[]).forEach(function(it){il.push(esc(it.r)+' – '+esc(it.a));}); if(p.injury)il.push(esc(p.injury));
+  var v=p.vit||{};
+  var vp=[['WASB',v.avpu],['AF',v.af],['SpO₂',v.spo2],['HF',v.hf],['RR',v.rr],['Schmerz',v.pain]].filter(function(x){return x[1]!=null&&x[1]!=='';});
+  var sVal=vp.length?('<span class="mono">'+vp.map(function(x){return x[0]+' '+esc(x[1]);}).join(' · ')+'</span>'):dim;
+  if(p.allergies)sVal+='<br><b style="color:var(--t1)">⚠ Allergien: '+esc(p.allergies)+'</b>';
+  var vlog=(p.vit&&Array.isArray(p.vit.log))?p.vit.log:[];
+  if(vlog.length){
+    sVal+='<div style="margin-top:4px;font-size:11.5px;color:var(--mut)">Verlauf:'+vlog.map(function(m){
+      var tm=m.t?new Date(m.t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—';
+      var parts=[]; if(m.af)parts.push('AF '+esc(m.af)); if(m.spo2)parts.push('SpO₂ '+esc(m.spo2));
+      if(m.hf)parts.push('HF '+esc(m.hf)); if(m.rr)parts.push('RR '+esc(m.rr));
+      if(m.avpu)parts.push('WASB '+esc(m.avpu)); if(m.pain)parts.push('Schmerz '+esc(m.pain));
+      return '<br>'+tm+': '+(parts.join(' · ')||'—');
+    }).join('')+'</div>';
+  }
+  var tl=[]; if(p.tqStart)tl.push('Tourniquet · '+fmtDur(nowMs()-p.tqStart));
+  TXG.forEach(function(grp){grp[1].forEach(function(f){ if(p.tx&&p.tx[f[0]]) tl.push(esc(f[1])); });});
+  var h='<div class="card" style="padding:10px 13px;margin-bottom:10px">';
+  h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+     '<span class="pnum" style="font-size:20px">'+pno(p)+'</span>'+
+     '<span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span>'+
+     (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
+     (p.status==='gpa'?'<span class="pill" style="background:var(--surf2);color:var(--mut)">gPA</span>':'')+
+     (p.name?'<span style="font-size:12.5px;color:var(--mut)">Name: '+esc(p.name)+'</span>':'')+
+     '</div>';
+  h+='<div style="margin-top:6px">';
+  h+=row('A','Alter / Geschlecht', ap.length?ap.join(' · '):dim);
+  h+=row('T','Zeiten', tp.length?tp.join(' · '):dim);
+  h+=row('M','Mechanismus', p.moi?esc(p.moi):dim);
+  h+=row('I','Verletzungen', il.length?il.join('<br>'):dim);
+  h+=row('S','Befund / Vitalwerte', sVal);
+  h+=row('T','Maßnahmen', tl.length?tl.map(function(x){return '▸ '+x;}).join('<br>'):dim);
+  h+='</div></div>';
+  return h;
+}
+/* View „einsatzexport": druck-/vorlesbare Gesamtansicht ALLER Patienten in
+ * AT-MIST-Reihenfolge. Nur aus dem Abschluss-Workflow erreichbar — kein
+ * eigener Menüpunkt. */
+function vExportPrint(){
+  var pats=patients.filter(function(p){return !p.demo&&!p.training;});
+  var ks={}; pats.forEach(function(p){ks[p.ccp||'A']=true;});
+  var kenn=Object.keys(ks).sort().join(', ')||_ccpKennung||'A';
+  var ort=(checklist.hdr&&checklist.hdr.ort)||'';
+  var dt=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  var h='<div class="card" style="padding:13px 14px">';
+  h+='<div style="font-weight:600;font-size:16px">Übergabe-Export · CCP '+esc(kenn)+'</div>';
+  h+='<div class="hint" style="margin-top:3px">'+(ort?esc(ort)+' · ':'')+esc(dt)+' Uhr · '+pats.length+' Patient'+(pats.length!==1?'en':'')+'</div>';
+  h+='<div class="hint" style="margin-top:3px">Ohne Fotos — Übergabe an die dauerhafte Einsatzdokumentation.</div>';
+  h+='</div>';
+  h+='<button class="prim" data-action="exportjson">⬇ JSON exportieren (maschinenlesbar)</button>';
+  if(_closeTyp){ h+='<button class="prim" data-action="closeeinsatznow" style="background:var(--ready)">🏁 Einsatz jetzt abschließen</button>'; }
+  h+='<button class="ghost" data-action="exportback" style="margin-bottom:14px">Zurück</button>';
+  if(!pats.length) h+='<p class="muted" style="text-align:center;padding:20px">keine Patienten</p>';
+  pats.forEach(function(p){ h+=exportPrintCard(p); });
   return h;
 }
 function sel(a,b){return a===b?" selected":"";}
