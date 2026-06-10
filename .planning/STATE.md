@@ -158,6 +158,20 @@ Einziger nicht-autonomer Punkt: Plan 04.8-02 braucht einen ephemeren Supabase-PA
 - **PAT widerrufen:** der für 04.8-02 genutzte ephemere PAT ist noch aktiv →
   im Supabase-Dashboard widerrufen (zusammen mit dem offenen Alt-PAT aus Phase 4).
 
+**Ausführungsstand (Welle 2):**
+- **04.8-03 ✅ (2026-06-10, v0.20.0):** T2 in der App nutzbar — „Einsatz
+  abschließen" (MasterMedic, Typ Übung 14 / Einsatz 30 Tage, Frist 1–365
+  anpassbar), Übergabe-Export (JSON via iOS-Teilen/Download + druckbare
+  AT-MIST-Gesamtansicht; Name nur wenn erfasst, **nie** Fotos), lokale
+  Bereinigung auf allen Geräten (Realtime-Pfad in `applyMeta`, init,
+  online-Handler), Offline-Queue `argus_pending_close` + `flushPendingClose`,
+  opportunistischer `argus_run_purge`. Legacy „CCP abschließen" (Home) führt
+  jetzt in den neuen Workflow (Abweichung, dokumentiert). Drehbuch + Release
+  v0.20.0 (SW v37, UPDATE_v0.20.html). JSC-Tests 23/23 PASS. Details:
+  `.planning/phases/04.8-datenschutz-haertung/04.8-03-SUMMARY.md`.
+  Commits 5a7b03c · 0454595 · 378ccab. **Push offen** (GitHub-Credentials
+  werden erneuert) — GitHub Pages deployt erst mit dem nächsten Push.
+
 DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
 2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),
 T1 Foto-Härtung + Governance-Panel, T3 Namensfeld-Härtung, T8 externe
