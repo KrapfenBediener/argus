@@ -6,6 +6,31 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.21.1 — 2026-06-10
+**Foto-Härtung (T1, Teil 2): Governance-Panel — geschützte Foto-Einsicht, Fristverlängerung, Protokoll**
+- **Foto-Governance (nur MasterUser-Token, `_isMaster`):** neuer Bereich in der
+  Administration. Listet Fotos ausgecheckter Patienten (gPA) und abgeschlossener
+  Einsätze gruppiert nach CCP — die Liste (`argus_governance_list`) enthält
+  bewusst keine Bilddaten.
+- **Protokollierter Einzelabruf:** „Foto anzeigen" lädt das Foto erst über
+  `argus_governance_photo` — jeder Abruf erzeugt serverseitig einen
+  `governance_log`-Eintrag (Kürzel + Zeitstempel); das Overlay weist darauf hin.
+  Ohne Bediener-Kürzel kein Abruf (wird vorher erzwungen).
+- **Fristverlängerung nur mit Begründung:** je abgeschlossenem Einsatz „Frist
+  +72 h verlängern" — Pflicht-Begründung (Leereingabe wird abgewiesen),
+  Bestätigung mit neuer Frist und Export-Hinweis (bei Beweissicherungs-/
+  Ermittlungsbedarf: Export an die zuständige Stelle statt Dauerverlängerung),
+  voll protokolliert via `argus_extend_photo_frist`.
+- **Wiedervorlage:** abgelaufene oder in < 24 h ablaufende Foto-Fristen
+  erscheinen rot hervorgehoben oben im Panel (`fristStatus`, JSC-getestet).
+- **Protokoll-Ansicht:** einklappbarer Abschnitt mit den letzten 100
+  `governance_log`-Einträgen (Zeitpunkt de-DE, Kürzel, Aktion, Patient/CCP,
+  Begründung + neue Frist). Reine Anzeige.
+- Panel arbeitet nur online (Governance ist kein Einsatz-Werkzeug — Local-first
+  des Einsatzbetriebs bleibt unberührt). Drehbuch geprüft: reine
+  MasterUser-Funktion, keine Lektionsänderung nötig. Kein eigenes Update-Sheet
+  (das v0.21-Sheet deckt die Foto-Härtung nutzerseitig ab). SW-Cache v39.
+
 ## v0.21.0 — 2026-06-10
 **Foto-Härtung (T1, Teil 1): Schalter „Fotos erlauben", Foto-Lebenszyklus in der Normalansicht**
 - **Schalter „Fotos erlauben" (nur MasterMedic/Eröffner, Default AUS):** in der

@@ -103,7 +103,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.21.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.21.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -120,6 +120,9 @@ var UPDATE_SHEETS = {
   '0.21.0': 'docs/UPDATE_v0.21.html'           /* Foto-Schalter + Foto-Lebenszyklus */
 };
 var WHATS_NEW = {
+  '0.21.1': [
+    'Foto-Governance (nur Leitungs-Geräte mit MasterUser-Token): Fotos ausgecheckter Patienten und abgeschlossener Einsätze sind jetzt in einem geschützten Bereich einsehbar — jeder Abruf wird protokolliert. Foto-Fristen lassen sich dort nur mit Begründung um je 72 Std verlängern.'
+  ],
   '0.21.0': [
     'Fotos erlauben (MasterMedic): Patientenfotos sind jetzt standardmäßig aus. Die Leitung schaltet sie je Einsatz in der Patientenübersicht ein — erst dann erscheint der Kamera-Button auf allen Geräten.',
     'Fotos nach Abtransport geschützt: Ab dem Auschecken (gPA) ist das Foto in der App nicht mehr sichtbar. „↩ Zurückholen" zeigt es wieder — ohne neues Foto.',
