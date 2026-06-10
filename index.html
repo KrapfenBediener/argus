@@ -10,11 +10,18 @@
 <link rel="apple-touch-icon" href="./icon-180.png">
 <link rel="icon" type="image/png" href="./icon-192.png">
 <link rel="manifest" href="./manifest.json">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="./vendor/supabase.js"></script>
 <script>window.supabaseLib = window.supabase;</script>
 <style>
+  /* Self-hosted IBM-Plex-Schriften (statt Google-Fonts-CDN) — T8 Datenschutz-Härtung.
+     Gewichte wie zuvor per CDN geladen: Sans 400/500/600, Mono 500/600.
+     Mono 500 bedient die Mono-Stellen ohne explizites font-weight (.clock, .mono) —
+     einmalig von Google Fonts bezogen (latin-Subset, wie die übrigen Dateien). */
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;src:url('./fonts/ibm-plex-sans-400.woff2') format('woff2');font-display:swap}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;src:url('./fonts/ibm-plex-sans-500.woff2') format('woff2');font-display:swap}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;src:url('./fonts/ibm-plex-sans-600.woff2') format('woff2');font-display:swap}
+  @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:500;src:url('./fonts/ibm-plex-mono-500.woff2') format('woff2');font-display:swap}
+  @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;src:url('./fonts/ibm-plex-mono-600.woff2') format('woff2');font-display:swap}
   :root{
     --bg:#ffffff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
     --tx:#16181a; --mut:#5d6368; --hint:#8a9097;

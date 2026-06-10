@@ -13,7 +13,11 @@ const PRECACHE_URLS = [
   './',
   './index.html',
   './vendor/supabase.js',
-  'https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap'
+  './fonts/ibm-plex-sans-400.woff2',
+  './fonts/ibm-plex-sans-500.woff2',
+  './fonts/ibm-plex-sans-600.woff2',
+  './fonts/ibm-plex-mono-500.woff2',
+  './fonts/ibm-plex-mono-600.woff2'
 ];
 
 /* Install — App-Shell atomar vorcachen
@@ -105,20 +109,11 @@ self.addEventListener('fetch', function(event) {
     return;
   }
 
-  /* REGEL 3: Alles andere (CDN, externe Ressourcen) → Network-first */
+  /* REGEL 3: Alles andere (externe Ressourcen) → Network-first
+   * Hinweis: Schriften und Supabase-JS sind seit T8 self-hosted und laufen
+   * über REGEL 2 (gleicher Origin) — kein Sonderfall für Google Fonts mehr. */
   event.respondWith(
     fetch(event.request).then(function(response) {
-      /* Google Fonts im Cache ablegen */
-      if (
-        response && response.status === 200 &&
-        (url.hostname === 'fonts.googleapis.com' ||
-         url.hostname === 'fonts.gstatic.com')
-      ) {
-        var toCache = response.clone();
-        caches.open(CACHE_NAME).then(function(cache) {
-          cache.put(event.request, toCache);
-        });
-      }
       return response;
     }).catch(function() {
       /* Netz nicht verfügbar → Cache-Fallback */
