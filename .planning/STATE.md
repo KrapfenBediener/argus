@@ -141,7 +141,11 @@ kein Browser verfügbar.*
 
 ---
 
-## Nächste Phase: 4.8 — Datenschutz-Härtung
+## Nächste Phase: 4.8 — Datenschutz-Härtung (GEPLANT 2026-06-10, bereit zur Ausführung)
+
+**Planung abgeschlossen:** 6 Pläne in 5 Wellen (`.planning/phases/04.8-datenschutz-haertung/`),
+Plan-Checker-Durchlauf bestanden (1 MAJOR + 4 MINOR gefunden und eingearbeitet, Commit 54baaf2).
+Einziger nicht-autonomer Punkt: Plan 04.8-02 braucht einen ephemeren Supabase-PAT (Checkpoint).
 
 DSB-unabhängige P1-Tasks aus `docs/datenschutz/DATENSCHUTZ-SPEC.md` (erstellt
 2026-06-10, Dossier 00–08): T2 Einsatz abschließen + Auto-Löschung (Fundament),
