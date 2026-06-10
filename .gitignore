@@ -47,6 +47,7 @@ backups/
 /LIZENZ-SCHUTZPAKET.md
 # Interne Planungs-/Compliance-Docs
 docs/datenschutz/
+.planning/phases/04.8-datenschutz-haertung/04.8-CONTEXT.md
 docs/ARCHITECTURE.md
 docs/BACKUP.md
 docs/COMPLIANCE.md

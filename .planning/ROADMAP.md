@@ -148,6 +148,14 @@ umsetzen — laut DSFA Bedingung für jeden Echtbetrieb. Läuft im Test-/Härtun
 - **Explizit NICHT in dieser Phase:** T4 Audit-Log (gesperrt bis DSB-Votum
   „JI-Regime"), T5–T7 (P2, eigene Folgephase oder nach DSB).
 
+**Plans:** 6 Pläne in 5 Wellen (geplant 2026-06-10):
+- [ ] 04.8-01-PLAN.md — T8: Supabase-JS lokal vendoren, IBM-Plex self-hosten (Wave 1)
+- [ ] 04.8-02-PLAN.md — DB-Fundament: Migration 0002 (Einsatz-Lebenszyklus, Purge, Governance-RPCs, pg_cron) (Wave 1)
+- [ ] 04.8-03-PLAN.md — T2 App: Übergabe-Export, „Einsatz abschließen", lokale Bereinigung (Wave 2)
+- [ ] 04.8-04-PLAN.md — T1 App: Foto-Schalter (Default aus, synct), Foto-Lebenszyklus Normalansicht (Wave 3)
+- [ ] 04.8-05-PLAN.md — T1 App: Governance-Panel (Foto-Zugriff protokolliert, Fristverlängerung) (Wave 4)
+- [ ] 04.8-06-PLAN.md — T3: Namensfeld-Härtung + Statusführung der Phase (Wave 5)
+
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
 kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
