@@ -237,6 +237,7 @@ var _closeTyp=null, _closeFrist=null;   /* Einsatz-Abschluss: gewählter Typ + L
 var _selfClosing=false;                 /* eigenes Gerät schließt gerade ab → Realtime-Echo nicht doppelt behandeln */
 var _remoteCloseHandling=false;         /* Guard gegen Mehrfach-Auslösung der Fremd-Erkennung (applyMeta läuft auch im Refresh) */
 var _govList=null, _govErr=null;        /* Foto-Governance (T1, 04.8-05): Liste aus argus_governance_list · Fehlertext. Nur Master, nur online. */
+var _govLog=null, _govLogErr=null;      /* Foto-Governance: letzte 100 governance_log-Einträge (Master-only-RLS) · Fehlertext */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -658,8 +659,18 @@ function govFmt(ms){
   if(ms==null) return '—';
   return new Date(+ms).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr';
 }
+/* T1-Wiedervorlage: Einstufung einer Foto-Löschfrist (reine Funktion, JSC-getestet).
+ * Rückgabe: 'abgelaufen' (Frist <= jetzt) · 'bald' (< 24 h entfernt) · 'ok' ·
+ * null (keine Frist gesetzt = Einsatz noch offen). */
+function fristStatus(purgeAfter, now){
+  if(purgeAfter==null) return null;
+  if(now==null) now=nowMs();
+  if(+purgeAfter <= now) return 'abgelaufen';
+  if(+purgeAfter - now < 86400000) return 'bald';
+  return 'ok';
+}
 async function loadGovernanceList(){
-  _govList=null; _govErr=null;
+  _govList=null; _govErr=null; _govLog=null; _govLogErr=null;
   if(state.view==='governance') render();
   var client=sb();
   if(!client){ _govErr='Keine Backend-Verbindung. Das Panel funktioniert nur online.'; if(state.view==='governance') render(); return; }
@@ -667,6 +678,12 @@ async function loadGovernanceList(){
     var r=await client.rpc('argus_governance_list');
     if(r.error){ _govErr=r.error.message||'Abruf fehlgeschlagen'; }
     else { _govList=Array.isArray(r.data)?r.data:[]; }
+    /* Protokoll: governance_log ist für Master per RLS direkt lesbar. */
+    var lg=await client.from('governance_log')
+      .select('at,ccp_id,patient_id,kuerzel,action,begruendung,neue_frist')
+      .order('at',{ascending:false}).limit(100);
+    if(lg.error){ _govLogErr=lg.error.message||'Protokoll nicht lesbar'; }
+    else { _govLog=lg.data||[]; }
   }catch(e){ _govErr='Abruf fehlgeschlagen — keine Verbindung?'; }
   if(state.view==='governance') render();
 }
@@ -700,20 +717,39 @@ function vGovernance(){
   if(!order.length){
     h+='<p class="muted" style="text-align:center;padding:20px">Kein Foto im Governance-Bestand.<br><span class="hint">Hier erscheinen Fotos, sobald Patienten ausgecheckt oder Einsätze abgeschlossen sind.</span></p>';
   }
-  order.forEach(function(k){ h+=govGroupCard(groups[k]); });
+  /* Wiedervorlage: abgelaufene oder bald (< 24 h) ablaufende Fristen nach oben. */
+  var now=nowMs();
+  var wieder=order.filter(function(k){var s=fristStatus(groups[k].frist,now);return s==='abgelaufen'||s==='bald';});
+  var normal=order.filter(function(k){return wieder.indexOf(k)<0;});
+  if(wieder.length){
+    h+='<div class="sech" style="color:var(--t1)">Wiedervorlage — Frist abgelaufen / läuft ab</div>';
+    wieder.forEach(function(k){ h+=govGroupCard(groups[k],now,true); });
+  }
+  if(normal.length){
+    if(wieder.length) h+='<div class="sech">Weitere Einsätze</div>';
+    normal.forEach(function(k){ h+=govGroupCard(groups[k],now,false); });
+  }
+  h+=govLogSection(groups);
   h+='<button class="ghost" data-action="govreload" style="margin-top:6px">↻ Aktualisieren</button>';
   return h;
 }
-function govGroupCard(grp){
+function govGroupCard(grp,now,isWieder){
   var closed = grp.frist!=null; /* photo_purge_after wird erst beim Einsatz-Abschluss gesetzt */
-  var h='<div class="card">';
+  var st=fristStatus(grp.frist,now);
+  var h='<div class="card"'+(isWieder?' style="border-color:var(--t1)"':'')+'>';
   h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
   h+='<span class="mono" style="font-size:17px;font-weight:600">CCP '+esc(grp.kennung||'?')+'</span>';
   h+='<span class="pill" style="background:var(--surf2);color:var(--mut)">'+(closed?'Einsatz abgeschlossen':'Einsatz offen')+'</span>';
   h+='</div>';
-  h+= closed
-    ? '<div class="hint" style="margin-top:4px">Endgültige Foto-Löschung: '+govFmt(grp.frist)+'</div>'
-    : '<div class="hint" style="margin-top:4px">Foto-Löschfrist beginnt mit dem Einsatz-Abschluss (Abschluss + 72 Std).</div>';
+  if(!closed){
+    h+='<div class="hint" style="margin-top:4px">Foto-Löschfrist beginnt mit dem Einsatz-Abschluss (Abschluss + 72 Std).</div>';
+  }else if(st==='abgelaufen'){
+    h+='<div class="hint" style="margin-top:4px;color:var(--t1);font-weight:600">Foto-Frist abgelaufen ('+govFmt(grp.frist)+') — verlängern nur mit Begründung oder Export an die zuständige Stelle veranlassen.</div>';
+  }else if(st==='bald'){
+    h+='<div class="hint" style="margin-top:4px;color:var(--t1);font-weight:600">Foto-Frist läuft ab: '+govFmt(grp.frist)+' — verlängern nur mit Begründung oder Export veranlassen.</div>';
+  }else{
+    h+='<div class="hint" style="margin-top:4px">Endgültige Foto-Löschung: '+govFmt(grp.frist)+'</div>';
+  }
   grp.pats.forEach(function(p){
     h+='<div class="patrow" style="margin-top:9px;margin-bottom:0">';
     h+='<span class="pnum">'+esc(String(p.num!=null?p.num:'?'))+'</span>';
@@ -721,7 +757,48 @@ function govGroupCard(grp){
     h+='<button class="txbtn" data-action="govphoto" data-pid="'+esc(p.patient_id)+'" data-num="'+esc(String(p.num!=null?p.num:''))+'">Foto anzeigen</button>';
     h+='</div>';
   });
+  /* Verlängern nur bei gesetzter Frist (= abgeschlossener Einsatz): bei offenem
+   * Einsatz würde der RPC eine Frist ERZEUGEN und Fotos im laufenden Betrieb
+   * zur Löschung freigeben. */
+  if(closed){
+    h+='<button class="txbtn" data-action="govextend" data-ccpid="'+esc(grp.ccp_id)+'" data-kennung="'+esc(grp.kennung||'?')+'" data-frist="'+(+grp.frist||0)+'" style="width:100%;margin-top:10px">⏱ Frist +72 h verlängern (mit Begründung)</button>';
+  }
   h+='</div>';
+  return h;
+}
+/* Protokoll-Ansicht: letzte 100 governance_log-Einträge, reine Anzeige. */
+function govLogSection(groups){
+  var h='<div class="card">';
+  h+='<details><summary style="cursor:pointer;font-weight:600;padding:2px 0">Protokoll — Foto-Abrufe &amp; Fristverlängerungen'+(_govLog?' ('+_govLog.length+')':'')+'</summary>';
+  if(_govLogErr){
+    h+='<div class="hint" style="margin-top:6px;color:var(--t1)">Protokoll nicht lesbar: '+esc(_govLogErr)+'</div>';
+  }else if(_govLog===null){
+    h+='<div class="hint" style="margin-top:6px">Lade…</div>';
+  }else if(!_govLog.length){
+    h+='<div class="hint" style="margin-top:6px">Noch keine Einträge.</div>';
+  }else{
+    var kennByCcp={}, numByPat={};
+    Object.keys(groups).forEach(function(k){ if(groups[k].ccp_id) kennByCcp[groups[k].ccp_id]=groups[k].kennung; });
+    (_govList||[]).forEach(function(g){ numByPat[g.patient_id]=g.num; });
+    h+='<div style="margin-top:6px">';
+    _govLog.forEach(function(l){
+      var what=l.action==='foto_view'?'Foto-Abruf':(l.action==='frist_verlaengert'?'Frist verlängert':esc(l.action||'?'));
+      var subj='';
+      if(l.patient_id!=null){
+        var n=numByPat[l.patient_id];
+        subj='Patient '+(n!=null?('Nr. '+esc(String(n))):esc(String(l.patient_id).slice(0,10))+'…');
+      }
+      if(l.ccp_id){ subj+=(subj?' · ':'')+'CCP '+(kennByCcp[l.ccp_id]?esc(kennByCcp[l.ccp_id]):esc(String(l.ccp_id).slice(0,8))+'…'); }
+      h+='<div style="padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px">';
+      h+='<div><span class="mono">'+govFmt(l.at)+'</span> · <b>'+esc(l.kuerzel||'—')+'</b> · '+what+(subj?' · '+subj:'')+'</div>';
+      if(l.action==='frist_verlaengert'){
+        h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+govFmt(l.neue_frist):'')+'</div>';
+      }
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  h+='</details></div>';
   return h;
 }
 function ccpJoinModal(list){
@@ -2651,6 +2728,34 @@ document.addEventListener("click",async function(e){
     document.body.appendChild(govz);
     govz.addEventListener('click',function(){ if(govz.parentNode)govz.parentNode.removeChild(govz); });
     loadGovernanceList(); /* Protokoll/Liste nachziehen — der eigene Abruf wird sichtbar */
+    return;
+  }
+  if(a==="govextend"){
+    if(!_isMaster){toast("Nur MasterToken");return;}
+    var xid=el.getAttribute("data-ccpid"), xkenn=el.getAttribute("data-kennung"), xfrist=+el.getAttribute("data-frist")||0;
+    if(!(operator&&operator.trim())){
+      var xko=await promptModal("Bediener-Kürzel (z. B. Streife / Name) — für das Zugriffs-Protokoll erforderlich:","");
+      if(xko===null||!xko.trim()){toast("Ohne Kürzel keine Verlängerung");return;}
+      operator=xko.trim(); await setOperatorStore(operator);
+    }
+    /* Pflicht-Begründung: leere/Whitespace-Eingabe wird abgewiesen (erneutes Modal mit Hinweis). */
+    var xgrund=null, xmsg="Begründung (Pflicht): Warum müssen die Fotos über die Frist hinaus aufbewahrt werden?";
+    for(;;){
+      var xin=await promptModal(xmsg,"");
+      if(xin===null) return; /* abgebrochen */
+      if(xin.trim()){ xgrund=xin.trim(); break; }
+      xmsg="Begründung darf nicht leer sein — bitte den Grund angeben (Pflichtfeld):";
+    }
+    var xneu=Math.max(nowMs(),xfrist)+72*3600000; /* Vorschau — verbindlich rechnet der Server identisch */
+    var xok=await confirmModal("Foto-Frist für CCP "+xkenn+" um 72 Std verlängern — neue Frist: "+govFmt(xneu)+". Bei Beweissicherungs-/Ermittlungsbedarf: Export an die zuständige Stelle statt wiederholter Verlängerung.","+72 h verlängern");
+    if(!xok) return;
+    var xcl=sb(); if(!xcl){toast("Keine Backend-Verbindung");return;}
+    var xr; try{ xr=await xcl.rpc('argus_extend_photo_frist',{p_ccp_id:xid,p_kuerzel:operator,p_grund:xgrund,p_stunden:72}); }
+    catch(e){ xr={error:{message:'keine Verbindung'}}; }
+    if(xr.error){ toast("Verlängerung fehlgeschlagen: "+(xr.error.message||"keine Verbindung")); return; }
+    var xnf=xr.data&&xr.data.photo_purge_after;
+    toast("Frist verlängert"+(xnf?" — bis "+govFmt(xnf):""));
+    loadGovernanceList(); /* neue Frist + Protokoll-Eintrag sichtbar machen */
     return;
   }
   if(a==="checkunlock"){
