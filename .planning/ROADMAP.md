@@ -161,6 +161,32 @@ T1 (Schalter + Lebenszyklus + Governance-Panel), T3. Bewusst offen: Einsatz-Scha
 fürs Namensfeld (erst nach DSB-Votum), T4 Audit-Log (gesperrt bis DSB-Votum
 „JI-Regime"), Live-Verifikationen am echten Gerät (Governance-Panel, 72-h-Lauf).
 
+## Phase 4.9 — Governance-Oberfläche (Konsolidierung) ⬜
+**Ziel:** Eine **eigene desktop-taugliche Admin-/Governance-Webseite** (gleiches
+Repo, gleiches Supabase-Backend, MasterToken-geschützt), die die heute verstreuten
+Leitungs-Funktionen an EINEM Ort bündelt — statt einer „Foto-Insel" in der Feld-App.
+Owner-Entscheid 2026-06-10: konsolidieren jetzt, DSB-abhängige Teile bleiben Phase 7.
+
+**Bewusst vorgezogen** (vor 5/6): reine Verwaltungsoberfläche, keine Abhängigkeit auf
+Produktions-Infra; respektiert aber den DSB-Gate (siehe „NICHT in dieser Phase").
+
+- **Eigene Desktop-Seite** im ARGUS-Design (`docs/UI-AUSBLICK.html` verbindlich),
+  eigener Einstieg/URL, MasterToken-/JWT-geschützt — Feld-PWA bleibt schlank.
+- **Konsolidiert die bestehenden Leitungs-Funktionen:**
+  - Admin-Panel (Zugangs-Codes/Links erstellen: dauerhaft/24 h/einmalig)
+  - Foto-Governance aus Phase 4.8 (protokollierter Foto-Einzelabruf,
+    Fristverlängerung mit Pflicht-Begründung, Wiedervorlage, Protokoll-Ansicht) —
+    nutzt die vorhandenen RPCs/`governance_log`/RLS **unverändert weiter**, nur neues UI-Zuhause
+  - optional: Nutzer-/Code-Sperre (`revoked`-Flag + Re-Check beim Start) — Sicherheitsgewinn, DSB-unabhängig
+- **Offene Designfragen (→ discuss/plan):** Auth-Mechanik für eine eigenständige
+  Seite (Code→JWT-Exchange wiederverwenden vs. eigener Master-Login); ob die
+  Foto-Governance aus der Feld-App **entfernt** oder nur **verlinkt** wird;
+  Desktop-Layout/Navigation; Wiederverwendung von `vendor/supabase.js`.
+- **Explizit NICHT in dieser Phase (bleibt Phase 7, DSB-abhängig):**
+  personenscharfes **Audit-/Einsatzprotokoll** (= T4, gesperrt bis DSB-Votum
+  „JI-Regime"), **echte Admin-Identitäten** (Supabase Auth/Magic-Link),
+  vollständiges Nutzerverzeichnis/Präsidiums-Zuweisung.
+
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
 kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
@@ -197,20 +223,25 @@ einen erweiterten Testkreis und perspektivisch echten Einsatz.
 - ✅ **Vorbereitet (2026-06-04):** DSB-Gesprächsvorlage `docs/DSB-BRIEFING.md`
   und `docs/TESTER-ANLEITUNG.md` (nützt schon dem laufenden Testkreis).
 
-## Phase 7 — Governance & Nutzerverzeichnis ⬜
-**Ziel:** Administrative Verwaltung ohne die pseudonyme Feld-UX zu
-kompromittieren. Löst die verbleibende Zugriffskontroll-Lücke sauber.
+## Phase 7 — Governance: Identitäten & Audit-Protokoll ⬜ *(DSB-abhängig)*
+**Ziel:** Die **DSB-abhängige** Schicht der Governance, die auf der konsolidierten
+Oberfläche aus Phase 4.9 aufsetzt. Erst nach dem DSB-Gespräch umsetzbar — die
+Eckpfeiler (Regime, Identitäten, Protokoll-Form) entscheidet der DSB.
+
+> Die Desktop-Admin-Oberfläche, das Admin-Panel und die Foto-Governance sind
+> bereits in **Phase 4.9** gebaut. Phase 7 ergänzt dort nur noch die Inhalte,
+> die ohne DSB-Votum nicht festgelegt werden können.
 
 - **Zwei-Ebenen-Modell:** Feld-Zugang bleibt pseudonym (Code, kein Login);
   Admin-/Rollen-Konten erhalten echte Identitäten (Supabase Auth,
   E-Mail / Magic-Link).
-- **Nutzerverzeichnis:** Nutzer sperren (`revoked`-Flag + Re-Check beim Start),
-  Präsidien zuweisen / aufschalten, Codes ausgeben / widerrufen.
-- **Desktop-optimierte Admin-Webseite** (nicht Phone-App) für Verwaltungsaufgaben.
+- **Nutzerverzeichnis (Voll):** Präsidien zuweisen / aufschalten, Rollen verwalten
+  (die reine Code-Sperre kann bereits in 4.9 liegen).
 - **RLS-Feinschliff** auf Basis der Phase-4-Grundlage.
-- **Audit-/Einsatzprotokoll:** personenscharfes, zeitgestempeltes Verlaufsprotokoll
-  (wer/wann/was/welcher CCP), append-only. Heute nur „zuletzt geändert von/wann".
-  Umfang + Aufbewahrung nach DSB/LDSG/Polizeidatenrecht festlegen.
+- **Audit-/Einsatzprotokoll (= T4 der DATENSCHUTZ-SPEC):** personenscharfes,
+  zeitgestempeltes Verlaufsprotokoll (wer/wann/was/welcher CCP), append-only.
+  Heute nur „zuletzt geändert von/wann". **Hart gesperrt bis DSB-Votum „JI-Regime"**;
+  Umfang + Aufbewahrung (§ 73 PolG BW: 12 Monate) nach DSB/LDSG/Polizeidatenrecht.
 
 ## Phase 8 — Lageübersicht für FLZ / ILS (read-only Dashboard) ⬜
 **Ziel:** Browserbasierte Leseansicht für Führungs- und Lagezentrum (FLZ)
