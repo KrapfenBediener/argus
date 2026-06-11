@@ -209,6 +209,27 @@ Mechanik aus 4.8):**
 - [x] 04.9-03-PLAN.md — Feld-App: Governance-Rückbau, Abschluss auf 72 h, revoked-Re-Check, Drehbuch, Release v0.23.0 + UPDATE-Sheet (Wave 2) ✅ 2026-06-11
 - [x] 04.9-04-PLAN.md — Doku/Statusführung: Löschkonzept + SPEC lokal nachgezogen (Owner-Entscheid 2026-06-10, unversioniert), ROADMAP/STATE (Wave 3) ✅ 2026-06-11
 
+## Phase 4.10 — Datenschutz-Schlusspaket (vor DSB-Gespräch) ⬜
+**Ziel:** Die letzten DSB-unabhängigen Datenschutz-Lücken schließen, damit die
+Aussage „technisch vollständig" vor dem DSB-Gespräch trägt. Klein und fokussiert.
+
+- **Log-Löschfrist (Fund 2026-06-11):** `governance_log` + `purge_log` wachsen
+  bisher unbegrenzt (enthalten Bediener-Kürzel = pseudonyme Daten). Automatische
+  Löschung nach **12 Monaten** (Modell § 73 Abs. 5 PolG BW) im bestehenden
+  Purge-Lauf → Migration 0004 (PAT-Checkpoint).
+- **T5 Transparenz & Betroffenenrechte:** In-App-Datenschutzhinweis (Art. 13:
+  Verantwortlicher `[Platzhalter]`, Zwecke, Fristen, Rechte, DSB-Kontakt) als
+  statische Ansicht, aus den Hilfestellungen erreichbar; Platzhalter zentral
+  pflegbar. Einzelpatient-/Einsatz-Export als Art.-15-Auskunftsweg dokumentieren.
+- **T6 Backup-Hygiene:** Regeln für `~/ARGUS-Backups/*.json` festschreiben
+  (keine Echtdaten, max. 30 Tage, Verschlüsselung oder Abschaffung) —
+  `docs/BACKUP.md` (intern); Bestandsbereinigung als Owner-Punkt.
+- **Interne Doku-Sync (lokal, NIE committen):** Dok. 01 (VVT) letzte
+  14/30-Tage-Stelle auf 72-h-Modell; `DSB-BRIEFING.md/.html` auf
+  Einsatzprotokoll-Modell aktualisieren (sonst veraltete Zahlen im Gespräch).
+- **Kleinkram:** Alt-`UPDATE_*.html` bekommen `noindex` (Befund 04.9-03).
+- **Explizit NICHT:** T4 (DSB-Votum), T7 Self-Hosting, Phase-5/6/7-Inhalte.
+
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
 kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
