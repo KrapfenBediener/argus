@@ -461,27 +461,402 @@ async function toggleRevoke(sc, isRevoked){
   loadZugaenge();
 }
 
-/* ── Bereich „Einsatzprotokolle" (Inhalt folgt) ────────────────── */
-function secEinsaetze(){
-  var h='<div class="mh"><h2>Einsatzprotokolle</h2></div>';
-  h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
-  return h;
-}
-function loadEinsaetze(){ /* Inhalt folgt */ }
+/* ── Bereich „Einsatzprotokolle" (D-12, D-01, D-02, D-03) ──────── */
+var _eins=null, _einsErr=null;
+var _detail=null;   /* {ccpId, data:{ccps,patients,checklists}} — geöffnetes Protokoll */
 
-/* ── Bereich „Protokoll" (Inhalt folgt) ────────────────────────── */
-function secProtokoll(){
-  var h='<div class="mh"><h2>Protokoll</h2></div>';
-  h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+/* Frist-Einstufung — 1:1 aus der Feld-App portiert (04.8-05, JSC 10/10):
+ * 'abgelaufen' (Frist <= jetzt) · 'bald' (< 24 h entfernt) · 'ok' ·
+ * null (keine Frist gesetzt). */
+function fristStatus(purgeAfter, now){
+  if(purgeAfter==null) return null;
+  if(now==null) now=nowMs();
+  if(+purgeAfter <= now) return 'abgelaufen';
+  if(+purgeAfter - now < 86400000) return 'bald';
+  return 'ok';
+}
+
+/* Triage-Kategorien (nur funktionale Farben — Anzeige im Protokoll) */
+var CATS={
+  T1:{label:'T-1',bg:'var(--t1)',fg:'#fff'},
+  T2:{label:'T-2',bg:'var(--t2)',fg:'#3A2C00'},
+  T3:{label:'T-3',bg:'var(--t3)',fg:'#fff'},
+  T5:{label:'T-5',bg:'var(--t5)',fg:'#fff'}
+};
+/* Checklisten-Punkte der Feld-App (Labels für die Protokoll-Anzeige) */
+var CHK=[
+  ['sec','AUFBAU'],
+  ['a1','Geeignete Örtlichkeit?'],['a3','Sicherung?'],['a4','Bereiche eingeteilt & markiert?'],
+  ['a5','Rollen besetzt & allen bekannt?'],['a6','Materialplatz zentral & genug Material?'],['a7','Genug Personal?'],
+  ['sec','BETRIEB – Schleife'],
+  ['b1','Durchatmen'],['b2','Lagebild aktuell?'],['b3','Abgleich Patientenliste?'],
+  ['b4','Re-Triage läuft?'],['b5','Örtlichkeit noch geeignet?'],['b6','Check again!']
+];
+
+/* Kürzel-Pflicht (D-01): einmal je Sitzung abfragen, danach aus sessionStorage. */
+async function ensureKuerzel(){
+  var k=sessionStorage.getItem('argusl_kuerzel');
+  if(k && k.trim()) return k.trim();
+  var inp=await promptModal('Bediener-Kürzel (z. B. Streife / Name) — für das Zugriffs-Protokoll erforderlich:','');
+  if(inp===null || !inp.trim()) return null;
+  k=inp.trim();
+  sessionStorage.setItem('argusl_kuerzel', k);
+  return k;
+}
+
+async function loadEinsaetze(){
+  _eins=null; _einsErr=null;
+  if(state.section==='einsaetze') render();
+  var cl=sb();
+  if(!cl){ _einsErr='Sitzung abgelaufen — bitte neu anmelden.'; if(state.section==='einsaetze') render(); return; }
+  try{
+    var r=await cl.rpc('argus_governance_einsaetze');
+    if(r.error){ _einsErr=r.error.message||'Abruf fehlgeschlagen'; }
+    else{ _eins=Array.isArray(r.data)?r.data:[]; }
+  }catch(e){ _einsErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='einsaetze') render();
+}
+
+/* Gruppierung: ein Verbund (merge_group_id) = ein Einsatz. */
+function einsatzGroups(){
+  var groups={}, order=[];
+  (_eins||[]).forEach(function(e){
+    var k=e.merge_group_id || e.ccp_id || '?';
+    if(!groups[k]){
+      groups[k]={ key:k, ccp_id:e.ccp_id, kennungen:[], einsatz_typ:e.einsatz_typ,
+        closed_at:e.closed_at, purge_after:e.purge_after, photo_purge_after:e.photo_purge_after,
+        patient_count:0, photo_count:0, checklist_count:0 };
+      order.push(k);
+    }
+    var g=groups[k];
+    if(e.kennung && g.kennungen.indexOf(e.kennung)<0) g.kennungen.push(e.kennung);
+    g.patient_count+=(+e.patient_count||0);
+    g.photo_count+=(+e.photo_count||0);
+    g.checklist_count+=(+e.checklist_count||0);
+    if(e.closed_at!=null && (g.closed_at==null || +e.closed_at>+g.closed_at)) g.closed_at=e.closed_at;
+    if(e.purge_after!=null && (g.purge_after==null || +e.purge_after>+g.purge_after)) g.purge_after=e.purge_after;
+    if(e.photo_purge_after!=null && (g.photo_purge_after==null || +e.photo_purge_after>+g.photo_purge_after)) g.photo_purge_after=e.photo_purge_after;
+  });
+  return { groups:groups, order:order };
+}
+
+function typLabel(t){
+  if(t==='einsatz') return 'Einsatz';
+  if(t==='uebung') return 'Übung';
+  return t ? esc(t) : '—';
+}
+
+function einsatzCard(g, now, isWieder){
+  var st=fristStatus(g.purge_after, now);
+  var fst=fristStatus(g.photo_purge_after, now);
+  var h='<div class="card"'+(isWieder?' style="border-color:var(--t1)"':'')+'>';
+  h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  h+='<span class="mono" style="font-size:16px;font-weight:600">CCP '+esc(g.kennungen.join(' + ')||'?')+'</span>';
+  h+='<span class="pill gray">'+typLabel(g.einsatz_typ)+'</span>';
+  h+='<span class="hint">abgeschlossen: '+fmtMs(g.closed_at)+'</span>';
+  h+='</div>';
+  h+='<div class="hint" style="margin-top:6px">'+g.patient_count+' Patient(en) · '+g.photo_count+' Foto(s) · '+g.checklist_count+' Checkliste(n)</div>';
+  if(st==='abgelaufen'){
+    h+='<div class="hint" style="margin-top:6px;color:var(--t1);font-weight:600">Protokoll-Frist abgelaufen ('+fmtMs(g.purge_after)+') — Löschung steht an.</div>';
+  }else if(st==='bald'){
+    h+='<div class="hint" style="margin-top:6px;color:var(--t1);font-weight:600">Protokoll-Frist läuft ab: '+fmtMs(g.purge_after)+'</div>';
+  }else{
+    h+='<div class="hint" style="margin-top:6px">Protokoll-Frist (Löschung): '+fmtMs(g.purge_after)+'</div>';
+  }
+  if(fst==='abgelaufen'){
+    h+='<div class="hint">Foto-Frist: abgelaufen ('+fmtMs(g.photo_purge_after)+') — Fotos sind endgültig gelöscht.</div>';
+  }else{
+    h+='<div class="hint">Foto-Frist (endgültige Löschung): '+fmtMs(g.photo_purge_after)+'</div>';
+  }
+  /* D-02: Fotos hart — bewusst KEINE Verlängerungs-UI für die Foto-Frist. */
+  h+='<div class="hint" style="margin-top:4px">Fotos werden 72 Std nach Abschluss endgültig gelöscht — KEINE Verlängerung. Beweisbedarf: Sicherung durch die zuständige Stelle innerhalb der 72 Std.</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">';
+  h+='<button class="btn" data-action="openproto" data-ccpid="'+esc(g.ccp_id)+'">Protokoll öffnen</button>';
+  h+='<button class="btn ghost" data-action="extendfrist" data-ccpid="'+esc(g.ccp_id)+'" data-kennung="'+esc(g.kennungen.join(' + ')||'?')+'" data-frist="'+(+g.purge_after||0)+'">⏱ Protokoll-Frist +72 h verlängern (mit Begründung)</button>';
+  h+='</div>';
+  h+='</div>';
   return h;
 }
-function loadProtokoll(){ /* Inhalt folgt */ }
+
+function secEinsaetze(){
+  if(_detail) return vProtokollDetail();
+  var h='<div class="mh"><h2>Einsatzprotokolle</h2><button class="btn ghost" data-action="einsreload">↻ Aktualisieren</button></div>';
+  h+='<div class="card"><div class="hint" style="margin:0">Jeder Aufruf eines Einsatzprotokolls wird mit Kürzel und Zeitpunkt protokolliert. Der Übergabe-Export beim Abschluss ist der dauerhafte Weg in die Trägerdokumentation — die Protokolle hier sind ein Durchgangsspeicher mit Löschfrist.</div></div>';
+  if(_einsErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_einsErr)+'</div></div>';
+    return h;
+  }
+  if(_eins===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+    return h;
+  }
+  var gg=einsatzGroups();
+  if(!gg.order.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Einsatzprotokolle vorhanden.<br>Hier erscheinen Einsätze, sobald sie am Feldgerät abgeschlossen wurden (bis zum Ablauf ihrer Löschfrist).</p></div>';
+    return h;
+  }
+  /* Wiedervorlage (D-09): abgelaufene oder < 24 h laufende Protokoll-Fristen oben. */
+  var now=nowMs();
+  var wieder=gg.order.filter(function(k){ var s=fristStatus(gg.groups[k].purge_after, now); return s==='abgelaufen'||s==='bald'; });
+  var normal=gg.order.filter(function(k){ return wieder.indexOf(k)<0; });
+  if(wieder.length){
+    h+='<div class="wieder"><div class="wt">Wiedervorlage — Frist abgelaufen / läuft ab</div>';
+    h+='<div class="hint" style="margin-bottom:10px">Frist nur mit Begründung verlängern oder Löschung geschehen lassen — der Übergabe-Export beim Abschluss ist der dauerhafte Weg.</div>';
+    wieder.forEach(function(k){ h+=einsatzCard(gg.groups[k], now, true); });
+    h+='</div>';
+  }
+  if(normal.length){
+    if(wieder.length) h+='<div class="sech">Weitere Einsätze</div>';
+    normal.forEach(function(k){ h+=einsatzCard(gg.groups[k], now, false); });
+  }
+  return h;
+}
+
+/* Protokoll öffnen (D-01): Hinweis-Modal → Kürzel-Pflicht → protokollierter RPC. */
+async function openProtokoll(ccpId){
+  var ok=await confirmModal('Jeder Aufruf eines Einsatzprotokolls wird protokolliert (Kürzel + Zeitpunkt). Fortfahren?','Fortfahren');
+  if(!ok) return;
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel kein Protokoll-Abruf'); return; }
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  toast('Lade Einsatzprotokoll…');
+  var r;
+  try{ r=await cl.rpc('argus_governance_protokoll',{p_ccp_id:ccpId,p_kuerzel:k}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Abruf fehlgeschlagen: '+(r.error.message||'keine Verbindung')); return; }
+  _detail={ ccpId:ccpId, data:r.data||{} };
+  render();
+}
+
+function vitCompact(v){
+  if(!v || typeof v!=='object') return '—';
+  var parts=[];
+  [['af','AF'],['hf','HF'],['rr','RR'],['spo2','SpO2'],['avpu','AVPU'],['pain','Schmerz']].forEach(function(f){
+    var val=v[f[0]];
+    if(val!=null && String(val).trim()!=='') parts.push(f[1]+' '+esc(String(val)));
+  });
+  return parts.length ? parts.join(' · ') : '—';
+}
+function injCompact(p){
+  var parts=[];
+  if(Array.isArray(p.inj)) p.inj.forEach(function(i){ if(i && (i.r||i.a)) parts.push(esc(String(i.r||'?'))+': '+esc(String(i.a||'?'))); });
+  if(p.injury && String(p.injury).trim()!=='') parts.push(esc(String(p.injury)));
+  return parts.length ? parts.join(' · ') : '—';
+}
+function patStatusLabel(s){
+  if(s==='gpa') return 'abtransportiert (gPA)';
+  if(s==='active') return 'aktiv';
+  return s ? esc(String(s)) : '—';
+}
+
+function vProtokollDetail(){
+  var d=_detail.data||{};
+  var ccps=Array.isArray(d.ccps)?d.ccps:[];
+  var pats=Array.isArray(d.patients)?d.patients:[];
+  var cls=Array.isArray(d.checklists)?d.checklists:[];
+  var now=nowMs();
+  var h='<div class="mh"><h2>Einsatzprotokoll</h2><button class="btn ghost" data-action="closeproto">← Zurück zur Liste</button></div>';
+  /* Einsatz-Kopf */
+  ccps.forEach(function(c){
+    var fst=fristStatus(c.photo_purge_after, now);
+    h+='<div class="card">';
+    h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+    h+='<span class="mono" style="font-size:16px;font-weight:600">CCP '+esc(c.kennung||'?')+'</span>';
+    h+='<span class="pill gray">'+typLabel(c.einsatz_typ)+'</span>';
+    h+='</div>';
+    if(c.ort) h+='<div class="hint" style="margin-top:4px">Einsatzort: '+esc(c.ort)+'</div>';
+    h+='<div class="hint" style="margin-top:4px">Abgeschlossen: '+fmtMs(c.closed_at)+' · Protokoll-Frist: '+fmtMs(c.purge_after)+' · Foto-Frist: '+(fst==='abgelaufen'?'abgelaufen — Fotos endgültig gelöscht':fmtMs(c.photo_purge_after))+'</div>';
+    h+='</div>';
+  });
+  /* Patiententabelle — alle Werte defensiv + esc() (XSS: Daten stammen von Feld-Geräten) */
+  h+='<div class="sech">Patienten ('+pats.length+')</div>';
+  if(!pats.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Patientendaten (mehr) vorhanden.</p></div>';
+  }else{
+    var anyName=pats.some(function(p){ return p.name && String(p.name).trim()!==''; });
+    var fotoErlaubt = ccps.some(function(c){ return fristStatus(c.photo_purge_after, now)!=='abgelaufen' && c.photo_purge_after!=null; });
+    h+='<div class="tablewrap"><table><thead><tr><th>Nr.</th><th>Kat.</th><th>Status</th>'+(anyName?'<th>Name</th>':'')+'<th>Sichtung</th><th>Vitalwerte</th><th>Verletzungen</th><th>Foto</th></tr></thead><tbody>';
+    pats.sort(function(a,b){ return (+a.num||0)-(+b.num||0); }).forEach(function(p){
+      var c=CATS[p.cat]||null;
+      h+='<tr>';
+      h+='<td class="mono" style="font-weight:600">'+esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span class="hint">('+esc(String(p.ccp))+')</span>':'')+'</td>';
+      h+='<td>'+(c?'<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+c.label+'</span>':esc(String(p.cat||'—')))+'</td>';
+      h+='<td>'+patStatusLabel(p.status)+(p.prio?' <span class="pill" style="background:var(--prio)">PRIO</span>':'')+'</td>';
+      if(anyName) h+='<td>'+(p.name&&String(p.name).trim()!==''?esc(String(p.name)):'—')+'</td>';
+      h+='<td class="hint" style="white-space:nowrap">'+fmtMs(p.last_triage)+'</td>';
+      h+='<td>'+vitCompact(p.vit)+'</td>';
+      h+='<td>'+injCompact(p)+'</td>';
+      h+='<td>'+((p.has_photo===true && fotoErlaubt)?'<button class="btn ghost" data-action="protophoto" data-pid="'+esc(String(p.id))+'" data-num="'+esc(String(p.num!=null?p.num:''))+'">Foto anzeigen</button>':'—')+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+    h+='<p class="hint" style="margin-top:6px">Jeder Foto-Abruf wird einzeln protokolliert. Fotos nur bis zur 72-Std-Frist — danach endgültig gelöscht.</p>';
+  }
+  /* Checklisten */
+  h+='<div class="sech">Checkliste CCP ('+cls.length+')</div>';
+  if(!cls.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Checklisten-Daten (mehr) vorhanden.</p></div>';
+  }else{
+    cls.forEach(function(cle){
+      var data=(cle&&cle.data&&typeof cle.data==='object')?cle.data:{};
+      var hd=(data.hdr&&typeof data.hdr==='object')?data.hdr:{};
+      var items=(data.items&&typeof data.items==='object')?data.items:{};
+      h+='<div class="card">';
+      h+='<div class="hint">Einsatzort: '+(hd.ort?esc(String(hd.ort)):'—')+' · MasterMedic: '+(hd.mm?esc(String(hd.mm)):'—')+' · Doorman: '+(hd.door?esc(String(hd.door)):'—')+' · Assistent: '+(hd.ass?esc(String(hd.ass)):'—')+'</div>';
+      h+='<div style="margin-top:8px">';
+      CHK.forEach(function(it){
+        if(it[0]==='sec'){ h+='<div class="sech" style="margin:10px 0 4px">'+esc(it[1])+'</div>'; return; }
+        var st=items[it[0]]||{};
+        h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)">';
+        h+=(st.done?'<span style="color:var(--t3);font-weight:700">✓</span>':'<span class="hint">○</span>')+' '+esc(it[1]);
+        if(st.note && String(st.note).trim()!=='') h+='<div class="hint" style="margin-left:18px">Notiz: '+esc(String(st.note))+'</div>';
+        h+='</div>';
+      });
+      h+='</div></div>';
+    });
+  }
+  return h;
+}
+
+/* Foto-Einzelabruf (Lazy-Load, eigener Protokoll-Eintrag foto_view) */
+async function showFoto(pid, num){
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel kein Foto-Abruf'); return; }
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_governance_photo',{p_patient_id:pid,p_kuerzel:k}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Foto-Abruf fehlgeschlagen: '+(r.error.message||'keine Verbindung')); return; }
+  var photo=r.data && r.data.photo;
+  if(!photo){ toast('Kein Foto vorhanden — bereits endgültig gelöscht?'); return; }
+  var ts=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:12px;cursor:pointer';
+  ov.innerHTML='<img src="'+photo+'" alt="Patientenfoto" style="max-width:100%;max-height:78%;object-fit:contain;border-radius:8px">'+
+    '<div style="color:#cfd6df;font-size:12.5px;text-align:center;max-width:480px">Patient Nr. '+esc(num||'?')+' · Dieser Abruf wurde protokolliert ('+esc(k)+', '+esc(ts)+' Uhr).</div>'+
+    '<div style="position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300">✕</div>';
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); });
+}
+
+/* Protokoll-Frist +72 h (D-03): Pflicht-Begründung mit Leer-Abweisung,
+ * Bestätigung mit Frist-Vorschau + Export-Hinweis, wirkt auf den Verbund. */
+async function extendFrist(ccpId, kennung, frist){
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel keine Verlängerung'); return; }
+  var grund=null, msg='Begründung (Pflicht): Warum muss das Einsatzprotokoll über die Frist hinaus aufbewahrt werden?';
+  for(;;){
+    var inp=await promptModal(msg,'');
+    if(inp===null) return;   /* abgebrochen */
+    if(inp.trim()){ grund=inp.trim(); break; }
+    msg='Begründung darf nicht leer sein — bitte den Grund angeben (Pflichtfeld):';
+  }
+  var neu=Math.max(nowMs(), +frist||0)+72*3600000;   /* Vorschau — verbindlich rechnet der Server identisch */
+  var ok=await confirmModal('Protokoll-Frist für CCP '+kennung+' um 72 Std verlängern — neue Frist: '+fmtMs(neu)+'. Die Foto-Frist bleibt unverändert (Fotos werden nicht verlängert). Bei dauerhaftem Bedarf: Export an die zuständige Stelle statt wiederholter Verlängerung.','+72 h verlängern');
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_extend_protokoll_frist',{p_ccp_id:ccpId,p_kuerzel:k,p_grund:grund,p_stunden:72}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Verlängerung fehlgeschlagen: '+(r.error.message||'keine Verbindung')); return; }
+  var nf=r.data && r.data.purge_after;
+  toast('Frist verlängert'+(nf?' — bis '+fmtMs(nf):''));
+  loadEinsaetze();
+}
+
+/* ── Bereich „Protokoll" (D-13): governance_log + purge_log ─────
+ * Reine Anzeige — Zugriffe/Verlängerungen und Lösch-Läufe (inhaltsfrei). */
+var _glog=null, _glogErr=null, _plog=null, _plogErr=null;
+
+async function loadProtokoll(){
+  _glog=null; _glogErr=null; _plog=null; _plogErr=null;
+  if(state.section==='protokoll') render();
+  var cl=sb();
+  if(!cl){ _glogErr='Sitzung abgelaufen — bitte neu anmelden.'; if(state.section==='protokoll') render(); return; }
+  try{
+    var lg=await cl.from('governance_log')
+      .select('at,ccp_id,patient_id,kuerzel,action,begruendung,neue_frist')
+      .order('at',{ascending:false}).limit(200);
+    if(lg.error){ _glogErr=lg.error.message||'Protokoll nicht lesbar'; }
+    else{ _glog=lg.data||[]; }
+    var pg=await cl.from('purge_log')
+      .select('at,ccp_id,kennung,reason,patient_count,photo_count,checklist_count')
+      .order('at',{ascending:false}).limit(100);
+    if(pg.error){ _plogErr=pg.error.message||'Lösch-Protokoll nicht lesbar'; }
+    else{ _plog=pg.data||[]; }
+  }catch(e){ _glogErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='protokoll') render();
+}
+
+function actionLabel(a){
+  if(a==='foto_view') return 'Foto-Abruf';
+  if(a==='protokoll_view') return 'Einsatzprotokoll-Aufruf';
+  if(a==='frist_verlaengert') return 'Frist verlängert';
+  return a ? esc(String(a)) : '?';
+}
+function purgeReasonLabel(r){
+  if(r==='frist') return 'Frist abgelaufen';
+  if(r==='inaktiv') return 'Inaktivität';
+  if(r==='foto_72h') return 'Foto-72-h-Löschung';
+  return r ? esc(String(r)) : '?';
+}
+
+function secProtokoll(){
+  var h='<div class="mh"><h2>Protokoll</h2><button class="btn ghost" data-action="protoreload">↻ Aktualisieren</button></div>';
+  /* Zugriffe & Verlängerungen */
+  h+='<div class="sech" style="margin-top:0">Zugriffe &amp; Verlängerungen'+(_glog?' ('+_glog.length+')':'')+'</div>';
+  if(_glogErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_glogErr)+'</div></div>';
+  }else if(_glog===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  }else if(!_glog.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Noch keine Einträge.<br>Hier erscheint jeder Einsatzprotokoll-Aufruf, jeder Foto-Abruf und jede Frist-Verlängerung (Kürzel + Zeitpunkt).</p></div>';
+  }else{
+    h+='<div class="card">';
+    _glog.forEach(function(l){
+      var subj='';
+      if(l.patient_id!=null) subj='Patient '+esc(String(l.patient_id).slice(0,10))+'…';
+      if(l.ccp_id) subj+=(subj?' · ':'')+'CCP '+esc(String(l.ccp_id).slice(0,8))+'…';
+      h+='<div style="padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px">';
+      h+='<div><span class="mono">'+fmtMs(l.at)+'</span> · <b>'+esc(l.kuerzel||'—')+'</b> · '+actionLabel(l.action)+(subj?' · '+subj:'')+'</div>';
+      if(l.action==='frist_verlaengert'){
+        h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+fmtMs(l.neue_frist):'')+'</div>';
+      }
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  /* Lösch-Läufe (inhaltsfrei) */
+  h+='<div class="sech">Lösch-Läufe'+(_plog?' ('+_plog.length+')':'')+'</div>';
+  if(_plogErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_plogErr)+'</div></div>';
+  }else if(_plog===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  }else if(!_plog.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Noch keine Lösch-Läufe.<br>Hier wird jede automatische Löschung dokumentiert (Zeitpunkt, Kennung, Grund, Zähler) — ohne Inhalte.</p></div>';
+  }else{
+    h+='<div class="tablewrap"><table><thead><tr><th>Zeitpunkt</th><th>CCP</th><th>Grund</th><th>Patienten</th><th>Fotos</th><th>Checklisten</th></tr></thead><tbody>';
+    _plog.forEach(function(l){
+      h+='<tr>';
+      h+='<td class="mono" style="white-space:nowrap">'+fmtIso(l.at)+'</td>';
+      h+='<td class="mono">'+esc(l.kennung||'—')+'</td>';
+      h+='<td>'+purgeReasonLabel(l.reason)+'</td>';
+      h+='<td>'+esc(String(l.patient_count!=null?l.patient_count:'—'))+'</td>';
+      h+='<td>'+esc(String(l.photo_count!=null?l.photo_count:'—'))+'</td>';
+      h+='<td>'+esc(String(l.checklist_count!=null?l.checklist_count:'—'))+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
 
 /* ── Klick-Dispatcher ──────────────────────────────────────────── */
 document.addEventListener('click', async function(e){
   var nav=e.target.closest('[data-nav]');
   if(nav){
     state.section=nav.getAttribute('data-nav');
+    _detail=null;   /* geöffnetes Protokoll beim Bereichswechsel schließen */
     render(); loadSection();
     return;
   }
@@ -508,6 +883,15 @@ document.addEventListener('click', async function(e){
     await toggleRevoke(el.getAttribute('data-sc'), el.getAttribute('data-rev')==='1');
     return;
   }
+  if(a==='einsreload'){ _detail=null; loadEinsaetze(); return; }
+  if(a==='openproto'){ await openProtokoll(el.getAttribute('data-ccpid')); return; }
+  if(a==='closeproto'){ _detail=null; render(); return; }
+  if(a==='protophoto'){ await showFoto(el.getAttribute('data-pid'), el.getAttribute('data-num')); return; }
+  if(a==='extendfrist'){
+    await extendFrist(el.getAttribute('data-ccpid'), el.getAttribute('data-kennung')||'?', el.getAttribute('data-frist'));
+    return;
+  }
+  if(a==='protoreload'){ loadProtokoll(); return; }
 });
 $('logininp') && $('logininp').focus();
 document.addEventListener('keydown', function(e){
