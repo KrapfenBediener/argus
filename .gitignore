@@ -75,6 +75,8 @@ docs/PITCH-DECK-APPLE.html
 docs/PITCH-DECK-APPLE-MUSTER.html
 # Website-Quelle (öffentlich nur die obfuskierte Demo-Kopie)
 docs/WEBSITE.html
+# Leitungs-Oberfläche: konkreter Dateiname/URL NUR lokal (Repo ist public — D-06)
+/LEITUNG-URL.md
 # Arbeitsreste
 /files.zip
 /extracted/

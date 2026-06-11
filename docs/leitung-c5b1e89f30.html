@@ -1,0 +1,366 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · Leitung</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/png" href="../ARGUS_Icon.png">
+<style>
+  /* Selbst gehostete Schriften (kein externes CDN) */
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --t5b:#3a3d41;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;font-size:14px}
+  button{font-family:var(--sans);cursor:pointer;border:0}
+  input,textarea{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
+  input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
+  .mono{font-family:var(--mono)}
+  /* Topbar (Schiefer = Chrome) */
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;position:sticky;top:0;z-index:50}
+  .topbar .brand{font-weight:700;letter-spacing:1px;font-size:16px}
+  .topbar .brand small{font-weight:400;letter-spacing:0;opacity:.75;margin-left:8px;font-size:12px}
+  .topbar button{background:#ffffff1d;color:#fff;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600}
+  .topbar button:hover{background:#ffffff30}
+  /* Layout: Seitennavigation + Inhalt */
+  .layout{display:grid;grid-template-columns:212px minmax(0,1fr);min-height:calc(100vh - 46px)}
+  .side{background:#fff;border-right:1px solid var(--line);padding:14px 12px}
+  .side .sh{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:4px 2px 8px}
+  .side .it{padding:9px 11px;border-radius:8px;font-size:13.5px;margin-bottom:3px;cursor:pointer;user-select:none}
+  .side .it:hover{background:var(--surf2)}
+  .side .it.on{background:var(--acc);color:#fff}
+  .side .it.on:hover{background:var(--acc)}
+  .side .lockedsec{margin-top:18px;padding-top:12px;border-top:1px dashed var(--line)}
+  .side .lockedsec .sh{color:var(--mut)}
+  .side .locked{padding:9px 11px;border-radius:8px;font-size:13.5px;margin-bottom:3px;color:var(--mut);opacity:.5;cursor:not-allowed;user-select:none;display:flex;justify-content:space-between;align-items:center}
+  .side .locked:hover{background:none}
+  .main{padding:20px 22px 60px;max-width:1100px;width:100%}
+  .mh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .mh h2{margin:0;font-size:18px}
+  /* Bausteine */
+  .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:12px}
+  .hint{font-size:12px;color:var(--mut)}
+  .sech{font-size:12px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px}
+  .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
+  .btn:hover{filter:brightness(1.25)}
+  .btn.ghost{background:var(--surf2);color:var(--tx)}
+  .btn.ghost:hover{filter:none;background:var(--line)}
+  .btn.warn{background:var(--t1)}
+  .btn[disabled]{opacity:.5;cursor:default}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--surf2);color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  .tablewrap{border:1px solid var(--line);border-radius:10px;overflow:auto;background:#fff}
+  .pill{display:inline-block;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+  .pill.gray{background:var(--surf2);color:var(--mut)}
+  .pill.red{background:var(--t1)}
+  .pill.green{background:var(--t3)}
+  /* Login */
+  .loginwrap{min-height:calc(100vh - 46px);display:flex;align-items:flex-start;justify-content:center;padding:60px 14px}
+  .loginbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 24px;max-width:380px;width:100%;box-shadow:0 6px 22px rgba(0,0,0,.06)}
+  .loginbox h1{font-size:18px;margin:0 0 4px}
+  .arg-logo{width:52px;height:52px;border-radius:13px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin:0 auto 14px;letter-spacing:1px}
+  .fieldlab{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;font-weight:600}
+  .lerr{color:var(--t1);font-size:12.5px;font-weight:600;margin-top:10px;min-height:18px}
+  /* Modal */
+  .modalov{position:fixed;inset:0;background:rgba(15,21,28,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:1000}
+  .modalbx{background:#fff;border-radius:13px;padding:20px 18px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .modalmsg{font-size:14px;margin-bottom:14px;white-space:pre-wrap}
+  .modalrow{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  /* Toast */
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--acc);color:#fff;font-weight:600;padding:11px 20px;border-radius:30px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:2000;max-width:90%}
+  .toast.show{opacity:1}
+  /* Wiedervorlage */
+  .wieder{border:1px solid var(--t1);border-left:5px solid var(--t1);border-radius:11px;background:#fff;padding:14px;margin-bottom:14px}
+  .wieder .wt{color:var(--t1);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  @media(max-width:760px){
+    .layout{grid-template-columns:1fr}
+    .side{border-right:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+    .side .sh{width:100%;margin:2px}
+    .side .it,.side .locked{margin-bottom:0}
+    .side .lockedsec{margin-top:0;padding-top:0;border-top:0;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+    .main{padding:14px}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">ARGUS<small>· Leitung</small></span>
+  <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
+</div>
+<div id="app"></div>
+<div class="toast" id="toast"></div>
+<script src="../vendor/supabase.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+ * ARGUS · Leitung — Governance-Oberfläche (Desktop)
+ * Alle Inhalte ausschließlich nach Anmeldung mit MasterToken
+ * (is_master-JWT). Die Seite selbst enthält keine Daten.
+ * Sitzung bewusst flüchtig: sessionStorage, kein Verlauf.
+ * ============================================================ */
+
+var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
+var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
+
+var _sb = null;
+var _sbJwt = null;
+var state = { section:'zugaenge' };   /* Direkteinstieg: Zugänge — keine Übersichtsseite */
+
+/* ── Hilfsfunktionen ─────────────────────────────────────────── */
+function $(id){ return document.getElementById(id); }
+function nowMs(){ return Date.now(); }
+/* HTML-Escaping JEDES dynamischen Werts — Daten kommen aus gemeinsam
+ * beschreibbaren Tabellen (Kennungen, Labels, Begründungen von Feld-Geräten). */
+function esc(s){
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+/* de-DE-Datumsformat für bigint-Millisekunden (Muster govFmt der Feld-App) */
+function fmtMs(ms){
+  if(ms==null) return '—';
+  return new Date(+ms).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr';
+}
+/* timestamptz (ISO-String, z. B. purge_log.at) ebenfalls de-DE */
+function fmtIso(s){
+  if(!s) return '—';
+  var d=new Date(s);
+  if(isNaN(d.getTime())) return esc(String(s));
+  return d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr';
+}
+function toast(msg){
+  var t=$('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); },2200);
+}
+
+/* ── In-Page-Modals (keine nativen Dialoge — Projektkonvention) ── */
+function modalBase(innerHtml){
+  var ov=document.createElement('div'); ov.className='modalov';
+  ov.innerHTML='<div class="modalbx">'+innerHtml+'</div>';
+  document.body.appendChild(ov);
+  return ov;
+}
+function confirmModal(msg, okLabel){
+  return new Promise(function(resolve){
+    var ov=modalBase('<div class="modalmsg">'+esc(msg)+'</div>'+
+      '<div class="modalrow"><button class="btn ghost" data-m="no">Abbrechen</button>'+
+      '<button class="btn" data-m="yes">'+esc(okLabel||'OK')+'</button></div>');
+    ov.addEventListener('click',function(e){
+      var b=e.target.closest('[data-m]');
+      if(b){ ov.remove(); resolve(b.getAttribute('data-m')==='yes'); }
+      else if(e.target===ov){ ov.remove(); resolve(false); }
+    });
+  });
+}
+function promptModal(msg, def){
+  return new Promise(function(resolve){
+    var ov=modalBase('<div class="modalmsg">'+esc(msg)+'</div>'+
+      '<input id="modalinp" value="'+esc(def||'')+'">'+
+      '<div class="modalrow"><button class="btn ghost" data-m="no">Abbrechen</button>'+
+      '<button class="btn" data-m="yes">OK</button></div>');
+    var inp=ov.querySelector('#modalinp'); inp.focus(); inp.select();
+    function done(ok){ var v=inp.value; ov.remove(); resolve(ok?v:null); }
+    ov.addEventListener('click',function(e){
+      var b=e.target.closest('[data-m]');
+      if(b){ done(b.getAttribute('data-m')==='yes'); }
+      else if(e.target===ov){ done(false); }
+    });
+    inp.addEventListener('keydown',function(e){ if(e.key==='Enter') done(true); });
+  });
+}
+
+/* ── Sitzung (D-07): sessionStorage, bewusst flüchtig ───────────
+ * Schlüssel argusl_jwt / argusl_jwt_exp. Tab zu = Sitzung weg.
+ * Abgelaufene Sitzung führt zurück zum Login. */
+function sessionJwt(){
+  var jwt=sessionStorage.getItem('argusl_jwt');
+  var exp=parseInt(sessionStorage.getItem('argusl_jwt_exp')||'0',10);
+  if(!jwt||!exp) return null;
+  if(exp<=nowMs()){ sessionStorage.clear(); return null; }
+  return jwt;
+}
+function sb(){
+  var jwt=sessionJwt();
+  if(!jwt) return null;
+  if(_sb && jwt===_sbJwt) return _sb;
+  var lib=window.supabase;
+  if(!lib || !lib.createClient) return null;
+  _sbJwt=jwt;
+  _sb=lib.createClient(SUPA_URL, SUPA_KEY, {
+    auth:{persistSession:false, autoRefreshToken:false, detectSessionInUrl:false},
+    global:{ headers:{ Authorization:'Bearer '+jwt } }
+  });
+  return _sb;
+}
+
+/* ── Login (D-07): nur MasterToken ──────────────────────────────
+ * Tauscht den Code via rpc/argus_exchange_code gegen ein JWT.
+ * Antworten OHNE is_master=true werden abgewiesen — NICHTS wird
+ * gespeichert (kein sessionStorage-Schreiben im Abweisungspfad). */
+async function doLogin(raw){
+  var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
+  if(clean.length<8){ setLoginError('Bitte vollständigen MasterToken eingeben.'); return; }
+  setLoginError('');
+  var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data=await resp.json();   /* ungültiger Code = HTTP 200 + {error:…} */
+    if(!data || !data.jwt){
+      setLoginError(data && data.error ? data.error : 'Ungültiger oder verbrauchter Code.');
+      return;
+    }
+    if(data.is_master !== true){
+      /* Abweisung OHNE Speicherung — die Leitungs-Seite akzeptiert nur den MasterToken. */
+      setLoginError('Nur mit MasterToken — dieser Code hat keine Leitungs-Berechtigung.');
+      return;
+    }
+    sessionStorage.setItem('argusl_jwt', data.jwt);
+    sessionStorage.setItem('argusl_jwt_exp', String(data.exp*1000));
+    state.section='zugaenge';     /* D-10: direkt in den ersten Bereich */
+    render();
+    loadSection();
+  }catch(e){
+    setLoginError('Keine Verbindung — bitte erneut versuchen.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Anmelden'; }
+  }
+}
+function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
+function doLogout(){ sessionStorage.clear(); location.reload(); }
+
+/* ── Navigation / Router ───────────────────────────────────────── */
+var SECTIONS=[
+  { id:'zugaenge',   label:'Zugänge' },
+  { id:'einsaetze',  label:'Einsatzprotokolle' },
+  { id:'protokoll',  label:'Protokoll' }
+];
+function sideNav(){
+  var h='<nav class="side"><div class="sh">Bereiche</div>';
+  SECTIONS.forEach(function(s){
+    h+='<div class="it'+(state.section===s.id?' on':'')+'" data-nav="'+s.id+'">'+esc(s.label)+'</div>';
+  });
+  /* Sichtbar gesperrte Zone (D-09): bewusst KEIN data-action, KEIN Klick-Verhalten.
+   * Diese Funktionen kommen erst in Phase 7 (nach DSB-Votum). */
+  h+='<div class="lockedsec"><div class="sh">Phase 7 · nach DSB</div>';
+  h+='<div class="locked"><span>Identitäten</span><span>🔒</span></div>';
+  h+='<div class="locked"><span>Audit-Log</span><span>🔒</span></div>';
+  h+='</div></nav>';
+  return h;
+}
+function render(){
+  var app=$('app');
+  var logged=!!sessionJwt();
+  $('logoutbtn').style.display = logged ? '' : 'none';
+  if(!logged){
+    app.innerHTML=vLogin();
+    return;
+  }
+  var h='<div class="layout">'+sideNav()+'<main class="main">';
+  if(state.section==='zugaenge')       h+=secZugaenge();
+  else if(state.section==='einsaetze') h+=secEinsaetze();
+  else if(state.section==='protokoll') h+=secProtokoll();
+  h+='</main></div>';
+  app.innerHTML=h;
+}
+function loadSection(){
+  if(state.section==='zugaenge')       loadZugaenge();
+  else if(state.section==='einsaetze') loadEinsaetze();
+  else if(state.section==='protokoll') loadProtokoll();
+}
+
+/* ── Login-View ────────────────────────────────────────────────── */
+function vLogin(){
+  var h='<div class="loginwrap"><div class="loginbox">';
+  h+='<div class="arg-logo">ARGUS</div>';
+  h+='<h1 style="text-align:center">Leitung</h1>';
+  h+='<div class="hint" style="text-align:center">Anmeldung nur mit MasterToken.<br>Die Sitzung endet mit dem Schließen des Tabs.</div>';
+  h+='<label class="fieldlab" for="logininp">MasterToken</label>';
+  h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
+  h+='<div class="modalrow" style="justify-content:stretch;gap:8px">';
+  h+='<button class="btn ghost" data-action="pastetoken" style="flex:1">📋 Einfügen</button>';
+  h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
+  h+='</div>';
+  h+='<div class="lerr" id="loginerr"></div>';
+  h+='</div></div>';
+  return h;
+}
+
+/* ── Bereich „Zugänge" (Inhalt folgt) ──────────────────────────── */
+function secZugaenge(){
+  var h='<div class="mh"><h2>Zugänge</h2></div>';
+  h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  return h;
+}
+function loadZugaenge(){ /* Inhalt folgt */ }
+
+/* ── Bereich „Einsatzprotokolle" (Inhalt folgt) ────────────────── */
+function secEinsaetze(){
+  var h='<div class="mh"><h2>Einsatzprotokolle</h2></div>';
+  h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  return h;
+}
+function loadEinsaetze(){ /* Inhalt folgt */ }
+
+/* ── Bereich „Protokoll" (Inhalt folgt) ────────────────────────── */
+function secProtokoll(){
+  var h='<div class="mh"><h2>Protokoll</h2></div>';
+  h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  return h;
+}
+function loadProtokoll(){ /* Inhalt folgt */ }
+
+/* ── Klick-Dispatcher ──────────────────────────────────────────── */
+document.addEventListener('click', async function(e){
+  var nav=e.target.closest('[data-nav]');
+  if(nav){
+    state.section=nav.getAttribute('data-nav');
+    render(); loadSection();
+    return;
+  }
+  var el=e.target.closest('[data-action]');
+  if(!el) return;
+  var a=el.getAttribute('data-action');
+  if(a==='logout'){ doLogout(); return; }
+  if(a==='login'){ var li=$('logininp'); await doLogin(li?li.value:''); return; }
+  if(a==='pastetoken'){
+    var pi=$('logininp');
+    try{
+      var txt=await navigator.clipboard.readText();
+      if(pi) pi.value=(txt||'').trim();
+      await doLogin(txt||'');
+    }catch(err){ setLoginError('Zwischenablage nicht lesbar — bitte Token eintippen.'); }
+    return;
+  }
+});
+$('logininp') && $('logininp').focus();
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='logininp'){
+    doLogin(document.activeElement.value);
+  }
+});
+
+/* Start: abgelaufene/fehlende Sitzung → Login, sonst direkt Zugänge (D-10) */
+render();
+if(sessionJwt()) loadSection();
+</script>
+</body>
+</html>
