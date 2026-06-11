@@ -1,13 +1,15 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.11 Self-Hosting (T7) — **Welle 1 (Plan 01) ABGESCHLOSSEN
-  2026-06-11, v0.24.0**: Config-Auslagerung (zentrale config.js) für Feld-App +
-  Leitungs-Seite, SW-Cache v43. Als Nächstes: Welle 2 (Plan 02 —
-  Kompatibilitäts-Audit + docs/SELF-HOSTING.md + Statusführung).
-  Betriebsmodell-Entscheid M1: Polizei BW hostet selbst; Eigentümer-Instanz
-  bleibt Dev/Schulung. Danach: 4.12 FLZ Stufe a. Davor: 4.10 Datenschutz-Schlusspaket — **ABGESCHLOSSEN
-  2026-06-11**. App live: **v0.24.0** (nach Push dieses Plans).
+- **Aktuelle Phase:** 4.11 Self-Hosting (T7) — **ABGESCHLOSSEN 2026-06-11,
+  v0.24.0 / SW v43**: Config-Auslagerung (zentrale config.js, Plan 01) +
+  Kompatibilitäts-Audit 0000–0004 und öffentliche Aufbau-Anleitung
+  `docs/SELF-HOSTING.md` (Plan 02). Akzeptanz „läuft gegen zweite Instanz"
+  ersatzweise belegt (Config-Isolation + extern nachvollziehbare Anleitung);
+  echte Zweitinstanz-Erprobung deferred. Betriebsmodell-Entscheid M1: Polizei
+  BW hostet selbst; Eigentümer-Instanz bleibt Dev/Schulung.
+  **Nächster Schritt: Phase 4.12 (FLZ-Lageansicht Stufe a).**
+  App live: **v0.24.0** (nach Push dieses Plans).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4/T7 nach DSB-Votum).** Nächster realer Schritt: **DSB-Gespräch**
   (Briefing aktualisiert, intern) → bestimmt Phase 5/6/7.
@@ -28,6 +30,7 @@
 | 4.8 | Datenschutz-Härtung (T8, T2, T1, T3) | ✅ 2026-06-10 |
 | 4.9 | Governance-Oberfläche (Einsatzprotokoll-Modell, Leitungs-Seite, Code-Sperre) | ✅ 2026-06-11 |
 | 4.10 | Datenschutz-Schlusspaket (Log-Frist 12 Monate, T5 Transparenz, T6 Backup-Hygiene, Doku-Sync) | ✅ 2026-06-11 |
+| 4.11 | Self-Hosting-Fähigkeit (T7: config.js, Kompatibilitäts-Audit, SELF-HOSTING.md) | ✅ 2026-06-11 |
 
 ---
 
@@ -479,7 +482,7 @@ nur Organisatorisches (+ T4/T7 nach DSB-Votum).**
 
 ---
 
-## Phase 4.11 — Self-Hosting-Fähigkeit (T7, in Ausführung)
+## Phase 4.11 — Self-Hosting-Fähigkeit (ABGESCHLOSSEN 2026-06-11, v0.24.0)
 
 **Planung:** 2 Pläne in 2 Wellen (geplant 2026-06-11, Checker PASS ohne
 Blocker, voll autonom — kein PAT nötig).
@@ -506,6 +509,38 @@ Blocker, voll autonom — kein PAT nötig).
   Lektionsänderung (keine UI-/Bedienungsänderung). Details:
   `.planning/phases/04.11-self-hosting/04.11-01-SUMMARY.md`.
   Commits d99c048 · 8481428 · 5e9ac55.
+
+**Ausführungsstand (Welle 2 — Phasenabschluss):**
+- **04.11-02 ✅ (2026-06-11):** Kompatibilitäts-Audit 0000–0004 (D-03) +
+  öffentliche Aufbau-Anleitung `docs/SELF-HOSTING.md` (D-02, committet,
+  328 Zeilen) — Zielgruppe fachkundige Admin-Person ohne Projektkenntnis:
+  Varianten A (Supabase self-hosted via Docker Compose, empfohlen) / B
+  (Postgres + PostgREST, ehrlich: Realtime entfällt → kein Live-Sync,
+  Vault-Ersatzweg nötig); Audit-Tabelle pgjwt (Pflicht) / Vault-Secret
+  `argus_jwt_secret` (Pflicht, MUSS dem PostgREST-JWT-Secret der Instanz
+  entsprechen — kritischster Stolperstein) / pg_cron `argus_purge` (optional,
+  Fallback App-Start-Purge aus 0002) / Realtime-Publikation patients+ccps
+  (steht in KEINER Migration — expliziter Einrichtungsschritt) / anon-Rolle,
+  je mit Prüf-SQL; Ein-Schritt-Apply, frische Codes + neuer MasterToken
+  zwingend, config.js-Tausch als einziger App-Eingriff, Smoke-Test-Drehbuch
+  (8 Schritte mit Erwartungsergebnissen inkl. Negativ-Prüfungen),
+  Betriebsvorgaben (MDM-Dienstgeräte, Kürzel-Liste, Codes nur mündlich/Funk);
+  SW-Origin-Befund als Betriebs-Voraussetzung (App-Hosting ≠ API-Origin).
+  Keine Code-Änderungen (D-03: Befunde rein dokumentarisch). Negativ-Gates
+  grün (keine Secrets/Interna/Leitungs-Name; D-06 repo-weit). Interne
+  Statusführung lokal nachgezogen (SPEC T7 abgehakt, Maßnahmenplan,
+  internes Runbook verweist auf SELF-HOSTING.md — alle gitignored). Details:
+  `.planning/phases/04.11-self-hosting/04.11-02-SUMMARY.md`.
+
+**→ Phase 4.11 abgeschlossen. Offene Owner-Punkte:**
+1. **Push/Deploy** der Phase-4.11-Commits — danach ist v0.24.0 live.
+2. **iPhone-Live-Test v0.24.0 (nach Deploy):** Update-Banner v0.24.0
+   erscheint, App startet danach offline (config.js im SW-Precache v43),
+   Code-Einlösung/Sync laufen unverändert — Live-Test der Config-Umstellung.
+   Kein neuer PAT-Punkt (keine Migration in dieser Phase).
+3. **Echte Zweitinstanz-Erprobung deferred:** sobald eine Zielumgebung
+   (Polizei-/BITBW-Instanz oder Test-Stack) existiert, das
+   Smoke-Test-Drehbuch aus `docs/SELF-HOSTING.md` einmal vollständig fahren.
 
 ---
 

@@ -248,7 +248,7 @@ Die Polizei stellt den Verantwortlichen. Konsequenzen:
 - Phase 5 (alt: „Supabase Pro + Prod-Projekt") ist damit obsolet und wurde zu
   „Übergabe-Paket" umgeschnitten.
 
-## Phase 4.11 — Self-Hosting-Fähigkeit (T7, Übergabefähigkeit) ⬜
+## Phase 4.11 — Self-Hosting-Fähigkeit (T7, Übergabefähigkeit) ✅
 **Ziel:** Eine Polizei-/BITBW-Instanz kann ARGUS ohne Codeänderung betreiben —
 die App läuft gegen eine fremde Supabase-/Postgres-Instanz nur durch Austausch
 einer zentralen Konfiguration.
@@ -273,7 +273,15 @@ einer zentralen Konfiguration.
 
 Plans:
 - [x] 04.11-01-PLAN.md — Config-Auslagerung: config.js (Feld-App + Leitungs-Seite), SW-Precache v43, Fehlerpfad, Release v0.24.0 (Wave 1) ✅ 2026-06-11
-- [ ] 04.11-02-PLAN.md — Kompatibilitäts-Audit 0000–0004 + docs/SELF-HOSTING.md (Anleitung, Smoke-Test, Betriebsvorgaben) + Statusführung (Wave 2)
+- [x] 04.11-02-PLAN.md — Kompatibilitäts-Audit 0000–0004 + docs/SELF-HOSTING.md (Anleitung, Smoke-Test, Betriebsvorgaben) + Statusführung (Wave 2) ✅ 2026-06-11
+
+**Akzeptanz-Vermerk (2026-06-11):** „App läuft gegen zweite Instanz" ist
+**ersatzweise belegt** — über die Config-Isolation aus Plan 04.11-01
+(Grep-Gate: URL/Anon-Key existieren NUR in config.js; JSC-Konsumtest der
+ARGUS_CONFIG-Ableitung) plus die extern nachvollziehbare Anleitung
+`docs/SELF-HOSTING.md` (Kompatibilitäts-Audit 0000–0004, Smoke-Test-Drehbuch
+mit Erwartungsergebnissen). Eine **echte Zweitinstanz-Erprobung bleibt offen**
+(deferred, sobald eine Zielumgebung existiert — kein Zugang zur Polizei-Infra).
 
 ## Phase 4.12 — FLZ-Lageansicht Stufe a (separate Beobachter-Seite) ⬜
 **Ziel:** Anonyme Aggregat-Zahlen (Patienten je Kategorie/CCP) für FLZ/ILS als
