@@ -269,6 +269,12 @@ einer zentralen Konfiguration.
 - **Akzeptanz (aus SPEC T7):** App läuft unverändert gegen eine zweite, frische
   Instanz nur durch Config-Tausch; Anleitung extern nachvollziehbar.
 
+**Plans:** 2 plans (2 Wellen, voll autonom — keine Migration, kein PAT)
+
+Plans:
+- [ ] 04.11-01-PLAN.md — Config-Auslagerung: config.js (Feld-App + Leitungs-Seite), SW-Precache v43, Fehlerpfad, Release v0.24.0 (Wave 1)
+- [ ] 04.11-02-PLAN.md — Kompatibilitäts-Audit 0000–0004 + docs/SELF-HOSTING.md (Anleitung, Smoke-Test, Betriebsvorgaben) + Statusführung (Wave 2)
+
 ## Phase 4.12 — FLZ-Lageansicht Stufe a (separate Beobachter-Seite) ⬜
 **Ziel:** Anonyme Aggregat-Zahlen (Patienten je Kategorie/CCP) für FLZ/ILS als
 **eigene** read-only Desktop-Seite (eigener Einstieg, Beobachter-Token,
