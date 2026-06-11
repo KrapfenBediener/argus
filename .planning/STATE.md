@@ -1,18 +1,25 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.11 Self-Hosting (T7) — **ABGESCHLOSSEN 2026-06-11,
-  v0.24.0 / SW v43**: Config-Auslagerung (zentrale config.js, Plan 01) +
-  Kompatibilitäts-Audit 0000–0004 und öffentliche Aufbau-Anleitung
-  `docs/SELF-HOSTING.md` (Plan 02). Akzeptanz „läuft gegen zweite Instanz"
-  ersatzweise belegt (Config-Isolation + extern nachvollziehbare Anleitung);
-  echte Zweitinstanz-Erprobung deferred. Betriebsmodell-Entscheid M1: Polizei
-  BW hostet selbst; Eigentümer-Instanz bleibt Dev/Schulung.
-  **Nächster Schritt: Phase 4.12 (FLZ-Lageansicht Stufe a).**
-  App live: **v0.24.0** (nach Push dieses Plans).
+- **Aktuelle Phase:** 4.12 FLZ-Lageansicht Stufe a — **ABGESCHLOSSEN
+  2026-06-12, KEIN App-Release (Feld-App weiter v0.24.0 / SW v43)**:
+  Migration 0005 (Beobachter-Token in access_tokens, eigener Exchange-RPC
+  `argus_exchange_observer_code` mit Observer-Claim-Form `is_observer` +
+  `observer_praesidium_id` — bewusst KEIN `praesidium_id`, dadurch verweigern
+  alle bestehenden RLS-Policies Roh-Zugriff; `security definer`-Aggregat-RPC
+  `argus_lage`; `lage_view`-Log je Login; per REST-Positiv-/Negativtests
+  belegt, Plan 01) + separate Beobachter-Seite `docs/lage-<suffix>.html`
+  (Name nur in untracked LAGE-URL.md, D-06 analog; Login per Beobachter-Code,
+  20-s-Polling, Kategorie-Kacheln in Triage-Farben, Summenzeile,
+  Offline-Zustand) + Beobachter-Code-Ausgabe im Zugänge-Bereich der
+  Leitungs-Seite (nur Code, keine URL) + interne Datenschutz-Doku
+  nachgezogen (Plan 02). Stufe b bleibt DSB-gated (Phase 8).
+  Vorphase 4.11 (Self-Hosting T7): Akzeptanz „zweite Instanz" ersatzweise
+  belegt, echte Zweitinstanz-Erprobung deferred; M1: Polizei BW hostet selbst.
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
-  (+ T4/T7 nach DSB-Votum).** Nächster realer Schritt: **DSB-Gespräch**
-  (Briefing aktualisiert, intern) → bestimmt Phase 5/6/7.
+  (+ T4 nach DSB-Votum; k-Schwelle Lageansicht = DSB-Frage).**
+  Nächster realer Schritt: **DSB-Gespräch** (Briefing aktualisiert, intern)
+  → bestimmt Phase 5/6/7.
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -31,6 +38,7 @@
 | 4.9 | Governance-Oberfläche (Einsatzprotokoll-Modell, Leitungs-Seite, Code-Sperre) | ✅ 2026-06-11 |
 | 4.10 | Datenschutz-Schlusspaket (Log-Frist 12 Monate, T5 Transparenz, T6 Backup-Hygiene, Doku-Sync) | ✅ 2026-06-11 |
 | 4.11 | Self-Hosting-Fähigkeit (T7: config.js, Kompatibilitäts-Audit, SELF-HOSTING.md) | ✅ 2026-06-11 |
+| 4.12 | FLZ-Lageansicht Stufe a (Migration 0005, Beobachter-Seite, Code-Ausgabe Leitung) | ✅ 2026-06-12 |
 
 ---
 

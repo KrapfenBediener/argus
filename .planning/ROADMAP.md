@@ -283,13 +283,24 @@ ARGUS_CONFIG-Ableitung) plus die extern nachvollziehbare Anleitung
 mit Erwartungsergebnissen). Eine **echte Zweitinstanz-Erprobung bleibt offen**
 (deferred, sobald eine Zielumgebung existiert — kein Zugang zur Polizei-Infra).
 
-## Phase 4.12 — FLZ-Lageansicht Stufe a (separate Beobachter-Seite) ⬜
+## Phase 4.12 — FLZ-Lageansicht Stufe a (separate Beobachter-Seite) ✅ 2026-06-12
 **Ziel:** Anonyme Aggregat-Zahlen (Patienten je Kategorie/CCP) für FLZ/ILS als
 **eigene** read-only Desktop-Seite (eigener Einstieg, Beobachter-Token,
 `is_observer`-JWT gem. Sicherheits-Design in Phase 8) — bewusst getrennt vom
 Governance-Panel (anderes Vertrauensniveau, anderer Verteilungsradius).
 Stufe b (pro-Patient, pseudonym) bleibt DSB-gated in Phase 8.
-Details/Sicherheits-Design: siehe Phase 8. Geplant nach 4.11.
+
+**Plans:** 2 plans (2 Wellen)
+
+Plans:
+- [x] 04.12-01-PLAN.md — Migration 0005: Beobachter-Token, Observer-JWT-Exchange (eigene Claim-Form), Aggregat-RPC `argus_lage`, `lage_view`-Log; REST-Positiv-/Negativtests (Wave 1) ✅ 2026-06-12
+- [x] 04.12-02-PLAN.md — Beobachter-Seite `docs/lage-<suffix>.html` (Login, 20-s-Polling, Kategorie-Kacheln, Summenzeile, Offline-Zustand) + Beobachter-Code-Ausgabe in der Leitungs-Seite + interne Doku/Statusführung (Wave 2) ✅ 2026-06-12
+
+**Abschluss-Vermerk (2026-06-12):** Sicherheits-Design vollständig belegt
+(Observer-JWT ohne `praesidium_id` → Roh-Tabellen liefern 0 Zeilen,
+Governance-RPCs verweigern; Cross-Exchange beidseitig abgewiesen; revoked
+wirkt; `lage_view` genau 1× je Login). KEIN App-Release — Feld-App
+(index.html/sw.js/version.json) unangetastet, weiterhin v0.24.0.
 
 ## Phase 5 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
 **Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
@@ -347,6 +358,12 @@ Eckpfeiler (Regime, Identitäten, Protokoll-Form) entscheidet der DSB.
 **Ziel:** Browserbasierte Leseansicht für Führungs- und Lagezentrum (FLZ)
 oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
 (T1/T2/T3/T5/gPA), ohne Zugriff auf personenbezogene Daten.
+
+> **Stufe a vorgezogen in Phase 4.12 umgesetzt (✅ 2026-06-12):** Beobachter-
+> Token + Observer-JWT + Aggregat-RPC + separate Beobachter-Seite live.
+> In dieser Phase verbleiben: **Stufe b** (pro-Patient, DSB-gated),
+> **Landes-Observer**, **präsidiumsübergreifende Einzel-Freigabe**,
+> Realtime statt Polling (falls je nötig), IVENA-Frage.
 
 - Anonymisierte Echtzeit-Zahlen, kein Patientendetail.
 - **Scope (festgelegt 2026-06-04):** **präsidiumsgebunden** als Default — ein FLZ ↔ ein
