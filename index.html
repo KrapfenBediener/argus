@@ -103,7 +103,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.22.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.23.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
@@ -117,9 +117,15 @@ var UPDATE_SHEETS = {
   '0.17.0': 'docs/UPDATE_v0.17.html',          /* AT-MIST-Übergabekarte */
   '0.18.0': 'docs/UPDATE_v0.18.html',          /* Geführtes Training */
   '0.20.0': 'docs/UPDATE_v0.20.html',          /* Einsatz abschließen + Übergabe-Export */
-  '0.21.0': 'docs/UPDATE_v0.21.html'           /* Foto-Schalter + Foto-Lebenszyklus */
+  '0.21.0': 'docs/UPDATE_v0.21.html',          /* Foto-Schalter + Foto-Lebenszyklus */
+  '0.23.0': 'docs/UPDATE_v0.23.html'           /* Einheitliche 72-h-Löschfrist + Export als dauerhafter Weg */
 };
 var WHATS_NEW = {
+  '0.23.0': [
+    'Einheitliche Löschfrist: Beim Einsatz-Abschluss gibt es keine Fristwahl mehr — alle Einsatzdaten löschen sich 72 Std nach Abschluss automatisch, Fotos ebenso (endgültig). Der Übergabe-Export beim Abschluss ist der einzige dauerhafte Weg in die Einsatzdokumentation.',
+    'Foto-Governance umgezogen: Der Governance-Bereich ist aus der Feld-App in die separate Leitungs-Oberfläche gewandert — die App bleibt schlank fürs Feld.',
+    'Gesperrte Zugangscodes wirken am Gerät: Sperrt die Leitung einen Code, meldet sich das Gerät beim nächsten Start bzw. bei Wiederverbindung ab und bittet um einen neuen Code.'
+  ],
   '0.22.0': [
     'Sparsame Namenserfassung: Am Namensfeld und an den Freitextfeldern stehen jetzt kurze Hinweise — Name nur erfassen, wenn für Versorgung/Übergabe nötig; keine Namen Dritter in Freitexten.',
     'Patientenliste zeigt konsequent Nummern statt Namen — die Nummer identifiziert den Patienten (pseudonym). Auf der Übergabekarte und im Übergabe-Export erscheint der Name weiterhin, wenn erfasst.'
@@ -2205,7 +2211,7 @@ var TRAIN_LESSONS=[
   {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
   {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
   {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen und Merksätze — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
-  {t:'Einsatz abschließen', mode:'explain', x:'Ganz unten „Einsatz abschließen": beendet den Einsatz für ALLE Geräte — mit optionalem Übergabe-Export. Danach werden die Daten nach einer Frist automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
+  {t:'Einsatz abschließen', mode:'explain', x:'Ganz unten „Einsatz abschließen": beendet den Einsatz für ALLE Geräte — mit optionalem Übergabe-Export. Danach werden die Daten 72 Std nach Abschluss automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
 
   {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.'},

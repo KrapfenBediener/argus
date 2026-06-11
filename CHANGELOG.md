@@ -6,6 +6,33 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.23.0 — 2026-06-11
+**Einsatzprotokoll-Modell (Phase 4.9): einheitliche 72-h-Löschfrist, Governance aus der Feld-App, Code-Sperre wirkt am Gerät**
+- **Einheitliche 72-h-Löschfrist:** Die 14/30-Tage-Wahl beim Einsatz-Abschluss
+  entfällt — alle Einsatzdaten werden 72 Std nach Abschluss automatisch
+  gelöscht, Fotos ebenso (endgültig, keine Verlängerung). Die Typ-Wahl
+  Übung/Einsatz bleibt als Merkmal fürs Protokoll erhalten. Verlängerung der
+  Protokoll-Frist (nicht der Fotos) nur über die Leitung mit Pflicht-Begründung.
+- **Übergabe-Export als der dauerhafte Weg:** Der Abschluss-Workflow weist den
+  Übergabe-Export jetzt prominent als den EINZIGEN dauerhaften Weg in die
+  Einsatzdokumentation aus.
+- **Foto-Governance aus der Feld-App entfernt:** Der Governance-Bereich
+  (v0.21.1) ist komplett in die separate Leitungs-Oberfläche umgezogen —
+  die Feld-App bleibt schlank und einsatzfokussiert.
+- **Code-Sperre wirkt am Gerät:** Sperrt die Leitung einen Zugangscode,
+  meldet sich das Gerät beim nächsten Start bzw. Reconnect ab (Re-Check über
+  `argus_check_code`, fire-and-forget). Offline blockiert der Re-Check niemals;
+  gesperrt wird ausschließlich bei eindeutigem Sperr-Signal des Servers.
+  Der Server-Fehlertext „Code wurde gesperrt" erscheint beim Freischalten
+  jetzt im Klartext.
+- **Offline-Abschluss-Queue:** neue Payload ohne Frist-Feld; alte Queue-Einträge
+  von v0.22.0 bleiben gültig (Feld wird ignoriert, der Server setzt fest 72 h).
+- **Drehbuch nachgezogen:** Abschluss-Lektionen nennen die 72-h-Frist und den
+  Export als einzigen dauerhaften Weg; keine 14/30-Tage-Texte mehr.
+- Update-Sheet `docs/UPDATE_v0.23.html` (inkl. Hinweis: v0.22.0-Geräte zeigen
+  beim Abschluss noch die alten Fristen an, gelöscht wird aber bereits nach
+  72 h — bitte App aktualisieren). SW-Cache v41.
+
 ## v0.22.0 — 2026-06-10
 **Namensfeld-Härtung (T3): sparsame Namenserfassung, namenlose Patientenliste — Abschluss Phase 4.8**
 - **Hinweis am Namensfeld** (Stammdaten): „Nur erfassen, wenn für
