@@ -452,7 +452,9 @@ async function validateInviteToken(token){
  * Der RPC validiert den 8-stelligen Code, signiert ein JWT mit praesidium_id /
  * is_master / exp und markiert Einmal-Codes serverseitig als verbraucht.
  * Pseudonymität bleibt gewahrt — kein Name, keine E-Mail, keine UID im JWT. */
+var _lastExchangeError=null;   /* Klartext-Fehler des letzten exchangeCode-Aufrufs (z. B. „Code wurde gesperrt") — für die Fehleranzeige statt generischem Text */
 async function exchangeCode(code){
+  _lastExchangeError=null;
   var clean=code.replace(/[\s\-]/g,'').toUpperCase();
   if(clean.length<8) return null;
   try{
@@ -462,6 +464,7 @@ async function exchangeCode(code){
       body:JSON.stringify({ code:clean })
     });
     var data=await resp.json();            /* ungültiger Code = HTTP 200 + {error:…} */
+    if(data && data.error) _lastExchangeError=String(data.error);   /* Server-Klartext nicht schlucken */
     if(!data || !data.jwt) return null;
     localStorage.setItem('argus_jwt', data.jwt);
     localStorage.setItem('argus_jwt_exp', String(data.exp*1000)); /* ms */
@@ -490,7 +493,79 @@ async function refreshJwtIfNeeded(){
   var storedCode=localStorage.getItem('argus_code')||'';
   if(!storedCode) return;
   var result=await exchangeCode(storedCode);
+  if(!result && _lastExchangeError && _lastExchangeError.indexOf('gesperrt')>=0){
+    /* Der gespeicherte Code wurde von der Leitung gesperrt → nicht still
+     * ignorieren, sondern dieselbe Lock-Wirkung wie der Re-Check (D-20). */
+    await applyRevokedLock(); return;
+  }
   if(result && _ccpId && sb()) subscribeRealtime();
+}
+/* ── Phase 4.9: revoked-Re-Check (D-20) ─────────────────────────────────────
+ * Gesperrte Codes (revoked-Flag, gesetzt über die Leitungs-Oberfläche) sperren
+ * das Gerät beim nächsten Start bzw. Reconnect. Offline blockiert der Re-Check
+ * NIEMALS: jede Unsicherheit (offline, Transportfehler, Timeout, unerwartetes
+ * Format) wird ignoriert — gesperrt wird ausschließlich bei eindeutigem
+ * revoked === true. */
+var _revokedLocked=false;   /* Lock bereits ausgelöst → init-Fortsetzung abbrechen, kein Doppel-Modal */
+/* Reine Entscheidungsfunktion (JSC-getestet). Eingabe = geparste RPC-Antwort
+ * von argus_check_code oder null. Rückgabe:
+ *  'lock'   NUR bei eindeutigem revoked === true
+ *  'ok'     bei revoked === false (Code existiert und ist nicht gesperrt)
+ *  'ignore' bei null/Transportfehler/unerwartetem Format UND bei found === false:
+ *           ein gelöschter Code ist KEIN Sperr-Signal — konservativ, um
+ *           Fehlaussperrungen zu vermeiden; Sperren läuft ausschließlich
+ *           über revoked = true. */
+function revokedDecision(resp){
+  if(!resp || typeof resp!=='object') return 'ignore';
+  if(resp.found===false) return 'ignore';
+  if(resp.revoked===true) return 'lock';
+  if(resp.revoked===false) return 'ok';
+  return 'ignore';
+}
+/* Lock-Wirkung: Zugangsdaten entfernen, Realtime kappen, Hinweis-Modal,
+ * Freischalt-Screen (gleicher Pfad wie fehlender Zugang im init). Wird auch
+ * von refreshJwtIfNeeded genutzt, wenn der Re-Exchange mit „Code wurde
+ * gesperrt" abgelehnt wird. */
+async function applyRevokedLock(){
+  if(_revokedLocked) return;
+  _revokedLocked=true;
+  try{
+    localStorage.removeItem('argus_jwt');
+    localStorage.removeItem('argus_jwt_exp');
+    localStorage.removeItem('argus_code');
+    localStorage.setItem('argus_unlocked','[]');   /* Freischaltungen leeren */
+    /* Zusätzlich Rollen-/Verified-Reste entfernen — sonst bliebe ein
+     * Master-Gerät über argus_is_master trotz Sperrung freigeschaltet. */
+    localStorage.removeItem('argus_verified');
+    localStorage.removeItem('argus_is_master');
+    localStorage.removeItem('argus_praesidium_id');
+    localStorage.removeItem('argus_praesidium_name');
+  }catch(e){}
+  _isMaster=false; _praesidiumId=null; _praesidiumName='';
+  if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }   /* Realtime nicht weiter nutzen */
+  await confirmModal("Der Zugangscode wurde von der Leitung gesperrt. Bitte neuen Zugangscode anfordern.","OK");
+  state.view='praesidium'; render();
+}
+/* Re-Check (fire-and-forget bei App-Start + online-Event — der Start wartet
+ * NIE darauf). Offline-Guard steht VOR dem fetch; kurzes Abort-Timeout, damit
+ * ein hängender Request nichts aufhält. Kein Aufruf-Effekt im Training. */
+async function checkRevokedCode(){
+  var code=null; try{ code=localStorage.getItem('argus_code'); }catch(e){}
+  if(!code || navigator.onLine===false || _training) return;   /* NIE blockieren, NIE offline raten */
+  var resp=null;
+  try{
+    var ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var tmr=ctrl?setTimeout(function(){try{ctrl.abort();}catch(e){}},6000):null;
+    var r=await fetch(SUPA_URL+'/rest/v1/rpc/argus_check_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:code }),
+      signal:ctrl?ctrl.signal:undefined
+    });
+    if(tmr)clearTimeout(tmr);
+    if(r && r.ok) resp=await r.json();
+  }catch(e){ resp=null; }   /* Transportfehler/Timeout → 'ignore' */
+  if(revokedDecision(resp)==='lock') await applyRevokedLock();
 }
 /* Freischaltung über einen Code (von Hand eingegeben oder eingefügt). Tauscht den
  * Code gegen ein JWT (exchangeCode) und schaltet das Präsidium frei. */
@@ -499,7 +574,7 @@ async function doUnlock(rawCode){
   if(uc2.length<8){toast("Bitte vollständigen Code eingeben (Format: XXXX-XXXX)");return;}
   toast("Prüfe Code…");
   var uv=await exchangeCode(uc2);
-  if(!uv){toast("Ungültiger oder abgelaufener Code");return;}
+  if(!uv){toast(_lastExchangeError||"Ungültiger oder abgelaufener Code");return;}   /* Server-Klartext (z. B. „Code wurde gesperrt") statt generischem Text */
   localStorage.setItem('argus_verified','true');
   if(uv.is_master){
     _isMaster=true; localStorage.setItem('argus_is_master','true');
@@ -2619,7 +2694,7 @@ document.addEventListener("click",async function(e){
         }
         go("start");
       }
-    }else{toast("Ungültiger Code");}
+    }else{toast(_lastExchangeError||"Ungültiger Code");}   /* Server-Klartext (z. B. „Code wurde gesperrt") nicht schlucken */
     return;
   }
   if(a==="nav"){go(el.getAttribute("data-view"));return;}
@@ -3120,6 +3195,8 @@ setInterval(async function(){
   /* Ab hier: Nutzer ist freigeschaltet — JWT ggf. still verlängern, dann
    * letzten CCP wiederherstellen */
   await refreshJwtIfNeeded();
+  if(_revokedLocked) return;   /* Re-Exchange hat die Code-Sperre erkannt → init hier beenden */
+  checkRevokedCode();          /* fire-and-forget (KEIN await) — der Start wartet nie auf den Re-Check */
   var storedCcp=localStorage.getItem('argus_ccp_id');
   if(storedCcp) _ccpId=storedCcp;
 
@@ -3161,6 +3238,7 @@ document.addEventListener('visibilitychange', function(){
  * lädt sie hoch (siehe flushPendingPatients). */
 window.addEventListener('online', function(){
   refreshJwtIfNeeded();
+  checkRevokedCode();    /* Reconnect: Code-Sperre nachprüfen (fire-and-forget, offline-Guard intern) */
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
