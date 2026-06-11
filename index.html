@@ -240,11 +240,9 @@ var _openCcpCount   = -1;     /* offene (nicht abgeschlossene) CCPs im Präsidiu
 var _schulDirty     = -1;     /* Schulungsumgebung verändert? -1 unbekannt · 0 sauber · 1 verändert */
 var DEMO_MEDICS = ['Dr. Berg','San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt']; /* Master-Medics der Demo-CCPs (Schulungs-Reset) */
 var _training=false, _trainStep=0, _trainMax=0, _trainCelebrate=false;   /* Geführtes Training (geräte-lokaler Übungs-Sandbox) */
-var _closeTyp=null, _closeFrist=null;   /* Einsatz-Abschluss: gewählter Typ + Lösch-Frist während des Workflows */
+var _closeTyp=null;                     /* Einsatz-Abschluss: gewählter Typ während des Workflows (Frist ist serverseitig fest: 72 Std) */
 var _selfClosing=false;                 /* eigenes Gerät schließt gerade ab → Realtime-Echo nicht doppelt behandeln */
 var _remoteCloseHandling=false;         /* Guard gegen Mehrfach-Auslösung der Fremd-Erkennung (applyMeta läuft auch im Refresh) */
-var _govList=null, _govErr=null;        /* Foto-Governance (T1, 04.8-05): Liste aus argus_governance_list · Fehlertext. Nur Master, nur online. */
-var _govLog=null, _govLogErr=null;      /* Foto-Governance: letzte 100 governance_log-Einträge (Master-only-RLS) · Fehlertext */
 
 /* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
 function isStandalone(){
@@ -651,161 +649,7 @@ function vAdmin(){
     });
   }
   h+='<p class="hint" style="text-align:center;margin-top:6px;font-size:11px">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen".</p>';
-  h+='<button class="navbtn" data-action="opengovernance" style="margin-top:10px"><span class="ic">🛡</span><span><span class="t">Foto-Governance</span><br><span class="s">Fotos ausgecheckter Patienten · Fristen · Protokoll</span></span></button>';
-  return h;
-}
-/* ── Foto-Governance (T1, 04.8-05) ───────────────────────────────────────────
- * Geschützter Teil des Foto-Lebenszyklus: Zugriff NUR mit MasterUser-Token
- * (_isMaster, Governance-Rolle — NICHT der MasterMedic, der hat einen normalen
- * User-Token). Die Liste (argus_governance_list) enthält bewusst KEINE Fotos —
- * erst der Einzelabruf (argus_governance_photo) liefert das Foto und erzeugt
- * serverseitig den Protokoll-Eintrag (Kürzel + Zeitstempel) in governance_log.
- * Nur online: Governance ist kein Einsatz-Werkzeug — Local-first gilt für den
- * Einsatzbetrieb und bleibt davon unberührt. */
-function govFmt(ms){
-  if(ms==null) return '—';
-  return new Date(+ms).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr';
-}
-/* T1-Wiedervorlage: Einstufung einer Foto-Löschfrist (reine Funktion, JSC-getestet).
- * Rückgabe: 'abgelaufen' (Frist <= jetzt) · 'bald' (< 24 h entfernt) · 'ok' ·
- * null (keine Frist gesetzt = Einsatz noch offen). */
-function fristStatus(purgeAfter, now){
-  if(purgeAfter==null) return null;
-  if(now==null) now=nowMs();
-  if(+purgeAfter <= now) return 'abgelaufen';
-  if(+purgeAfter - now < 86400000) return 'bald';
-  return 'ok';
-}
-async function loadGovernanceList(){
-  _govList=null; _govErr=null; _govLog=null; _govLogErr=null;
-  if(state.view==='governance') render();
-  var client=sb();
-  if(!client){ _govErr='Keine Backend-Verbindung. Das Panel funktioniert nur online.'; if(state.view==='governance') render(); return; }
-  try{
-    var r=await client.rpc('argus_governance_list');
-    if(r.error){ _govErr=r.error.message||'Abruf fehlgeschlagen'; }
-    else { _govList=Array.isArray(r.data)?r.data:[]; }
-    /* Protokoll: governance_log ist für Master per RLS direkt lesbar. */
-    var lg=await client.from('governance_log')
-      .select('at,ccp_id,patient_id,kuerzel,action,begruendung,neue_frist')
-      .order('at',{ascending:false}).limit(100);
-    if(lg.error){ _govLogErr=lg.error.message||'Protokoll nicht lesbar'; }
-    else { _govLog=lg.data||[]; }
-  }catch(e){ _govErr='Abruf fehlgeschlagen — keine Verbindung?'; }
-  if(state.view==='governance') render();
-}
-function vGovernance(){
-  /* Defensive Prüfung — die View ist nur über den Master-Bereich erreichbar,
-   * rendert aber ohne MasterUser-Token grundsätzlich nichts Inhaltliches. */
-  if(!_isMaster){
-    return '<div class="card"><p class="muted" style="text-align:center;padding:14px 0">Zugriff nur mit MasterUser-Token (Governance-Rolle).</p></div>';
-  }
-  var h='<div class="card" style="padding:13px 14px">';
-  h+='<div style="font-weight:600;font-size:16px">🛡 Foto-Governance</div>';
-  h+='<div class="hint" style="margin-top:3px">Fotos ausgecheckter Patienten und abgeschlossener Einsätze — jeder Foto-Abruf wird mit Kürzel und Zeitpunkt protokolliert.</div>';
-  h+='<div class="hint" style="margin-top:3px">Funktioniert nur online — Governance ist kein Einsatz-Werkzeug.</div>';
-  h+='</div>';
-  if(_govErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_govErr)+'</div></div>';
-    h+='<button class="ghost" data-action="govreload">↻ Erneut laden</button>';
-    return h;
-  }
-  if(_govList===null){
-    h+='<p class="muted" style="text-align:center;padding:20px">Lade…</p>';
-    return h;
-  }
-  /* Gruppierung nach CCP/Einsatz — Fotos selbst sind hier NIE enthalten. */
-  var groups={}, order=[];
-  _govList.forEach(function(g){
-    var k=g.ccp_id||'?';
-    if(!groups[k]){ groups[k]={ccp_id:g.ccp_id,kennung:g.kennung,frist:g.photo_purge_after,pats:[]}; order.push(k); }
-    groups[k].pats.push(g);
-  });
-  if(!order.length){
-    h+='<p class="muted" style="text-align:center;padding:20px">Kein Foto im Governance-Bestand.<br><span class="hint">Hier erscheinen Fotos, sobald Patienten ausgecheckt oder Einsätze abgeschlossen sind.</span></p>';
-  }
-  /* Wiedervorlage: abgelaufene oder bald (< 24 h) ablaufende Fristen nach oben. */
-  var now=nowMs();
-  var wieder=order.filter(function(k){var s=fristStatus(groups[k].frist,now);return s==='abgelaufen'||s==='bald';});
-  var normal=order.filter(function(k){return wieder.indexOf(k)<0;});
-  if(wieder.length){
-    h+='<div class="sech" style="color:var(--t1)">Wiedervorlage — Frist abgelaufen / läuft ab</div>';
-    wieder.forEach(function(k){ h+=govGroupCard(groups[k],now,true); });
-  }
-  if(normal.length){
-    if(wieder.length) h+='<div class="sech">Weitere Einsätze</div>';
-    normal.forEach(function(k){ h+=govGroupCard(groups[k],now,false); });
-  }
-  h+=govLogSection(groups);
-  h+='<button class="ghost" data-action="govreload" style="margin-top:6px">↻ Aktualisieren</button>';
-  return h;
-}
-function govGroupCard(grp,now,isWieder){
-  var closed = grp.frist!=null; /* photo_purge_after wird erst beim Einsatz-Abschluss gesetzt */
-  var st=fristStatus(grp.frist,now);
-  var h='<div class="card"'+(isWieder?' style="border-color:var(--t1)"':'')+'>';
-  h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
-  h+='<span class="mono" style="font-size:17px;font-weight:600">CCP '+esc(grp.kennung||'?')+'</span>';
-  h+='<span class="pill" style="background:var(--surf2);color:var(--mut)">'+(closed?'Einsatz abgeschlossen':'Einsatz offen')+'</span>';
-  h+='</div>';
-  if(!closed){
-    h+='<div class="hint" style="margin-top:4px">Foto-Löschfrist beginnt mit dem Einsatz-Abschluss (Abschluss + 72 Std).</div>';
-  }else if(st==='abgelaufen'){
-    h+='<div class="hint" style="margin-top:4px;color:var(--t1);font-weight:600">Foto-Frist abgelaufen ('+govFmt(grp.frist)+') — verlängern nur mit Begründung oder Export an die zuständige Stelle veranlassen.</div>';
-  }else if(st==='bald'){
-    h+='<div class="hint" style="margin-top:4px;color:var(--t1);font-weight:600">Foto-Frist läuft ab: '+govFmt(grp.frist)+' — verlängern nur mit Begründung oder Export veranlassen.</div>';
-  }else{
-    h+='<div class="hint" style="margin-top:4px">Endgültige Foto-Löschung: '+govFmt(grp.frist)+'</div>';
-  }
-  grp.pats.forEach(function(p){
-    h+='<div class="patrow" style="margin-top:9px;margin-bottom:0">';
-    h+='<span class="pnum">'+esc(String(p.num!=null?p.num:'?'))+'</span>';
-    h+='<span style="flex:1"><span class="pill" style="background:var(--surf2);color:var(--mut)">'+(p.status==='gpa'?'ausgecheckt (gPA)':'aktiv')+'</span></span>';
-    h+='<button class="txbtn" data-action="govphoto" data-pid="'+esc(p.patient_id)+'" data-num="'+esc(String(p.num!=null?p.num:''))+'">Foto anzeigen</button>';
-    h+='</div>';
-  });
-  /* Verlängern nur bei gesetzter Frist (= abgeschlossener Einsatz): bei offenem
-   * Einsatz würde der RPC eine Frist ERZEUGEN und Fotos im laufenden Betrieb
-   * zur Löschung freigeben. */
-  if(closed){
-    h+='<button class="txbtn" data-action="govextend" data-ccpid="'+esc(grp.ccp_id)+'" data-kennung="'+esc(grp.kennung||'?')+'" data-frist="'+(+grp.frist||0)+'" style="width:100%;margin-top:10px">⏱ Frist +72 h verlängern (mit Begründung)</button>';
-  }
-  h+='</div>';
-  return h;
-}
-/* Protokoll-Ansicht: letzte 100 governance_log-Einträge, reine Anzeige. */
-function govLogSection(groups){
-  var h='<div class="card">';
-  h+='<details><summary style="cursor:pointer;font-weight:600;padding:2px 0">Protokoll — Foto-Abrufe &amp; Fristverlängerungen'+(_govLog?' ('+_govLog.length+')':'')+'</summary>';
-  if(_govLogErr){
-    h+='<div class="hint" style="margin-top:6px;color:var(--t1)">Protokoll nicht lesbar: '+esc(_govLogErr)+'</div>';
-  }else if(_govLog===null){
-    h+='<div class="hint" style="margin-top:6px">Lade…</div>';
-  }else if(!_govLog.length){
-    h+='<div class="hint" style="margin-top:6px">Noch keine Einträge.</div>';
-  }else{
-    var kennByCcp={}, numByPat={};
-    Object.keys(groups).forEach(function(k){ if(groups[k].ccp_id) kennByCcp[groups[k].ccp_id]=groups[k].kennung; });
-    (_govList||[]).forEach(function(g){ numByPat[g.patient_id]=g.num; });
-    h+='<div style="margin-top:6px">';
-    _govLog.forEach(function(l){
-      var what=l.action==='foto_view'?'Foto-Abruf':(l.action==='frist_verlaengert'?'Frist verlängert':esc(l.action||'?'));
-      var subj='';
-      if(l.patient_id!=null){
-        var n=numByPat[l.patient_id];
-        subj='Patient '+(n!=null?('Nr. '+esc(String(n))):esc(String(l.patient_id).slice(0,10))+'…');
-      }
-      if(l.ccp_id){ subj+=(subj?' · ':'')+'CCP '+(kennByCcp[l.ccp_id]?esc(kennByCcp[l.ccp_id]):esc(String(l.ccp_id).slice(0,8))+'…'); }
-      h+='<div style="padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px">';
-      h+='<div><span class="mono">'+govFmt(l.at)+'</span> · <b>'+esc(l.kuerzel||'—')+'</b> · '+what+(subj?' · '+subj:'')+'</div>';
-      if(l.action==='frist_verlaengert'){
-        h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+govFmt(l.neue_frist):'')+'</div>';
-      }
-      h+='</div>';
-    });
-    h+='</div>';
-  }
-  h+='</details></div>';
+  /* Leitungs-Funktionen (Zugänge sperren, Einsatzprotokolle, Protokoll) liegen auf der separaten Leitungs-Oberfläche — nicht in der Feld-App (Phase 4.9). */
   return h;
 }
 function ccpJoinModal(list){
@@ -1311,29 +1155,21 @@ async function checkClosedEinsatz(){
   }catch(e){}
   return false;
 }
-/* Typ-Wahl beim Abschluss: Übung (14 Tage) / Einsatz (30 Tage); „Frist
- * anpassen" schaltet die freie Frist-Eingabe (1–365 Tage) dazu. */
+/* Typ-Wahl beim Abschluss: Übung / Einsatz — der Typ ist nur ein Merkmal fürs
+ * Protokoll; die Löschfrist ist einheitlich (72 Std, serverseitig fest). */
 function closeTypModal(){
   return new Promise(function(resolve){
     var ov=document.createElement("div");ov.className="modalov";
-    var custom=false;
     ov.innerHTML='<div class="modalbx" style="max-width:360px">'+
-      '<div class="modalmsg" style="margin-bottom:14px">Was wird abgeschlossen? Der Typ bestimmt die Lösch-Frist.</div>'+
-      '<button class="mc-typ card" data-typ="uebung" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🎓 Übung</div><div class="hint" style="margin-top:3px">Löschung nach 14 Tagen</div></button>'+
-      '<button class="mc-typ card" data-typ="einsatz" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🚨 Einsatz</div><div class="hint" style="margin-top:3px">Löschung nach 30 Tagen</div></button>'+
-      '<button class="ghost mc-custom" style="margin:0 0 10px">Frist anpassen…</button>'+
+      '<div class="modalmsg" style="margin-bottom:14px">Was wird abgeschlossen?</div>'+
+      '<button class="mc-typ card" data-typ="uebung" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🎓 Übung</div></button>'+
+      '<button class="mc-typ card" data-typ="einsatz" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🚨 Einsatz</div></button>'+
+      '<p class="hint" style="margin:0 0 10px">Löschfrist einheitlich: 72 Std nach Abschluss — der Typ ist nur ein Merkmal fürs Protokoll.</p>'+
       '<button class="ghost mc-cancel" style="margin:0">Abbrechen</button></div>';
     document.body.appendChild(ov);
     function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
-    var cb=ov.querySelector('.mc-custom');
-    cb.addEventListener('click',function(){
-      custom=!custom;
-      cb.style.borderColor=custom?'var(--acc)':'';
-      cb.style.color=custom?'var(--acc)':'';
-      cb.textContent=custom?'✓ Eigene Frist — Typ antippen, dann Tage eingeben':'Frist anpassen…';
-    });
     Array.prototype.forEach.call(ov.querySelectorAll('.mc-typ'),function(b){
-      b.addEventListener('click',function(){done({typ:b.getAttribute('data-typ'),custom:custom});});
+      b.addEventListener('click',function(){done({typ:b.getAttribute('data-typ')});});
     });
     ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
     ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
@@ -1344,7 +1180,7 @@ function exportChoiceModal(){
   return new Promise(function(resolve){
     var ov=document.createElement("div");ov.className="modalov";
     ov.innerHTML='<div class="modalbx" style="max-width:360px">'+
-      '<div class="modalmsg" style="margin-bottom:14px">Übergabe-Export erstellen? Alle Patienten als Datei (JSON) und druckbare AT-MIST-Gesamtansicht — die Übergabe an die dauerhafte Einsatzdokumentation. Ohne Fotos.</div>'+
+      '<div class="modalmsg" style="margin-bottom:14px">Übergabe-Export erstellen? Der Übergabe-Export ist der EINZIGE dauerhafte Weg in die Einsatzdokumentation — nach 72 Std werden die Daten automatisch gelöscht. Alle Patienten als Datei (JSON) und druckbare AT-MIST-Gesamtansicht. Ohne Fotos.</div>'+
       '<button class="prim mc-exp" style="margin:0 0 10px">Export ansehen &amp; erstellen</button>'+
       '<button class="ghost mc-skip" style="margin:0 0 10px">Ohne Export abschließen</button>'+
       '<button class="ghost mc-cancel" style="margin:0">Abbrechen</button></div>';
@@ -1360,38 +1196,31 @@ function exportChoiceModal(){
 async function closeEinsatzWorkflow(){
   if(_training){ toast("Im Training nicht verfügbar — Training über „Beenden“ abschließen"); return; }
   if(!isMasterMedic()){ toast("Nur MasterMedic kann den Einsatz abschließen"); return; }
-  /* (a) Bestätigung mit Klartext-Folgen */
-  var ok=await confirmModal("Einsatz abschließen?\n\n• Der Einsatz wird für ALLE Geräte gesperrt.\n• Die Daten werden nach der gewählten Frist automatisch gelöscht.\n• Fotos werden 72 Std nach Abschluss gelöscht.\n\nDas kann nicht rückgängig gemacht werden.","Weiter");
+  /* (a) Bestätigung mit Klartext-Folgen (einheitliche 72-h-Frist, D-15/D-03) */
+  var ok=await confirmModal("Einsatz abschließen?\n\n• Der Einsatz wird für ALLE Geräte gesperrt.\n• Daten werden 72 Std nach Abschluss automatisch gelöscht (Verlängerung nur über die Leitung).\n• Fotos werden 72 Std nach Abschluss ENDGÜLTIG gelöscht — keine Verlängerung.\n\nDas kann nicht rückgängig gemacht werden.","Weiter");
   if(!ok) return;
-  /* (b) Typ + Frist (Übung 14 / Einsatz 30 Tage, anpassbar 1–365) */
+  /* (b) Typ-Wahl (nur Merkmal fürs Protokoll — keine Frist-Wahl mehr) */
   var selTyp=await closeTypModal(); if(!selTyp) return;
-  var frist=selTyp.typ==='uebung'?14:30;
-  if(selTyp.custom){
-    var v=await promptModal("Lösch-Frist in Tagen (1–365):",String(frist));
-    if(v==null) return;
-    var n=parseInt(String(v).trim(),10);
-    if(!isFinite(n)||n<1||n>365){ toast("Ungültige Frist — 1 bis 365 Tage"); return; }
-    frist=n;
-  }
-  _closeTyp=selTyp.typ; _closeFrist=frist;
+  _closeTyp=selTyp.typ;
   /* (c) Export-Angebot */
   var choice=await exportChoiceModal();
-  if(choice===null){ _closeTyp=null; _closeFrist=null; return; }
+  if(choice===null){ _closeTyp=null; return; }
   if(choice==='export'){ await loadPatients(); go("einsatzexport"); return; }   /* Abschluss dort über „Einsatz jetzt abschließen" */
   await finalizeCloseEinsatz();
 }
 /* (d) Abschluss: RPC argus_close_einsatz; offline wird die Absicht gequeuet
  * (argus_pending_close) und die lokale Wirkung sofort ausgeführt. */
 async function finalizeCloseEinsatz(){
-  var typ=_closeTyp, frist=_closeFrist;
-  _closeTyp=null; _closeFrist=null;
-  if(!typ||!frist){ toast("Abschluss abgebrochen"); return; }
+  var typ=_closeTyp;
+  _closeTyp=null;
+  if(!typ){ toast("Abschluss abgebrochen"); return; }
   _selfClosing=true;
   var done=false, rejected=null;
   if(_ccpId){
     var client=sb(), resp=null;
     if(client && navigator.onLine!==false){
-      try{ resp=await client.rpc('argus_close_einsatz',{p_ccp_id:_ccpId,p_typ:typ,p_frist_tage:frist}); }catch(e){ resp=null; }
+      /* Kein Frist-Parameter mehr — der Server setzt die einheitliche 72-h-Frist (Migration 0003). */
+      try{ resp=await client.rpc('argus_close_einsatz',{p_ccp_id:_ccpId,p_typ:typ}); }catch(e){ resp=null; }
     }
     if(resp && !resp.error && resp.data && !resp.data.error){ done=true; }
     else if(resp && resp.data && resp.data.error){ rejected=resp.data.error; }
@@ -1404,24 +1233,26 @@ async function finalizeCloseEinsatz(){
     if(!done){
       /* Offline / Verbindungsfehler: Absicht merken, bei Reconnect nachziehen
        * (flushPendingClose). Lokale Wirkung trotzdem sofort — keine Blockade. */
-      try{ localStorage.setItem('argus_pending_close', JSON.stringify({ccpId:_ccpId,typ:typ,fristTage:frist,ts:nowMs()})); }catch(e){}
+      try{ localStorage.setItem('argus_pending_close', JSON.stringify({ccpId:_ccpId,typ:typ,ts:nowMs()})); }catch(e){}
     }
   }
   await cleanupClosedEinsatz();
   await loadOpenCcpCount();
   state.edit=null; state.readonly=false; state.lastCreatedId=null;
   go("start");
-  toast(done?("Einsatz abgeschlossen — Löschung in "+frist+" Tagen"):"Abschluss wird bei Verbindung übertragen");
+  toast(done?"Einsatz abgeschlossen — Löschung in 72 Std":"Abschluss wird bei Verbindung übertragen");
   _selfClosing=false;
 }
 /* Reine Lese-/Validierungslogik der Offline-Abschluss-Queue (per JSC testbar):
  * null → nichts zu tun; {drop:true} → Key kaputt/unvollständig, nur löschen;
- * sonst {ccpId,typ,fristTage} → RPC fällig. */
+ * sonst {ccpId,typ} → RPC fällig. fristTage wird NICHT mehr gefordert:
+ * Legacy-Queue-Einträge von v0.22.0 enthalten das Feld noch — sie bleiben
+ * gültig, das Feld wird ignoriert (der Server setzt ohnehin fest 72 Std). */
 function pendingCloseRead(raw){
   if(!raw) return null;
   var pc=null; try{ pc=JSON.parse(raw); }catch(e){ return {drop:true}; }
-  if(!pc || !pc.ccpId || !pc.typ || !pc.fristTage) return {drop:true};
-  return {ccpId:pc.ccpId, typ:pc.typ, fristTage:pc.fristTage};
+  if(!pc || !pc.ccpId || !pc.typ) return {drop:true};
+  return {ccpId:pc.ccpId, typ:pc.typ};
 }
 /* Offline gequeueten Abschluss nachziehen — aufgerufen im init-Block und im
  * online-Handler. Queue wird abgebaut, sobald der Server geantwortet hat
@@ -1433,7 +1264,7 @@ async function flushPendingClose(){
   if(pc.drop){ try{ localStorage.removeItem('argus_pending_close'); }catch(e){} return; }
   var client=sb(); if(!client || navigator.onLine===false) return;
   try{
-    var r=await client.rpc('argus_close_einsatz',{p_ccp_id:pc.ccpId,p_typ:pc.typ,p_frist_tage:pc.fristTage});
+    var r=await client.rpc('argus_close_einsatz',{p_ccp_id:pc.ccpId,p_typ:pc.typ});
     if(r && !r.error){
       try{ localStorage.removeItem('argus_pending_close'); }catch(e2){}
       if(r.data && !r.data.error) toast("Einsatz-Abschluss übertragen");
@@ -1605,14 +1436,13 @@ function countPrio(){return patients.filter(function(p){return p.status==="activ
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration",einsatzexport:"Übergabe-Export",governance:"Foto-Governance"};
+  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration",einsatzexport:"Übergabe-Export"};
   $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
   else if(v==="install")h=vInstall();
   else if(v==="praesidium")h=vPraesidium();
   else if(v==="admin")h=vAdmin();
-  else if(v==="governance")h=vGovernance();
   else if(v==="start")h=vStart();
   else if(v==="home")h=vHome();
   else if(v==="checklist")h=vChecklist();
@@ -2022,8 +1852,8 @@ function vHandover(p,c){
  *      „Export enthält Name nur, wenn erfasst" ist damit strukturell erfüllt;
  *  (b) photo wird IMMER weggelassen — BEWUSSTE ENTSCHEIDUNG, kein Versehen:
  *      das Foto ist ein streng befristetes Wiedererkennungsmittel und gehört
- *      nicht in die dauerhafte Trägerdoku. Das Governance-Panel bleibt der
- *      einzige Foto-Export-Pfad. (Nebeneffekt: keine base64-aufgeblähten
+ *      nicht in die dauerhafte Trägerdoku. Die Leitungs-Oberfläche bleibt
+ *      der einzige Foto-Abruf-Pfad. (Nebeneffekt: keine base64-aufgeblähten
  *      JSON-Dateien, die das iOS-Share-Limit sprengen.)
  *  (c) Sperr-Spalten (locked_by/locked_at) sind reine Laufzeit-Koordination
  *      und entfallen ebenfalls. vit (inkl. vit.log) bleibt vollständig. */
@@ -2038,7 +1868,7 @@ function exportRowFromPatient(p){
   for(var i=0;i<opt.length;i++){
     if(opt[i][1]!=null && String(opt[i][1]).trim()!=='') row[opt[i][0]]=opt[i][1];
   }
-  /* KEIN row.photo — siehe Kommentar oben (Governance-Panel = einziger Foto-Export-Pfad). */
+  /* KEIN row.photo — siehe Kommentar oben (Leitungs-Oberfläche = einziger Foto-Abruf-Pfad). */
   return row;
 }
 /* Export-Objekt: Kopf + alle Patienten des aktuellen CCP/Verbunds
@@ -2341,7 +2171,7 @@ var TRAIN_LESSONS=[
   /* Einsatz-Lebenszyklus: nur erklären — der echte Abschluss läuft nie im
    * Trainings-Sandbox; der Knopf ist im Training ausgeblendet (kein Selektor,
    * keine do-Pflicht — sonst Kollision mit dem Spotlight). */
-  {t:'Einsatz abschließen', mode:'explain', x:'Nach dem Einsatz: In der Patientenübersicht (oder auf der Startseite) schließt der MasterMedic den Einsatz ab — Typ wählen (Übung oder Einsatz), optional den Übergabe-Export erzeugen: alle Patienten als Datei plus druckbare AT-MIST-Ansicht. Danach ist der Einsatz für alle Geräte gesperrt; die Daten löschen sich automatisch nach der Frist (Übung 14 Tage, Einsatz 30 Tage), Fotos schon nach 72 Std. Hier im Training nur zur Info — es gibt nichts abzuschließen.'},
+  {t:'Einsatz abschließen', mode:'explain', x:'Nach dem Einsatz: In der Patientenübersicht (oder auf der Startseite) schließt der MasterMedic den Einsatz ab — Typ wählen (Übung oder Einsatz, nur ein Merkmal fürs Protokoll), am besten den Übergabe-Export erzeugen: alle Patienten als Datei plus druckbare AT-MIST-Ansicht — der EINZIGE dauerhafte Weg in die Einsatzdokumentation. Danach ist der Einsatz für alle Geräte gesperrt; die Daten löschen sich 72 Std nach Abschluss automatisch, Fotos ebenso — endgültig. Hier im Training nur zur Info — es gibt nichts abzuschließen.'},
   {t:'Geschafft! 🎉', mode:'explain', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben. „Beenden" räumt die Übungsdaten ab — danach kannst du es jederzeit wiederholen.'}
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
@@ -2713,67 +2543,6 @@ document.addEventListener("click",async function(e){
     catch(e){ await promptModal(albl+' — '+apname+' (kopieren):',aurl); }
     return;
   }
-  if(a==="opengovernance"){
-    if(!_isMaster){toast("Nur MasterToken");return;}
-    go("governance"); loadGovernanceList(); return;
-  }
-  if(a==="govreload"){ loadGovernanceList(); return; }
-  if(a==="govphoto"){
-    if(!_isMaster){toast("Nur MasterToken");return;}
-    var gpid=el.getAttribute("data-pid"), gpnum=el.getAttribute("data-num");
-    /* Kürzel erzwingen — der RPC verweigert leere Kürzel (Protokoll-Pflicht).
-     * Wie der setoperator-Fluss, aber OHNE MasterMedic-Übernahme: das
-     * Governance-Gerät ist kein Einsatz-Gerät. */
-    if(!(operator&&operator.trim())){
-      var gko=await promptModal("Bediener-Kürzel (z. B. Streife / Name) — für das Zugriffs-Protokoll erforderlich:","");
-      if(gko===null||!gko.trim()){toast("Ohne Kürzel kein Foto-Abruf");return;}
-      operator=gko.trim(); await setOperatorStore(operator);
-    }
-    var gcl=sb(); if(!gcl){toast("Keine Backend-Verbindung");return;}
-    var gr; try{ gr=await gcl.rpc('argus_governance_photo',{p_patient_id:gpid,p_kuerzel:operator}); }
-    catch(e){ gr={error:{message:'keine Verbindung'}}; }
-    if(gr.error){ toast("Foto-Abruf fehlgeschlagen: "+(gr.error.message||"keine Verbindung")); return; }
-    var gphoto=gr.data&&gr.data.photo;
-    if(!gphoto){ toast("Kein Foto vorhanden — bereits endgültig gelöscht?"); loadGovernanceList(); return; }
-    var gts=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
-    var govz=document.createElement('div');
-    govz.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:12px';
-    govz.innerHTML='<img src="'+gphoto+'" alt="Patientenfoto" style="max-width:100%;max-height:78%;object-fit:contain;border-radius:8px">'+
-      '<div style="color:#cfd6df;font-size:12.5px;text-align:center;max-width:480px">Patient Nr. '+esc(gpnum||'?')+' · Dieser Abruf wurde protokolliert ('+esc(operator)+', '+esc(gts)+' Uhr).</div>'+
-      '<div style="position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300">✕</div>';
-    document.body.appendChild(govz);
-    govz.addEventListener('click',function(){ if(govz.parentNode)govz.parentNode.removeChild(govz); });
-    loadGovernanceList(); /* Protokoll/Liste nachziehen — der eigene Abruf wird sichtbar */
-    return;
-  }
-  if(a==="govextend"){
-    if(!_isMaster){toast("Nur MasterToken");return;}
-    var xid=el.getAttribute("data-ccpid"), xkenn=el.getAttribute("data-kennung"), xfrist=+el.getAttribute("data-frist")||0;
-    if(!(operator&&operator.trim())){
-      var xko=await promptModal("Bediener-Kürzel (z. B. Streife / Name) — für das Zugriffs-Protokoll erforderlich:","");
-      if(xko===null||!xko.trim()){toast("Ohne Kürzel keine Verlängerung");return;}
-      operator=xko.trim(); await setOperatorStore(operator);
-    }
-    /* Pflicht-Begründung: leere/Whitespace-Eingabe wird abgewiesen (erneutes Modal mit Hinweis). */
-    var xgrund=null, xmsg="Begründung (Pflicht): Warum müssen die Fotos über die Frist hinaus aufbewahrt werden?";
-    for(;;){
-      var xin=await promptModal(xmsg,"");
-      if(xin===null) return; /* abgebrochen */
-      if(xin.trim()){ xgrund=xin.trim(); break; }
-      xmsg="Begründung darf nicht leer sein — bitte den Grund angeben (Pflichtfeld):";
-    }
-    var xneu=Math.max(nowMs(),xfrist)+72*3600000; /* Vorschau — verbindlich rechnet der Server identisch */
-    var xok=await confirmModal("Foto-Frist für CCP "+xkenn+" um 72 Std verlängern — neue Frist: "+govFmt(xneu)+". Bei Beweissicherungs-/Ermittlungsbedarf: Export an die zuständige Stelle statt wiederholter Verlängerung.","+72 h verlängern");
-    if(!xok) return;
-    var xcl=sb(); if(!xcl){toast("Keine Backend-Verbindung");return;}
-    var xr; try{ xr=await xcl.rpc('argus_extend_photo_frist',{p_ccp_id:xid,p_kuerzel:operator,p_grund:xgrund,p_stunden:72}); }
-    catch(e){ xr={error:{message:'keine Verbindung'}}; }
-    if(xr.error){ toast("Verlängerung fehlgeschlagen: "+(xr.error.message||"keine Verbindung")); return; }
-    var xnf=xr.data&&xr.data.photo_purge_after;
-    toast("Frist verlängert"+(xnf?" — bis "+govFmt(xnf):""));
-    loadGovernanceList(); /* neue Frist + Protokoll-Eintrag sichtbar machen */
-    return;
-  }
   if(a==="checkunlock"){
     var uinp=document.getElementById('unlock-input');
     await doUnlock(uinp?uinp.value:''); return;
@@ -2981,7 +2750,7 @@ document.addEventListener("click",async function(e){
   }
   if(a==="closeeinsatz"){ await closeEinsatzWorkflow(); return; }
   if(a==="exportjson"){ await exportEinsatzJson(); return; }
-  if(a==="exportback"){ _closeTyp=null; _closeFrist=null; go("overview"); return; }
+  if(a==="exportback"){ _closeTyp=null; go("overview"); return; }
   if(a==="closeeinsatznow"){ await finalizeCloseEinsatz(); return; }
   if(a==="ccpclose"){
     /* Früher: nur ausblenden („Daten bleiben"). Jetzt einheitlich der
@@ -3176,11 +2945,10 @@ document.addEventListener("click",async function(e){
 function go(view){state.view=view;if(view==="capture")state.capMode="menu";render();if(view==="start"||view==="home")maybeShowIntro();}
 async function back(){
   if(state.view==="patient"){await releasePatientLock();state.readonly=false;go("catlist");}
-  else if(state.view==="einsatzexport"){_closeTyp=null;_closeFrist=null;go("overview");}
+  else if(state.view==="einsatzexport"){_closeTyp=null;go("overview");}
   else if(state.view==="catlist"){go("overview");}
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
   else if(state.view==="home"){await loadOpenCcpCount();go("start");}
-  else if(state.view==="governance"){go("admin");}
   else if(state.view==="admin"){go("praesidium");}
   else if(state.view==="help"){ go(_ccpId?"home":"start"); }
   else{go("home");}
@@ -3194,7 +2962,7 @@ setInterval(function(){
   if(tb&&state.edit&&state.edit.tqStart){tb.textContent="TQ läuft · "+fmtDur(nowMs()-state.edit.tqStart)+" — stoppen";}
 },1000);
 setInterval(async function(){
-  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport"||state.view==="governance")return;
+  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
   await loadMeta();await loadPatients();await loadChecklist();
   await checkIncomingMergeRequest();
   render();
