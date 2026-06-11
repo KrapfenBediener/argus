@@ -1,11 +1,10 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **GEPLANT** (2026-06-10,
-  4 Pläne in 3 Wellen, Checker-Durchlauf bestanden: 1 BLOCKER + 6 MINOR
-  eingearbeitet, Commit 9b804bd). Bereit zur Ausführung; Wave 1 braucht
-  einen ephemeren Supabase-PAT (Checkpoint). Phase 5 bleibt aufgeschoben.
-  **App live: v0.22.0** (Stand 2026-06-10).
+- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **IN AUSFÜHRUNG** (Wave 1
+  ✅ 2026-06-11: Migration 0003 live; Wave 2 = Pläne 02+03 bereit).
+  4 Pläne in 3 Wellen (geplant 2026-06-10, Checker bestanden, Commit 9b804bd).
+  Phase 5 bleibt aufgeschoben. **App live: v0.22.0** (Stand 2026-06-10).
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -244,6 +243,35 @@ Repo-Schnitt, Backup-/Löschkonzept). Siehe `.planning/ROADMAP.md`.
 
 *Hinweis 2026-06-10: `docs/datenschutz/` und weitere interne Unterlagen sind
 gitignored — Repo ist public.*
+
+---
+
+## Phase 4.9 — Governance-Oberfläche (IN AUSFÜHRUNG)
+
+**Ausführungsstand (Welle 1):**
+- **04.9-01 ✅ (2026-06-11):** Migration `0003_phase49_einsatzprotokoll.sql`
+  geschrieben, live angewendet (Management API, 2× = Idempotenz-Beleg) und
+  verifiziert — Einsatzprotokoll-Modell serverseitig komplett:
+  `access_tokens.revoked` + Prüfung in `argus_exchange_code` („Code wurde
+  gesperrt"); neuer Re-Check-RPC `argus_check_code` (`{found, revoked}`, ohne
+  Seiteneffekte); `argus_close_einsatz` setzt einheitlich 72-h-Fristen
+  (`p_frist_tage` wird ignoriert — signaturkompatibel zu v0.22.0); neue RPCs
+  `argus_governance_einsaetze` (Liste, Filter = Purge-Bedingung (b)) und
+  `argus_governance_protokoll` (Zwangs-Log `protokoll_view` VOR Rückgabe,
+  Patienten ohne Foto-Daten, nur `has_photo`); `argus_extend_protokoll_frist`
+  verlängert NUR `purge_after` (Fotos hart, 72 h); `argus_governance_list` und
+  `argus_extend_photo_frist` ENTFERNT; RLS: patients/checklists geschlossener
+  Einsätze für Nicht-Master nicht mehr lesbar, ccps-Tombstone bleibt lesbar.
+  Funktions- und REST-Negativtests grün, Seed-Daten restlos entfernt. Details:
+  `.planning/phases/04.9-governance-oberflaeche/04.9-01-SUMMARY.md`.
+  Commit e4a7909.
+- **Bekannte Übergangs-Abweichung (akzeptiert):** v0.22.0-Altgeräte zeigen beim
+  Abschluss noch „14/30 Tage", der Server löscht ab jetzt nach **72 h** — Daten
+  werden FRÜHER gelöscht als angezeigt. Gilt bis v0.23.0 (Plan 04.9-03);
+  das alte Feld-App-Governance-Panel zeigt auf Master-Geräten bis dahin einen
+  Fehlertext (argus_governance_list entfernt).
+- **PAT widerrufen:** der für 04.9-01 genutzte ephemere PAT ist noch aktiv →
+  im Supabase-Dashboard widerrufen (zusammen mit ggf. offenen Alt-PATs).
 
 ---
 
