@@ -1,10 +1,10 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.10 Datenschutz-Schlusspaket — **GEPLANT 2026-06-11,
-  bereit zur Ausführung** (3 Pläne in 3 Wellen, Checker PASS ohne Blocker;
-  Log-Löschfrist 12 Monate [Migration 0004, PAT-Checkpoint], T5 Transparenz
-  [v0.23.1], T6 Backup-Hygiene + interne Doku-Sync). Davor: Phase 4.9
+- **Aktuelle Phase:** 4.10 Datenschutz-Schlusspaket — **IN AUSFÜHRUNG**
+  (Welle 1 ✅ 2026-06-11: 04.10-01 Migration 0004 live; offen: T5 Transparenz
+  [v0.23.1, Welle 2], T6 Backup-Hygiene + interne Doku-Sync [Welle 3]).
+  Davor: Phase 4.9
   ✅ 2026-06-11, **deployt** — App live: v0.23.0. Nächster realer Schritt
   nach 4.10: **DSB-Gespräch** → bestimmt Phase 5/6/7.
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
@@ -369,6 +369,30 @@ Code-Sperre (`revoked`), Governance-Rückbau in der Feld-App.
    (v0.17–v0.21) haben KEIN noindex-Meta (das neue v0.23-Sheet hat eines).
    Owner-Entscheid offen: nachrüsten oder bewusst öffentlich lassen (sie sind
    aus der App verlinkt).
+
+---
+
+## Phase 4.10 — Datenschutz-Schlusspaket (IN AUSFÜHRUNG, gestartet 2026-06-11)
+
+**Planung:** 3 Pläne in 3 Wellen (geplant 2026-06-11, Checker PASS ohne Blocker).
+
+**Ausführungsstand (Welle 1):**
+- **04.10-01 ✅ (2026-06-11):** Migration `0004_phase410_log_retention.sql` —
+  Log-Löschfrist 12 Monate (D-01, Modell § 73 Abs. 5 PolG BW): `argus_run_purge`
+  per create or replace um Schritt (d) erweitert — `governance_log` (bigint-ms,
+  Cutoff 365 Tage) und `purge_log` (timestamptz, Zwölf-Monats-Intervall) werden
+  im bestehenden stündlichen Purge-Lauf gelöscht; Schritte (a)–(c) byte-gleich
+  aus 0002, Cron-Job `argus_purge` wörtlich unverändert; Schritt (d) erzeugt
+  selbst KEINEN Log-Eintrag (keine Rekursion, kein Spam). Return-JSON additiv
+  um `log_retention` erweitert. Live angewendet (Management API, 2× =
+  Idempotenz-Beleg), Funktionstest mit synthetischen Alt-/Jung-Logs (alt
+  gelöscht, jung erhalten, kein Rekursions-Eintrag, restlos aufgeräumt),
+  REST-Probe mit Anon-Key → HTTP 200 inkl. `log_retention`. Details:
+  `.planning/phases/04.10-datenschutz-schlusspaket/04.10-01-SUMMARY.md`.
+  Commit 2eb27df.
+- **PAT widerrufen (Owner-Punkt):** der für 04.10-01 genutzte ephemere PAT ist
+  noch aktiv → im Supabase-Dashboard (Account → Access Tokens) widerrufen —
+  zusammen mit ggf. noch offenen Alt-PATs (Phase 4 / 04.8-02 / 04.9-01).
 
 ---
 
