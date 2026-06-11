@@ -6,6 +6,26 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.23.1 — 2026-06-11
+**Datenschutz-Schlusspaket (Phase 4.10): Datenschutzhinweis in der App, noindex für Alt-Sheets, 12-Monats-Log-Löschung**
+- **Datenschutzhinweis (Art. 13) in der App:** Neue statische Ansicht
+  „Datenschutz", erreichbar aus den Hilfestellungen — Verantwortlicher,
+  Zwecke, gespeicherte Datenarten, Speicher-/Löschfristen (72 Std nach
+  Einsatz-Abschluss, Fotos endgültig ohne Verlängerung, technische
+  Protokolle 12 Monate) und Betroffenenrechte inkl. Hinweis, dass die
+  Auskunft über den Einzelpatient-/Einsatz-Export bedient wird.
+  Verantwortlicher und DSB-Kontakt sind zentral über die Konstante
+  `DS_KONTAKT` pflegbar (bis zur Benennung Platzhalter). Offline verfügbar.
+- **Drehbuch nachgezogen:** Die Trainings-Lektion zu den Hilfestellungen
+  nennt jetzt auch den Datenschutzhinweis.
+- **noindex für Alt-UPDATE-Sheets:** Die fünf älteren Update-Übersichten
+  (v0.9–v0.12, v0.17, v0.18, v0.20, v0.21) tragen jetzt wie das
+  v0.23-Sheet ein robots-noindex-Meta.
+- **Leitungs-Seite:** Fußzeilen-Verweis auf den Datenschutzhinweis in der App.
+- **Serverseitig (Migration 0004, bereits live):** Einträge in den
+  technischen Protokollen (Zugriffe/Lösch-Läufe) werden nach 12 Monaten
+  automatisch gelöscht — integriert in den stündlichen Lösch-Lauf.
+
 ## v0.23.0 — 2026-06-11
 **Einsatzprotokoll-Modell (Phase 4.9): einheitliche 72-h-Löschfrist, Governance aus der Feld-App, Code-Sperre wirkt am Gerät**
 - **Einheitliche 72-h-Löschfrist:** Die 14/30-Tage-Wahl beim Einsatz-Abschluss

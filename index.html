@@ -103,7 +103,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.23.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.23.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -129,6 +129,9 @@ var UPDATE_SHEETS = {
   '0.23.0': 'docs/UPDATE_v0.23.html'           /* Einheitliche 72-h-Löschfrist + Export als dauerhafter Weg */
 };
 var WHATS_NEW = {
+  '0.23.1': [
+    'Datenschutzhinweis in den Hilfestellungen: Was ARGUS speichert, wie lange die Daten bleiben (72 Std nach Einsatz-Abschluss, Fotos endgültig) und welche Rechte Betroffene haben — jederzeit offline nachlesbar.'
+  ],
   '0.23.0': [
     'Einheitliche Löschfrist: Beim Einsatz-Abschluss gibt es keine Fristwahl mehr — alle Einsatzdaten löschen sich 72 Std nach Abschluss automatisch, Fotos ebenso (endgültig). Der Übergabe-Export beim Abschluss ist der einzige dauerhafte Weg in die Einsatzdokumentation.',
     'Foto-Governance umgezogen: Der Governance-Bereich ist aus der Feld-App in die separate Leitungs-Oberfläche gewandert — die App bleibt schlank fürs Feld.',
@@ -2246,7 +2249,7 @@ var TRAIN_LESSONS=[
   {t:'Knopf: Checkliste CCP', mode:'explain', x:'Der erste Knopf: die Checkliste für Aufbau und Leitung der Sammelstelle (Örtlichkeit, Sicherung, Rollen, Material …). Gleich öffnen wir sie selbst.', sel:'[data-action="nav"][data-view="checklist"]'},
   {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
   {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
-  {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen und Merksätze — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
+  {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen, Merksätze und der Datenschutzhinweis — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
   {t:'Einsatz abschließen', mode:'explain', x:'Ganz unten „Einsatz abschließen": beendet den Einsatz für ALLE Geräte — mit optionalem Übergabe-Export. Danach werden die Daten 72 Std nach Abschluss automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
 
   {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
