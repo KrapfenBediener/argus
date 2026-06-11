@@ -230,6 +230,11 @@ Aussage „technisch vollständig" vor dem DSB-Gespräch trägt. Klein und fokus
 - **Kleinkram:** Alt-`UPDATE_*.html` bekommen `noindex` (Befund 04.9-03).
 - **Explizit NICHT:** T4 (DSB-Votum), T7 Self-Hosting, Phase-5/6/7-Inhalte.
 
+**Pläne:** 3 Pläne in 3 Wellen (geplant 2026-06-11)
+- [ ] 04.10-01-PLAN.md — Migration 0004: 12-Monats-Log-Löschung in argus_run_purge, live + Idempotenz-Beleg (Wave 1, PAT-Checkpoint)
+- [ ] 04.10-02-PLAN.md — App: T5-Datenschutz-Ansicht (DS_KONTAKT-Platzhalter), noindex Alt-Sheets, Leitungs-Fußzeile, Drehbuch, Release v0.23.1 (Wave 2)
+- [ ] 04.10-03-PLAN.md — T6 BACKUP.md + Bestandsaufnahme, interne Doku-Sync (VVT/DSB-Briefing/SPEC/Maßnahmenplan), ROADMAP/STATE (Wave 3)
+
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
 kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
