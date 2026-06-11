@@ -7,12 +7,13 @@
  *   3. Alles andere           → Network-first (aktuelle Daten bevorzugen)
  */
 
-const CACHE_NAME = 'ccp-shell-v42';
+const CACHE_NAME = 'ccp-shell-v43';
 
 const PRECACHE_URLS = [
   './',
   './index.html',
   './vendor/supabase.js',
+  './config.js',
   './fonts/ibm-plex-sans-400.woff2',
   './fonts/ibm-plex-sans-500.woff2',
   './fonts/ibm-plex-sans-600.woff2',

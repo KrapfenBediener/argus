@@ -106,6 +106,7 @@
 <div class="hint" style="text-align:center;padding:14px 16px 18px">Datenschutzhinweis: in der ARGUS-App unter Hilfestellungen → Datenschutz.</div>
 <div class="toast" id="toast"></div>
 <script src="../vendor/supabase.js"></script>
+<script src="../config.js"></script>
 <script>
 "use strict";
 
@@ -116,8 +117,12 @@
  * Sitzung bewusst flüchtig: sessionStorage, kein Verlauf.
  * ============================================================ */
 
-var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
-var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
+/* Backend-Konfiguration kommt zentral aus ../config.js (window.ARGUS_CONFIG) —
+ * einzige Stelle für den Instanz-Tausch beim Self-Hosting (Phase 4.11, D-01). */
+var _cfg = window.ARGUS_CONFIG || null;
+var _configError = !(_cfg && typeof _cfg.url==='string' && _cfg.url.indexOf('https://')===0 && _cfg.anonKey);
+var SUPA_URL = _configError ? '' : _cfg.url;
+var SUPA_KEY = _configError ? '' : _cfg.anonKey;
 
 var _sb = null;
 var _sbJwt = null;
@@ -214,6 +219,9 @@ function sb(){
  * Antworten OHNE is_master=true werden abgewiesen — NICHTS wird
  * gespeichert (kein sessionStorage-Schreiben im Abweisungspfad). */
 async function doLogin(raw){
+  /* Ohne Config liefe der fetch relativ gegen den eigenen Origin (kryptischer
+   * 404) — daher hier hart abfangen, Hinweis steht auch in der Login-Ansicht. */
+  if(_configError){ setLoginError('Konfiguration fehlt (config.js) — kein Backend verbunden.'); return; }
   var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
   if(clean.length<8){ setLoginError('Bitte vollständigen MasterToken eingeben.'); return; }
   setLoginError('');
@@ -294,6 +302,7 @@ function vLogin(){
   h+='<div class="arg-logo">ARGUS</div>';
   h+='<h1 style="text-align:center">Leitung</h1>';
   h+='<div class="hint" style="text-align:center">Anmeldung nur mit MasterToken.<br>Die Sitzung endet mit dem Schließen des Tabs.</div>';
+  if(_configError){ h+='<div class="lerr" style="text-align:center">⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden.</div>'; }
   h+='<label class="fieldlab" for="logininp">MasterToken</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
   h+='<div class="modalrow" style="justify-content:stretch;gap:8px">';
