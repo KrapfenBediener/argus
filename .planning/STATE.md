@@ -1,8 +1,9 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **IN AUSFÜHRUNG** (Wave 1
-  ✅ 2026-06-11: Migration 0003 live; Wave 2 = Pläne 02+03 bereit).
+- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **IN AUSFÜHRUNG** (Wave 1+2
+  ✅ 2026-06-11: Migration 0003 live, Leitungs-Oberfläche gebaut, Feld-App
+  v0.23.0 — noch nicht gepusht; Wave 3 = Plan 04 bereit).
   4 Pläne in 3 Wellen (geplant 2026-06-10, Checker bestanden, Commit 9b804bd).
   Phase 5 bleibt aufgeschoben. **App live: v0.22.0** (Stand 2026-06-10).
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
@@ -272,6 +273,55 @@ gitignored — Repo ist public.*
   Fehlertext (argus_governance_list entfernt).
 - **PAT widerrufen:** der für 04.9-01 genutzte ephemere PAT ist noch aktiv →
   im Supabase-Dashboard widerrufen (zusammen mit ggf. offenen Alt-PATs).
+
+**Ausführungsstand (Welle 2):**
+- **04.9-02 ✅ (2026-06-11):** Leitungs-Oberfläche (Desktop-Governance-Seite)
+  gebaut — Single-File unter nicht erratbarem Dateinamen (D-06: Name steht
+  AUSSCHLIESSLICH in der untracked, gitignorten `LEITUNG-URL.md`; in keiner
+  committeten Datei, keinem Commit-Text — git-grep-Gate grün). MasterToken-Login
+  via `argus_exchange_code` mit is_master-Pflicht (Abweisung ohne Speicherung),
+  Sitzung flüchtig in sessionStorage (`argusl_jwt`/`argusl_jwt_exp`/
+  `argusl_kuerzel`); Direkteinstieg „Zugänge" (D-10), Phase-7-Sektion sichtbar
+  gesperrt (D-09). Zugänge: Codes je Präsidium Dauerhaft/24 h/Einmalig +
+  Code-Sperre über `revoked` (MasterToken-Zeilen nicht sperrbar, D-11);
+  Einsatzprotokolle: Wiedervorlage oben, protokollierter Abruf
+  (`argus_governance_protokoll`, Hinweis-Modal + Kürzel-Pflicht, D-01),
+  Foto-Lazy-Load, harte Foto-Frist ohne Verlängerungs-UI (D-02),
+  Protokoll-Frist +72 h nur mit Pflicht-Begründung (D-03); Protokoll:
+  governance_log (200) + purge_log (100, inhaltsfrei, D-13). JSC: Syntax OK,
+  fristStatus 10/10, genShortCode/genToken PASS; Smoke-Test (http.server) alle
+  Assets 200. Details:
+  `.planning/phases/04.9-governance-oberflaeche/04.9-02-SUMMARY.md`.
+  Commits 0f7c61e · 4933231 · 4ed858e. **Noch nicht gepusht** — Seite wird mit
+  dem nächsten Deploy via GitHub Pages erreichbar.
+- **Offener Owner-Punkt (04.9-02):** Live-Verifikation der Leitungs-Seite im
+  Browser (URL siehe lokale `LEITUNG-URL.md`): MasterToken-Login, Code-Sperre-
+  Roundtrip, Protokoll-Abruf inkl. governance_log-Eintrag. `LEITUNG-URL.md`
+  lokal sichern — sie ist die einzige Fundstelle des Dateinamens.
+- **04.9-03 ✅ (2026-06-11, v0.23.0):** Feld-App auf das Einsatzprotokoll-Modell
+  umgestellt — Governance-Insel restlos entfernt (View, Einstieg, 4 Handler,
+  Zustandsvariablen, `fristStatus`/`govFmt`; D-14 „keine Foto-Insel in der App",
+  Leitungs-Funktionen nur noch auf der separaten Leitungs-Oberfläche);
+  Abschluss-Workflow auf feste 72-h-Grundfrist (14/30-Wahl + freie Frist-Eingabe
+  entfernt, Typ Übung/Einsatz bleibt Merkmal; `argus_close_einsatz` ohne
+  Frist-Parameter; Offline-Queue-Payload `{ccpId,typ,ts}`, v0.22.0-Legacy-Einträge
+  mit fristTage bleiben gültig); Übergabe-Export im Workflow prominent als
+  EINZIGER dauerhafter Weg ausgewiesen (D-04); revoked-Re-Check
+  (`checkRevokedCode`/`revokedDecision`, fire-and-forget bei Start + online-Event,
+  offline-Guard VOR dem fetch, 6-s-Abort-Timeout — Sperrung NUR bei eindeutigem
+  `revoked===true`, found:false/Fehler → ignore; `applyRevokedLock` räumt
+  JWT/Code/Freischaltungen/Rollen, kappt Realtime, Hinweis-Modal, Freischalt-Screen;
+  Sperr-Klartext „Code wurde gesperrt" erscheint auch beim Freischalten/Re-Exchange);
+  Drehbuch auf 72-h-Modell (keine 14/30-Texte mehr). Release v0.23.0 (SW v41,
+  CHANGELOG, WHATS_NEW, UPDATE_v0.23.html inkl. „Bitte App aktualisieren"-Hinweis
+  wegen v0.22.0-Fristen-Anzeige). JSC: 17+25 Checks PASS, Syntax beider
+  Inline-Blöcke OK. Details:
+  `.planning/phases/04.9-governance-oberflaeche/04.9-03-SUMMARY.md`.
+  Commits 18cbff6 · 71bc5e7 · 7834610. **Noch nicht gepusht** (Plan: nicht pushen);
+  „App live" bleibt v0.22.0 bis zum Deploy.
+- **Offener Owner-Punkt (04.9-03):** Live-Verifikation am echten iPhone —
+  Update-Banner v0.23.0, Abschluss-Strecke (72-h-Texte), Sperr-Test
+  (Code sperren → Gerät meldet sich beim Start/Reconnect ab).
 
 ---
 

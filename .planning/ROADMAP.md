@@ -203,8 +203,8 @@ Mechanik aus 4.8):**
 
 **Plans:** 4 Pläne in 3 Wellen (geplant 2026-06-11):
 - [x] 04.9-01-PLAN.md — Migration 0003: Einsatzprotokoll-RPCs, 72-h-Fristen, revoked-Flag, RLS-Härtung (Wave 1, PAT-Checkpoint) ✅ 2026-06-11
-- [ ] 04.9-02-PLAN.md — Desktop-Leitungsseite: Login, Zugänge + Code-Sperre, Einsatzprotokolle, Protokoll, Phase-7-Sperrsektion (Wave 2)
-- [ ] 04.9-03-PLAN.md — Feld-App: Governance-Rückbau, Abschluss auf 72 h, revoked-Re-Check, Drehbuch, Release v0.23.0 + UPDATE-Sheet (Wave 2)
+- [x] 04.9-02-PLAN.md — Desktop-Leitungsseite: Login, Zugänge + Code-Sperre, Einsatzprotokolle, Protokoll, Phase-7-Sperrsektion (Wave 2) ✅ 2026-06-11
+- [x] 04.9-03-PLAN.md — Feld-App: Governance-Rückbau, Abschluss auf 72 h, revoked-Re-Check, Drehbuch, Release v0.23.0 + UPDATE-Sheet (Wave 2) ✅ 2026-06-11
 - [ ] 04.9-04-PLAN.md — Doku/Statusführung: Löschkonzept + SPEC lokal nachziehen (Owner-Entscheid 2026-06-10), ROADMAP/STATE (Wave 3)
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
