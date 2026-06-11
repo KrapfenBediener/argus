@@ -105,6 +105,14 @@
  * ============================================================ */
 var APP_VERSION = '0.23.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
+/* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
+ * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
+ * (vDatenschutz, erreichbar über die Hilfestellungen) zeigt beide Werte
+ * automatisch an. Bis zur Benennung bewusst Platzhalter. */
+var DS_KONTAKT = {
+  verantwortlicher: '[Platzhalter — wird vor dem Echtbetrieb benannt]',
+  dsb: '[Platzhalter — Kontakt des/der Datenschutzbeauftragten]'
+};
 /* Kurze, nutzerverständliche Highlights pro Version (für den „Was ist neu"-Hinweis).
  * Bewusst knapp & handlungsbezogen — der technische Verlauf steht in CHANGELOG.md. */
 /* Visuelle Update-Übersichten ("Update-Sheets"), je Version, in der die jeweilige
@@ -1517,7 +1525,7 @@ function countPrio(){return patients.filter(function(p){return p.status==="activ
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",admin:"Administration",einsatzexport:"Übergabe-Export"};
+  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",datenschutz:"Datenschutz",admin:"Administration",einsatzexport:"Übergabe-Export"};
   $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
   if(v==="locked")h=vLocked();
@@ -1533,6 +1541,7 @@ function render(){
   else if(v==="patient")h=vPatient();
   else if(v==="einsatzexport")h=vExportPrint();
   else if(v==="help")h=vHelp();
+  else if(v==="datenschutz")h=vDatenschutz();
   $("app").innerHTML=h;
   try{ renderCoach(); }catch(e){}   /* Coach niemals den App-Render brechen lassen */
   /* Nur bei echtem View-Wechsel nach oben scrollen — sonst würde der
@@ -2066,7 +2075,8 @@ function vExportPrint(){
 function sel(a,b){return a===b?" selected":"";}
 function vHelp(){
   var kb=function(t,b){return '<details style="margin:6px 0"><summary style="cursor:pointer;font-weight:600;padding:4px 0">'+t+'</summary><div class="helpa" style="padding:4px 0 8px">'+b+'</div></details>';};
-  var h='<button class="ghost" data-action="showintro" style="margin-bottom:14px">▶ Einführung erneut ansehen</button>';
+  var h='<button class="ghost" data-action="showintro" style="margin-bottom:8px">▶ Einführung erneut ansehen</button>';
+  h+='<button class="ghost" data-action="nav" data-view="datenschutz" style="margin-bottom:14px">🛡 Datenschutzhinweis</button>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kurzanleitung</div>'+
     kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>.')+
     kb('Patient erfassen','<b>Patient erfassen</b> → <b>tacSTART</b> (geführt) oder direkt eine <b>Kategorie</b> (T-1…T-5). Nummer kommt automatisch — auf die Haut notieren. Unten am zuletzt Angelegten: Prio · TQ · öffnen · Verwerfen.')+
@@ -2092,6 +2102,32 @@ function vHelp(){
   return h;
 }
 function rl(n,d){return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span style="font-weight:600">'+n+'</span> <span class="helpa">– '+esc(d)+'</span></div>';}
+
+/* Datenschutzhinweis (Art. 13 DSGVO) — statische Ansicht, offline verfügbar.
+ * Verantwortlicher und DSB-Kontakt werden AUSSCHLIESSLICH über die zentrale
+ * Konstante DS_KONTAKT gepflegt (Konstanten-Bereich oben). */
+function vDatenschutz(){
+  var h='<div class="card"><div class="sech" style="margin-top:0">Verantwortlicher</div>'+
+    '<div class="helpa">'+esc(DS_KONTAKT.verantwortlicher)+'</div>'+
+    '<div class="hint" style="margin-top:8px;font-size:11px">Verantwortliche Stelle für die Datenverarbeitung in ARGUS.</div></div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Wofür Daten verarbeitet werden</div>'+
+    '<div class="helpa">Erfassung und Sichtung von Patienten an der Verwundetensammelstelle (CCP), Dokumentation der Versorgung und Übergabe beim Abtransport — bei Einsätzen und Übungen.</div></div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Welche Daten gespeichert werden</div>'+
+    '<div class="helpa">• Patientendaten pseudonym über die laufende Nummer — der Name ist optional und wird nur erfasst, wenn er für Versorgung oder Übergabe nötig ist.<br>'+
+    '• Gesundheitsdaten zur Versorgung: Sichtungskategorie, Vitalwerte, Verletzungen, Maßnahmen.<br>'+
+    '• Optional ein Foto zur Wiedererkennung (statt Name) — nur, wenn die Leitung Fotos für den Einsatz eingeschaltet hat.<br>'+
+    '• Bediener-Kürzel der Einsatzkräfte mit Zeitstempel.</div></div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Speicher- und Löschfristen</div>'+
+    '<div class="helpa">• Alle Einsatzdaten löschen sich automatisch 72 Std nach dem Einsatz-Abschluss.<br>'+
+    '• Fotos werden 72 Std nach dem Abschluss endgültig gelöscht — ohne Verlängerung.<br>'+
+    '• Die Frist des Einsatzprotokolls kann nur die Leitung verlängern, mit dokumentierter Begründung.<br>'+
+    '• Technische Protokolle (z. B. über Zugriffe und Lösch-Läufe) werden nach 12 Monaten gelöscht.</div></div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Deine Rechte</div>'+
+    '<div class="helpa">Betroffene haben das Recht auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung. Die Auskunft (Art. 15 DSGVO) wird über den Einzelpatient- bzw. Einsatz-Export bedient — Anfragen an die unten genannte Kontaktstelle.</div></div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">Datenschutzbeauftragte(r)</div>'+
+    '<div class="helpa">'+esc(DS_KONTAKT.dsb)+'</div></div>';
+  return h;
+}
 
 function vStart(){
   var hasSession = patients.filter(function(p){return p.status==="active";}).length > 0;
@@ -3032,6 +3068,7 @@ async function back(){
   else if(state.view==="home"){await loadOpenCcpCount();go("start");}
   else if(state.view==="admin"){go("praesidium");}
   else if(state.view==="help"){ go(_ccpId?"home":"start"); }
+  else if(state.view==="datenschutz"){ go("help"); }   /* einziger Einstieg: Hilfestellungen */
   else{go("home");}
 }
 
