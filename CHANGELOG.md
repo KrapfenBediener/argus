@@ -6,6 +6,23 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.24.0 — 2026-06-11
+**Self-Hosting-Vorbereitung (Phase 4.11): zentrale Backend-Konfiguration (config.js)**
+- **Config-Auslagerung:** Supabase-URL und Anon-Key liegen jetzt zentral in
+  `config.js` im Projektroot — die EINZIGE Stelle für den Instanz-Tausch beim
+  Self-Hosting (Betriebsmodell M1). Konsumenten: Feld-App (`index.html`) und
+  Leitungs-Seite (`docs/leitung-<suffix>.html`). Die Datei enthält nur die
+  ohnehin öffentlichen Werte (keine Service-Keys).
+- **Offline unverändert:** `config.js` ist im Service-Worker-Precache
+  (Cache v43) und wird synchron vor dem Hauptscript geladen.
+- **Fehlerhinweis statt stillem Bruch:** Fehlt die Config oder ist sie kaputt,
+  zeigen Feld-App (Statusbanner + Start-Toast) und Leitungs-Seite
+  (Login-Ansicht) einen klaren Hinweis; Code-Eingabe/Login werden mit
+  Klartext-Meldung abgefangen.
+- **Drehbuch geprüft: keine Änderung** — keine UI-/Bedienungsänderung,
+  daher keine Lektionsanpassung nötig. Kein UPDATE-Sheet (für Nutzer
+  unsichtbare Änderung).
+
 ## v0.23.1 — 2026-06-11
 **Datenschutz-Schlusspaket (Phase 4.10): Datenschutzhinweis in der App, noindex für Alt-Sheets, 12-Monats-Log-Löschung**
 - **Datenschutzhinweis (Art. 13) in der App:** Neue statische Ansicht
