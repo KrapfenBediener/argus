@@ -3,10 +3,12 @@
 > **Stand: 2026-06-11** — Phase 4 abgeschlossen; danach Beta-Härtung aus Tester-
 > Feedback (v0.4.0–v0.15.0, siehe Phase 4.5), Feature-/Schulungs-Arbeit im
 > Test-/Härtungsfenster (v0.16–v0.19.5), Datenschutz-Härtung (Phase 4.8,
-> v0.19.9–v0.22.0) und Governance-Oberfläche (Phase 4.9, v0.23.0).
-> App live auf **v0.23.0** (Phase-4.9-Commits gepusht/deployt 2026-06-11).
-> Nächster realer Schritt: **DSB-Gespräch** (`docs/DSB-BRIEFING.md`) → es bestimmt,
-> was Phase 5/6 konkret brauchen.
+> v0.19.9–v0.22.0), Governance-Oberfläche (Phase 4.9, v0.23.0) und
+> Datenschutz-Schlusspaket (Phase 4.10, v0.23.1 — Log-Frist 12 Monate,
+> T5-Datenschutzhinweis, T6 Backup-Hygiene, interne Doku synchron).
+> App live auf **v0.23.1** (Phase-4.9-/4.10-Commits gepusht/deployt 2026-06-11).
+> Nächster realer Schritt: **DSB-Gespräch** (`docs/DSB-BRIEFING.md`, intern;
+> aktualisiert 2026-06-11) → es bestimmt, was Phase 5/6 konkret brauchen.
 >
 > **Milestone:** Closed Beta V1 — *läuft* (kleiner autorisierter Testkreis).
 > Nächstes Milestone: **Open Beta** (nach Phase 6).
@@ -208,7 +210,7 @@ Mechanik aus 4.8):**
 - [x] 04.9-03-PLAN.md — Feld-App: Governance-Rückbau, Abschluss auf 72 h, revoked-Re-Check, Drehbuch, Release v0.23.0 + UPDATE-Sheet (Wave 2) ✅ 2026-06-11
 - [x] 04.9-04-PLAN.md — Doku/Statusführung: Löschkonzept + SPEC lokal nachgezogen (Owner-Entscheid 2026-06-10, unversioniert), ROADMAP/STATE (Wave 3) ✅ 2026-06-11
 
-## Phase 4.10 — Datenschutz-Schlusspaket (vor DSB-Gespräch) ⬜
+## Phase 4.10 — Datenschutz-Schlusspaket (vor DSB-Gespräch) ✅ *(2026-06-11)*
 **Ziel:** Die letzten DSB-unabhängigen Datenschutz-Lücken schließen, damit die
 Aussage „technisch vollständig" vor dem DSB-Gespräch trägt. Klein und fokussiert.
 
@@ -232,7 +234,7 @@ Aussage „technisch vollständig" vor dem DSB-Gespräch trägt. Klein und fokus
 **Pläne:** 3 Pläne in 3 Wellen (geplant 2026-06-11)
 - [x] 04.10-01-PLAN.md — Migration 0004: 12-Monats-Log-Löschung in argus_run_purge, live + Idempotenz-Beleg (Wave 1, PAT-Checkpoint) ✅ 2026-06-11
 - [x] 04.10-02-PLAN.md — App: T5-Datenschutz-Ansicht (DS_KONTAKT-Platzhalter), noindex Alt-Sheets, Leitungs-Fußzeile, Drehbuch, Release v0.23.1 (Wave 2) ✅ 2026-06-11
-- [ ] 04.10-03-PLAN.md — T6 BACKUP.md + Bestandsaufnahme, interne Doku-Sync (VVT/DSB-Briefing/SPEC/Maßnahmenplan), ROADMAP/STATE (Wave 3)
+- [x] 04.10-03-PLAN.md — T6 BACKUP.md + Bestandsaufnahme, interne Doku-Sync (VVT/DSB-Briefing/SPEC/Maßnahmenplan), ROADMAP/STATE (Wave 3) ✅ 2026-06-11
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —

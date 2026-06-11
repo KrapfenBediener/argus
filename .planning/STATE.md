@@ -1,13 +1,11 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.10 Datenschutz-Schlusspaket — **IN AUSFÜHRUNG**
-  (Welle 1 ✅ 2026-06-11: 04.10-01 Migration 0004 live; Welle 2 ✅ 2026-06-11:
-  04.10-02 T5 Datenschutzhinweis in der App, v0.23.1; offen: T6 Backup-Hygiene +
-  interne Doku-Sync [Welle 3]).
-  Davor: Phase 4.9
-  ✅ 2026-06-11, **deployt** — App live: v0.23.0. Nächster realer Schritt
-  nach 4.10: **DSB-Gespräch** → bestimmt Phase 5/6/7.
+- **Aktuelle Phase:** 4.10 Datenschutz-Schlusspaket — **ABGESCHLOSSEN
+  2026-06-11**. App live: **v0.23.1** (Wellen 1–2 gepusht/deployt bis 6a1ca2c).
+  **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
+  (+ T4/T7 nach DSB-Votum).** Nächster realer Schritt: **DSB-Gespräch**
+  (Briefing aktualisiert, intern) → bestimmt Phase 5/6/7.
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -24,6 +22,7 @@
 | 4 | Serverseitige Absicherung (JWT + RLS) | ✅ 2026-06-03 |
 | 4.8 | Datenschutz-Härtung (T8, T2, T1, T3) | ✅ 2026-06-10 |
 | 4.9 | Governance-Oberfläche (Einsatzprotokoll-Modell, Leitungs-Seite, Code-Sperre) | ✅ 2026-06-11 |
+| 4.10 | Datenschutz-Schlusspaket (Log-Frist 12 Monate, T5 Transparenz, T6 Backup-Hygiene, Doku-Sync) | ✅ 2026-06-11 |
 
 ---
 
@@ -373,7 +372,7 @@ Code-Sperre (`revoked`), Governance-Rückbau in der Feld-App.
 
 ---
 
-## Phase 4.10 — Datenschutz-Schlusspaket (IN AUSFÜHRUNG, gestartet 2026-06-11)
+## Phase 4.10 — Datenschutz-Schlusspaket (ABGESCHLOSSEN 2026-06-11, v0.23.1)
 
 **Planung:** 3 Pläne in 3 Wellen (geplant 2026-06-11, Checker PASS ohne Blocker).
 
@@ -415,7 +414,63 @@ Code-Sperre (`revoked`), Governance-Rückbau in der Feld-App.
   (index.html-Inline-Block + sw.js). D-06-Gate repo-weit grün (0 Treffer).
   Details:
   `.planning/phases/04.10-datenschutz-schlusspaket/04.10-02-SUMMARY.md`.
-  Commits d2aa15e · 18031e1 · b75f289.
+  Commits d2aa15e · 18031e1 · b75f289. **Gepusht/deployt** (bis 6a1ca2c) —
+  App live: v0.23.1.
+
+**Ausführungsstand (Welle 3 — Phasenabschluss):**
+- **04.10-03 ✅ (2026-06-11):** T6 Backup-Hygiene + interne Doku-Sync +
+  Statusführung (D-03/D-04) — alle docs-Änderungen NUR lokal (gitignored,
+  nicht committet):
+  - **T6:** `docs/BACKUP.md` neu gefasst — drei verbindliche Regeln (niemals
+    Echtdaten [Fiktivdaten-Regel], Aufbewahrung max. 30 Tage, Verschlüsselung
+    verpflichtend mit dokumentierten Befehlen `zip -e` / `openssl enc
+    -aes-256-cbc -pbkdf2` — alternativ Abschaffung; Empfehlung dokumentiert).
+    Befund Bestandsaufnahme `~/ARGUS-Backups/`: 1 unverschlüsselte Backup-JSON
+    vom 2026-06-05 (51 KB, Rechte 0600, innerhalb 30 Tage) + README; KEIN
+    Workflow erzeugt automatisch Backups (nur manuelles
+    `scripts/argus_backup.py`; keine GitHub-Workflows/crontab/LaunchAgents).
+    Bestand unangetastet — Bereinigung ist Owner-Punkt (unten).
+  - **Doku-Sync:** VVT (Dok. 01) §7 auf 72-h-Einsatzprotokoll-Modell +
+    Log-Frist 12 Monate (Migration 0004); DSB-BRIEFING md+html inhaltlich
+    identisch auf Ist-Stand v0.23.1 gehoben (72-h-Modell, Leitungs-Oberfläche
+    ohne Dateinamen [D-06], Code-Sperre, Logs 12 Monate, T5-Hinweis in der
+    App; frühere Fragen 4 [Fristen] und 5 [Foto] → „umgesetzt, Bestätigung
+    erbeten"); SPEC: T5/T6 abgehakt (✅ Phase 4.10, 2026-06-11) + Ergänzung
+    „Log-Aufbewahrung 12 Monate" mit T4-Abgrenzung (KEIN Audit-Log gebaut);
+    Maßnahmenplan synchron (T5/T6/Auskunfts-Export abgehakt, Log-Frist +
+    Doku-Sync unter Erledigt).
+  - **Commit-Hygiene-Gate (gesamte Phase):** git-log seit 2026-06-11 und
+    git-status über docs/datenschutz, DSB-BRIEFING.*, BACKUP.md → leer;
+    D-06-Gate (`git grep -cE 'leitung-[0-9a-f]{6,}' -- ':!docs/'`) → 0.
+  Details:
+  `.planning/phases/04.10-datenschutz-schlusspaket/04.10-03-SUMMARY.md`.
+
+**→ Phase 4.10 abgeschlossen. Datenschutz: technisch vollständig, offen ist
+nur Organisatorisches (+ T4/T7 nach DSB-Votum).**
+
+**Offene Owner-Punkte (gesammelt, Stand 2026-06-11):**
+1. **PAT widerrufen** (aus 04.10-01; Supabase-Dashboard → Account → Access
+   Tokens) — zusammen mit ggf. noch offenen Alt-PATs (Phase 4 / 04.8-02 /
+   04.9-01).
+2. **Backup-Bestand bereinigen:** `~/ARGUS-Backups/argus-backup-20260605-142432.json`
+   (unverschlüsselter DB-Vollexport inkl. Zugangscodes, vom 2026-06-05)
+   verschlüsseln (`zip -e` / `openssl enc`, Befehle in docs/BACKUP.md) **oder
+   löschen — Empfehlung: löschen** (nur Übungsdaten, Struktur reproduzierbar).
+3. **`DS_KONTAKT` befüllen** (aus 04.10-02; Konstante oben in index.html):
+   Verantwortlicher + DSB-Kontakt vor Echtbetrieb eintragen — bis dahin
+   zeigen beide Abschnitte gekennzeichnete Platzhalter.
+4. **Push/Deploy:** Wellen 1–2 der Phase 4.10 sind gepusht/deployt (bis
+   6a1ca2c, App live v0.23.1); die Statusführungs-Commits dieses Plans gehen
+   mit dem Plan-Abschluss-Push hoch.
+5. **Live-Test-Punkte aus 4.9 weiterhin offen:** Browser-Test der
+   Leitungs-Seite (URL siehe lokale `LEITUNG-URL.md`): MasterToken-Login,
+   Code-Sperre-Roundtrip, Protokoll-Abruf inkl. governance_log-Eintrag,
+   Frist-Verlängerung; iPhone-Test v0.23.0/v0.23.1: Update-Banner,
+   Abschluss-Strecke (72-h-Texte), Sperr-Test, neu: Datenschutz-Ansicht in
+   den Hilfestellungen.
+6. **DSB-Gespräch ist der nächste reale Schritt** — Briefing (md+html, intern)
+   ist auf dem Stand des Live-Systems (72 h, Logs 12 Monate, v0.23.1) und
+   kann unverändert mitgenommen werden.
 
 ---
 
