@@ -4,8 +4,7 @@
 > Feedback (v0.4.0–v0.15.0, siehe Phase 4.5), Feature-/Schulungs-Arbeit im
 > Test-/Härtungsfenster (v0.16–v0.19.5), Datenschutz-Härtung (Phase 4.8,
 > v0.19.9–v0.22.0) und Governance-Oberfläche (Phase 4.9, v0.23.0).
-> App live auf **v0.23.0** *(Push/Deploy der Phase-4.9-Commits ausstehend —
-> bis dahin liefert das Feld v0.22.0)*.
+> App live auf **v0.23.0** (Phase-4.9-Commits gepusht/deployt 2026-06-11).
 > Nächster realer Schritt: **DSB-Gespräch** (`docs/DSB-BRIEFING.md`) → es bestimmt,
 > was Phase 5/6 konkret brauchen.
 >
