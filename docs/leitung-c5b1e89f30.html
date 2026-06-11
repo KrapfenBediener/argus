@@ -343,7 +343,7 @@ async function loadZugaenge(){
     if(pr.error){ _zugErr=pr.error.message||'Präsidien nicht lesbar'; }
     else{
       _praes=pr.data||[];
-      var tk=await cl.from('access_tokens').select('short_code,label,is_master,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id');
+      var tk=await cl.from('access_tokens').select('short_code,label,is_master,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer');
       if(tk.error){ _zugErr=tk.error.message||'Zugänge nicht lesbar'; }
       else{ _tokens=tk.data||[]; }
     }
@@ -352,6 +352,7 @@ async function loadZugaenge(){
 }
 
 function tokenArt(t){
+  if(t.observer) return 'Beobachter (FLZ)';
   if(t.is_master) return 'MasterToken';
   if(t.single_use) return 'Einmalig';
   if(t.temporary) return '24 h';
@@ -410,6 +411,7 @@ function secZugaenge(){
     h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="perm">Dauerhaft-Link</button>';
     h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="temp">24-h-Link</button>';
     h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
+    h+='<button class="btn ghost" data-action="mkobserver" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Beobachter-Zugang (FLZ)</button>';
     h+='</div>';
     h+= list.length ? tokenRows(list) : '<div class="hint">Noch keine Codes für dieses Präsidium.</div>';
     h+='</div>';
@@ -423,7 +425,30 @@ function secZugaenge(){
   }
   h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen".</p>';
   h+='<p class="hint">Gesperrte Codes wirken am Feldgerät beim nächsten Start bzw. bei Wiederverbindung (ab App-Version 0.23). Geräte mit älterer App-Version verlieren den Zugang, sobald ihre Anmeldung abläuft.</p>';
+  h+='<p class="hint">„Beobachter-Zugang (FLZ)" = read-only Lageansicht mit anonymen Übersichtszahlen — funktioniert NICHT in der Feld-App. Verteilungs-Disziplin: Code nur an die zuständige FLZ ausgeben, die Adresse der Lageansicht separat übermitteln. Sperrung wirkt beim nächsten Login, spätestens nach 24 h.</p>';
   return h;
+}
+
+/* Beobachter-Zugang (FLZ, Phase 4.12): vorhandenen aktiven Beobachter-Code des
+ * Präsidiums wiederverwenden, sonst neu anlegen. Bewusst NUR der CODE in die
+ * Zwischenablage — die Adresse der Lageansicht wird hier NICHT konstruiert
+ * (D-06 analog: ihr Name gehört nicht in diese committete Datei). */
+async function makeObserver(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var sc=null;
+  var rows=(_tokens||[]).filter(function(t){
+    return t.praesidium_id===pid && t.observer && !t.revoked;
+  });
+  if(rows.length && rows[0].short_code){
+    sc=rows[0].short_code;
+  }else{
+    var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,observer:true,label:pname+' FLZ-Beobachter',short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
+    if(ins.error||!ins.data){ toast('Konnte Beobachter-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
+    sc=ins.data.short_code;
+  }
+  try{ await navigator.clipboard.writeText(sc); toast('Beobachter-Code kopiert ✓ — Adresse der Lageansicht separat übermitteln'); }
+  catch(e){ await promptModal('Beobachter-Code (FLZ) — '+pname+' (kopieren; Adresse der Lageansicht separat übermitteln):', sc); }
+  loadZugaenge();
 }
 
 /* Link erstellen (Portierung adminlink-Handler der Feld-App):
@@ -440,7 +465,7 @@ async function makeLink(pid, pname, kind){
   }else{
     var wantTemp=(kind==='temp');
     var rows=(_tokens||[]).filter(function(t){
-      return t.praesidium_id===pid && !t.single_use && !t.is_master && !t.revoked && !!t.temporary===wantTemp;
+      return t.praesidium_id===pid && !t.single_use && !t.is_master && !t.observer && !t.revoked && !!t.temporary===wantTemp;
     });
     if(rows.length && rows[0].short_code){
       sc=rows[0].short_code;
@@ -887,6 +912,10 @@ document.addEventListener('click', async function(e){
   if(a==='zugreload'){ loadZugaenge(); return; }
   if(a==='mklink'){
     await makeLink(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'', el.getAttribute('data-kind'));
+    return;
+  }
+  if(a==='mkobserver'){
+    await makeObserver(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
     return;
   }
   if(a==='togglerevoke'){
