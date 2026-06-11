@@ -1,11 +1,12 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **IN AUSFÜHRUNG** (Wave 1+2
-  ✅ 2026-06-11: Migration 0003 live, Leitungs-Oberfläche gebaut, Feld-App
-  v0.23.0 — noch nicht gepusht; Wave 3 = Plan 04 bereit).
-  4 Pläne in 3 Wellen (geplant 2026-06-10, Checker bestanden, Commit 9b804bd).
-  Phase 5 bleibt aufgeschoben. **App live: v0.22.0** (Stand 2026-06-10).
+- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **ABGESCHLOSSEN 2026-06-11**
+  (alle 4 Pläne: Migration 0003 live, Leitungs-Oberfläche, Feld-App v0.23.0,
+  Doku/Statusführung). **App live: v0.23.0** — Push/Deploy der Phase-Commits
+  ausstehend (macht der Orchestrator nach dem finalen Gate); bis dahin liefert
+  das Feld v0.22.0. Nächster realer Schritt: **DSB-Gespräch** → bestimmt
+  Phase 5/6/7. Phase 5 bleibt aufgeschoben.
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
@@ -21,6 +22,7 @@
 | 3 | Mehrgeräte-Features verdrahten | ✅ 2026-06-03 |
 | 4 | Serverseitige Absicherung (JWT + RLS) | ✅ 2026-06-03 |
 | 4.8 | Datenschutz-Härtung (T8, T2, T1, T3) | ✅ 2026-06-10 |
+| 4.9 | Governance-Oberfläche (Einsatzprotokoll-Modell, Leitungs-Seite, Code-Sperre) | ✅ 2026-06-11 |
 
 ---
 
@@ -247,7 +249,13 @@ gitignored — Repo ist public.*
 
 ---
 
-## Phase 4.9 — Governance-Oberfläche (IN AUSFÜHRUNG)
+## Phase 4.9 — Governance-Oberfläche (ABGESCHLOSSEN 2026-06-11, v0.23.0)
+
+**Planung:** 4 Pläne in 3 Wellen (geplant 2026-06-10, Checker bestanden,
+Commit 9b804bd). Kern: Einsatzprotokoll-Modell (Owner-Entscheid 2026-06-10) —
+einheitliche 72-h-Grundfrist, Fotos hart ohne Verlängerung, jeder
+Protokoll-Abruf protokolliert, separate Desktop-Leitungs-Oberfläche,
+Code-Sperre (`revoked`), Governance-Rückbau in der Feld-App.
 
 **Ausführungsstand (Welle 1):**
 - **04.9-01 ✅ (2026-06-11):** Migration `0003_phase49_einsatzprotokoll.sql`
@@ -322,6 +330,45 @@ gitignored — Repo ist public.*
 - **Offener Owner-Punkt (04.9-03):** Live-Verifikation am echten iPhone —
   Update-Banner v0.23.0, Abschluss-Strecke (72-h-Texte), Sperr-Test
   (Code sperren → Gerät meldet sich beim Start/Reconnect ab).
+
+**Ausführungsstand (Welle 3 — Phasenabschluss):**
+- **04.9-04 ✅ (2026-06-11):** Doku/Statusführung (D-05) — interne
+  Datenschutz-Dokumente (`05-LOESCHKONZEPT.md`, `DATENSCHUTZ-SPEC.md`,
+  `08-MASSNAHMENPLAN.md`; alle gitignored, NUR lokal editiert, nicht
+  committet) auf das Einsatzprotokoll-Modell nachgezogen: einheitliche
+  72-h-Grundfrist statt 14/30 Tage (alte Fristen als „überholt" markiert),
+  Fotos 72 h hart ohne Verlängerung, neuer Abschnitt „Einsatzprotokoll-Modell
+  (Owner-Entscheid 2026-06-10)" im Löschkonzept, Abschnitt 2a auf
+  Protokoll-Frist (`purge_after`, RPC `argus_extend_protokoll_frist`)
+  umgeschrieben, Abweichungsvermerke an T1/T2 der SPEC (Datum + „Phase 4.9"),
+  Maßnahmenplan synchron (Fristen, Governance/Leitungs-Oberfläche,
+  Code-Sperre). ROADMAP/STATE finalisiert. Details:
+  `.planning/phases/04.9-governance-oberflaeche/04.9-04-SUMMARY.md`.
+- **D-06-Phasen-Abschluss-Gate bestanden:** `git grep` über alle getrackten
+  Dateien (Muster des Leitungs-Seiten-Dateinamens) → 0 Treffer; der konkrete
+  Name steht ausschließlich in der untracked, gitignorten `LEITUNG-URL.md`.
+
+**→ Phase 4.9 abgeschlossen. Offene Owner-Punkte (gesammelt):**
+1. **Push/Deploy der Phase-4.9-Commits** (macht der Orchestrator nach dem
+   finalen Gate) — erst danach sind Leitungs-Seite und v0.23.0 im Feld.
+2. **PAT widerrufen** (aus 04.9-01; Supabase-Dashboard → Account → Access
+   Tokens) — zusammen mit ggf. noch offenen Alt-PATs (Phase 4 / 04.8-02).
+3. **Browser-Live-Test der Leitungs-Seite** (nach Deploy; URL siehe lokale
+   `LEITUNG-URL.md` — lokal sichern, einzige Fundstelle des Dateinamens):
+   MasterToken-Login, Code-Sperre-Roundtrip, Protokoll-Abruf inkl.
+   governance_log-Eintrag, Frist-Verlängerung.
+4. **iPhone-Live-Test v0.23.0** (nach Deploy): Update-Banner, Abschluss-Strecke
+   (72-h-Texte, Typ-Wahl ohne Fristen), Sperr-Test (Code über die
+   Leitungs-Oberfläche sperren → Gerät meldet sich beim Start/Reconnect ab).
+5. **Bekannte, AKZEPTIERTE Übergangs-Abweichung:** Geräte auf v0.22.0 zeigen
+   beim Einsatz-Abschluss noch „Löschung nach 14/30 Tagen" an, der Server
+   löscht aber bereits nach **72 h** (FRÜHER als angezeigt). Erledigt sich,
+   sobald alle Geräte auf v0.23.0 aktualisiert sind — das UPDATE-Sheet
+   (UPDATE_v0.23.html) bittet ausdrücklich ums Update.
+6. **Beobachtung (aus 04.9-03):** die älteren `docs/UPDATE_*.html`-Sheets
+   (v0.17–v0.21) haben KEIN noindex-Meta (das neue v0.23-Sheet hat eines).
+   Owner-Entscheid offen: nachrüsten oder bewusst öffentlich lassen (sie sind
+   aus der App verlinkt).
 
 ---
 

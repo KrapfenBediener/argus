@@ -1,9 +1,11 @@
 # CCP-App (ARGUS) — Roadmap
 
-> **Stand: 2026-06-08** — Phase 4 abgeschlossen; danach Beta-Härtung aus Tester-
-> Feedback (v0.4.0–v0.15.0, siehe Phase 4.5) und anschließend Feature-/Schulungs-
-> Arbeit im Test-/Härtungsfenster (v0.16–v0.19.5, siehe „Härtungsfenster nach 4.5").
-> App live auf **v0.19.5**.
+> **Stand: 2026-06-11** — Phase 4 abgeschlossen; danach Beta-Härtung aus Tester-
+> Feedback (v0.4.0–v0.15.0, siehe Phase 4.5), Feature-/Schulungs-Arbeit im
+> Test-/Härtungsfenster (v0.16–v0.19.5), Datenschutz-Härtung (Phase 4.8,
+> v0.19.9–v0.22.0) und Governance-Oberfläche (Phase 4.9, v0.23.0).
+> App live auf **v0.23.0** *(Push/Deploy der Phase-4.9-Commits ausstehend —
+> bis dahin liefert das Feld v0.22.0)*.
 > Nächster realer Schritt: **DSB-Gespräch** (`docs/DSB-BRIEFING.md`) → es bestimmt,
 > was Phase 5/6 konkret brauchen.
 >
@@ -161,7 +163,7 @@ T1 (Schalter + Lebenszyklus + Governance-Panel), T3. Bewusst offen: Einsatz-Scha
 fürs Namensfeld (erst nach DSB-Votum), T4 Audit-Log (gesperrt bis DSB-Votum
 „JI-Regime"), Live-Verifikationen am echten Gerät (Governance-Panel, 72-h-Lauf).
 
-## Phase 4.9 — Governance-Oberfläche (Konsolidierung) ⬜
+## Phase 4.9 — Governance-Oberfläche (Konsolidierung) ✅ *(2026-06-11)*
 **Ziel:** Eine **eigene desktop-taugliche Admin-/Governance-Webseite** (gleiches
 Repo, gleiches Supabase-Backend, MasterToken-geschützt), die die heute verstreuten
 Leitungs-Funktionen an EINEM Ort bündelt — statt einer „Foto-Insel" in der Feld-App.
@@ -205,7 +207,7 @@ Mechanik aus 4.8):**
 - [x] 04.9-01-PLAN.md — Migration 0003: Einsatzprotokoll-RPCs, 72-h-Fristen, revoked-Flag, RLS-Härtung (Wave 1, PAT-Checkpoint) ✅ 2026-06-11
 - [x] 04.9-02-PLAN.md — Desktop-Leitungsseite: Login, Zugänge + Code-Sperre, Einsatzprotokolle, Protokoll, Phase-7-Sperrsektion (Wave 2) ✅ 2026-06-11
 - [x] 04.9-03-PLAN.md — Feld-App: Governance-Rückbau, Abschluss auf 72 h, revoked-Re-Check, Drehbuch, Release v0.23.0 + UPDATE-Sheet (Wave 2) ✅ 2026-06-11
-- [ ] 04.9-04-PLAN.md — Doku/Statusführung: Löschkonzept + SPEC lokal nachziehen (Owner-Entscheid 2026-06-10), ROADMAP/STATE (Wave 3)
+- [x] 04.9-04-PLAN.md — Doku/Statusführung: Löschkonzept + SPEC lokal nachgezogen (Owner-Entscheid 2026-06-10, unversioniert), ROADMAP/STATE (Wave 3) ✅ 2026-06-11
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
 **Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
@@ -248,15 +250,17 @@ einen erweiterten Testkreis und perspektivisch echten Einsatz.
 Oberfläche aus Phase 4.9 aufsetzt. Erst nach dem DSB-Gespräch umsetzbar — die
 Eckpfeiler (Regime, Identitäten, Protokoll-Form) entscheidet der DSB.
 
-> Die Desktop-Admin-Oberfläche, das Admin-Panel und die Foto-Governance sind
-> bereits in **Phase 4.9** gebaut. Phase 7 ergänzt dort nur noch die Inhalte,
-> die ohne DSB-Votum nicht festgelegt werden können.
+> Die Desktop-Leitungs-Oberfläche (Zugänge inkl. Code-Sperre, Einsatzprotokolle
+> mit protokolliertem Abruf, Protokoll-Ansicht) ist seit **Phase 4.9** gebaut
+> (✅ 2026-06-11, v0.23.0) — inkl. sichtbar gesperrter Sektion „Phase 7 · nach
+> DSB". Phase 7 ergänzt dort nur noch die Inhalte, die ohne DSB-Votum nicht
+> festgelegt werden können.
 
 - **Zwei-Ebenen-Modell:** Feld-Zugang bleibt pseudonym (Code, kein Login);
   Admin-/Rollen-Konten erhalten echte Identitäten (Supabase Auth,
   E-Mail / Magic-Link).
 - **Nutzerverzeichnis (Voll):** Präsidien zuweisen / aufschalten, Rollen verwalten
-  (die reine Code-Sperre kann bereits in 4.9 liegen).
+  (die reine Code-Sperre liegt seit 4.9 in der Leitungs-Oberfläche).
 - **RLS-Feinschliff** auf Basis der Phase-4-Grundlage.
 - **Audit-/Einsatzprotokoll (= T4 der DATENSCHUTZ-SPEC):** personenscharfes,
   zeitgestempeltes Verlaufsprotokoll (wer/wann/was/welcher CCP), append-only.
@@ -319,7 +323,7 @@ bewusst minimal halten, die „richtige" Lösung kommt mit nativ.
 |---|---|---|
 | Offline-Queue für Writes | Phase 1 | ✅ erledigt in Phase 4.5 (v0.4.0) |
 | Fotos → Supabase Storage | alt Phase 4 | offen — bei >50 Fotos / vor großem Rollout |
-| `revoked`-Flag UI | Phase 3 | in Phase 7 integriert |
+| `revoked`-Flag UI | Phase 3 | ✅ erledigt in Phase 4.9 (Code-Sperre in der Leitungs-Oberfläche + Re-Check am Gerät, v0.23.0) |
 | SW-Cache-Version automatisch bumpen | aktuell manuell | teilw. adressiert (`version.json`); Auto-Bump offen |
 | Laufnummern-Kollision bei gleichzeitigem Anlegen (2 Geräte) | Audit 06-04 | serverseitige Nummernvergabe — offen |
 | JWT-Refresh nur bei Start/`online` (lange Dauer-Sessions) | Audit 06-04 | offen, geringe Priorität |
