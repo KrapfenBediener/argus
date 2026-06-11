@@ -2,8 +2,9 @@
 
 - **Milestone:** Closed Beta V1 — läuft
 - **Aktuelle Phase:** 4.10 Datenschutz-Schlusspaket — **IN AUSFÜHRUNG**
-  (Welle 1 ✅ 2026-06-11: 04.10-01 Migration 0004 live; offen: T5 Transparenz
-  [v0.23.1, Welle 2], T6 Backup-Hygiene + interne Doku-Sync [Welle 3]).
+  (Welle 1 ✅ 2026-06-11: 04.10-01 Migration 0004 live; Welle 2 ✅ 2026-06-11:
+  04.10-02 T5 Datenschutzhinweis in der App, v0.23.1; offen: T6 Backup-Hygiene +
+  interne Doku-Sync [Welle 3]).
   Davor: Phase 4.9
   ✅ 2026-06-11, **deployt** — App live: v0.23.0. Nächster realer Schritt
   nach 4.10: **DSB-Gespräch** → bestimmt Phase 5/6/7.
@@ -393,6 +394,28 @@ Code-Sperre (`revoked`), Governance-Rückbau in der Feld-App.
 - **PAT widerrufen (Owner-Punkt):** der für 04.10-01 genutzte ephemere PAT ist
   noch aktiv → im Supabase-Dashboard (Account → Access Tokens) widerrufen —
   zusammen mit ggf. noch offenen Alt-PATs (Phase 4 / 04.8-02 / 04.9-01).
+
+**Ausführungsstand (Welle 2):**
+- **04.10-02 ✅ (2026-06-11, v0.23.1):** T5 Transparenz & Betroffenenrechte
+  (D-02) — In-App-Datenschutzhinweis als statische, offline verfügbare Ansicht
+  „Datenschutz" (View `vDatenschutz()`, Einstieg ghost-Button in den
+  Hilfestellungen, titles/Dispatch/back() verdrahtet): sechs Art.-13-Abschnitte
+  (Verantwortlicher, Zwecke, Datenarten, Fristen [72 h / Fotos hart /
+  Logs 12 Monate — seit 04.10-01 serverseitig wahr], Betroffenenrechte inkl.
+  Art.-15-Auskunft über den Einzelpatient-/Einsatz-Export, DSB-Kontakt).
+  Verantwortlicher/DSB zentral über die Platzhalter-Konstante `DS_KONTAKT`
+  pflegbar (Owner-Punkt: vor Echtbetrieb befüllen). Öffentlich-tauglich:
+  Negativ-Greps (§ 82 / Auftragsverarbeitung) = 0, kein Klarname im
+  View-Körper. Dazu D-05: noindex-Meta in den fünf Alt-UPDATE-Sheets
+  (v0.9–v0.21) nachgerüstet (alle 6 Sheets jetzt noindex) und Fußzeilen-Verweis
+  auf der Leitungs-Seite („Datenschutzhinweis: in der ARGUS-App unter
+  Hilfestellungen → Datenschutz."). Drehbuch: Hilfestellungen-Lektion nennt
+  den Datenschutzhinweis. Release v0.23.1 (SW v42, CHANGELOG, WHATS_NEW;
+  KEIN eigenes UPDATE-Sheet — Diskretions-Entscheid „klein"). JSC: Syntax OK
+  (index.html-Inline-Block + sw.js). D-06-Gate repo-weit grün (0 Treffer).
+  Details:
+  `.planning/phases/04.10-datenschutz-schlusspaket/04.10-02-SUMMARY.md`.
+  Commits d2aa15e · 18031e1 · b75f289.
 
 ---
 

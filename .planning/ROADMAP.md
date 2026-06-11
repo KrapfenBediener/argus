@@ -231,7 +231,7 @@ Aussage „technisch vollständig" vor dem DSB-Gespräch trägt. Klein und fokus
 
 **Pläne:** 3 Pläne in 3 Wellen (geplant 2026-06-11)
 - [x] 04.10-01-PLAN.md — Migration 0004: 12-Monats-Log-Löschung in argus_run_purge, live + Idempotenz-Beleg (Wave 1, PAT-Checkpoint) ✅ 2026-06-11
-- [ ] 04.10-02-PLAN.md — App: T5-Datenschutz-Ansicht (DS_KONTAKT-Platzhalter), noindex Alt-Sheets, Leitungs-Fußzeile, Drehbuch, Release v0.23.1 (Wave 2)
+- [x] 04.10-02-PLAN.md — App: T5-Datenschutz-Ansicht (DS_KONTAKT-Platzhalter), noindex Alt-Sheets, Leitungs-Fußzeile, Drehbuch, Release v0.23.1 (Wave 2) ✅ 2026-06-11
 - [ ] 04.10-03-PLAN.md — T6 BACKUP.md + Bestandsaufnahme, interne Doku-Sync (VVT/DSB-Briefing/SPEC/Maßnahmenplan), ROADMAP/STATE (Wave 3)
 
 ## Phase 5 — Produktionsinfrastruktur ⬜
