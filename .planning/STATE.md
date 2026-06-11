@@ -1,7 +1,10 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.10 Datenschutz-Schlusspaket — **ABGESCHLOSSEN
+- **Aktuelle Phase:** 4.11 Self-Hosting (T7) — **GEPLANT 2026-06-11, bereit
+  zur Ausführung** (2 Pläne, Checker PASS ohne Blocker, voll autonom — kein PAT).
+  Betriebsmodell-Entscheid M1: Polizei BW hostet selbst; Eigentümer-Instanz
+  bleibt Dev/Schulung. Danach: 4.12 FLZ Stufe a. Davor: 4.10 Datenschutz-Schlusspaket — **ABGESCHLOSSEN
   2026-06-11**. App live: **v0.23.1** (Wellen 1–2 gepusht/deployt bis 6a1ca2c).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4/T7 nach DSB-Votum).** Nächster realer Schritt: **DSB-Gespräch**
