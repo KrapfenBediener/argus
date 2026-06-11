@@ -112,3 +112,217 @@ einziger Code lässt sich einlösen. Details in Abschnitt 7.
 3. **Frische Instanz empfohlen.** Die Migrationen sind weitgehend idempotent
    (zweifaches Anwenden ist gefahrlos), aber als Aufbau-Pfad ist eine leere,
    frische Datenbank vorgesehen — keine Übernahme von Bestandsdaten.
+
+---
+
+## 5. Migrationen anwenden (Ein-Schritt-Apply)
+
+Alle fünf Dateien in Reihenfolge anwenden — die alphabetische Reihenfolge der
+Dateinamen IST die korrekte Reihenfolge:
+
+```bash
+for f in supabase/migrations/*.sql; do
+  psql "$DB_URL" -v ON_ERROR_STOP=1 -f "$f"
+done
+```
+
+Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
+gleiche Reihenfolge: `0000 → 0001 → 0002 → 0003 → 0004`.
+
+Hinweise:
+
+- `0002` richtet am Ende den `pg_cron`-Job ein. Der Block ist fehlertolerant:
+  fehlt `pg_cron`, läuft die Migration trotzdem durch und meldet nur eine
+  `NOTICE`. Danach prüfen: `select jobname, schedule from cron.job;` —
+  erwartet wird `argus_purge` mit `17 * * * *`. Fehlt der Eintrag, gilt der
+  Ersatzweg aus Abschnitt 3 (App-Start-Purge bzw. externer Scheduler).
+- Die Skripte sind weitgehend idempotent; ein versehentliches zweites Anwenden
+  ist gefahrlos. Trotzdem gilt: frische, leere Datenbank ist der vorgesehene
+  und getestete Pfad.
+
+## 6. Realtime-Publikation einrichten (steht NICHT in den Migrationen)
+
+Der Mehrgeräte-Live-Sync der Feld-App abonniert `postgres_changes` auf
+`public.patients` und `public.ccps`. Dafür müssen beide Tabellen Mitglied der
+Publikation `supabase_realtime` sein — dieser Schritt ist **bewusst nicht**
+Teil der Migrationsdateien und muss einmalig ausgeführt werden:
+
+```sql
+alter publication supabase_realtime add table public.patients;
+alter publication supabase_realtime add table public.ccps;
+```
+
+(Alternativ im Supabase Studio: Database → Publications → `supabase_realtime`
+→ beide Tabellen aktivieren.)
+
+Funktionsprüfung:
+
+```sql
+select * from pg_publication_tables where pubname = 'supabase_realtime';
+```
+
+Erwartung: zwei Zeilen (`public.patients`, `public.ccps`). Der Live-Beweis
+folgt im Smoke-Test (Abschnitt 10, Schritt 4).
+
+## 7. Vault-Secret `argus_jwt_secret` anlegen — **kritischster Schritt**
+
+Der Code-Exchange-RPC signiert Geräte-JWTs mit dem Secret, das er zur
+Laufzeit aus `vault.decrypted_secrets` unter dem Namen `argus_jwt_secret`
+liest. **Dieses Secret MUSS exakt dem JWT-Secret entsprechen, mit dem
+PostgREST (bzw. der Supabase-Stack) der Ziel-Instanz Tokens verifiziert** —
+beim Docker-Compose-Stack ist das der Wert `JWT_SECRET` aus der `.env`.
+
+Stimmen die Werte nicht überein, lehnt die API **alle** vom RPC ausgestellten
+JWTs ab (HTTP 401) — kein Code lässt sich einlösen, obwohl der RPC selbst
+fehlerfrei antwortet. Das ist der mit Abstand häufigste Aufbaufehler.
+
+Anlegen (SQL, einmalig):
+
+```sql
+select vault.create_secret('<JWT-Secret-der-Instanz>', 'argus_jwt_secret');
+```
+
+(Alternativ im Studio: Settings → Vault → New Secret.)
+
+Prüfen:
+
+```sql
+select name from vault.decrypted_secrets where name = 'argus_jwt_secret';
+```
+
+Erwartung: genau eine Zeile. Den Klartext-Wert nirgends versionieren oder
+notieren — er ist ein echtes Geheimnis (anders als der öffentliche anon-Key).
+
+## 8. Frische Zugangsdaten erzeugen — NIEMALS alte übernehmen
+
+Auf der neuen Instanz werden **ausschließlich neue** Präsidien, Einsatz-Codes
+und ein **neuer** MasterToken angelegt. Codes oder Tokens aus anderen
+Umgebungen (Schulung, Demo, frühere Instanzen) dürfen **nicht** übernommen
+werden — sie gelten als kompromittiert.
+
+Code-Konvention: 8 Zeichen im Format `XXXX-XXXX`, Großbuchstaben/Ziffern;
+empfohlen ist ein verwechslungssicheres Alphabet ohne `0/O/1/I`
+(z. B. `A–Z ohne I,O` plus `2–9`). Die Spalte `short_code` trägt den Code,
+`token` ist ein interner Zufallswert (Primärschlüssel).
+
+```sql
+-- 1) Präsidium anlegen — die zurückgegebene UUID unten einsetzen
+insert into public.praesidien (name)
+values ('<Name des Präsidiums>')
+returning id;
+
+-- 2) Dauerhafter Einsatz-Code (beliebig oft einlösbar, JWT-Laufzeit 30 Tage)
+insert into public.access_tokens (token, short_code, praesidium_id, label)
+values (encode(extensions.gen_random_bytes(16), 'hex'),
+        '<XXXX-XXXX>', '<praesidium-uuid>', 'Dauercode <Bezeichnung>');
+
+-- 3) 24-h-Code (JWT verfällt nach 24 Stunden)
+insert into public.access_tokens (token, short_code, praesidium_id, label, temporary, ttl_hours)
+values (encode(extensions.gen_random_bytes(16), 'hex'),
+        '<XXXX-XXXX>', '<praesidium-uuid>', '24h-Code <Bezeichnung>', true, 24);
+
+-- 4) Einmal-Code (nach der ersten Einlösung verbraucht)
+insert into public.access_tokens (token, short_code, praesidium_id, label, single_use)
+values (encode(extensions.gen_random_bytes(16), 'hex'),
+        '<XXXX-XXXX>', '<praesidium-uuid>', 'Einmal-Code <Bezeichnung>', true);
+
+-- 5) NEUER MasterToken (volle Sicht über alle Präsidien + Leitungs-Zugang)
+insert into public.access_tokens (token, short_code, is_master, label)
+values (encode(extensions.gen_random_bytes(16), 'hex'),
+        '<XXXX-XXXX>', true, 'MasterToken');
+```
+
+Codes können später jederzeit über die Leitungs-Oberfläche gesperrt werden
+(`revoked`-Flag); gesperrte Geräte melden sich beim nächsten Start/Reconnect
+selbst ab.
+
+## 9. App auf die neue Instanz zeigen (config.js) + Hosting
+
+Der **einzige Eingriff in die App** ist das Editieren von `config.js` im
+Projektroot — keine Änderung an `index.html`, `sw.js` oder anderen Dateien:
+
+```js
+window.ARGUS_CONFIG = {
+  url: 'https://<api-host>',            // Basis-URL der eigenen Instanz
+  anonKey: '<anon-key-der-instanz>'     // öffentlicher anon-Key der Instanz
+};
+```
+
+Beide Werte sind öffentlich (sie werden an jeden Browser ausgeliefert) —
+**niemals** Service-Keys oder das JWT-Secret hier eintragen.
+
+Hosting:
+
+- Alle App-Dateien (`index.html`, `sw.js`, `config.js`, `version.json`,
+  `manifest.webmanifest`, `vendor/`, `fonts/`, `docs/` …) über einen
+  beliebigen **statischen HTTPS-Webserver/CDN** ausliefern — kein Build,
+  kein Application-Server.
+- Getrennte Origins für App und API beachten (Abschnitt 4).
+- **Leitungs-Seite:** liegt unter `docs/leitung-<zufallssuffix>.html`. Der
+  Betreiber vergibt einen **eigenen, zufälligen** Dateinamen (z. B. 12+
+  zufällige Hex-Zeichen) und teilt die URL nur dem Leitungs-Personenkreis
+  mit. Der Name ist eine Auffindbarkeits-Hürde — die eigentliche
+  Zugangskontrolle ist der MasterToken-Login der Seite.
+
+## 10. Smoke-Test-Drehbuch (Abnahme der Instanz)
+
+Benötigt: zwei Geräte/Browser, ein Einsatz-Code, der MasterToken, SQL-Zugang.
+
+1. **Code einlösen:** App-URL auf Gerät 1 öffnen, Einsatz-Code eingeben.
+   → *Erwartung:* Präsidium wird freigeschaltet, Statusanzeige grün
+   (verbunden). Schlägt dies mit „Ungültiger Code" fehl, obwohl der Code
+   existiert → Abschnitt 8 prüfen; bei Verbindungs-/401-Fehlern → Abschnitt 7
+   (JWT-Secret-Abgleich).
+2. **CCP anlegen:** Auf Gerät 1 einen CCP eröffnen (Bediener-Kürzel setzen).
+   → *Erwartung:* CCP erscheint mit Kennung `A`.
+3. **Patient erfassen:** Patient mit Kategorie (z. B. T1) und Vitalwerten
+   anlegen. → *Erwartung:* Patient erscheint in der Übersicht mit laufender
+   Nummer 1.
+4. **Live-Sync (Realtime-Prüfung):** Auf Gerät 2 denselben Code einlösen und
+   dem CCP beitreten. → *Erwartung:* Der Patient von Gerät 1 ist sichtbar;
+   eine Änderung auf Gerät 1 (z. B. Kategorie-Wechsel) erscheint auf Gerät 2
+   **binnen Sekunden ohne Neuladen**. Erscheint sie erst nach Neuladen →
+   Realtime-Publikation fehlt (Abschnitt 6).
+5. **Einsatz-Abschluss:** Auf Gerät 1 den Einsatz abschließen (Typ Übung oder
+   Einsatz). → *Erwartung:* Hinweis auf die 72-h-Löschfrist; beide Geräte
+   bereinigen ihre lokale Ansicht.
+6. **Leitungs-Seite:** Die Leitungs-URL öffnen, mit dem MasterToken anmelden,
+   unter „Einsatzprotokolle" den abgeschlossenen Einsatz mit Kürzel abrufen.
+   → *Erwartung:* Protokoll wird angezeigt; der Abruf selbst erscheint
+   anschließend im Bereich „Protokoll" (jeder Abruf wird festgehalten).
+7. **Purge-Lauf prüfen:** Per SQL `select public.argus_run_purge();`
+   ausführen. → *Erwartung:* JSON mit Zählern (`foto`, `frist`, `inaktiv`,
+   `log_retention`) — bei frischer Instanz überall 0. Zusätzlich
+   `select jobname, schedule from cron.job;` → Eintrag `argus_purge`
+   (`17 * * * *`); fehlt er, Ersatzweg aus Abschnitt 3 dokumentiert betreiben.
+8. **Negativ-Prüfungen (Pflicht):** REST-Abfragen mit dem anon-Key **ohne**
+   eingelöstes JWT:
+
+   ```bash
+   curl -s "https://<api-host>/rest/v1/patients?select=id" \
+     -H "apikey: <anon-key>" -H "Authorization: Bearer <anon-key>"
+   curl -s "https://<api-host>/rest/v1/access_tokens?select=short_code" \
+     -H "apikey: <anon-key>" -H "Authorization: Bearer <anon-key>"
+   ```
+
+   → *Erwartung:* beide liefern `[]` (leere Liste) — ohne Geräte-JWT sind
+   weder Patientendaten noch Zugangs-Codes lesbar. Liefert die zweite Abfrage
+   Codes zurück, ist die Instanz FALSCH aufgebaut (Migration 0001 fehlt) —
+   Betrieb stoppen.
+
+Alle acht Schritte bestanden → die Instanz ist abgenommen.
+
+## 11. Betriebsvorgaben für Lizenznehmer (verbindlich)
+
+1. **Nur verwaltete Dienstgeräte.** ARGUS wird ausschließlich auf per **MDM**
+   verwalteten Dienstgeräten mit erzwungenem Gerätesperrcode betrieben —
+   keine Privatgeräte.
+2. **Kürzel-Liste je Einsatz.** Die Bediener-Kürzel sind pseudonym; die
+   Zuordnung Kürzel → Person führt der Einsatzleiter je Einsatz als Liste
+   (außerhalb von ARGUS). Ohne diese Liste sind Protokoll-Einträge später
+   nicht zuordenbar.
+3. **Einsatz-Codes nur mündlich/Funk.** Codes werden ausschließlich mündlich
+   oder über Funk weitergegeben — niemals schriftlich verteilen, nicht per
+   Messenger/E-Mail versenden, nicht aushängen. Bei Verdacht auf
+   Kompromittierung: Code über die Leitungs-Oberfläche sperren und neuen
+   Code ausgeben.
