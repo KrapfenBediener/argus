@@ -1,8 +1,10 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.8 Datenschutz-Härtung **abgeschlossen** (2026-06-10) —
-  Phase 5 bewusst aufgeschoben, bis die App ausgiebiger getestet ist.
+- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **GEPLANT** (2026-06-10,
+  4 Pläne in 3 Wellen, Checker-Durchlauf bestanden: 1 BLOCKER + 6 MINOR
+  eingearbeitet, Commit 9b804bd). Bereit zur Ausführung; Wave 1 braucht
+  einen ephemeren Supabase-PAT (Checkpoint). Phase 5 bleibt aufgeschoben.
   **App live: v0.22.0** (Stand 2026-06-10).
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
