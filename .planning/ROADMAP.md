@@ -236,25 +236,60 @@ Aussage „technisch vollständig" vor dem DSB-Gespräch trägt. Klein und fokus
 - [x] 04.10-02-PLAN.md — App: T5-Datenschutz-Ansicht (DS_KONTAKT-Platzhalter), noindex Alt-Sheets, Leitungs-Fußzeile, Drehbuch, Release v0.23.1 (Wave 2) ✅ 2026-06-11
 - [x] 04.10-03-PLAN.md — T6 BACKUP.md + Bestandsaufnahme, interne Doku-Sync (VVT/DSB-Briefing/SPEC/Maßnahmenplan), ROADMAP/STATE (Wave 3) ✅ 2026-06-11
 
-## Phase 5 — Produktionsinfrastruktur ⬜
-**Ziel:** Die App läuft auf einer stabilen, gesicherten Infrastruktur —
-kein Free-Tier, kein Auto-Pause, kein geteiltes Supabase-Projekt für Beta
-und Produktion.
+## Betriebsmodell-Entscheid (Owner, 2026-06-11): M1 — Eigenbetrieb der Polizei
+ARGUS wird als **Software lizenziert**; das **Hosting läuft auf Infrastruktur der
+Polizei BW/BITBW** (M1), NICHT über den Eigentümer oder dessen Supabase-Instanz.
+Die Polizei stellt den Verantwortlichen. Konsequenzen:
+- Eigentümer = reiner Lizenzgeber **ohne Datenzugriff** (kein § 82-AV-Vertrag nötig,
+  Supabase-Sub-AV/DPA und Drittland-Frage entfallen für den Echtbetrieb).
+- Die Eigentümer-Instanz (`sehuosjyjmrpzcqrelej`) bleibt dauerhaft **Entwicklungs-
+  und Schulungsumgebung mit Fiktivdaten**.
+- **T7 (Self-Hosting-Fähigkeit) wird der Produktweg** → Phase 4.11.
+- Phase 5 (alt: „Supabase Pro + Prod-Projekt") ist damit obsolet und wurde zu
+  „Übergabe-Paket" umgeschnitten.
 
-- **Supabase Pro-Tier** für das Produktionsprojekt (~25 $/Monat):
-  kein Auto-Pause, höhere Limits, tägliches Backup.
-- **Separates Supabase-Produktionsprojekt** mit sauberer Datenbasis,
-  frischen Tokens, Prod-RLS. Beta-Projekt bleibt für Tests.
-- **Production-Repo-Schnitt:** Neues GitHub-Repo (privat), Git-History
-  erhalten, alte URL + altes Supabase einfrieren. Tester installieren
-  PWA neu.
-- **Daten-Hygiene beim Schnitt:** verwaiste CCPs (`praesidium_id = NULL`)
-  bereinigen; alte Codes nicht übernehmen → frische Codes inkl. neuem MasterToken
-  (der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
-- **Backup-/Löschkonzept** dokumentieren und testen (DSGVO).
-- ✅ **Vorbereitet (2026-06-04):** vollständiges DB-Schema als Code
-  (`supabase/migrations/0000_base_schema.sql` + `0001_…`), Aufbau-Runbook
-  `docs/PROD-SETUP.md` → Prod-Projekt wird zum Ein-Schritt-Apply.
+## Phase 4.11 — Self-Hosting-Fähigkeit (T7, Übergabefähigkeit) ⬜
+**Ziel:** Eine Polizei-/BITBW-Instanz kann ARGUS ohne Codeänderung betreiben —
+die App läuft gegen eine fremde Supabase-/Postgres-Instanz nur durch Austausch
+einer zentralen Konfiguration.
+
+- **Backend-Endpunkt herauslösen:** Supabase-URL + Anon-Key aus `index.html`
+  (und der Leitungs-Seite) in eine zentrale, build-freie Konfiguration
+  (z. B. `config.js`); PWA-/Offline-Verhalten unverändert (Precache!).
+- **`docs/SELF-HOSTING.md`:** Aufbau-Anleitung — Supabase self-hosted (Docker
+  Compose) oder verwaltetes Postgres; Migrationen `0000–0004` als
+  Ein-Schritt-Apply; JWT-Secret/Vault/pgjwt/pg_cron-Einrichtung;
+  Smoke-Test-Drehbuch. Von einer fachkundigen Person ohne Projektkenntnis
+  nachvollziehbar.
+- **Kompatibilitätsprüfung:** welche Server-Abhängigkeiten (pgjwt, Vault,
+  pg_cron, Realtime) die Zielumgebung wie abbildet — dokumentieren.
+- **Betriebsvorgaben für Lizenznehmer** in die Anleitung: nur verwaltete
+  Dienstgeräte (MDM, Gerätesperrcode), Kürzel-Liste je Einsatz beim
+  Einsatzleiter, Einsatz-Codes nur mündlich/Funk.
+- **Akzeptanz (aus SPEC T7):** App läuft unverändert gegen eine zweite, frische
+  Instanz nur durch Config-Tausch; Anleitung extern nachvollziehbar.
+
+## Phase 4.12 — FLZ-Lageansicht Stufe a (separate Beobachter-Seite) ⬜
+**Ziel:** Anonyme Aggregat-Zahlen (Patienten je Kategorie/CCP) für FLZ/ILS als
+**eigene** read-only Desktop-Seite (eigener Einstieg, Beobachter-Token,
+`is_observer`-JWT gem. Sicherheits-Design in Phase 8) — bewusst getrennt vom
+Governance-Panel (anderes Vertrauensniveau, anderer Verteilungsradius).
+Stufe b (pro-Patient, pseudonym) bleibt DSB-gated in Phase 8.
+Details/Sicherheits-Design: siehe Phase 8. Geplant nach 4.11.
+
+## Phase 5 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
+**Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
+M1-Entscheid (2026-06-11); Detailplanung NACH dem DSB-Gespräch.
+
+- Übergabe-/Deployment-Paket auf Basis von `docs/SELF-HOSTING.md` (Phase 4.11)
+  + `docs/PROD-SETUP.md` (vorhanden, anzupassen).
+- **Repo-Schnitt** (privates Repo, Git-History, Lizenz-/IP-Schutz) bleibt
+  relevant — unabhängig vom Hosting.
+- Daten-Hygiene der Dev-Instanz (verwaiste CCPs, frische Codes inkl. neuem
+  MasterToken — der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
+- Backup-/Löschkonzept im **Betrieb der Polizei** = Sache des Verantwortlichen;
+  ARGUS liefert die technische Grundlage (Migrationen, Purge-Jobs, Doku).
+- ~~Supabase Pro-Tier / separates Prod-Projekt beim Eigentümer~~ — entfallen (M1).
 
 ## Phase 6 — Betriebsbereitschaft & Open Beta ⬜
 **Ziel:** Die App ist legal, organisatorisch und dokumentarisch bereit für
