@@ -1,0 +1,334 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · Lage</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/png" href="../ARGUS_Icon.png">
+<style>
+  /* Selbst gehostete Schriften (kein externes CDN) */
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;font-size:14px}
+  button{font-family:var(--sans);cursor:pointer;border:0}
+  input{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
+  input:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
+  .mono{font-family:var(--mono)}
+  /* Topbar (Schiefer = Chrome) */
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;position:sticky;top:0;z-index:50;flex-wrap:wrap}
+  .topbar .brand{font-weight:700;letter-spacing:1px;font-size:16px}
+  .topbar .brand small{font-weight:400;letter-spacing:0;opacity:.75;margin-left:8px;font-size:12px}
+  .topbar .right{display:flex;align-items:center;gap:14px}
+  .topbar button{background:#ffffff1d;color:#fff;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600}
+  .topbar button:hover{background:#ffffff30}
+  /* Verbindungs-Status */
+  .stat{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#fff;opacity:.92}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--t3);flex:0 0 auto}
+  .dot.off{background:var(--t1)}
+  .main{padding:20px 22px 60px;max-width:1100px;margin:0 auto;width:100%}
+  .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:12px}
+  .hint{font-size:12px;color:var(--mut)}
+  /* CCP-Karten */
+  .ccphead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+  .ccphead .kn{font-weight:700;font-size:16px}
+  .ccphead .ort{color:var(--mut);font-size:13px}
+  .cats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+  .cat{border-radius:10px;padding:10px 8px;text-align:center;color:#fff}
+  .cat .nm{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;opacity:.9}
+  .cat .ct{font-family:var(--mono);font-weight:600;font-size:36px;line-height:1.15}
+  .cat.c1{background:var(--t1)} .cat.c2{background:var(--t2);color:#16181a}
+  .cat.c3{background:var(--t3)} .cat.c5{background:var(--t5)}
+  .cat.cg{background:var(--surf2);color:var(--mut);border:1px solid var(--line)}
+  .subrow{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:13px}
+  .subrow b{font-family:var(--mono)}
+  .subrow .pr{color:var(--prio);font-weight:600}
+  .subrow .rd{color:var(--ready);font-weight:600}
+  .subrow .ts{color:var(--mut);margin-left:auto;font-size:12px}
+  /* Summenzeile */
+  .sumcard{border-width:2px;border-color:var(--acc)}
+  .sumcard .ccphead .kn{font-size:15px;text-transform:uppercase;letter-spacing:.5px}
+  /* Fehlerbanner */
+  .errbar{border:1px solid var(--t1);border-left:5px solid var(--t1);border-radius:11px;background:#fff;padding:12px 14px;margin-bottom:12px;color:var(--t1);font-weight:600;font-size:13px}
+  /* Login */
+  .loginwrap{min-height:calc(100vh - 46px);display:flex;align-items:flex-start;justify-content:center;padding:60px 14px}
+  .loginbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 24px;max-width:380px;width:100%;box-shadow:0 6px 22px rgba(0,0,0,.06)}
+  .loginbox h1{font-size:18px;margin:0 0 4px}
+  .arg-logo{width:52px;height:52px;border-radius:13px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin:0 auto 14px;letter-spacing:1px}
+  .fieldlab{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;font-weight:600}
+  .lerr{color:var(--t1);font-size:12.5px;font-weight:600;margin-top:10px;min-height:18px}
+  .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
+  .btn:hover{filter:brightness(1.25)}
+  .btn[disabled]{opacity:.5;cursor:default}
+  @media(max-width:680px){
+    .cats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+    .cat .ct{font-size:26px}
+    .main{padding:14px}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">ARGUS<small id="pname">· Lage</small></span>
+  <span class="right">
+    <span class="stat" id="statwrap" style="display:none"><span class="dot" id="statdot"></span><span id="stattxt"></span></span>
+    <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
+  </span>
+</div>
+<div id="app"></div>
+<div class="hint" style="text-align:center;padding:14px 16px 18px">Anonyme Übersichtszahlen — keine Personendaten.</div>
+<script src="../config.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+ * ARGUS · Lage — read-only Beobachter-Seite für FLZ/ILS (Stufe a)
+ * Anonyme Aggregat-Zahlen je aktivem CCP eines Präsidiums.
+ * Zugang nur mit Beobachter-Code (Observer-JWT, Migration 0005);
+ * Zahlen kommen ausschließlich aus dem Aggregat-RPC argus_lage —
+ * die Seite kennt keine Patientendaten. Sitzung bewusst flüchtig
+ * (sessionStorage); Pull/Polling alle 20 s, kein Realtime.
+ * ============================================================ */
+
+/* Backend-Konfiguration zentral aus ../config.js (Phase 4.11, D-01).
+ * Kein supabase.js nötig: die Seite spricht genau zwei RPCs per fetch. */
+var _cfg = window.ARGUS_CONFIG || null;
+var _configError = !(_cfg && typeof _cfg.url==='string' && _cfg.url.indexOf('https://')===0 && _cfg.anonKey);
+var SUPA_URL = _configError ? '' : _cfg.url;
+var SUPA_KEY = _configError ? '' : _cfg.anonKey;
+
+var POLL_MS = 20000;          /* 20 s — Diskretionsentscheid (Spanne 15–30 s) */
+var _timer = null;
+var _data = null;             /* letzte erfolgreiche argus_lage-Antwort */
+var _lastOkAt = null;         /* ms des letzten erfolgreichen Polls */
+var _offline = false;
+var _polling = false;
+
+/* ── Hilfsfunktionen ─────────────────────────────────────────── */
+function $(id){ return document.getElementById(id); }
+function nowMs(){ return Date.now(); }
+/* HTML-Escaping JEDES dynamischen Werts — kennung/ort kommen von Feld-Geräten. */
+function esc(s){
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtClock(ms){
+  return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fmtHM(ms){
+  return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ── Sitzung: sessionStorage, bewusst flüchtig ──────────────────
+ * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname.
+ * Tab zu = Sitzung weg; abgelaufen = zurück zum Login. */
+function sessionJwt(){
+  var jwt=sessionStorage.getItem('arguslg_jwt');
+  var exp=parseInt(sessionStorage.getItem('arguslg_jwt_exp')||'0',10);
+  if(!jwt||!exp) return null;
+  if(exp<=nowMs()){ sessionStorage.clear(); return null; }
+  return jwt;
+}
+function doLogout(msg){
+  sessionStorage.clear();
+  if(_timer){ clearInterval(_timer); _timer=null; }
+  _data=null; _lastOkAt=null; _offline=false;
+  render();
+  if(msg) setLoginError(msg);
+}
+
+/* ── Login: Beobachter-Code → Observer-JWT ──────────────────────
+ * rpc/argus_exchange_observer_code weist MasterToken und normale
+ * Feld-Codes serverseitig ab ('Kein Beobachter-Code'). */
+async function doLogin(raw){
+  if(_configError){ setLoginError('Konfiguration fehlt (config.js) — kein Backend verbunden.'); return; }
+  var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
+  if(clean.length<8){ setLoginError('Bitte vollständigen Beobachter-Code eingeben.'); return; }
+  setLoginError('');
+  var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_observer_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data=await resp.json();   /* ungültiger Code = HTTP 200 + {error:…} */
+    if(!data || !data.jwt){
+      setLoginError(data && data.error ? data.error : 'Ungültiger oder verbrauchter Code.');
+      return;
+    }
+    sessionStorage.setItem('arguslg_jwt', data.jwt);
+    sessionStorage.setItem('arguslg_jwt_exp', String(data.exp*1000));
+    sessionStorage.setItem('arguslg_pname', data.praesidium_name||'');
+    render();
+    startPolling();
+  }catch(e){
+    setLoginError('Keine Verbindung — bitte erneut versuchen.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Anmelden'; }
+  }
+}
+function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
+
+/* ── Polling: rpc/argus_lage ────────────────────────────────────
+ * Erfolg → Zahlen + „Stand HH:MM:SS"; Fehler → letzte Zahlen
+ * WEITER anzeigen + roter Punkt „Keine Verbindung". 401/abgelaufene
+ * Sitzung → zurück zum Login. */
+async function poll(){
+  if(_polling) return;
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  _polling=true;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:'{}'
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var data=await resp.json();
+    if(!data || !Array.isArray(data.ccps)) throw new Error('Unerwartete Antwort');
+    _data=data; _lastOkAt=nowMs(); _offline=false;
+  }catch(e){
+    _offline=true;
+  }finally{
+    _polling=false;
+    render();
+  }
+}
+function startPolling(){
+  if(_timer) clearInterval(_timer);
+  poll();
+  _timer=setInterval(poll, POLL_MS);
+}
+window.addEventListener('online', function(){ if(sessionJwt()) poll(); });
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible' && sessionJwt()) poll();
+});
+
+/* ── Rendering ─────────────────────────────────────────────────── */
+function catTiles(o, big){
+  var h='<div class="cats">';
+  h+='<div class="cat c1"><div class="nm">T1</div><div class="ct">'+(+o.t1||0)+'</div></div>';
+  h+='<div class="cat c2"><div class="nm">T2</div><div class="ct">'+(+o.t2||0)+'</div></div>';
+  h+='<div class="cat c3"><div class="nm">T3</div><div class="ct">'+(+o.t3||0)+'</div></div>';
+  h+='<div class="cat c5"><div class="nm">T5</div><div class="ct">'+(+o.t5||0)+'</div></div>';
+  h+='<div class="cat cg"><div class="nm">gPA</div><div class="ct">'+(+o.gpa||0)+'</div></div>';
+  h+='</div>';
+  return h;
+}
+function ccpCard(c){
+  var h='<div class="card">';
+  h+='<div class="ccphead"><span class="kn">CCP '+esc(c.kennung)+'</span>';
+  if(c.ort) h+='<span class="ort">'+esc(c.ort)+'</span>';
+  h+='</div>';
+  h+=catTiles(c);
+  h+='<div class="subrow"><span class="pr">Prio: <b>'+(+c.prio||0)+'</b></span>';
+  h+='<span class="rd">transportfertig: <b>'+(+c.ready||0)+'</b></span>';
+  if(c.letzte_aenderung) h+='<span class="ts">letzte Änderung '+fmtHM(c.letzte_aenderung)+'</span>';
+  h+='</div></div>';
+  return h;
+}
+function sumCard(list){
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0};
+  list.forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+  });
+  var h='<div class="card sumcard">';
+  h+='<div class="ccphead"><span class="kn">Gesamt · '+list.length+' CCP'+(list.length===1?'':'s')+'</span></div>';
+  h+=catTiles(s,true);
+  h+='<div class="subrow"><span class="pr">Prio: <b>'+s.prio+'</b></span>';
+  h+='<span class="rd">transportfertig: <b>'+s.ready+'</b></span></div>';
+  h+='</div>';
+  return h;
+}
+function viewLogin(){
+  var h='<div class="loginwrap"><div class="loginbox">';
+  h+='<div class="arg-logo">ARGUS</div>';
+  h+='<h1>Lageansicht</h1>';
+  h+='<div class="hint">Read-only Übersicht für FLZ/ILS — anonyme Zahlen je CCP. Zugang nur mit Beobachter-Code.</div>';
+  if(_configError) h+='<div class="lerr">Konfiguration fehlt (config.js) — kein Backend verbunden.</div>';
+  h+='<label class="fieldlab" for="logininp">Beobachter-Code</label>';
+  h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
+  h+='<div style="display:flex;gap:8px;margin-top:14px">';
+  h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
+  h+='</div>';
+  h+='<div class="lerr" id="loginerr"></div>';
+  h+='</div></div>';
+  return h;
+}
+function viewLage(){
+  var h='<div class="main">';
+  if(_offline && _lastOkAt){
+    h+='<div class="errbar">Keine Verbindung — letzte Zahlen von '+fmtHM(_lastOkAt)+'. Es wird weiter versucht…</div>';
+  }else if(_offline){
+    h+='<div class="errbar">Keine Verbindung — Zahlen können nicht geladen werden. Es wird weiter versucht…</div>';
+  }
+  if(_data){
+    if(_data.ccps.length){
+      h+=sumCard(_data.ccps);
+      _data.ccps.forEach(function(c){ h+=ccpCard(c); });
+    }else{
+      h+='<div class="card"><p class="hint" style="margin:0">Keine aktiven CCPs in diesem Präsidium.</p></div>';
+    }
+  }else if(!_offline){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  }
+  h+='</div>';
+  return h;
+}
+function render(){
+  var loggedIn=!!sessionJwt();
+  var lb=$('logoutbtn'); if(lb) lb.style.display=loggedIn?'':'none';
+  var pn=$('pname');
+  if(pn) pn.textContent='· Lage'+(loggedIn && sessionStorage.getItem('arguslg_pname') ? ' · '+sessionStorage.getItem('arguslg_pname') : '');
+  var sw=$('statwrap');
+  if(sw){
+    sw.style.display=loggedIn?'':'none';
+    if(loggedIn){
+      var dot=$('statdot'), txt=$('stattxt');
+      if(_offline){ dot.className='dot off'; txt.textContent=_lastOkAt?('letzte Zahlen '+fmtHM(_lastOkAt)):'keine Verbindung'; }
+      else if(_lastOkAt){ dot.className='dot'; txt.textContent='Stand: '+fmtClock(_lastOkAt); }
+      else { dot.className='dot'; txt.textContent='lädt…'; }
+    }
+  }
+  $('app').innerHTML = loggedIn ? viewLage() : viewLogin();
+  if(!loggedIn){ var li=$('logininp'); if(li) li.focus(); }
+}
+
+/* ── Events ────────────────────────────────────────────────────── */
+document.addEventListener('click', function(e){
+  var b=e.target.closest('[data-action]');
+  if(!b) return;
+  var a=b.getAttribute('data-action');
+  if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
+  if(a==='logout'){ doLogout(); }
+});
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='logininp'){
+    doLogin(document.activeElement.value);
+  }
+});
+
+/* Start: vorhandene gültige Sitzung → direkt Lage + Polling, sonst Login */
+render();
+if(sessionJwt()) startPolling();
+</script>
+</body>
+</html>
