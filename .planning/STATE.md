@@ -1,11 +1,13 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.11 Self-Hosting (T7) — **GEPLANT 2026-06-11, bereit
-  zur Ausführung** (2 Pläne, Checker PASS ohne Blocker, voll autonom — kein PAT).
+- **Aktuelle Phase:** 4.11 Self-Hosting (T7) — **Welle 1 (Plan 01) ABGESCHLOSSEN
+  2026-06-11, v0.24.0**: Config-Auslagerung (zentrale config.js) für Feld-App +
+  Leitungs-Seite, SW-Cache v43. Als Nächstes: Welle 2 (Plan 02 —
+  Kompatibilitäts-Audit + docs/SELF-HOSTING.md + Statusführung).
   Betriebsmodell-Entscheid M1: Polizei BW hostet selbst; Eigentümer-Instanz
   bleibt Dev/Schulung. Danach: 4.12 FLZ Stufe a. Davor: 4.10 Datenschutz-Schlusspaket — **ABGESCHLOSSEN
-  2026-06-11**. App live: **v0.23.1** (Wellen 1–2 gepusht/deployt bis 6a1ca2c).
+  2026-06-11**. App live: **v0.24.0** (nach Push dieses Plans).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4/T7 nach DSB-Votum).** Nächster realer Schritt: **DSB-Gespräch**
   (Briefing aktualisiert, intern) → bestimmt Phase 5/6/7.
@@ -474,6 +476,36 @@ nur Organisatorisches (+ T4/T7 nach DSB-Votum).**
 6. **DSB-Gespräch ist der nächste reale Schritt** — Briefing (md+html, intern)
    ist auf dem Stand des Live-Systems (72 h, Logs 12 Monate, v0.23.1) und
    kann unverändert mitgenommen werden.
+
+---
+
+## Phase 4.11 — Self-Hosting-Fähigkeit (T7, in Ausführung)
+
+**Planung:** 2 Pläne in 2 Wellen (geplant 2026-06-11, Checker PASS ohne
+Blocker, voll autonom — kein PAT nötig).
+
+**Ausführungsstand (Welle 1):**
+- **04.11-01 ✅ (2026-06-11, v0.24.0):** Config-Auslagerung (D-01) —
+  Supabase-URL + Anon-Key aus index.html und der Leitungs-Seite in die
+  zentrale, build-freie `config.js` im Projektroot gezogen
+  (`window.ARGUS_CONFIG`, globales Script statt JSON+fetch — synchron,
+  offline-tauglich): einzige Stelle für den Instanz-Tausch beim
+  Betriebsmodell M1, enthält nur die ohnehin öffentlichen Werte.
+  SUPA_URL/SUPA_KEY werden abgeleitet statt definiert — alle Aufrufstellen
+  (sb(), fetch-RPCs) und die Speicher-Naht unverändert. Fehlerpfad ohne
+  native Dialoge: `_configError` → Statusbanner-Hinweis + Start-Toast
+  (Feld-App), roter Hinweis in der Login-Box + Login-Abfang (Leitungs-Seite);
+  exchangeCode/checkRevokedCode/doUnlock fangen hart ab (sonst liefen
+  fetch-RPCs bei leerer URL relativ gegen den eigenen Origin → kryptischer
+  404). sw.js: config.js im Precache, CACHE_NAME v43. Release v0.24.0
+  (APP_VERSION, version.json, CHANGELOG, WHATS_NEW knapp; KEIN UPDATE-Sheet —
+  für Nutzer unsichtbar). Gates grün: URL/Key-Isolation (git grep über
+  *.html/*.js = exakt config.js), config.js NICHT gitignored, Precache-
+  Konsistenz, JSC-Syntax (beide Inline-Scripts + sw.js + config.js),
+  Smoke-Test HTTP 200, D-06 repo-weit 0 Treffer. Drehbuch geprüft: keine
+  Lektionsänderung (keine UI-/Bedienungsänderung). Details:
+  `.planning/phases/04.11-self-hosting/04.11-01-SUMMARY.md`.
+  Commits d99c048 · 8481428 · 5e9ac55.
 
 ---
 

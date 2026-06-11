@@ -272,7 +272,7 @@ einer zentralen Konfiguration.
 **Plans:** 2 plans (2 Wellen, voll autonom — keine Migration, kein PAT)
 
 Plans:
-- [ ] 04.11-01-PLAN.md — Config-Auslagerung: config.js (Feld-App + Leitungs-Seite), SW-Precache v43, Fehlerpfad, Release v0.24.0 (Wave 1)
+- [x] 04.11-01-PLAN.md — Config-Auslagerung: config.js (Feld-App + Leitungs-Seite), SW-Precache v43, Fehlerpfad, Release v0.24.0 (Wave 1) ✅ 2026-06-11
 - [ ] 04.11-02-PLAN.md — Kompatibilitäts-Audit 0000–0004 + docs/SELF-HOSTING.md (Anleitung, Smoke-Test, Betriebsvorgaben) + Statusführung (Wave 2)
 
 ## Phase 4.12 — FLZ-Lageansicht Stufe a (separate Beobachter-Seite) ⬜
