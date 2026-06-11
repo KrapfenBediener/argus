@@ -1,12 +1,12 @@
 # Projekt-Status — Argus (CCP-App)
 
 - **Milestone:** Closed Beta V1 — läuft
-- **Aktuelle Phase:** 4.9 Governance-Oberfläche — **ABGESCHLOSSEN 2026-06-11**
-  (alle 4 Pläne: Migration 0003 live, Leitungs-Oberfläche, Feld-App v0.23.0,
-  Doku/Statusführung). **App live: v0.23.0** — Push/Deploy der Phase-Commits
-  ausstehend (macht der Orchestrator nach dem finalen Gate); bis dahin liefert
-  das Feld v0.22.0. Nächster realer Schritt: **DSB-Gespräch** → bestimmt
-  Phase 5/6/7. Phase 5 bleibt aufgeschoben.
+- **Aktuelle Phase:** 4.10 Datenschutz-Schlusspaket — **GEPLANT 2026-06-11,
+  bereit zur Ausführung** (3 Pläne in 3 Wellen, Checker PASS ohne Blocker;
+  Log-Löschfrist 12 Monate [Migration 0004, PAT-Checkpoint], T5 Transparenz
+  [v0.23.1], T6 Backup-Hygiene + interne Doku-Sync). Davor: Phase 4.9
+  ✅ 2026-06-11, **deployt** — App live: v0.23.0. Nächster realer Schritt
+  nach 4.10: **DSB-Gespräch** → bestimmt Phase 5/6/7.
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
 
