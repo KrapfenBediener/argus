@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" href="./icon-192.png">
 <link rel="manifest" href="./manifest.json">
 <script src="./vendor/supabase.js"></script>
+<script src="./config.js"></script>
 <script>window.supabaseLib = window.supabase;</script>
 <style>
   /* Self-hosted IBM-Plex-Schriften (statt Google-Fonts-CDN) — T8 Datenschutz-Härtung.
@@ -234,8 +235,13 @@ var INTRO_STEPS = [
   {icon:'⇄', title:'Mehrere Geräte', text:'Alle im selben CCP teilen dieselbe Liste. Wer einen Patienten bearbeitet, sperrt ihn kurz. Offline läuft alles weiter und gleicht sich später ab.'},
   {icon:'🎓', title:'Erst mal üben?', text:'Auf der Startseite findest du „Geführtes Training" — es führt dich Schritt für Schritt durch den kompletten Ablauf. Ideal zum gefahrlosen Üben: nichts wird dabei geteilt oder gespeichert.'}
 ];
-var SUPA_URL = 'https://sehuosjyjmrpzcqrelej.supabase.co';
-var SUPA_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNlaHVvc2p5am1ycHpjcXJlbGVqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA0Mjk1MzksImV4cCI6MjA5NjAwNTUzOX0.G0DuJmeJBQwTLK8n4m4PVFSf2eNStZy_F0gIouMxIuo';
+/* Backend-Konfiguration kommt zentral aus ./config.js (window.ARGUS_CONFIG) —
+ * einzige Stelle für den Instanz-Tausch beim Self-Hosting (Phase 4.11, D-01).
+ * Aufrufstellen (sb(), fetch-RPCs) nutzen weiterhin SUPA_URL/SUPA_KEY. */
+var _cfg = window.ARGUS_CONFIG || null;
+var _configError = !(_cfg && typeof _cfg.url==='string' && _cfg.url.indexOf('https://')===0 && _cfg.anonKey);
+var SUPA_URL = _configError ? '' : _cfg.url;
+var SUPA_KEY = _configError ? '' : _cfg.anonKey;
 var _sb      = null;
 var _sbJwt   = null;   /* JWT, mit dem der aktuelle _sb-Client erstellt wurde (Neuinit-Erkennung) */
 var _ccpId   = null;
@@ -268,6 +274,9 @@ function isStandalone(){
 }
 
 function sb(){
+  /* Ohne gültige Config (config.js fehlt/kaputt) gibt es keinen Backend-Client —
+   * App läuft lokal weiter, Hinweis kommt über Banner/Toast (D-01-Fehlerpfad). */
+  if(_configError) return null;
   /* JWT wird manuell verwaltet (Phase 4): bei jedem Aufruf prüfen, ob sich das
    * gespeicherte JWT geändert hat (z. B. nach Code-Eingabe oder stiller
    * Verlängerung). Wenn ja → Client neu erstellen, Realtime-Abo trennen. */
@@ -472,6 +481,9 @@ async function validateInviteToken(token){
 var _lastExchangeError=null;   /* Klartext-Fehler des letzten exchangeCode-Aufrufs (z. B. „Code wurde gesperrt") — für die Fehleranzeige statt generischem Text */
 async function exchangeCode(code){
   _lastExchangeError=null;
+  /* Ohne Config liefe der fetch relativ gegen den eigenen Origin (kryptischer
+   * 404) — daher hier hart abfangen mit Klartext-Fehler für die Anzeige. */
+  if(_configError){ _lastExchangeError='Konfiguration fehlt (config.js) — kein Backend verbunden'; return null; }
   var clean=code.replace(/[\s\-]/g,'').toUpperCase();
   if(clean.length<8) return null;
   try{
@@ -568,6 +580,7 @@ async function applyRevokedLock(){
  * ein hängender Request nichts aufhält. Kein Aufruf-Effekt im Training. */
 async function checkRevokedCode(){
   var code=null; try{ code=localStorage.getItem('argus_code'); }catch(e){}
+  if(_configError) return;   /* ohne Config kein RPC (fetch liefe sonst gegen den eigenen Origin) */
   if(!code || navigator.onLine===false || _training) return;   /* NIE blockieren, NIE offline raten */
   var resp=null;
   try{
@@ -587,6 +600,7 @@ async function checkRevokedCode(){
 /* Freischaltung über einen Code (von Hand eingegeben oder eingefügt). Tauscht den
  * Code gegen ein JWT (exchangeCode) und schaltet das Präsidium frei. */
 async function doUnlock(rawCode){
+  if(_configError){toast("⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden");return;}
   var uc2=(rawCode||'').replace(/[\s\-]/g,'').toUpperCase();
   if(uc2.length<8){toast("Bitte vollständigen Code eingeben (Format: XXXX-XXXX)");return;}
   toast("Prüfe Code…");
@@ -1570,7 +1584,7 @@ function vHome(){
     mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }
   return countbar()+
-  '<div class="banner"><span>⇄</span><div>'+(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus')+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   '<button class="ghost" data-action="shareinvite" style="margin-bottom:12px">🔗 Einladungslink teilen</button>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
@@ -3122,6 +3136,9 @@ setInterval(async function(){
 
 (async function init(){
   operator=await getOperator();if(!operator)operator="";
+  /* Fehlende/kaputte config.js nicht still schlucken: einmaliger Hinweis beim
+   * Start (kein natives alert — In-App-Toast). Banner zeigt es dauerhaft. */
+  if(_configError){ setTimeout(function(){ toast('⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden'); }, 600); }
   try{ _training=false; _trainStep=0; localStorage.removeItem('argus_training'); localStorage.removeItem('argus_train_step'); }catch(e){}   /* Training NICHT über App-Neustart fortführen */
 
   /* Erstinstallation erkennen — VOR allem anderen, solange die Geräte-Ablage noch
