@@ -363,14 +363,10 @@ function tokenMatches(t){
 }
 function sortTokens(list){
   var l=list.slice();
-  if(_zugFilter.sort==='code'){
-    l.sort(function(a,b){ return String(a.short_code||'').localeCompare(String(b.short_code||'')); });
-  }else{
-    l.sort(function(a,b){
-      var ta=Date.parse(a.created_at||'')||0, tb=Date.parse(b.created_at||'')||0;
-      return _zugFilter.sort==='alt' ? ta-tb : tb-ta;
-    });
-  }
+  l.sort(function(a,b){
+    var ta=Date.parse(a.created_at||'')||0, tb=Date.parse(b.created_at||'')||0;
+    return _zugFilter.sort==='alt' ? ta-tb : tb-ta;
+  });
   return l;
 }
 function zugSel(field, opts){
@@ -467,7 +463,7 @@ function secZugaenge(){
   h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['beobachter','Beobachter (FLZ)'],['master','MasterToken']]);
   h+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht']]);
   h+='<span class="hint" style="margin:0 0 0 8px">Sortierung:</span>';
-  h+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst'],['code','Code A–Z']]);
+  h+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst']]);
   if(zugFilterActive()) h+='<button class="btn ghost" data-action="zugfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
   h+='</div>';
   if(_zugErr){
