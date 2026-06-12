@@ -66,7 +66,7 @@ Realtime-Einschränkung vorher bewusst abnehmen.
 
 ## 3. Server-Abhängigkeiten (Kompatibilitäts-Audit)
 
-Die gesamte Datenbank entsteht aus sieben Migrationsdateien, die in Reihenfolge
+Die gesamte Datenbank entsteht aus den Migrationsdateien, die in Reihenfolge
 angewendet werden (Abschnitt 5):
 
 ```
@@ -77,12 +77,14 @@ supabase/migrations/0003_phase49_einsatzprotokoll.sql  Einsatzprotokoll-RPCs, Co
 supabase/migrations/0004_phase410_log_retention.sql    Log-Aufbewahrung 12 Monate
 supabase/migrations/0005_phase412_lageansicht.sql      Beobachter-Token, Observer-JWT, Aggregat-RPC argus_lage
 supabase/migrations/0006_token_hygiene.sql             24-h-Codes abgeschafft, verbrauchte Einmal-Codes 6 Monate
+supabase/migrations/0007_jti_sofortsperre.sql          jti-Claim in den JWTs, Code-Sperrung wirkt sofort serverseitig
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
 wofür sie gebraucht wird, und wie sie geprüft wird (0005 nutzt dieselben
 Abhängigkeiten wie 0001/0003: pgjwt + Vault-Secret für den Observer-Exchange;
-0006 hat keine neuen Abhängigkeiten):
+0006 und 0007 haben keine neuen Abhängigkeiten — 0007 erweitert nur die
+JWT-Payloads und die Claim-Helfer):
 
 | Abhängigkeit | Vorkommen | Wofür | Einstufung | Prüfung |
 |---|---|---|---|---|
@@ -131,7 +133,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → 0002 → 0003 → 0004 → 0005 → 0006`.
+gleiche Reihenfolge: `0000 → 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007`.
 
 Hinweise:
 
