@@ -398,6 +398,13 @@ Brücke); engere Integration mit dem Gerät; ggf. Freischaltung/Verwaltung über
 Governance-/„Systempanel" aus Phase 7. Daher: Onboarding-Feinschliff in der PWA
 bewusst minimal halten, die „richtige" Lösung kommt mit nativ.
 
+**Konzeptpapier (2026-06-12, intern/gitignored):** `docs/KONZEPT-POLIZEIBETRIEB.md`
+— Stufenmodell Einrichtung/Identität (1: PWA + Einmal-Link · 2: nativ + MDM
+Managed App Configuration, Null-Touch · 3: SSO gegen Polizei-IdP, App-Identität
+= USBNK, zentrale Sperrwirkung; Code-Pfad bleibt Fallback für Fremdkräfte),
+Plattform-Architektur (PC-Seiten bleiben Intranet-Browser, ein Backend, keine
+App-zu-App-Schnittstelle) und Fragenkatalog an PTLS Pol/BITBW.
+
 **Bedingungen (alle müssen erfüllt sein):**
 - Offizieller Träger-Buy-in durch Polizei BW / PTLS Pol
 - IT-Sicherheitsfreigabe

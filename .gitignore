@@ -75,6 +75,9 @@ docs/PITCH-DECK-APPLE.html
 docs/PITCH-DECK-APPLE-MUSTER.html
 # Website-Quelle (öffentlich nur die obfuskierte Demo-Kopie)
 docs/WEBSITE.html
+# Internes Konzeptpapier Polizeibetrieb (Gesprächsgrundlage PTLS/BITBW)
+docs/KONZEPT-POLIZEIBETRIEB.md
+docs/KONZEPT-POLIZEIBETRIEB.html
 # Leitungs-Oberfläche: konkreter Dateiname/URL NUR lokal (Repo ist public — D-06)
 /LEITUNG-URL.md
 # Lageansicht (FLZ): konkreter Dateiname/URL NUR lokal (D-06 analog)
