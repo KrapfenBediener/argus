@@ -34,6 +34,21 @@
   Sprechzettel Dok. 10 + docs/KONZEPT-POLIZEIBETRIEB.md (Stufenmodell
   MDM/SSO/USBNK, Fragenkatalog PTLS/BITBW) — DSB-Gespräch ist terminiert
   (KW nach 2026-06-12).
+  **Feldtest-Feedback 2026-06-13 (30 Punkte, triagiert) — Paket 1
+  umgesetzt (v0.25.0 / SW v44):** (1a) serverseitige Nummernvergabe
+  (Migration 0008: ccps.next_num + argus_claim_nums, selbstheilend;
+  App: claimNum mit persistiertem Offline-Fallback ccp_lastnum_<id> —
+  Duplikat-Bug nach Verlassen/Wiederbetreten behoben); (1b) Realtime-
+  Selbstheilung healRealtime() bei visibilitychange+online (toter
+  iOS-WebSocket blockierte Neuaufbau → „lokaler Modus bis CCP-Wechsel");
+  (1c) Training: joinccp im Training gesperrt (Lektion 3 zerschoss
+  Intro), Kontext-Wächter ctx/ctxBack (Lektion 12 → zurück auf 11).
+  **Owner-Entscheide:** Adressat Lage = FLZ; „CCP-Verbund abschließen"
+  als Wording; Gast-Code (Mehrfach, 24 h, expires_at) geplant Paket 2;
+  FLZ-operativ-Rolle konzipiert (nach DSB-Votum); Kennung+Nummer (A-12)
+  überall (Paket 2); Übung/Einsatz-Frage entfällt via schulung-Flag je
+  Präsidium (Paket 2); Export-Verlagerung ins Governance-Panel nur mit
+  „nicht exportiert"-Badge. Paket 2/3 offen (siehe Chat 2026-06-13).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4 nach DSB-Votum; k-Schwelle Lageansicht = DSB-Frage).**
   Nächster realer Schritt: **DSB-Gespräch** (Briefing aktualisiert, intern)
