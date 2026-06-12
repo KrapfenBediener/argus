@@ -58,10 +58,17 @@
   Leitungs-Seite (argus_mark_export, protokoll_export-Log, „noch nicht
   exportiert"-Badge), Eröffnung mit Ort+GPS (geo_lat/lng), Lageansicht mit
   VERBUND-Chip + Koordinaten-Kopier-Klick, Sortier-Toggle, Checklisten-
-  Autofill. UPDATE-Sheet v0.26. **Paket 3 offen** (Schulungs-Provisionierung
+  Autofill. UPDATE-Sheet v0.26.
+  **Feedback-Runde 3 (v0.27.0 / SW v48, 2026-06-13):** tacSTART als
+  STANDARD (Primärknopf, Direkt = gekennzeichnete Ausnahme), <C>-Vorschalt-
+  Schritt aus tacSTART entfernt (FLOW.start weg, Einstieg „gehfähig?"),
+  Foto-Schnellaktion im cap-last (capphoto, gleiche Pipeline), Einsatzort
+  beidseitig synchron (applyMeta/_ccpOrt → Checklisten-hdr nur wenn leer;
+  hdr-Edit → ccps.ort), Lage: Verbünde OPTISCH gruppiert (vgroup-Rahmen,
+  „VERBUND n — CCP A + CCP E", Gesamtzahl); Drehbuch-Lektionen angepasst;
+  UPDATE-Sheet v0.27. **Paket 3 offen** (Schulungs-Provisionierung
   je PP inkl. Reset über Tombstones, FLZ-operativ nach DSB-Votum,
-  GeoJSON-Endpunkt nach PTLS-Antwort, Foto im cap-last-Schnellzugriff,
-  AT-MIST-Druck in der Leitung).
+  GeoJSON-Endpunkt nach PTLS-Antwort, AT-MIST-Druck in der Leitung).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4 nach DSB-Votum; k-Schwelle Lageansicht = DSB-Frage).**
   Nächster realer Schritt: **DSB-Gespräch** (Briefing aktualisiert, intern)
