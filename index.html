@@ -104,7 +104,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.25.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.25.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -130,6 +130,9 @@ var UPDATE_SHEETS = {
   '0.23.0': 'docs/UPDATE_v0.23.html'           /* Einheitliche 72-h-Löschfrist + Export als dauerhafter Weg */
 };
 var WHATS_NEW = {
+  '0.25.1': [
+    'Hilfestellungen: Bei den Rollen steht jetzt die Westenfarbe dabei (MasterMedic rosa, Doorman blau, Bereichsführer in der jeweiligen Bereichsfarbe).'
+  ],
   '0.25.0': [
     'Laufende Nummern sind jetzt kollisionssicher: Die Nummer kommt zentral vom Server — auch nach Verlassen und Wiederbetreten eines CCP gibt es keine doppelten Nummern mehr.',
     'Stabilere Verbindung: Nach dem Zurückholen der App aus dem Hintergrund verbindet sich der Live-Sync automatisch neu (vorher half nur ein CCP-Wechsel).',
@@ -2143,16 +2146,23 @@ function vHelp(){
   CATORDER.forEach(function(cat){var c=CATS[cat];h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span><span class="helpa">'+c.nm+'</span></div>';});
   h+='</div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Rollen – Klartext</div>'+
-    rl("MasterMedic","leitet & sichtet. Koordiniert, behandelt selbst nicht. Vergibt Nummer + Kategorie.")+
-    rl("Doorman","hält den Eingang, meldet weiteren Patienten, gibt Verwundetenkarte + Stift aus.")+
-    rl("Führer R/G/G","verantwortlich je Farbbereich, meldet Veränderungen an MasterMedic.")+
+    '<div class="hint" style="margin-bottom:4px">Farbpunkt = Westenfarbe der Rolle im Einsatz.</div>'+
+    rl("MasterMedic","leitet & sichtet. Koordiniert, behandelt selbst nicht. Vergibt Nummer + Kategorie.",["#F06292"])+
+    rl("Doorman","hält den Eingang, meldet weiteren Patienten, gibt Verwundetenkarte + Stift aus.",["#1565C0"])+
+    rl("Führer R/G/G","verantwortlich je Farbbereich — Weste in der jeweiligen Bereichsfarbe, meldet Veränderungen an MasterMedic.",["#C62828","#F2B600","#2E7D32"])+
     rl("Apotheker","verwaltet Materialplatz, gibt aus, meldet Knappheit.")+
     rl("Assistent","entlastet MasterMedic (Doku, Funk, Botengänge).")+'</div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Merksätze</div>'+
     '<div class="helpa">• Laufende Nummern werden nur im CCP vergeben.<br>• Leiten ≠ behandeln.<br>• Todesfeststellung trifft nur ein Arzt – die App ordnet T-5 nie automatisch zu.<br>• Papier-Verwundetenkarte bleibt am Patienten (Redundanz + Übergabe gPA).</div></div>';
   return h;
 }
-function rl(n,d){return '<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span style="font-weight:600">'+n+'</span> <span class="helpa">– '+esc(d)+'</span></div>';}
+/* Rollen-Zeile; w = Westenfarbe(n) als Farbpunkt(e) vor dem Namen
+ * (Schema Owner 2026-06-13: MasterMedic rosa, Doorman blau, Führer je Bereichsfarbe). */
+function rl(n,d,w){
+  var dots='';
+  if(w&&w.length){ w.forEach(function(c){ dots+='<span style="display:inline-block;width:11px;height:11px;border-radius:3px;background:'+c+';margin-right:4px;vertical-align:-1px;border:1px solid rgba(0,0,0,.15)"></span>'; }); }
+  return '<div style="padding:6px 0;border-bottom:1px solid var(--line)">'+dots+'<span style="font-weight:600">'+n+'</span> <span class="helpa">– '+esc(d)+'</span></div>';
+}
 
 /* Datenschutzhinweis (Art. 13 DSGVO) — statische Ansicht, offline verfügbar.
  * Verantwortlicher und DSB-Kontakt werden AUSSCHLIESSLICH über die zentrale

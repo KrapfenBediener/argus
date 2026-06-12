@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.25.1 — 2026-06-13
+**Westenfarben der Rollen in den Hilfestellungen**
+- „Rollen – Klartext" zeigt je Rolle die Westenfarbe als Farbpunkt
+  (Schema: MasterMedic rosa, Doorman blau, Führer Rot/Gelb/Grün in der
+  jeweiligen Bereichsfarbe; Apotheker/Assistent ohne Weste).
+- SW-Cache v45. Kein UPDATE-Sheet (kleine Hilfetext-Ergänzung).
+  Drehbuch geprüft: Hilfestellungs-Lektion bleibt textlich unverändert.
+
 ## v0.25.0 — 2026-06-13
 **Kritische Bugfixes aus dem Feldtest-Feedback (Paket 1): Nummernvergabe, Reconnect, Training**
 - **Serverseitige Nummernvergabe (kritisch):** Die laufende Patienten-Nummer
