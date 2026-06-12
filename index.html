@@ -104,7 +104,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.26.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.27.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -122,6 +122,7 @@ var DS_KONTAKT = {
  * würde ein bereits durchlaufenes Sheet angezeigt). Bei jedem RELEVANTEN Update ein
  * neues Sheet unter docs/ anlegen und hier unter der Zielversion eintragen. */
 var UPDATE_SHEETS = {
+  '0.27.0': 'docs/UPDATE_v0.27.html',          /* tacSTART-Standard, Foto-Schnellaktion, Ort-Sync, Verbund-Gruppen */
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html',  /* deckt v0.9.0 → v0.12.x ab */
   '0.17.0': 'docs/UPDATE_v0.17.html',          /* AT-MIST-Übergabekarte */
   '0.18.0': 'docs/UPDATE_v0.18.html',          /* Geführtes Training */
@@ -131,6 +132,12 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.27.0': [
+    'Erfassen: tacSTART ist jetzt der Standardweg (groß und zuerst) — die Direktzuordnung bleibt als Ausnahme für zweifelsfreie Fälle.',
+    'tacSTART startet direkt bei „gehfähig?" — der Vorschalt-Schritt „Kritische Blutung?" ist entfernt (die Versorgung ist zu diesem Zeitpunkt bereits erfolgt).',
+    'Foto-Schnellaktion: Direkt nach der Erfassung lässt sich beim zuletzt angelegten Patienten ein Foto aufnehmen — ohne Umweg.',
+    'Einsatzort beidseitig: FLZ-Nachtrag erscheint in den Checklisten-Kopfdaten, der Checklisten-Einsatzort in der Lageansicht (nichts wird überschrieben).'
+  ],
   '0.26.1': [
     'TQ-Anzeige klarer: „TQ (Bein re) läuft seit 12:34 min — tippen zum Stoppen" statt des missverständlichen „TQ läuft · 12:34 — stoppen".',
     '„CCP abschließen" steht jetzt sauber unter der Überschrift „Nur MasterMedic" — abschließen konnte ohnehin nur der MasterMedic, jetzt sieht man es auch.',
@@ -276,6 +283,7 @@ var _praesidiumSchulung = false;   /* schulung-Flag des Präsidiums (Migration 0
 var _isMaster       = false;
 var _praesidienList = [];
 var _ccpKennung     = 'A';    /* Kennung des eigenen CCP (A/B/…) */
+var _ccpOrt         = '';     /* Ortsbezeichnung der eigenen CCP-Row (auch FLZ-Nachtrag, 0010) */
 var _mergeGroupId   = null;   /* gemeinsame Merge-Gruppe; null = eigenständig */
 var _mergeReqFrom   = null;   /* eingehende Merge-Anfrage von diesem CCP */
 var _demoMerged     = false;  /* lokale Demo-Zusammenführung (nur Schulungsumgebung) */
@@ -360,6 +368,19 @@ function applyMeta(row){
    * Im Training nicht überschreiben — dort gilt der lokale Trainings-Zustand. */
   if('photos_allowed' in row && !_training) _photosAllowed=!!row.photos_allowed;
   if(typeof row.kennung==='string' && row.kennung) _ccpKennung=row.kennung;
+  /* Ortsbezeichnung (auch FLZ-Nachtrag über die Lageansicht, Migration 0010):
+   * in die Checklisten-Kopfdaten „Einsatzort" übernehmen, solange dort noch
+   * nichts steht — ein Feld-Eintrag hat Vorrang und wird NIE überschrieben.
+   * (Beim App-Start läuft loadMeta VOR loadChecklist — dafür übernimmt
+   * loadChecklist den Abgleich aus _ccpOrt nach dem Laden.) */
+  if(typeof row.ort==='string' && !_training){
+    _ccpOrt=row.ort;
+    if(row.ort && checklist && checklist.hdr && !checklist.hdr.ort){
+      checklist.hdr.ort=row.ort;
+      try{ saveChecklist(); }catch(e){}
+      if(state.view==='checklist'){ try{ render(); }catch(e){} }
+    }
+  }
   if('merge_group_id' in row) _mergeGroupId=row.merge_group_id||null;
   if('merge_request_from' in row) _mergeReqFrom=row.merge_request_from||null;
   /* ccpMerged (Präfix-Anzeige) wird in loadPatients aus der Gruppengröße abgeleitet. */
@@ -914,8 +935,10 @@ var CHK = [
   ["b5","Örtlichkeit noch geeignet?","weitere Räume / zweiter CCP"],
   ["b6","Check again!","zurück an den Anfang"]
 ];
+/* <C>-Vorschaltschritt entfernt (Feedback 2026-06-13): kritische Blutungen
+ * werden ohnehin VOR der Verbringung zum CCP versorgt — der Hinweis war eine
+ * zeitfressende Redundanz im Sichtungsfluss. Einstieg direkt bei „gehfähig?". */
 var FLOW={
-  start:{q:"Kritische Blutung an Extremität?",note:"→ zuerst Tourniquet / direkter Druck (Helfer)",ans:[["weiter zur Sichtung","walk"]]},
   walk:{q:"Patient gehfähig?",ans:[["Ja","R:T3"],["Nein","breath"]]},
   breath:{q:"Spontane Atmung vorhanden?",ans:[["Ja","af"],["Nein","airway"]]},
   airway:{q:"Atemwege freimachen – Atmung jetzt vorhanden?",note:"Esmarch-Handgriff / Wendl-Tubus",ans:[["Ja","R:T1"],["Nein","R:NOBR"]]},
@@ -924,7 +947,7 @@ var FLOW={
   cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
 };
 
-var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"start", tacResult:null, edit:null, readonly:false, lastCreatedId:null};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"walk", tacResult:null, edit:null, readonly:false, lastCreatedId:null};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -1537,6 +1560,12 @@ function normalize(p){
 async function loadChecklist(){
   var c=await sGet("ccp_checklist");if(c&&typeof c==="object"){checklist=c;}
   if(!checklist.hdr)checklist.hdr={};if(!checklist.items)checklist.items={};
+  /* Einsatzort-Abgleich nach dem Laden: applyMeta lief ggf. vor loadChecklist
+   * (App-Start) — Ort aus der CCP-Row übernehmen, wenn das Feld leer ist. */
+  if(!_training && _ccpOrt && !checklist.hdr.ort){
+    checklist.hdr.ort=_ccpOrt;
+    try{ await saveChecklist(); }catch(e){}
+  }
 }
 async function saveChecklist(){await sSet("ccp_checklist",checklist);}
 function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")===_ccpKennung&&p.num>m)m=p.num;});return m+1;}
@@ -1726,8 +1755,11 @@ function vChecklist(){
 }
 function vCapture(){
   if(state.capMode==="tac")return vTac();
-  var h='<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--surf2)"><span style="text-align:center"><span class="t">Erfassen mit tacSTART</span><br><span class="s">geführte Vorsichtung Schritt für Schritt</span></span></button>'+
-    '<div class="sech">oder direkt zuordnen</div>'+
+  /* tacSTART ist der STANDARD (Feedback 2026-06-13) — groß und zuerst;
+   * die Direktzuordnung ist die Ausnahme für zweifelsfreie Fälle. */
+  var h='<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--acc);border-color:var(--acc);padding:18px 12px"><span style="text-align:center"><span class="t" style="color:#fff;font-size:17px">Erfassen mit tacSTART</span><br><span class="s" style="color:#cfd4da">geführte Vorsichtung — der Standardweg</span></span></button>'+
+    '<div class="sech">Direkt zuordnen (Ausnahme)</div>'+
+    '<p class="hint" style="margin:0 0 8px">Nur wenn die Kategorie zweifelsfrei feststeht — im Zweifel tacSTART.</p>'+
     catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5");
   /* Kontext: nächste Nummer + zuletzt angelegter Patient (gegen Doppelerfassung).
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
@@ -1748,6 +1780,7 @@ function vCapture(){
     h+='<div style="display:flex;gap:6px;margin-top:10px">';
     h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="flex:1;padding:8px 4px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
     h+='<button class="txbtn'+(lc.tqStart?' on':'')+'" data-action="captq" style="flex:1;padding:8px 4px;'+(lc.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(lc.tqStart?'TQ stop':'TQ')+'</button>';
+    if(_photosAllowed) h+='<label class="txbtn'+(lc.photo?' on':'')+'" style="flex:1;padding:8px 4px;cursor:pointer;text-align:center;'+(lc.photo?'background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(lc.photo?'Foto ✓':'Foto')+'<input type="file" accept="image/*" capture="environment" data-kind="capphoto" style="display:none"></label>';
     h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="flex:1;padding:8px 4px">öffnen</button>';
     h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:8px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
     h+='</div>';
@@ -2403,9 +2436,9 @@ var TRAIN_LESSONS=[
    * der Startseite kontextlos die Checkliste zu erklären. */
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:10},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
-  {t:'Direkt anlegen', mode:'do', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
-  {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen oder den „TQ"-Timer starten, „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg.', sel:'#cap-last'},
-  {t:'Sichten mit tacSTART', mode:'do', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
+  {t:'Direkt anlegen (Ausnahme)', mode:'do', x:'Steht die Kategorie zweifelsfrei fest, geht es direkt — das ist die AUSNAHME, der Standardweg ist tacSTART (kommt gleich). Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
+  {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen, den „TQ"-Timer starten, ein „Foto" aufnehmen (wenn erlaubt), „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg, der nächste Patient ist nur einen Tipp entfernt.', sel:'#cap-last'},
+  {t:'Sichten mit tacSTART (Standard)', mode:'do', x:'Der STANDARDWEG: tacSTART führt Schritt für Schritt durch die Vorsichtung — beginnend bei „gehfähig?" — und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen". (Kritische Blutungen sind zu diesem Zeitpunkt bereits versorgt — dafür gibt es keinen eigenen Abfrage-Schritt mehr.)', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
   /* Foto-Schalter: nur sichtbar, wenn der Übende MasterMedic seines Übungs-CCP ist
@@ -3096,7 +3129,7 @@ document.addEventListener("click",async function(e){
     go("start");toast("Schulung zurückgesetzt — 6 Demo-CCPs angelegt");
     return;
   }
-  if(a==="tacstart"){state.capMode="tac";state.tacNode="start";state.tacResult=null;render();return;}
+  if(a==="tacstart"){state.capMode="tac";state.tacNode="walk";state.tacResult=null;render();return;}
   if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
   if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();flashConfirm(pno(np),CATS[cat].label);return;}
   if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();flashConfirm(pno(np2),CATS[cat2].label);return;}
@@ -3210,7 +3243,18 @@ document.addEventListener("change",async function(e){
   if(state.readonly && (kind==="pat"||kind==="vit"||kind==="photo")) return; /* Schreibschutz bei fremder Sperre */
   if(kind==="chk"){var cid=el.getAttribute("data-id");if(!checklist.items[cid])checklist.items[cid]={};
     checklist.items[cid][field]= field==="done"?el.checked:el.value;await saveChecklist();return;}
-  if(kind==="hdr"){checklist.hdr[field]=el.value;await saveChecklist();return;}
+  if(kind==="hdr"){
+    checklist.hdr[field]=el.value;await saveChecklist();
+    /* Einsatzort gilt beidseitig: Feld-Eintrag wandert in die CCP-Row und
+     * damit in die Lageansicht (Gegenrichtung zum FLZ-Nachtrag, 0010).
+     * Kein Schleifenrisiko: applyMeta übernimmt nur in LEERE Kopfdaten. */
+    if(field==="ort" && !_training){
+      _ccpOrt=el.value.trim();
+      var chc=sb();
+      if(chc && _ccpId){ try{ chc.from('ccps').update({ort:_ccpOrt}).eq('id',_ccpId).then(function(){},function(){}); }catch(e){} }
+    }
+    return;
+  }
   if(kind==="pat"&&state.edit){state.edit[field]=el.value;await savePatient(state.edit);return;}
   if(kind==="vit"&&state.edit){state.edit.vit[field]=el.value;await savePatient(state.edit);return;}
   if(kind==="photo"&&state.edit){
@@ -3224,6 +3268,21 @@ document.addEventListener("change",async function(e){
       state.edit.photo=durl;
       await savePatient(state.edit);
       render();toast("Foto gespeichert");
+    }catch(err){toast("Foto fehlgeschlagen");}
+    return;
+  }
+  /* Foto-Schnellaktion am zuletzt angelegten Patienten (Feedback 2026-06-13:
+   * TQ/Foto/nächster direkt nach der Erfassung — ohne Navigation). */
+  if(kind==="capphoto"){
+    if(!_photosAllowed){toast("Foto-Aufnahme ist deaktiviert");return;}
+    var lcp=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
+    var f2=el.files&&el.files[0];if(!lcp||!f2)return;
+    toast("Foto wird verarbeitet…");
+    try{
+      var d2=await resizePhoto(f2,640,0.5);
+      lcp.photo=d2;
+      await savePatient(lcp);
+      render();toast("Foto gespeichert ✓");
     }catch(err){toast("Foto fehlgeschlagen");}
     return;
   }

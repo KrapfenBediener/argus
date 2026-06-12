@@ -6,6 +6,31 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.27.0 — 2026-06-13
+**Feedback-Runde 3: tacSTART als Standard, Foto-Schnellaktion, Einsatzort-Sync, Verbund-Gruppen in der Lage**
+- **tacSTART ist der Standardweg** beim Erfassen: großer Primärknopf zuerst,
+  Direktzuordnung darunter als gekennzeichnete Ausnahme („nur wenn die
+  Kategorie zweifelsfrei feststeht"). Drehbuch-Lektionen angepasst.
+- **tacSTART ohne Vorschalt-Schritt:** Der Hinweis-Schritt „Kritische Blutung
+  an Extremität?" ist entfernt (Feedback: <C> wird vor der Verbringung zum
+  CCP versorgt — zeitfressende Redundanz). Einstieg direkt bei „gehfähig?";
+  `FLOW.start` entfällt, `tacNode`-Default ist `walk`.
+- **Foto-Schnellaktion:** „Zuletzt angelegt" bietet neben Prio/TQ/öffnen/
+  Verwerfen jetzt **Foto** (nur bei erlaubten Fotos) — gleiche Pipeline wie
+  im Patienten-Detail (Verkleinerung, Speicherung), ohne Navigation.
+- **Einsatzort beidseitig synchron:** FLZ-Orts-Nachtrag (Migration 0010)
+  wandert automatisch in die Checklisten-Kopfdaten „Einsatzort" (nur wenn
+  dort leer — Feld-Eintrag wird nie überschrieben; Abgleich auch nach dem
+  App-Start via `_ccpOrt`); umgekehrt schreibt der Checklisten-Einsatzort
+  in die CCP-Row und erscheint in der Lageansicht.
+- **Lageansicht: Verbünde optisch zusammengeführt** — gemeinsamer Rahmen je
+  Verbund mit Kopfzeile („VERBUND 1 — CCP A + CCP E · gemeinsame
+  Patientenliste") und Gesamtzahl; Mitglieds-Karten darin (gestrichelt);
+  mehrere getrennte Verbünde über Nummerierung unterscheidbar.
+- UPDATE-Sheet `docs/UPDATE_v0.27.html` (in der App verlinkt), SW-Cache v48.
+  Drehbuch geprüft: Lektionen „Direkt anlegen (Ausnahme)", „Sichten mit
+  tacSTART (Standard)" und „Zuletzt angelegt" (Foto) angepasst.
+
 ## v0.26.1 — 2026-06-13
 **Feinschliff aus dem Feedback-Review: TQ-Wortlaut, Abschluss-Platzierung, FLZ-Orts-Korrektur, Verbund-Nummerierung**
 - **TQ-Anzeige:** „TQ (Bein re) läuft seit 12:34 min — tippen zum Stoppen"
