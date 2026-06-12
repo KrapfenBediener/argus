@@ -302,6 +302,18 @@ Governance-RPCs verweigern; Cross-Exchange beidseitig abgewiesen; revoked
 wirkt; `lage_view` genau 1× je Login). KEIN App-Release — Feld-App
 (index.html/sw.js/version.json) unangetastet, weiterhin v0.24.0.
 
+## Phase 4.13 — Paket 3 (baubarer Teil): Schulungs-Provisionierung, Tombstone-Reset, AT-MIST-Druck ⬜
+**Ziel:** Der extern UNblockierte Teil von Paket 3 (Feedback-Triage
+2026-06-13): (1) Schulungs-Reset über Tombstones statt hartem DELETE —
+Offline-Geräte bereinigen sich über die vorhandene Abschluss-Mechanik
+(behebt „Reset erreicht Offline-Geräte nicht"); (2) Schulungs-Provisionierung
+je Präsidium („<Name> — Schulung", Owner-Entscheid) inkl. Leitungs-Knopf;
+(3) AT-MIST-Druckansicht im Protokoll-Detail der Leitungs-Seite.
+Migration 0011. Release v0.28.0.
+**Scope-Zaun (extern blockiert, NICHT hier):** FLZ-operativ + T4 + k-Schwelle
+(DSB-Votum), GeoJSON-Endpunkt (PTLS Frage 9).
+Details: `.planning/phases/04.13-paket3-schulung/04.13-CONTEXT.md`.
+
 ## Phase 5 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
 **Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
 M1-Entscheid (2026-06-11); Detailplanung NACH dem DSB-Gespräch.
