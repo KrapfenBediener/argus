@@ -48,15 +48,13 @@
   .tot .l{font-size:11px;color:var(--mut)}
   /* CCP-Karten — Mockup .lgrid/.ccpcard/.mini */
   .lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  /* Verbund-Gruppen (Feedback 2026-06-13): zusammengeführte CCPs werden
-   * OPTISCH zusammengeführt — ein Rahmen je Verbund über die volle Breite,
-   * die Mitglieds-Karten darin. */
-  .vgroup{grid-column:1/-1;border:2px solid var(--acc);border-radius:13px;padding:10px;background:#fff}
-  .vgroup .vhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:0 2px 9px;font-weight:700;font-size:12px;letter-spacing:.5px;color:var(--acc)}
-  .vgroup .vhead .vsub{font-weight:400;letter-spacing:0;color:var(--mut);font-size:11.5px}
-  .vgroup .vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
-  .vgroup .ccpcard{background:var(--surf);border-style:dashed}
-  @media(max-width:560px){ .vgroup .vgrid{grid-template-columns:1fr 1fr} }
+  /* Verbund-Karte (Feedback 2026-06-13 Runde 4): EIN kompakter Eintrag je
+   * Verbund mit SUMMEN-Zählern — die Mitglieder teilen ohnehin EINE
+   * Patientenliste, Einzelzähler wären irreführend. Je Mitglied bleibt nur
+   * eine Standort-Zeile (Koordinaten-Klick + Orts-Korrektur). */
+  .ccpcard.vb{border:2px solid var(--acc)}
+  .vmem{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);padding:4px 0;border-top:1px dashed var(--line);margin-top:4px}
+  .vmem .nm2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ccpcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px}
   .ccpcard .ct{font-weight:600;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
   .ccpcard .ct .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -272,6 +270,45 @@ function ccpCard(c, vlabel){
   h+='</div></div>';
   return h;
 }
+/* Kompakte Verbund-Karte: Summen über alle Mitglieder (eine gemeinsame
+ * Patientenliste!) + je Mitglied eine Standort-Zeile (Koordinaten-Klick,
+ * Orts-Korrektur). vnTotal = Gesamtzahl der Verbünde (Nummer nur bei >1). */
+function verbundCard(g, vnTotal){
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0}, last=0;
+  g.members.forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+    if(c.letzte_aenderung && c.letzte_aenderung>last) last=c.letzte_aenderung;
+  });
+  var total=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  var kenns=g.members.map(function(c){return esc(c.kennung);}).join('+');
+  var h='<div class="ccpcard vb">';
+  h+='<div class="ct"><span class="nm">⛓ VERBUND'+(vnTotal>1?' '+g.n:'')+' · CCP '+kenns+'</span>';
+  h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
+  h+='<div class="mini">';
+  h+='<div class="m" style="background:var(--t1)"><span class="n">'+s.t1+'</span><span class="l">T1</span></div>';
+  h+='<div class="m" style="background:var(--t2);color:#3A2C00"><span class="n">'+s.t2+'</span><span class="l">T2</span></div>';
+  h+='<div class="m" style="background:var(--t3)"><span class="n">'+s.t3+'</span><span class="l">T3</span></div>';
+  h+='<div class="m" style="background:var(--t5);border:1px solid var(--t5b)"><span class="n">'+s.t5+'</span><span class="l">T5</span></div>';
+  h+='</div>';
+  h+='<div class="sub2"><span>Prio <b>'+s.prio+'</b> · fertig <b>'+s.ready+'</b> · gPA <b>'+s.gpa+'</b></span>';
+  h+=(last?'<span>'+fmtHM(last)+'</span>':'');
+  h+='</div>';
+  /* Standorte der Mitglieder — der Verbund hat EINE Liste, aber MEHRERE Orte */
+  g.members.forEach(function(c){
+    var hasGeo=(typeof c.lat==='number' && typeof c.lng==='number');
+    h+='<div class="vmem">';
+    if(hasGeo){
+      h+='<span class="nm2" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" title="Koordinaten kopieren">📍 CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+    }else{
+      h+='<span class="nm2">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+'</span>';
+    }
+    h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;margin-left:auto;opacity:.7">✏️</span>';
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
 function viewLogin(){
   var h='<div class="loginwrap"><div class="loginbox">';
   h+='<div class="arg-logo">ARGUS</div>';
@@ -313,14 +350,7 @@ function viewLage(){
       order.forEach(function(k){
         var g=groups[k];
         if(!g.verbund){ h+=ccpCard(g.members[0], ''); return; }
-        var tot=0, kenns=[];
-        g.members.forEach(function(c){
-          tot+=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
-          kenns.push('CCP '+esc(c.kennung));
-        });
-        h+='<div class="vgroup"><div class="vhead"><span>⛓ VERBUND'+(vn>1?' '+g.n:'')+' <span class="vsub">— '+kenns.join(' + ')+' · gemeinsame Patientenliste</span></span><span class="mono" style="color:var(--mut)">'+tot+'</span></div><div class="vgrid">';
-        g.members.forEach(function(c){ h+=ccpCard(c, ''); });
-        h+='</div></div>';
+        h+=verbundCard(g, vn);
       });
       h+='</div>';
     }else{
