@@ -49,6 +49,19 @@
   überall (Paket 2); Übung/Einsatz-Frage entfällt via schulung-Flag je
   Präsidium (Paket 2); Export-Verlagerung ins Governance-Panel nur mit
   „nicht exportiert"-Badge. Paket 2/3 offen (siehe Chat 2026-06-13).
+  **Nachtrag: v0.25.1 Westenfarben (Hilfestellung); Paket 2 umgesetzt
+  (v0.26.0 / SW v46, Migration 0009):** Gast-Code (24 h Mehrfach, echtes
+  expires_at über jti-Prüfung, gast_join-Log), schulung-Flag je Präsidium
+  (Übung/Einsatz-Frage entfällt, Schulungs-Banner), A-12-Nummern überall,
+  TQ-Dialog (tq_site + rückwirkender Zeitpunkt), „CCP/CCP-Verbund
+  abschließen", Export-Schritt der Feld-App entfällt → Übergabe-Export über
+  Leitungs-Seite (argus_mark_export, protokoll_export-Log, „noch nicht
+  exportiert"-Badge), Eröffnung mit Ort+GPS (geo_lat/lng), Lageansicht mit
+  VERBUND-Chip + Koordinaten-Kopier-Klick, Sortier-Toggle, Checklisten-
+  Autofill. UPDATE-Sheet v0.26. **Paket 3 offen** (Schulungs-Provisionierung
+  je PP inkl. Reset über Tombstones, FLZ-operativ nach DSB-Votum,
+  GeoJSON-Endpunkt nach PTLS-Antwort, Foto im cap-last-Schnellzugriff,
+  AT-MIST-Druck in der Leitung).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4 nach DSB-Votum; k-Schwelle Lageansicht = DSB-Frage).**
   Nächster realer Schritt: **DSB-Gespräch** (Briefing aktualisiert, intern)

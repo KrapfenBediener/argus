@@ -237,8 +237,17 @@ function totBar(list){
 }
 function ccpCard(c){
   var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
+  var hasGeo=(typeof c.lat==='number' && typeof c.lng==='number');
   var h='<div class="ccpcard">';
-  h+='<div class="ct"><span class="nm">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+  h+='<div class="ct">';
+  /* Koordinaten-Klick (Paket 2): Name antippen kopiert „lat, lng" (WGS84
+   * dezimal) — Brücke zur manuellen Übernahme ins Geosystem (VIADUX). */
+  if(hasGeo){
+    h+='<span class="nm" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" title="Koordinaten kopieren">📍 CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+  }else{
+    h+='<span class="nm">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+  }
+  if(c.verbund) h+='<span style="flex:0 0 auto;background:var(--acc);color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;align-self:center">VERBUND</span>';
   h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
   h+='<div class="mini">';
   h+='<div class="m" style="background:var(--t1)"><span class="n">'+(+c.t1||0)+'</span><span class="l">T1</span></div>';
@@ -310,12 +319,27 @@ function render(){
 }
 
 /* ── Events ────────────────────────────────────────────────────── */
+/* Mini-Feedback (kein natives alert) für den Koordinaten-Klick */
+function flash(msg){
+  var f=document.createElement('div');
+  f.textContent=msg;
+  f.style.cssText='position:fixed;left:50%;bottom:60px;transform:translateX(-50%);background:var(--acc);color:#fff;border-radius:9px;padding:9px 16px;font-size:13px;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.25)';
+  document.body.appendChild(f);
+  setTimeout(function(){ if(f.parentNode)f.parentNode.removeChild(f); },2200);
+}
 document.addEventListener('click', function(e){
   var b=e.target.closest('[data-action]');
   if(!b) return;
   var a=b.getAttribute('data-action');
   if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
   if(a==='logout'){ doLogout(); }
+  if(a==='copygeo'){
+    var txt=b.getAttribute('data-lat')+', '+b.getAttribute('data-lng');
+    try{
+      navigator.clipboard.writeText(txt).then(function(){ flash('Koordinaten kopiert: '+txt); },
+        function(){ flash('Koordinaten: '+txt); });
+    }catch(err){ flash('Koordinaten: '+txt); }
+  }
 });
 document.addEventListener('keydown', function(e){
   if(e.key==='Enter' && document.activeElement && document.activeElement.id==='logininp'){

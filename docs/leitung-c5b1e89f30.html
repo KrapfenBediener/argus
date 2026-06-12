@@ -65,6 +65,12 @@
   .sech.fold{cursor:pointer;user-select:none}
   .sech.fold .chev{display:inline-block;font-size:9px;margin-right:5px;transition:transform .15s}
   .sech.fold.open .chev{transform:rotate(90deg)}
+  /* Druck (Übergabe-Export): nur den Inhalt, keine Navigation/Buttons */
+  @media print{
+    .side,.topbar,.btn,.mh button{display:none!important}
+    body{background:#fff}
+    .layout{display:block}
+  }
   .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
   .btn:hover{filter:brightness(1.25)}
   .btn.ghost{background:var(--surf2);color:var(--tx)}
@@ -348,12 +354,14 @@ function zugFilterActive(){ return _zugFilter.art!=='alle' || _zugFilter.status!
 function tokenArtKey(t){
   if(t.observer) return 'beobachter';
   if(t.is_master) return 'master';
+  if(t.gast) return 'gast';
   if(t.single_use) return 'einmal';
   return 'dauerhaft';
 }
 function tokenStatusKey(t){
   if(t.revoked) return 'gesperrt';
   if(t.single_use && t.used_at) return 'verbraucht';
+  if(t.gast && t.expires_at && t.expires_at<=Date.now()) return 'abgelaufen';
   return 'aktiv';
 }
 function tokenMatches(t){
@@ -411,7 +419,7 @@ async function loadZugaenge(){
     if(pr.error){ _zugErr=pr.error.message||'Präsidien nicht lesbar'; }
     else{
       _praes=pr.data||[];
-      var tk=await cl.from('access_tokens').select('short_code,label,is_master,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer,created_at');
+      var tk=await cl.from('access_tokens').select('short_code,label,is_master,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer,created_at,gast,expires_at');
       if(tk.error){ _zugErr=tk.error.message||'Zugänge nicht lesbar'; }
       else{ _tokens=tk.data||[]; }
     }
@@ -422,6 +430,7 @@ async function loadZugaenge(){
 function tokenArt(t){
   if(t.observer) return 'Beobachter (FLZ)';
   if(t.is_master) return 'MasterToken';
+  if(t.gast) return 'Gast (24 h)';
   if(t.single_use) return 'Einmalig';
   if(t.temporary) return '24 h';
   return 'Dauerhaft';
@@ -429,6 +438,11 @@ function tokenArt(t){
 function tokenStatus(t){
   if(t.revoked) return '<span class="pill red">GESPERRT</span>';
   if(t.single_use && t.used_at) return '<span class="pill gray">verbraucht</span>';
+  if(t.gast && t.expires_at && t.expires_at<=Date.now()) return '<span class="pill gray">abgelaufen</span>';
+  if(t.gast && t.expires_at){
+    var hrs=Math.max(0,Math.ceil((t.expires_at-Date.now())/3600000));
+    return '<span class="pill green">aktiv · noch '+hrs+' h</span>';
+  }
   return '<span class="pill green">aktiv</span>';
 }
 function tokenRows(list){
@@ -460,8 +474,8 @@ function secZugaenge(){
   /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) */
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
-  h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['beobachter','Beobachter (FLZ)'],['master','MasterToken']]);
-  h+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht']]);
+  h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['gast','Gast (24 h)'],['beobachter','Beobachter (FLZ)'],['master','MasterToken']]);
+  h+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht'],['abgelaufen','abgelaufen']]);
   h+='<span class="hint" style="margin:0 0 0 8px">Sortierung:</span>';
   h+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst']]);
   if(zugFilterActive()) h+='<button class="btn ghost" data-action="zugfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
@@ -495,6 +509,7 @@ function secZugaenge(){
       h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
       h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="perm">Dauerhaft-Link</button>';
       h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
+      h+='<button class="btn ghost" data-action="mkgast" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Gast-Code (24 h)</button>';
       h+='<button class="btn ghost" data-action="mkobserver" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Beobachter-Zugang (FLZ)</button>';
       h+='</div>';
       h+= shown.length ? tokenRows(shown)
@@ -514,8 +529,28 @@ function secZugaenge(){
   }
   h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Bei der Erstellung kann eine Zuteilung (Name/Dienstnr./Funktion) erfasst werden — sie erscheint als Bezeichnung und macht gezieltes Sperren möglich. Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
   h+='<p class="hint">Sperren wirkt <b>sofort serverseitig</b> — auch bereits angemeldete Geräte verlieren den Zugriff umgehend (die App zeigt die Abmeldung spätestens beim nächsten Start/Reconnect an). Einzige Ausnahme: Anmeldungen aus der Zeit vor dem 12.06.2026 laufen noch bis zum Ablauf ihrer alten Anmeldung (max. 30 Tage) weiter.</p>';
+  h+='<p class="hint">„Gast-Code (24 h)" = Mehrfach-Code für den Gastkräfte-Zustrom im Einsatz — über Funk durchsagbar oder an die Einsatztafel schreiben. Läuft nach 24 Stunden automatisch ab (wirkt auch auf bereits angemeldete Geräte); jede Einlösung wird protokolliert. Je Anlass einen frischen Code erstellen.</p>';
   h+='<p class="hint">„Beobachter-Zugang (FLZ)" = read-only Lageansicht mit anonymen Übersichtszahlen — funktioniert NICHT in der Feld-App. Verteilungs-Disziplin: Code nur an die zuständige FLZ ausgeben, die Adresse der Lageansicht separat übermitteln. Sperrung wirkt beim nächsten Login, spätestens nach 24 h.</p>';
   return h;
+}
+
+/* Gast-Code (Paket 2, 2026-06-13): Mehrfach-Code für den Gastkräfte-Zustrom —
+ * über Funk durchsagbar, an der Einsatztafel anschreibbar. Serverseitig echt
+ * auf 24 h befristet (expires_at; wirkt über die jti-Prüfung auch auf bereits
+ * ausgestellte Tickets); jede Einlösung wird protokolliert (gast_join).
+ * Bewusst je Anlass ein FRISCHER Code (keine Wiederverwendung). */
+async function makeGast(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var zut=await promptModal('Anlass/Einsatz für den Gast-Code? (erscheint in der Liste; leer = ohne Angabe)','');
+  if(zut===null) return;   /* Abbrechen = nicht anlegen */
+  zut=(zut||'').trim();
+  var exp=Date.now()+24*3600000;
+  var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,gast:true,expires_at:exp,label:pname+' Gast-Code'+(zut?' — '+zut:''),short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
+  if(ins.error||!ins.data){ toast('Konnte Gast-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
+  var sc=ins.data.short_code;
+  try{ await navigator.clipboard.writeText(sc); }catch(e){}
+  await promptModal('Gast-Code (24 h gültig, mehrfach einlösbar — zum Durchsagen/Anschreiben; jede Einlösung wird protokolliert):', sc);
+  loadZugaenge();
 }
 
 /* Beobachter-Zugang (FLZ, Phase 4.12): vorhandenen aktiven Beobachter-Code des
@@ -564,7 +599,7 @@ async function makeLink(pid, pname, kind){
   }else{
     /* Dauerhaft — Code-Art „24 h" wurde 2026-06-12 abgeschafft (Migration 0006) */
     var rows=(_tokens||[]).filter(function(t){
-      return t.praesidium_id===pid && !t.single_use && !t.is_master && !t.observer && !t.revoked && !t.temporary;
+      return t.praesidium_id===pid && !t.single_use && !t.is_master && !t.observer && !t.gast && !t.revoked && !t.temporary;
     });
     if(rows.length && rows[0].short_code){
       sc=rows[0].short_code;
@@ -659,11 +694,13 @@ function einsatzGroups(){
     if(!groups[k]){
       groups[k]={ key:k, ccp_id:e.ccp_id, kennungen:[], einsatz_typ:e.einsatz_typ,
         closed_at:e.closed_at, purge_after:e.purge_after, photo_purge_after:e.photo_purge_after,
+        exported_at:e.exported_at||null,
         patient_count:0, photo_count:0, checklist_count:0 };
       order.push(k);
     }
     var g=groups[k];
     if(e.kennung && g.kennungen.indexOf(e.kennung)<0) g.kennungen.push(e.kennung);
+    if(e.exported_at && (!g.exported_at || e.exported_at>g.exported_at)) g.exported_at=e.exported_at;
     g.patient_count+=(+e.patient_count||0);
     g.photo_count+=(+e.photo_count||0);
     g.checklist_count+=(+e.checklist_count||0);
@@ -687,6 +724,9 @@ function einsatzCard(g, now, isWieder){
   h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
   h+='<span class="mono" style="font-size:16px;font-weight:600">CCP '+esc(g.kennungen.join(' + ')||'?')+'</span>';
   h+='<span class="pill gray">'+typLabel(g.einsatz_typ)+'</span>';
+  h+=(g.exported_at
+    ? '<span class="pill green">exportiert '+fmtMs(g.exported_at)+'</span>'
+    : '<span class="pill" style="background:var(--prio)">noch nicht exportiert</span>');
   h+='<span class="hint">abgeschlossen: '+fmtMs(g.closed_at)+'</span>';
   h+='</div>';
   h+='<div class="hint" style="margin-top:6px">'+g.patient_count+' Patient(en) · '+g.photo_count+' Foto(s) · '+g.checklist_count+' Checkliste(n)</div>';
@@ -747,6 +787,34 @@ function secEinsaetze(){
 }
 
 /* Protokoll öffnen (D-01): Hinweis-Modal → Kürzel-Pflicht → protokollierter RPC. */
+/* Übergabe-Export über die Leitung (Paket 2, 2026-06-13): JSON-Download der
+ * Protokolldaten + Status exported_at (argus_mark_export, protokolliert als
+ * 'protokoll_export'). Ersetzt den entfallenen Export-Schritt der Feld-App;
+ * das Badge „noch nicht exportiert" in der Liste ist das Sicherheitsnetz
+ * vor der 72-h-Löschung. */
+async function exportProtokoll(){
+  if(!_detail) return;
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel kein Export'); return; }
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var d=_detail.data||{};
+  var kenn=(Array.isArray(d.ccps)?d.ccps:[]).map(function(c){return c.kennung||'?';}).join('+')||'CCP';
+  var payload={ exportiert:new Date().toISOString(), quelle:'ARGUS Leitungs-Oberfläche',
+    ccps:d.ccps||[], patients:d.patients||[], checklists:d.checklists||[] };
+  try{
+    var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='argus-uebergabe-CCP-'+kenn+'-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ toast('Export fehlgeschlagen'); return; }
+  try{
+    var r=await cl.rpc('argus_mark_export',{p_ccp_id:_detail.ccpId,p_kuerzel:k});
+    if(!r.error){ toast('Übergabe-Export erstellt ✓ (protokolliert)'); loadEinsaetze(); }
+    else toast('Export erstellt — Status konnte nicht gespeichert werden');
+  }catch(e){ toast('Export erstellt — Status konnte nicht gespeichert werden'); }
+}
+
 async function openProtokoll(ccpId){
   var ok=await confirmModal('Jeder Aufruf eines Einsatzprotokolls wird protokolliert (Kürzel + Zeitpunkt). Fortfahren?','Fortfahren');
   if(!ok) return;
@@ -789,7 +857,10 @@ function vProtokollDetail(){
   var pats=Array.isArray(d.patients)?d.patients:[];
   var cls=Array.isArray(d.checklists)?d.checklists:[];
   var now=nowMs();
-  var h='<div class="mh"><h2>Einsatzprotokoll</h2><button class="btn ghost" data-action="closeproto">← Zurück zur Liste</button></div>';
+  var h='<div class="mh"><h2>Einsatzprotokoll</h2><span style="display:flex;gap:8px;flex-wrap:wrap">'+
+    '<button class="btn" data-action="protoexport">⬇ Übergabe-Export (JSON)</button>'+
+    '<button class="btn ghost" data-action="protoprint">🖨 Drucken</button>'+
+    '<button class="btn ghost" data-action="closeproto">← Zurück zur Liste</button></span></div>';
   /* Einsatz-Kopf */
   ccps.forEach(function(c){
     var fst=fristStatus(c.photo_purge_after, now);
@@ -1026,6 +1097,12 @@ document.addEventListener('click', async function(e){
     await makeObserver(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
     return;
   }
+  if(a==='mkgast'){
+    await makeGast(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
+    return;
+  }
+  if(a==='protoexport'){ await exportProtokoll(); return; }
+  if(a==='protoprint'){ window.print(); return; }
   if(a==='togglerevoke'){
     await toggleRevoke(el.getAttribute('data-sc'), el.getAttribute('data-rev')==='1');
     return;
