@@ -81,6 +81,7 @@ supabase/migrations/0007_jti_sofortsperre.sql          jti-Claim in den JWTs, Co
 supabase/migrations/0008_nummernvergabe.sql            Serverseitige Nummernvergabe (Zähler je CCP, argus_claim_nums)
 supabase/migrations/0009_paket2_gastcode_schulung.sql  Gast-Code (24 h), schulung-Flag, Geo, TQ-Anlageort, Export-Status
 supabase/migrations/0010_lage_ort.sql                  FLZ-Orts-Korrektur (argus_lage_set_ort, protokolliert)
+supabase/migrations/0011_paket3_schulung.sql           Schulungs-Reset über Tombstones (argus_schulung_reset, 7-Tage-Hygiene), Schulungs-Provisionierung (argus_provision_schulung)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -136,10 +137,10 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0009 → 0010`. **Hinweis 0009:** je
-Präsidium ein Schulungs-Schwester-Präsidium anlegen und dessen
-`schulung`-Flag setzen (steuert Schulungs-Banner + automatischen
-Abschluss-Typ „Übung").
+gleiche Reihenfolge: `0000 → 0001 → … → 0010 → 0011`. **Hinweis 0009/0011:**
+Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
+Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
+aufrufen (siehe dort).
 
 Hinweise:
 
@@ -247,6 +248,30 @@ values (encode(extensions.gen_random_bytes(16), 'hex'),
 Codes können später jederzeit über die Leitungs-Oberfläche gesperrt werden
 (`revoked`-Flag); gesperrte Geräte melden sich beim nächsten Start/Reconnect
 selbst ab.
+
+**Schulungs-Präsidien provisionieren (einmalig nach dem Anlegen der echten
+Präsidien):** Migration 0011 stellt dafür den master-only-RPC
+`argus_provision_schulung()` bereit — er legt je Präsidium ohne
+`schulung`-Flag ein Schulungs-Schwester-Präsidium „\<Name\> — Schulung"
+(`schulung = true`) an und ist idempotent (ein zweiter Aufruf legt nichts
+mehr an). Aufruf per SQL:
+
+```sql
+select public.argus_provision_schulung();
+```
+
+(Alternativ über den entsprechenden Knopf der Leitungs-Oberfläche, mit
+MasterToken.) Danach für die neuen Schulungs-Präsidien eigene Einsatz-Codes
+ausgeben (Schema wie oben). In Schulungs-Präsidien steht in der Feld-App der
+Schulungs-Reset zur Verfügung: `argus_schulung_reset` tombstont alle offenen
+Übungs-CCPs (Offline-Geräte bereinigen sich beim Reconnect über die normale
+Abschluss-Erkennung) und löscht Schulungs-Tombstones, die älter als 7 Tage
+sind, hart. **Dokumentiertes Restrisiko:** Ein Gerät, das länger als 7 Tage
+offline in einer Schulung war, verpasst den Tombstone und behält seine
+lokalen Übungsdaten, bis sie manuell aufgeräumt werden (CCP verlassen bzw.
+Freischaltung zurücksetzen) — betrifft nur fiktive Schulungsdaten, kein
+Blocker. Echte (Nicht-Schulungs-)Präsidien verweigert der Reset-RPC
+grundsätzlich.
 
 ## 9. App auf die neue Instanz zeigen (config.js) + Hosting
 
