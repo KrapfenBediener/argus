@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.27.2 — 2026-06-13
+**Trainings-Bugfix: TQ-Dialog lag unter dem Spotlight**
+- **Modal-Schichtung korrigiert:** `.modalov` von z-index 50 auf **8500** —
+  über Trainings-Abdunklung (8000) und Coach-Panel (8002), unter
+  flashConfirm/Update-Banner/Foto-Zoom (9998+). Der TQ-Dialog (Zeitpunkt +
+  Extremität) erschien in der Tourniquet-Lektion unter der Abdunklung und
+  war teilweise verdeckt/blockiert; betrifft generisch ALLE In-App-Modals
+  im Training.
+- SW-Cache v50. Drehbuch geprüft: keine Lektionstext-Änderung nötig
+  (reines Layering).
+
 ## v0.27.1 — 2026-06-13
 **Review-Feinschliff Runde 4: Erfassen aufgeräumt, Sofort-Optionen als Pop-up, kompakte Verbund-Karte, Aufräumarbeiten**
 - **Direktzuordnung eingeklappt:** Die Kategorie-Kacheln liegen jetzt hinter

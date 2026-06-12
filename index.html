@@ -83,7 +83,12 @@
   .banner{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-size:13px;color:var(--mut);margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
   .qbtn{flex:1;border-radius:12px;padding:18px;font-size:18px;font-weight:600;border:1px solid var(--line);background:var(--surf2)}
   .helpa{color:var(--mut);font-size:14px}
-  .modalov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  /* z-index 8500: Modals liegen ÜBER der Trainings-Abdunklung (8000) und dem
+   * Coach-Panel (8002) — sonst erscheint z. B. der TQ-Dialog im Training
+   * UNTER dem Spotlight und ist halb verdeckt/blockiert (Bug 2026-06-13).
+   * flashConfirm (9998), Update-Banner (9999) und Foto-Zoom (10000) bleiben
+   * bewusst darüber. */
+  .modalov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:8500;padding:20px}
   .modalbx{background:var(--bg);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:86vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .modalmsg{font-size:16px;font-weight:500;line-height:1.4}
 </style>
@@ -104,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.27.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.27.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -132,6 +137,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.27.2': [
+    'Training repariert: Der TQ-Dialog (Zeitpunkt + Extremität) erschien in der Tourniquet-Lektion unter der Abdunklung und war halb blockiert — Fenster liegen jetzt immer über dem Trainings-Spotlight.'
+  ],
   '0.27.1': [
     'Erfassen aufgeräumt: Die Direktzuordnung liegt jetzt hinter „Direkt kategorisieren (Ausnahme)" — tacSTART dominiert die Seite.',
     'Nach jeder Erfassung erscheinen die Sofort-Optionen (Prio/TQ/Foto/öffnen/Verwerfen) als Pop-up mit „Nächsten Patienten erfassen" — danach wie gewohnt unten verfügbar.',
