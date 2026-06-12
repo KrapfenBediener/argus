@@ -4,13 +4,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ARGUS · Lage</title>
+<title>ARGUS · Lageübersicht</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
 <meta name="googlebot" content="noindex, nofollow">
 <meta name="referrer" content="no-referrer">
 <link rel="icon" type="image/png" href="../ARGUS_Icon.png">
 <style>
-  /* Selbst gehostete Schriften (kein externes CDN) */
+  /* Optik 1:1 nach docs/UI-AUSBLICK.html (PC — FLZ-Lagedashboard), Fonts lokal */
   @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
   @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
   @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
@@ -19,7 +19,7 @@
   :root{
     --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
     --tx:#16181a; --mut:#5d6368;
-    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --t5b:#3a3d41;
     --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
     --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
   }
@@ -29,78 +29,74 @@
   input{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
   input:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
   .mono{font-family:var(--mono)}
-  /* Topbar (Schiefer = Chrome) */
-  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;position:sticky;top:0;z-index:50;flex-wrap:wrap}
-  .topbar .brand{font-weight:700;letter-spacing:1px;font-size:16px}
-  .topbar .brand small{font-weight:400;letter-spacing:0;opacity:.75;margin-left:8px;font-size:12px}
-  .topbar .right{display:flex;align-items:center;gap:14px}
-  .topbar button{background:#ffffff1d;color:#fff;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600}
+  /* Topbar — wie Mockup: Schiefer, Punkt, eine Zeile */
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;position:sticky;top:0;z-index:50}
+  .topbar .dot{width:9px;height:9px;border-radius:50%;background:#ffffff55;flex:0 0 auto}
+  .topbar .dot.ok{background:var(--t3)}
+  .topbar .dot.off{background:var(--t1)}
+  .topbar .tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;white-space:nowrap}
+  .topbar .stand{opacity:.85;font-size:12px}
+  .topbar button{background:#ffffff1d;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600}
   .topbar button:hover{background:#ffffff30}
-  /* Verbindungs-Status */
-  .stat{display:flex;align-items:center;gap:7px;font-size:12.5px;color:#fff;opacity:.92}
-  .dot{width:9px;height:9px;border-radius:50%;background:var(--t3);flex:0 0 auto}
-  .dot.off{background:var(--t1)}
-  .main{padding:20px 22px 60px;max-width:1100px;margin:0 auto;width:100%}
-  .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px 16px;margin-bottom:12px}
-  .hint{font-size:12px;color:var(--mut)}
-  /* CCP-Karten */
-  .ccphead{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-  .ccphead .kn{font-weight:700;font-size:16px}
-  .ccphead .ort{color:var(--mut);font-size:13px}
-  .cats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-  .cat{border-radius:10px;padding:10px 8px;text-align:center;color:#fff}
-  .cat .nm{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;opacity:.9}
-  .cat .ct{font-family:var(--mono);font-weight:600;font-size:36px;line-height:1.15}
-  .cat.c1{background:var(--t1)} .cat.c2{background:var(--t2);color:#16181a}
-  .cat.c3{background:var(--t3)} .cat.c5{background:var(--t5)}
-  .cat.cg{background:var(--surf2);color:var(--mut);border:1px solid var(--line)}
-  .subrow{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:13px}
-  .subrow b{font-family:var(--mono)}
-  .subrow .pr{color:var(--prio);font-weight:600}
-  .subrow .rd{color:var(--ready);font-weight:600}
-  .subrow .ts{color:var(--mut);margin-left:auto;font-size:12px}
-  /* Summenzeile */
-  .sumcard{border-width:2px;border-color:var(--acc)}
-  .sumcard .ccphead .kn{font-size:15px;text-transform:uppercase;letter-spacing:.5px}
-  /* Fehlerbanner */
-  .errbar{border:1px solid var(--t1);border-left:5px solid var(--t1);border-radius:11px;background:#fff;padding:12px 14px;margin-bottom:12px;color:var(--t1);font-weight:600;font-size:13px}
+  /* Hauptfläche — Mockup .main */
+  .main{padding:14px;max-width:920px;margin:0 auto;width:100%}
+  /* Summen-Leiste — Mockup .totbar/.tot */
+  .totbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .tot{flex:1;min-width:96px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center}
+  .tot .n{font-family:var(--mono);font-weight:700;font-size:20px}
+  .tot .l{font-size:11px;color:var(--mut)}
+  /* CCP-Karten — Mockup .lgrid/.ccpcard/.mini */
+  .lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .ccpcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px}
+  .ccpcard .ct{font-weight:600;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+  .ccpcard .ct .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini{display:flex;gap:4px}
+  .mini .m{flex:1;border-radius:6px;text-align:center;color:#fff;padding:5px 0}
+  .mini .m .n{display:block;font-family:var(--mono);font-weight:700;font-size:15px;line-height:1}
+  .mini .m .l{font-size:9px;opacity:.95}
+  .sub2{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:11px;color:var(--mut)}
+  .sub2 b{font-family:var(--mono);font-weight:600}
+  /* Hinweis-Note — Mockup .note */
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--ready);border-radius:10px;padding:11px 14px;margin:14px 0 0;font-size:13px}
+  .note.err{border-left-color:var(--t1);color:var(--t1);font-weight:600;margin:0 0 12px}
+  .empty{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px;color:var(--mut);font-size:13px}
   /* Login */
-  .loginwrap{min-height:calc(100vh - 46px);display:flex;align-items:flex-start;justify-content:center;padding:60px 14px}
+  .loginwrap{min-height:calc(100vh - 40px);display:flex;align-items:flex-start;justify-content:center;padding:60px 14px}
   .loginbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 24px;max-width:380px;width:100%;box-shadow:0 6px 22px rgba(0,0,0,.06)}
   .loginbox h1{font-size:18px;margin:0 0 4px}
-  .arg-logo{width:52px;height:52px;border-radius:13px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin:0 auto 14px;letter-spacing:1px}
+  .arg-logo{width:52px;height:52px;border-radius:13px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;margin:0 auto 14px;letter-spacing:1px}
+  .hint{font-size:12px;color:var(--mut)}
   .fieldlab{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;font-weight:600}
   .lerr{color:var(--t1);font-size:12.5px;font-weight:600;margin-top:10px;min-height:18px}
   .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
   .btn:hover{filter:brightness(1.25)}
   .btn[disabled]{opacity:.5;cursor:default}
-  @media(max-width:680px){
-    .cats{grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
-    .cat .ct{font-size:26px}
-    .main{padding:14px}
-  }
+  @media(max-width:560px){ .lgrid{grid-template-columns:1fr 1fr} .main{padding:10px} }
 </style>
 </head>
 <body>
 <div class="topbar">
-  <span class="brand">ARGUS<small id="pname">· Lage</small></span>
+  <span class="dot" id="statdot"></span>
+  <span class="tt" id="toptitle">ARGUS · Lageübersicht</span>
   <span class="right">
-    <span class="stat" id="statwrap" style="display:none"><span class="dot" id="statdot"></span><span id="stattxt"></span></span>
+    <span class="stand" id="stattxt"></span>
     <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
   </span>
 </div>
 <div id="app"></div>
-<div class="hint" style="text-align:center;padding:14px 16px 18px">Anonyme Übersichtszahlen — keine Personendaten.</div>
 <script src="../config.js"></script>
 <script>
 "use strict";
 
 /* ============================================================
- * ARGUS · Lage — read-only Beobachter-Seite für FLZ/ILS (Stufe a)
- * Anonyme Aggregat-Zahlen je aktivem CCP eines Präsidiums.
+ * ARGUS · Lageübersicht — read-only Beobachter-Seite für FLZ/ILS (Stufe a)
+ * Optik und Layout exakt nach dem verbindlichen Mockup
+ * docs/UI-AUSBLICK.html („PC — FLZ-Lagedashboard"): Totbar mit
+ * Summen, kompakte CCP-Karten im Raster, Hinweis-Note unten.
  * Zugang nur mit Beobachter-Code (Observer-JWT, Migration 0005);
- * Zahlen kommen ausschließlich aus dem Aggregat-RPC argus_lage —
- * die Seite kennt keine Patientendaten. Sitzung bewusst flüchtig
+ * Zahlen ausschließlich aus dem Aggregat-RPC argus_lage — die
+ * Seite kennt keine Patientendaten. Sitzung flüchtig
  * (sessionStorage); Pull/Polling alle 20 s, kein Realtime.
  * ============================================================ */
 
@@ -221,48 +217,45 @@ document.addEventListener('visibilitychange', function(){
   if(document.visibilityState==='visible' && sessionJwt()) poll();
 });
 
-/* ── Rendering ─────────────────────────────────────────────────── */
-function catTiles(o, big){
-  var h='<div class="cats">';
-  h+='<div class="cat c1"><div class="nm">T1</div><div class="ct">'+(+o.t1||0)+'</div></div>';
-  h+='<div class="cat c2"><div class="nm">T2</div><div class="ct">'+(+o.t2||0)+'</div></div>';
-  h+='<div class="cat c3"><div class="nm">T3</div><div class="ct">'+(+o.t3||0)+'</div></div>';
-  h+='<div class="cat c5"><div class="nm">T5</div><div class="ct">'+(+o.t5||0)+'</div></div>';
-  h+='<div class="cat cg"><div class="nm">gPA</div><div class="ct">'+(+o.gpa||0)+'</div></div>';
-  h+='</div>';
-  return h;
-}
-function ccpCard(c){
-  var h='<div class="card">';
-  h+='<div class="ccphead"><span class="kn">CCP '+esc(c.kennung)+'</span>';
-  if(c.ort) h+='<span class="ort">'+esc(c.ort)+'</span>';
-  h+='</div>';
-  h+=catTiles(c);
-  h+='<div class="subrow"><span class="pr">Prio: <b>'+(+c.prio||0)+'</b></span>';
-  h+='<span class="rd">transportfertig: <b>'+(+c.ready||0)+'</b></span>';
-  if(c.letzte_aenderung) h+='<span class="ts">letzte Änderung '+fmtHM(c.letzte_aenderung)+'</span>';
-  h+='</div></div>';
-  return h;
-}
-function sumCard(list){
-  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0};
+/* ── Rendering — Bausteine 1:1 aus dem Mockup ──────────────────── */
+function totBar(list){
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0,pat:0};
   list.forEach(function(c){
     s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
     s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
   });
-  var h='<div class="card sumcard">';
-  h+='<div class="ccphead"><span class="kn">Gesamt · '+list.length+' CCP'+(list.length===1?'':'s')+'</span></div>';
-  h+=catTiles(s,true);
-  h+='<div class="subrow"><span class="pr">Prio: <b>'+s.prio+'</b></span>';
-  h+='<span class="rd">transportfertig: <b>'+s.ready+'</b></span></div>';
+  s.pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  var h='<div class="totbar">';
+  h+='<div class="tot"><div class="n">'+list.length+'</div><div class="l">aktive CCPs</div></div>';
+  h+='<div class="tot"><div class="n">'+s.pat+'</div><div class="l">Patienten gesamt</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--t1)">'+s.t1+'</div><div class="l">T-1</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--prio)">'+s.prio+'</div><div class="l">Prio-Transport</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--ready)">'+s.ready+'</div><div class="l">transportfertig</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--mut)">'+s.gpa+'</div><div class="l">gPA</div></div>';
   h+='</div>';
+  return h;
+}
+function ccpCard(c){
+  var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
+  var h='<div class="ccpcard">';
+  h+='<div class="ct"><span class="nm">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+  h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
+  h+='<div class="mini">';
+  h+='<div class="m" style="background:var(--t1)"><span class="n">'+(+c.t1||0)+'</span><span class="l">T1</span></div>';
+  h+='<div class="m" style="background:var(--t2);color:#3A2C00"><span class="n">'+(+c.t2||0)+'</span><span class="l">T2</span></div>';
+  h+='<div class="m" style="background:var(--t3)"><span class="n">'+(+c.t3||0)+'</span><span class="l">T3</span></div>';
+  h+='<div class="m" style="background:var(--t5);border:1px solid var(--t5b)"><span class="n">'+(+c.t5||0)+'</span><span class="l">T5</span></div>';
+  h+='</div>';
+  h+='<div class="sub2"><span>Prio <b>'+(+c.prio||0)+'</b> · fertig <b>'+(+c.ready||0)+'</b> · gPA <b>'+(+c.gpa||0)+'</b></span>';
+  h+=(c.letzte_aenderung?'<span>'+fmtHM(c.letzte_aenderung)+'</span>':'');
+  h+='</div></div>';
   return h;
 }
 function viewLogin(){
   var h='<div class="loginwrap"><div class="loginbox">';
   h+='<div class="arg-logo">ARGUS</div>';
-  h+='<h1>Lageansicht</h1>';
-  h+='<div class="hint">Read-only Übersicht für FLZ/ILS — anonyme Zahlen je CCP. Zugang nur mit Beobachter-Code.</div>';
+  h+='<h1>Lageübersicht</h1>';
+  h+='<div class="hint">Read-only Ansicht für FLZ/ILS — anonyme Zahlen je CCP. Zugang nur mit Beobachter-Code.</div>';
   if(_configError) h+='<div class="lerr">Konfiguration fehlt (config.js) — kein Backend verbunden.</div>';
   h+='<label class="fieldlab" for="logininp">Beobachter-Code</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
@@ -276,19 +269,22 @@ function viewLogin(){
 function viewLage(){
   var h='<div class="main">';
   if(_offline && _lastOkAt){
-    h+='<div class="errbar">Keine Verbindung — letzte Zahlen von '+fmtHM(_lastOkAt)+'. Es wird weiter versucht…</div>';
+    h+='<div class="note err">Keine Verbindung — letzte Zahlen von '+fmtHM(_lastOkAt)+'. Es wird weiter versucht…</div>';
   }else if(_offline){
-    h+='<div class="errbar">Keine Verbindung — Zahlen können nicht geladen werden. Es wird weiter versucht…</div>';
+    h+='<div class="note err">Keine Verbindung — Zahlen können nicht geladen werden. Es wird weiter versucht…</div>';
   }
   if(_data){
     if(_data.ccps.length){
-      h+=sumCard(_data.ccps);
+      h+=totBar(_data.ccps);
+      h+='<div class="lgrid">';
       _data.ccps.forEach(function(c){ h+=ccpCard(c); });
+      h+='</div>';
     }else{
-      h+='<div class="card"><p class="hint" style="margin:0">Keine aktiven CCPs in diesem Präsidium.</p></div>';
+      h+='<div class="empty">Keine aktiven CCPs in diesem Präsidium.</div>';
     }
+    h+='<div class="note">Anonyme Übersichtszahlen — keine Personendaten. Keine Patientendetails, keine Namen/Fotos, nur Zahlen je Kategorie. Aktualisiert sich automatisch.</div>';
   }else if(!_offline){
-    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+    h+='<div class="empty">Wird geladen…</div>';
   }
   h+='</div>';
   return h;
@@ -296,17 +292,18 @@ function viewLage(){
 function render(){
   var loggedIn=!!sessionJwt();
   var lb=$('logoutbtn'); if(lb) lb.style.display=loggedIn?'':'none';
-  var pn=$('pname');
-  if(pn) pn.textContent='· Lage'+(loggedIn && sessionStorage.getItem('arguslg_pname') ? ' · '+sessionStorage.getItem('arguslg_pname') : '');
-  var sw=$('statwrap');
-  if(sw){
-    sw.style.display=loggedIn?'':'none';
-    if(loggedIn){
-      var dot=$('statdot'), txt=$('stattxt');
-      if(_offline){ dot.className='dot off'; txt.textContent=_lastOkAt?('letzte Zahlen '+fmtHM(_lastOkAt)):'keine Verbindung'; }
-      else if(_lastOkAt){ dot.className='dot'; txt.textContent='Stand: '+fmtClock(_lastOkAt); }
-      else { dot.className='dot'; txt.textContent='lädt…'; }
-    }
+  /* Topbar-Zeile wie im Mockup: ARGUS · Lageübersicht · Beobachter · <Präsidium> */
+  var tt=$('toptitle');
+  if(tt){
+    var pn=loggedIn ? (sessionStorage.getItem('arguslg_pname')||'') : '';
+    tt.textContent='ARGUS · Lageübersicht'+(loggedIn?' · Beobachter'+(pn?' · '+pn:''):'');
+  }
+  var dot=$('statdot'), txt=$('stattxt');
+  if(dot && txt){
+    if(!loggedIn){ dot.className='dot'; txt.textContent=''; }
+    else if(_offline){ dot.className='dot off'; txt.textContent=_lastOkAt?('letzte Zahlen '+fmtHM(_lastOkAt)):'keine Verbindung'; }
+    else if(_lastOkAt){ dot.className='dot ok'; txt.textContent='Stand: '+fmtClock(_lastOkAt); }
+    else { dot.className='dot'; txt.textContent='lädt…'; }
   }
   $('app').innerHTML = loggedIn ? viewLage() : viewLogin();
   if(!loggedIn){ var li=$('logininp'); if(li) li.focus(); }
