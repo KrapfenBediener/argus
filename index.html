@@ -104,7 +104,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.26.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.26.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -131,6 +131,11 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.26.1': [
+    'TQ-Anzeige klarer: „TQ (Bein re) läuft seit 12:34 min — tippen zum Stoppen" statt des missverständlichen „TQ läuft · 12:34 — stoppen".',
+    '„CCP abschließen" steht jetzt sauber unter der Überschrift „Nur MasterMedic" — abschließen konnte ohnehin nur der MasterMedic, jetzt sieht man es auch.',
+    'Lageansicht: Das FLZ kann die Ortsbezeichnung eines CCP nachtragen (✏️, protokolliert); mehrere Verbünde werden als „VERBUND 1/2" unterschieden.'
+  ],
   '0.26.0': [
     'Nummern heißen jetzt überall Kennung-Nummer (z. B. A-12) — genau so auf die Haut schreiben. Beim Zusammenführen von CCPs muss nichts mehr umbeschriftet werden.',
     'Tourniquet: Beim Timer-Start fragt ARGUS nach Anlageort (Arm/Bein, li/re) und Zeitpunkt — auch rückwirkend, falls das TQ schon vor Ankunft saß.',
@@ -934,6 +939,13 @@ function two(n){return (n<10?"0":"")+n;}
  * auch auf die Haut geschrieben — beim späteren Zusammenführen muss niemand
  * nachträglich Buchstaben ergänzen (Arbeitsaufwand + Fehlerquelle). */
 function pno(p){return (p.ccp||"A")+"-"+p.num;}
+/* TQ-Knopf-Beschriftung (Feedback 2026-06-13: „läuft · 12:34 — stoppen" war
+ * missverständlich): „TQ (Bein re) läuft seit 12:34 min — tippen zum Stoppen" */
+function tqLabel(p){
+  var ms=nowMs()-p.tqStart;
+  var unit=ms>=3600000?' Std':' min';
+  return 'TQ'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' läuft seit '+fmtDur(ms)+unit+' — tippen zum Stoppen';
+}
 /* Doppelnummer-Erkennung: aktive Patienten mit gleicher (Kennung, Nummer) im
  * selben CCP. Kann entstehen, wenn mehrere Geräte (v. a. offline) unabhängig
  * nummerieren. Es wird NICHT automatisch umnummeriert (Nummer steht auf der
@@ -1721,7 +1733,7 @@ function vCapture(){
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
    * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
   h+='<div class="card" id="cap-last" style="margin-top:12px;padding:12px">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+nextNum()+'</span></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer (voraussichtl.)</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+_ccpKennung+'-'+nextNum()+'</span></div>';
   var lc=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
   if(lc){
     var cc=CATS[lc.cat]||CATS.T3;
@@ -1757,7 +1769,7 @@ function vTac(){
     var c=CATS[rc];
     return '<div class="card" style="text-align:center;padding:26px 16px"><div class="hint">Ergebnis tacSTART</div>'+
       '<div style="display:inline-block;margin:14px auto;border-radius:14px;padding:18px 30px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="mono" style="font-size:34px;font-weight:600">'+c.label+'</span><br><span style="font-size:13px">'+c.nm+'</span></div></div>'+
-      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient #'+nextNum()+' anlegen</button>'+
+      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient '+_ccpKennung+'-'+nextNum()+' anlegen</button>'+
       '<button class="ghost" data-action="tacstart">nochmal</button>'+
       '<p class="hint" style="text-align:center;margin-top:10px;font-size:11px">tacSTART ist eine Entscheidungsunterstützung – kein Ersatz für die ärztliche/fachliche Beurteilung.</p>';
   }
@@ -1790,16 +1802,21 @@ function vOverview(){
   });
   h+='<button class="navbtn" data-action="opencat" data-cat="all" style="margin-top:10px"><span class="ic">≡</span><span><span class="t">Alle Patienten</span><br><span class="s">Gesamtliste — direkt antippen</span></span></button>';
   h+='<p class="hint" style="text-align:center;margin-top:10px">Kachel oben oder Kategorie antippen → Liste → Patient antippen</p>';
-  /* Einsatz-Abschluss: nur MasterMedic, nie im Training (im lokalen
-   * Trainings-Sandbox gibt es keinen echten Einsatz abzuschließen). */
+  /* Alles ab hier ist MasterMedic-Funktionalität — unter EINER Überschrift,
+   * damit klar ist: auch der Abschluss ist nur für den MasterMedic (Feedback
+   * 2026-06-13; der Button war für andere ohnehin unsichtbar, stand aber
+   * irreführend ÜBER der Überschrift). */
   if(isMasterMedic() && !_training){
-    h+='<button class="ghost" data-action="closeeinsatz" style="margin-top:14px">🏁 '+(_mergeGroupId?'CCP-Verbund':'CCP')+' abschließen</button>';
-    h+='<p class="hint" style="text-align:center;margin-top:5px">Übergabe-Export · sperrt alle Geräte · Löschung nach Frist</p>';
-  }
-  if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
-    /* Einheitlich echtes geräteübergreifendes Zusammenführen — auch in der
-     * Schulungsumgebung (deren CCPs sind jetzt echte CCPs, keine Demo-Simulation). */
+    if(operator&&masterMedic&&operator===masterMedic){
+      /* Einheitlich echtes geräteübergreifendes Zusammenführen — auch in der
+       * Schulungsumgebung (deren CCPs sind echte CCPs, keine Demo-Simulation). */
+      h+=realMergeUI();
+    }
+    h+='<button class="ghost" data-action="closeeinsatz" style="margin-top:14px">🏁 '+(_mergeGroupId?'CCP-Verbund':'CCP')+' abschließen</button>';
+    h+='<p class="hint" style="text-align:center;margin-top:5px">sperrt alle Geräte · Export über die Leitung · Löschung nach Frist</p>';
+  }else if(operator&&masterMedic&&operator===masterMedic){
+    h+='<div class="sech">Nur MasterMedic</div>';
     h+=realMergeUI();
   }
   return h;
@@ -1907,7 +1924,7 @@ function vPatient(){
     '<div><label class="fieldlab">Geschl.</label><select data-kind="pat" data-field="gender"><option value=""'+sel(p.gender,"")+'>—</option><option value="m"'+sel(p.gender,"m")+'>m</option><option value="w"'+sel(p.gender,"w")+'>w</option></select></div>'+
     '<div><label class="fieldlab">Allergien</label>'+inp("allergies",p.allergies)+'</div></div></div>';
 
-  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?('TQ läuft'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' · '+fmtDur(nowMs()-p.tqStart)+' — stoppen'):'TQ-Timer starten')+'</button></div>';
+  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?tqLabel(p):'TQ-Timer starten')+'</button></div>';
 
   h+='<div class="sech" id="ph-tx">Maßnahmen A–E</div><div class="card">';
   TXG.forEach(function(g){h+='<div class="subl">'+esc(g[0])+'</div><div class="grid3">';
@@ -3170,8 +3187,8 @@ document.addEventListener("click",async function(e){
     await savePatient(pv);render();toast("Messung protokolliert");
     return;
   }
-  if(a==="gpa"){var p5=state.edit;p5.status="gpa";p5.lockedBy=null;p5.lockedAt=null;await savePatient(p5);await pushLock(p5);state.readonly=false;await loadPatients();go("overview");toast("Patient #"+p5.num+" → gPA");return;}
-  if(a==="reactivate"){var pr=state.edit;pr.status="active";await savePatient(pr);await loadPatients();go("overview");toast("Patient #"+pr.num+" zurückgeholt → aktiv");return;}
+  if(a==="gpa"){var p5=state.edit;p5.status="gpa";p5.lockedBy=null;p5.lockedAt=null;await savePatient(p5);await pushLock(p5);state.readonly=false;await loadPatients();go("overview");toast("Patient "+pno(p5)+" → gPA");return;}
+  if(a==="reactivate"){var pr=state.edit;pr.status="active";await savePatient(pr);await loadPatients();go("overview");toast("Patient "+pno(pr)+" zurückgeholt → aktiv");return;}
   if(a==="checkoutready"){
     var rcat=el.getAttribute("data-cat");
     await loadPatients();
@@ -3236,7 +3253,7 @@ setInterval(function(){
   document.querySelectorAll(".js-age").forEach(function(n){n.textContent=ageStr(+n.getAttribute("data-ts"));});
   document.querySelectorAll(".js-tq").forEach(function(n){n.textContent=fmtDur(nowMs()-(+n.getAttribute("data-tq")));});
   var tb=document.querySelector('[data-action="tq"]');
-  if(tb&&state.edit&&state.edit.tqStart){tb.textContent="TQ läuft · "+fmtDur(nowMs()-state.edit.tqStart)+" — stoppen";}
+  if(tb&&state.edit&&state.edit.tqStart){var _tl=document.createElement('span');_tl.innerHTML=tqLabel(state.edit);tb.textContent=_tl.textContent;}
 },1000);
 setInterval(async function(){
   if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;

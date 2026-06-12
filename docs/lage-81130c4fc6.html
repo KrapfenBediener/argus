@@ -235,7 +235,7 @@ function totBar(list){
   h+='</div>';
   return h;
 }
-function ccpCard(c){
+function ccpCard(c, vlabel){
   var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
   var hasGeo=(typeof c.lat==='number' && typeof c.lng==='number');
   var h='<div class="ccpcard">';
@@ -247,7 +247,10 @@ function ccpCard(c){
   }else{
     h+='<span class="nm">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
   }
-  if(c.verbund) h+='<span style="flex:0 0 auto;background:var(--acc);color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;align-self:center">VERBUND</span>';
+  /* FLZ darf die Ortsbezeichnung nachtragen/korrigieren (Migration 0010,
+   * protokolliert) — z. B. wenn die Eröffnungs-Abfrage übersprungen wurde. */
+  h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;font-size:13px;align-self:center;opacity:.7">✏️</span>';
+  if(vlabel) h+='<span style="flex:0 0 auto;background:var(--acc);color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;align-self:center">'+vlabel+'</span>';
   h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
   h+='<div class="mini">';
   h+='<div class="m" style="background:var(--t1)"><span class="n">'+(+c.t1||0)+'</span><span class="l">T1</span></div>';
@@ -285,8 +288,18 @@ function viewLage(){
   if(_data){
     if(_data.ccps.length){
       h+=totBar(_data.ccps);
+      /* Mehrere getrennte Verbünde unterscheidbar machen (Feedback
+       * 2026-06-13): Gruppen durchnummerieren — „VERBUND 1", „VERBUND 2";
+       * bei nur einem Verbund schlicht „VERBUND". */
+      var vmap={}, vn=0;
+      _data.ccps.forEach(function(c){
+        if(c.verbund_gruppe && !(c.verbund_gruppe in vmap)) vmap[c.verbund_gruppe]=++vn;
+      });
       h+='<div class="lgrid">';
-      _data.ccps.forEach(function(c){ h+=ccpCard(c); });
+      _data.ccps.forEach(function(c){
+        var vlabel=c.verbund_gruppe ? ('VERBUND'+(vn>1?' '+vmap[c.verbund_gruppe]:'')) : '';
+        h+=ccpCard(c, vlabel);
+      });
       h+='</div>';
     }else{
       h+='<div class="empty">Keine aktiven CCPs in diesem Präsidium.</div>';
@@ -327,12 +340,51 @@ function flash(msg){
   document.body.appendChild(f);
   setTimeout(function(){ if(f.parentNode)f.parentNode.removeChild(f); },2200);
 }
+/* Ort-Eingabe (Migration 0010): Mini-Modal, kein natives prompt */
+function ortPrompt(kennung, current){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:360px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)">'+
+      '<div style="font-weight:600;margin-bottom:10px">Ort/Objekt für CCP '+esc(kennung)+'</div>'+
+      '<input id="ortinp" value="'+esc(current||'')+'" maxlength="120" placeholder="z. B. Stadthalle, Halle 2" style="margin-bottom:12px">'+
+      '<div style="display:flex;gap:8px"><button class="btn" data-m="ok" style="flex:1">Speichern</button>'+
+      '<button class="btn" data-m="no" style="flex:1;background:var(--surf2);color:var(--tx)">Abbrechen</button></div>'+
+      '<p class="hint" style="margin:10px 0 0">Wird protokolliert und erscheint auf allen Geräten dieses Einsatzes.</p></div>';
+    document.body.appendChild(ov);
+    var inp=ov.querySelector('#ortinp'); inp.focus(); inp.select();
+    function done(v){ if(ov.parentNode)ov.parentNode.removeChild(ov); resolve(v); }
+    ov.addEventListener('click',function(e){
+      var m=e.target.closest('[data-m]');
+      if(m){ done(m.getAttribute('data-m')==='ok'?inp.value:null); }
+      else if(e.target===ov){ done(null); }
+    });
+    inp.addEventListener('keydown',function(e){ if(e.key==='Enter') done(inp.value); });
+  });
+}
+async function setOrt(kennung, current){
+  var jwt=sessionJwt(); if(!jwt) return;
+  var v=await ortPrompt(kennung, current);
+  if(v===null) return;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage_set_ort',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify({ p_kennung:kennung, p_ort:v })
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    var d=await resp.json();
+    if(resp.ok && d && d.ok){ flash('Ort gespeichert ✓ (protokolliert)'); poll(); }
+    else flash('Speichern fehlgeschlagen'+(d&&d.message?': '+d.message:''));
+  }catch(e){ flash('Keine Verbindung — Ort nicht gespeichert'); }
+}
 document.addEventListener('click', function(e){
   var b=e.target.closest('[data-action]');
   if(!b) return;
   var a=b.getAttribute('data-action');
   if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
   if(a==='logout'){ doLogout(); }
+  if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
   if(a==='copygeo'){
     var txt=b.getAttribute('data-lat')+', '+b.getAttribute('data-lng');
     try{

@@ -6,6 +6,27 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.26.1 — 2026-06-13
+**Feinschliff aus dem Feedback-Review: TQ-Wortlaut, Abschluss-Platzierung, FLZ-Orts-Korrektur, Verbund-Nummerierung**
+- **TQ-Anzeige:** „TQ (Bein re) läuft seit 12:34 min — tippen zum Stoppen"
+  (vorher missverständlich „TQ läuft · 12:34 — stoppen"); Einheit min/Std
+  dynamisch; Live-Ticker nutzt dieselbe Beschriftung.
+- **„CCP abschließen" unter „Nur MasterMedic":** Der Button stand in der
+  Patientenübersicht irreführend ÜBER der Überschrift — er war für andere
+  Rollen ohnehin unsichtbar (UI + Workflow + Server prüfen MasterMedic),
+  jetzt ist es auch optisch eindeutig. Nummern-Vorschauen („Nächste Nummer",
+  tacSTART-Anlegen-Knopf) zeigen die Kennung mit (A-12, „voraussichtlich").
+- **FLZ-Orts-Korrektur (Migration 0010):** Das FLZ kann die Ortsbezeichnung
+  eines aktiven CCP in der Lageansicht nachtragen/korrigieren (✏️ —
+  RPC `argus_lage_set_ort`, nur Beobachter-Tickets, reines
+  Infrastruktur-Label ohne Personenbezug, jede Änderung protokolliert als
+  `lage_ort`). Per REST-Tests belegt (positiv, Protokoll, Feld-JWT verweigert).
+- **Verbund-Nummerierung in der Lageansicht:** Mehrere getrennte Verbünde
+  werden als „VERBUND 1" / „VERBUND 2" unterschieden (ein einzelner Verbund
+  bleibt schlicht „VERBUND").
+- SW-Cache v47. Drehbuch geprüft: TQ-Lektion beschreibt den Dialog bereits,
+  keine weitere Anpassung nötig.
+
 ## v0.26.0 — 2026-06-13
 **Paket 2 aus dem Feldtest-Feedback: A-12-Nummern, TQ-Dialog, vereinfachter Abschluss, Gast-Code, Lage-Ausbau**
 - **Kennung-Nummer überall (A-12):** `pno()` zeigt die Patienten-Nummer immer
