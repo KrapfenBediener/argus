@@ -79,6 +79,7 @@ supabase/migrations/0005_phase412_lageansicht.sql      Beobachter-Token, Observe
 supabase/migrations/0006_token_hygiene.sql             24-h-Codes abgeschafft, verbrauchte Einmal-Codes 6 Monate
 supabase/migrations/0007_jti_sofortsperre.sql          jti-Claim in den JWTs, Code-Sperrung wirkt sofort serverseitig
 supabase/migrations/0008_nummernvergabe.sql            Serverseitige Nummernvergabe (Zähler je CCP, argus_claim_nums)
+supabase/migrations/0009_paket2_gastcode_schulung.sql  Gast-Code (24 h), schulung-Flag, Geo, TQ-Anlageort, Export-Status
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -134,7 +135,10 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008`.
+gleiche Reihenfolge: `0000 → 0001 → … → 0008 → 0009`. **Hinweis 0009:** je
+Präsidium ein Schulungs-Schwester-Präsidium anlegen und dessen
+`schulung`-Flag setzen (steuert Schulungs-Banner + automatischen
+Abschluss-Typ „Übung").
 
 Hinweise:
 
