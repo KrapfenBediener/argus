@@ -78,6 +78,7 @@ supabase/migrations/0004_phase410_log_retention.sql    Log-Aufbewahrung 12 Monat
 supabase/migrations/0005_phase412_lageansicht.sql      Beobachter-Token, Observer-JWT, Aggregat-RPC argus_lage
 supabase/migrations/0006_token_hygiene.sql             24-h-Codes abgeschafft, verbrauchte Einmal-Codes 6 Monate
 supabase/migrations/0007_jti_sofortsperre.sql          jti-Claim in den JWTs, Code-Sperrung wirkt sofort serverseitig
+supabase/migrations/0008_nummernvergabe.sql            Serverseitige Nummernvergabe (Zähler je CCP, argus_claim_nums)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -133,7 +134,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007`.
+gleiche Reihenfolge: `0000 → 0001 → 0002 → 0003 → 0004 → 0005 → 0006 → 0007 → 0008`.
 
 Hinweise:
 
