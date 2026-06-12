@@ -54,6 +54,15 @@
   .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:12px}
   .hint{font-size:12px;color:var(--mut)}
   .sech{font-size:12px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px}
+  /* Einklappbare Karten/Blöcke (Owner-Wunsch 2026-06-12: weniger Scrollen) */
+  .cardhead{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+  .cardhead .chev{flex:0 0 auto;color:var(--mut);font-size:10px;display:inline-block;transition:transform .15s}
+  .cardhead.open .chev{transform:rotate(90deg)}
+  .cardhead .ctitle{font-weight:600;font-size:15px}
+  .cardhead .csum{color:var(--mut);font-size:12px;font-weight:400;margin-left:auto;white-space:nowrap}
+  .sech.fold{cursor:pointer;user-select:none}
+  .sech.fold .chev{display:inline-block;font-size:9px;margin-right:5px;transition:transform .15s}
+  .sech.fold.open .chev{transform:rotate(90deg)}
   .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
   .btn:hover{filter:brightness(1.25)}
   .btn.ghost{background:var(--surf2);color:var(--tx)}
@@ -319,6 +328,25 @@ function vLogin(){
  * 24-h-Codes und die Code-Sperre (revoked-Flag, Migration 0003). */
 var _praes=null, _tokens=null, _zugErr=null;
 
+/* Einklapp-Zustand je Karte/Block (Owner-Wunsch 2026-06-12). Persistenz in
+ * sessionStorage — überlebt Bereichswechsel, endet mit der Sitzung. */
+var _collapsed={};
+try{ _collapsed=JSON.parse(sessionStorage.getItem('arguslt_collapsed')||'{}')||{}; }catch(e){ _collapsed={}; }
+function isCollapsed(key, defCollapsed){ return (key in _collapsed) ? !!_collapsed[key] : !!defCollapsed; }
+function toggleCard(key, defCollapsed){
+  _collapsed[key]=!isCollapsed(key, defCollapsed);
+  try{ sessionStorage.setItem('arguslt_collapsed', JSON.stringify(_collapsed)); }catch(e){}
+  render();
+}
+/* Klickbarer Karten-Kopf; def=1 → standardmäßig zugeklappt */
+function foldHead(key, defCollapsed, title, summary){
+  var open=!isCollapsed(key, defCollapsed);
+  return '<div class="cardhead'+(open?' open':'')+'" data-action="togglecard" data-key="'+esc(key)+'" data-def="'+(defCollapsed?'1':'0')+'">'
+       + '<span class="chev">▶</span><span class="ctitle">'+title+'</span>'
+       + (summary?'<span class="csum">'+summary+'</span>':'')
+       + '</div>';
+}
+
 /* Code-/Token-Erzeugung — 1:1 aus der Feld-App portiert */
 function genShortCode(){
   var AL="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -404,23 +432,28 @@ function secZugaenge(){
   _praes.forEach(function(p){
     var list=_tokens.filter(function(t){ return t.praesidium_id===p.id; });
     list.forEach(function(t){ used[t.short_code||('tok'+Math.random())]=true; });
+    var nRev=list.filter(function(t){return t.revoked;}).length;
+    var sum=list.length+' Code'+(list.length===1?'':'s')+(nRev?' · '+nRev+' gesperrt':'');
+    var key='zug-'+p.id;
     h+='<div class="card">';
-    h+='<div style="font-weight:600;font-size:15px;margin-bottom:4px">'+esc(p.name)+'</div>';
-    h+='<div class="hint" style="margin-bottom:8px">Zugangs-Link erstellen &amp; kopieren:</div>';
-    h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
-    h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="perm">Dauerhaft-Link</button>';
-    h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="temp">24-h-Link</button>';
-    h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
-    h+='<button class="btn ghost" data-action="mkobserver" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Beobachter-Zugang (FLZ)</button>';
-    h+='</div>';
-    h+= list.length ? tokenRows(list) : '<div class="hint">Noch keine Codes für dieses Präsidium.</div>';
+    h+=foldHead(key, true, esc(p.name), sum);
+    if(!isCollapsed(key, true)){
+      h+='<div class="hint" style="margin:8px 0 8px">Zugangs-Link erstellen &amp; kopieren:</div>';
+      h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
+      h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="perm">Dauerhaft-Link</button>';
+      h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="temp">24-h-Link</button>';
+      h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
+      h+='<button class="btn ghost" data-action="mkobserver" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Beobachter-Zugang (FLZ)</button>';
+      h+='</div>';
+      h+= list.length ? tokenRows(list) : '<div class="hint">Noch keine Codes für dieses Präsidium.</div>';
+    }
     h+='</div>';
   });
   var rest=_tokens.filter(function(t){ return !_praes.some(function(p){return p.id===t.praesidium_id;}); });
   if(rest.length){
     h+='<div class="card">';
-    h+='<div style="font-weight:600;font-size:15px;margin-bottom:8px">Weitere Zugänge</div>';
-    h+=tokenRows(rest);
+    h+=foldHead('zug-rest', true, 'Weitere Zugänge', rest.length+' Code'+(rest.length===1?'':'s'));
+    if(!isCollapsed('zug-rest', true)) h+='<div style="margin-top:8px">'+tokenRows(rest)+'</div>';
     h+='</div>';
   }
   h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen".</p>';
@@ -827,6 +860,7 @@ function actionLabel(a){
   if(a==='foto_view') return 'Foto-Abruf';
   if(a==='protokoll_view') return 'Einsatzprotokoll-Aufruf';
   if(a==='frist_verlaengert') return 'Frist verlängert';
+  if(a==='lage_view') return 'Lageansicht-Login (FLZ)';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -839,8 +873,11 @@ function purgeReasonLabel(r){
 function secProtokoll(){
   var h='<div class="mh"><h2>Protokoll</h2><button class="btn ghost" data-action="protoreload">↻ Aktualisieren</button></div>';
   /* Zugriffe & Verlängerungen */
-  h+='<div class="sech" style="margin-top:0">Zugriffe &amp; Verlängerungen'+(_glog?' ('+_glog.length+')':'')+'</div>';
-  if(_glogErr){
+  var glogOpen=!isCollapsed('proto-glog', false);
+  h+='<div class="sech fold'+(glogOpen?' open':'')+'" style="margin-top:0" data-action="togglecard" data-key="proto-glog" data-def="0"><span class="chev">▶</span>Zugriffe &amp; Verlängerungen'+(_glog?' ('+_glog.length+')':'')+'</div>';
+  if(!glogOpen){
+    /* zugeklappt */
+  }else if(_glogErr){
     h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_glogErr)+'</div></div>';
   }else if(_glog===null){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
@@ -862,8 +899,11 @@ function secProtokoll(){
     h+='</div>';
   }
   /* Lösch-Läufe (inhaltsfrei) */
-  h+='<div class="sech">Lösch-Läufe'+(_plog?' ('+_plog.length+')':'')+'</div>';
-  if(_plogErr){
+  var plogOpen=!isCollapsed('proto-plog', false);
+  h+='<div class="sech fold'+(plogOpen?' open':'')+'" data-action="togglecard" data-key="proto-plog" data-def="0"><span class="chev">▶</span>Lösch-Läufe'+(_plog?' ('+_plog.length+')':'')+'</div>';
+  if(!plogOpen){
+    /* zugeklappt */
+  }else if(_plogErr){
     h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_plogErr)+'</div></div>';
   }else if(_plog===null){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
@@ -910,6 +950,7 @@ document.addEventListener('click', async function(e){
     return;
   }
   if(a==='zugreload'){ loadZugaenge(); return; }
+  if(a==='togglecard'){ toggleCard(el.getAttribute('data-key'), el.getAttribute('data-def')==='1'); return; }
   if(a==='mklink'){
     await makeLink(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'', el.getAttribute('data-kind'));
     return;
