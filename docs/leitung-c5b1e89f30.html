@@ -70,7 +70,12 @@
     .side,.topbar,.btn,.mh button{display:none!important}
     body{background:#fff}
     .layout{display:block}
+    /* AT-MIST-Druckmodus (Paket 3): nur das Karten-Overlay drucken */
+    body[data-atmist-print] .layout{display:none!important}
+    body[data-atmist-print] #atmist-print-overlay{display:block!important}
   }
+  /* AT-MIST-Overlay nur im Druckmodus sichtbar */
+  #atmist-print-overlay{display:none}
   .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
   .btn:hover{filter:brightness(1.25)}
   .btn.ghost{background:var(--surf2);color:var(--tx)}
@@ -470,7 +475,9 @@ function tokenRows(list){
 }
 
 function secZugaenge(){
-  var h='<div class="mh"><h2>Zugänge</h2><button class="btn ghost" data-action="zugreload">↻ Aktualisieren</button></div>';
+  var h='<div class="mh"><h2>Zugänge</h2><span style="display:flex;gap:8px;flex-wrap:wrap">'+
+    '<button class="btn ghost" data-action="provision">Schulungs-Präsidien anlegen/prüfen</button>'+
+    '<button class="btn ghost" data-action="zugreload">↻ Aktualisieren</button></span></div>';
   /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) */
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
@@ -550,6 +557,22 @@ async function makeGast(pid, pname){
   var sc=ins.data.short_code;
   try{ await navigator.clipboard.writeText(sc); }catch(e){}
   await promptModal('Gast-Code (24 h gültig, mehrfach einlösbar — zum Durchsagen/Anschreiben; jede Einlösung wird protokolliert):', sc);
+  loadZugaenge();
+}
+
+/* Schulungs-Provisionierung (Paket 3, Migration 0011): legt für jedes echte
+ * Präsidium ein Schwester-Präsidium „<Name> — Schulung" an (master-only,
+ * idempotent — der RPC meldet nur tatsächlich neu angelegte Namen). */
+async function makeProvision(){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r; try{ r=await cl.rpc('argus_provision_schulung'); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Provisionierung fehlgeschlagen: '+(r.error.message||'unbekannt')); return; }
+  var neu=(r.data && Array.isArray(r.data.angelegte)) ? r.data.angelegte : [];
+  /* toast() setzt textContent — kein esc() nötig (würde doppelt kodieren) */
+  toast(neu.length
+    ? 'Schulungs-Präsidien angelegt: '+neu.map(function(n){return String(n);}).join(', ')
+    : 'Keine neuen Schulungs-Präsidien nötig.');
   loadZugaenge();
 }
 
@@ -860,6 +883,7 @@ function vProtokollDetail(){
   var h='<div class="mh"><h2>Einsatzprotokoll</h2><span style="display:flex;gap:8px;flex-wrap:wrap">'+
     '<button class="btn" data-action="protoexport">⬇ Übergabe-Export (JSON)</button>'+
     '<button class="btn ghost" data-action="protoprint">🖨 Drucken</button>'+
+    '<button class="btn ghost" data-action="atmistprint">🖨 AT-MIST drucken</button>'+
     '<button class="btn ghost" data-action="closeproto">← Zurück zur Liste</button></span></div>';
   /* Einsatz-Kopf */
   ccps.forEach(function(c){
@@ -921,6 +945,101 @@ function vProtokollDetail(){
     });
   }
   return h;
+}
+
+/* AT-MIST-Druckansicht (Paket 3): druckbare Karten je Patient aus dem bereits
+ * geladenen Protokoll (_detail.data.patients) — KEIN API-Aufruf, KEINE Fotos
+ * (argus_governance_protokoll liefert ohnehin kein photo-Feld, nur has_photo).
+ * Vorlage: exportPrintCard der Feld-App; fehlende Helper (fmtDur/ageStr/pno/
+ * Maßnahmen-Labels) als Inline-Varianten portiert. */
+function vAtmistPrint(){
+  var d=_detail && _detail.data;
+  if(!d) return;
+  var pats=Array.isArray(d.patients)?d.patients:[];
+  if(!pats.length){ toast('Keine Patientendaten (mehr) vorhanden.'); return; }
+  var ccps=Array.isArray(d.ccps)?d.ccps:[];
+  var kenn=ccps.map(function(c){return c.kennung||'?';}).sort().join(', ')||'?';
+  /* row()-Helper — 1:1 aus exportPrintCard der Feld-App */
+  function row(letter,label,val){
+    return '<div style="display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line)">'+
+      '<span class="mono" style="width:22px;height:22px;border-radius:6px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+letter+'</span>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700">'+label+'</div>'+
+      '<div style="font-size:13.5px;line-height:1.4">'+val+'</div></div></div>';
+  }
+  /* Inline-Helper (in der Leitungs-Seite nicht vorhanden — bewusst lokal) */
+  function pno(p){ return esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span style="font-size:13px;color:var(--mut)">('+esc(String(p.ccp))+')</span>':''); }
+  function fmtDur(ms){
+    if(ms==null||ms<0) return '—';
+    var m=Math.floor(ms/60000);
+    return (m>=60?Math.floor(m/60)+' h ':'')+(m%60)+' min';
+  }
+  function ageStr(ms){
+    if(!ms) return '—';
+    return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
+  }
+  /* Maßnahmen-Labels der Feld-App (TXG flach): p.tx ist ein Objekt {feldId:true} */
+  var TXL={seiten:'Seitenlage',wendl:'Wendl/Güdel',larynx:'Larynxtubus',intub:'ET-Intubation',konio:'Koniotomie',
+    chest:'Chest Seal',entlast:'Entlastungspkt.',drainage:'Thoraxdrainage',
+    druck:'Druckverband',tampon:'Tamponade',haemo:'Hämostatikum',becken:'Beckenschlinge',zugang:'i.v./i.o.',
+    txa:'TXA',medo:'Meds andere',waerme:'Wärmeerhalt',schiene:'Schienung',hws:'HWS-Immo.'};
+  var now=nowMs();
+  var h='<div style="padding:12px"><div style="font-weight:700;font-size:15px;margin-bottom:2px">AT-MIST · CCP '+esc(kenn)+'</div>';
+  h+='<div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">Einsatzprotokoll · gedruckt '+new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr · '+pats.length+' Patient(en) · ohne Fotos</div>';
+  pats.slice().sort(function(a,b){ return (+a.num||0)-(+b.num||0); }).forEach(function(p){
+    var c=CATS[p.cat]||null;
+    var dim='<span style="color:#9aa0a6;font-style:italic">— nicht erfasst</span>';
+    var ap=[]; if(p.age)ap.push(esc(String(p.age))+' J');
+    var g=p.gender==='m'?'männl.':(p.gender==='w'?'weibl.':''); if(g)ap.push(g);
+    var tp=[];
+    if(p.tqStart)tp.push('<b style="color:var(--t1)">TQ seit '+fmtDur(now-p.tqStart)+'</b>');
+    if(p.created)tp.push('erfasst '+ageStr(p.created));
+    var il=[];
+    if(Array.isArray(p.inj))p.inj.forEach(function(it){ if(it)il.push(esc(String(it.r||'?'))+' – '+esc(String(it.a||'?'))); });
+    if(p.injury&&String(p.injury).trim())il.push(esc(String(p.injury)));
+    var v=(p.vit&&typeof p.vit==='object')?p.vit:{};
+    var vp=[['WASB',v.avpu],['AF',v.af],['SpO₂',v.spo2],['HF',v.hf],['RR',v.rr],['Schmerz',v.pain]]
+      .filter(function(x){return x[1]!=null&&String(x[1]).trim()!=='';});
+    var sVal=vp.length?('<span class="mono">'+vp.map(function(x){return x[0]+' '+esc(String(x[1]));}).join(' · ')+'</span>'):dim;
+    if(p.allergies)sVal+='<br><b style="color:var(--t1)">⚠ Allergien: '+esc(String(p.allergies))+'</b>';
+    var vlog=Array.isArray(v.log)?v.log:[];
+    if(vlog.length){
+      sVal+='<div style="margin-top:4px;font-size:11.5px;color:var(--mut)">Verlauf:'+vlog.map(function(m){
+        var tm=(m&&m.t)?new Date(+m.t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—';
+        var parts=[]; if(m.af)parts.push('AF '+esc(String(m.af))); if(m.spo2)parts.push('SpO₂ '+esc(String(m.spo2)));
+        if(m.hf)parts.push('HF '+esc(String(m.hf))); if(m.rr)parts.push('RR '+esc(String(m.rr)));
+        if(m.avpu)parts.push('WASB '+esc(String(m.avpu))); if(m.pain)parts.push('Schmerz '+esc(String(m.pain)));
+        return '<br>'+tm+': '+(parts.join(' · ')||'—');
+      }).join('')+'</div>';
+    }
+    var tl=[]; if(p.tqStart)tl.push('Tourniquet · '+fmtDur(now-p.tqStart));
+    if(p.tx&&typeof p.tx==='object'){
+      Object.keys(TXL).forEach(function(k){ if(p.tx[k])tl.push(esc(TXL[k])); });
+    }
+    h+='<div class="card" style="padding:10px 13px;margin-bottom:10px;page-break-inside:avoid">';
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+       '<span class="mono" style="font-size:18px;font-weight:700">'+pno(p)+'</span>'+
+       (c?'<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+c.label+'</span>':'<span class="pill gray">'+esc(String(p.cat||'—'))+'</span>')+
+       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
+       (p.status==='gpa'?'<span class="pill gray">gPA</span>':'')+
+       (p.name&&String(p.name).trim()!==''?'<span style="font-size:12.5px;color:var(--mut)">Name: '+esc(String(p.name))+'</span>':'')+
+       '</div>';
+    h+='<div style="margin-top:6px">';
+    h+=row('A','Alter / Geschlecht', ap.length?ap.join(' · '):dim);
+    h+=row('T','Zeiten', tp.length?tp.join(' · '):dim);
+    h+=row('M','Mechanismus', (p.moi&&String(p.moi).trim()!=='')?esc(String(p.moi)):dim);
+    h+=row('I','Verletzungen', il.length?il.join('<br>'):dim);
+    h+=row('S','Befund / Vitalwerte', sVal);
+    h+=row('T','Maßnahmen', tl.length?tl.map(function(x){return '▸ '+x;}).join('<br>'):dim);
+    h+='</div></div>';
+  });
+  h+='</div>';
+  var overlay=document.getElementById('atmist-print-overlay');
+  if(!overlay){ overlay=document.createElement('div'); overlay.id='atmist-print-overlay'; document.body.appendChild(overlay); }
+  overlay.innerHTML=h;
+  document.body.setAttribute('data-atmist-print','1');
+  window.print();
+  document.body.removeAttribute('data-atmist-print');
+  overlay.innerHTML='';
 }
 
 /* Foto-Einzelabruf (Lazy-Load, eigener Protokoll-Eintrag foto_view) */
@@ -1101,8 +1220,10 @@ document.addEventListener('click', async function(e){
     await makeGast(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
     return;
   }
+  if(a==='provision'){ await makeProvision(); return; }
   if(a==='protoexport'){ await exportProtokoll(); return; }
   if(a==='protoprint'){ window.print(); return; }
+  if(a==='atmistprint'){ vAtmistPrint(); return; }
   if(a==='togglerevoke'){
     await toggleRevoke(el.getAttribute('data-sc'), el.getAttribute('data-rev')==='1');
     return;
