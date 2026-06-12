@@ -48,6 +48,15 @@
   .tot .l{font-size:11px;color:var(--mut)}
   /* CCP-Karten — Mockup .lgrid/.ccpcard/.mini */
   .lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  /* Verbund-Gruppen (Feedback 2026-06-13): zusammengeführte CCPs werden
+   * OPTISCH zusammengeführt — ein Rahmen je Verbund über die volle Breite,
+   * die Mitglieds-Karten darin. */
+  .vgroup{grid-column:1/-1;border:2px solid var(--acc);border-radius:13px;padding:10px;background:#fff}
+  .vgroup .vhead{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin:0 2px 9px;font-weight:700;font-size:12px;letter-spacing:.5px;color:var(--acc)}
+  .vgroup .vhead .vsub{font-weight:400;letter-spacing:0;color:var(--mut);font-size:11.5px}
+  .vgroup .vgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .vgroup .ccpcard{background:var(--surf);border-style:dashed}
+  @media(max-width:560px){ .vgroup .vgrid{grid-template-columns:1fr 1fr} }
   .ccpcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px}
   .ccpcard .ct{font-weight:600;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
   .ccpcard .ct .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -288,17 +297,30 @@ function viewLage(){
   if(_data){
     if(_data.ccps.length){
       h+=totBar(_data.ccps);
-      /* Mehrere getrennte Verbünde unterscheidbar machen (Feedback
-       * 2026-06-13): Gruppen durchnummerieren — „VERBUND 1", „VERBUND 2";
-       * bei nur einem Verbund schlicht „VERBUND". */
-      var vmap={}, vn=0;
+      /* Verbünde OPTISCH zusammenführen (Feedback 2026-06-13): Mitglieder
+       * einer merge_group landen gemeinsam in einem Rahmen mit Kopfzeile
+       * „VERBUND n — CCP A + CCP E"; mehrere getrennte Verbünde sind über
+       * die Nummerierung unterscheidbar. Einzel-CCPs bleiben normale Karten. */
+      var groups={}, order=[];
       _data.ccps.forEach(function(c){
-        if(c.verbund_gruppe && !(c.verbund_gruppe in vmap)) vmap[c.verbund_gruppe]=++vn;
+        var k=c.verbund_gruppe || ('solo-'+c.kennung);
+        if(!groups[k]){ groups[k]={verbund:!!c.verbund_gruppe, members:[]}; order.push(k); }
+        groups[k].members.push(c);
       });
+      var vn=0;
+      order.forEach(function(k){ if(groups[k].verbund) groups[k].n=++vn; });
       h+='<div class="lgrid">';
-      _data.ccps.forEach(function(c){
-        var vlabel=c.verbund_gruppe ? ('VERBUND'+(vn>1?' '+vmap[c.verbund_gruppe]:'')) : '';
-        h+=ccpCard(c, vlabel);
+      order.forEach(function(k){
+        var g=groups[k];
+        if(!g.verbund){ h+=ccpCard(g.members[0], ''); return; }
+        var tot=0, kenns=[];
+        g.members.forEach(function(c){
+          tot+=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
+          kenns.push('CCP '+esc(c.kennung));
+        });
+        h+='<div class="vgroup"><div class="vhead"><span>⛓ VERBUND'+(vn>1?' '+g.n:'')+' <span class="vsub">— '+kenns.join(' + ')+' · gemeinsame Patientenliste</span></span><span class="mono" style="color:var(--mut)">'+tot+'</span></div><div class="vgrid">';
+        g.members.forEach(function(c){ h+=ccpCard(c, ''); });
+        h+='</div></div>';
       });
       h+='</div>';
     }else{
