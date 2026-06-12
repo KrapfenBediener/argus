@@ -385,7 +385,14 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
 - **Weiteres:** widerrufbare Tokens (Phase 7); Re-Identifikation bei Kleinstzahlen in
   der DSFA bedenken; ggf. Protokollierung des Observer-Zugriffs (DSB). IVENA wäre ein
   separater Push, getrennt halten.
-- Klärung vor Umsetzung: zuständige Leitstelle (FLZ vs. ILS), DSFA für Übermittlung.
+- ~~Klärung: zuständige Leitstelle (FLZ vs. ILS)~~ — **entschieden (Owner
+  2026-06-12): Adressat ist das FLZ.** Offen bleibt die DSFA für die
+  Übermittlung. Konzipiert (Bau nach DSB-Votum): **„FLZ-operativ"** —
+  Stellen-Token mit genau drei Befugnissen (Gast-Code fürs eigene Präsidium
+  erstellen/sperren, Lage-Freigabe an ein anderes FLZ erteilen/widerrufen;
+  Richtungs-Regel: freigeben kann nur die abgebende Stelle), KEINE
+  Patientendaten/Protokolle/Fotos, jede Aktion protokolliert — damit ist
+  die Leitstelle nachts handlungsfähig (einzige 24/7 besetzte Stelle).
 
 ## Phase 9 — Native App für PTLS Pol 🔒 *Conditional*
 **Ziel:** PWA via Capacitor in native iOS-App (.ipa), verteilt über den
