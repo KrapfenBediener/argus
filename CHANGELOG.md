@@ -6,6 +6,37 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.26.0 — 2026-06-13
+**Paket 2 aus dem Feldtest-Feedback: A-12-Nummern, TQ-Dialog, vereinfachter Abschluss, Gast-Code, Lage-Ausbau**
+- **Kennung-Nummer überall (A-12):** `pno()` zeigt die Patienten-Nummer immer
+  mit CCP-Kennung — wird genauso auf die Haut geschrieben; beim Zusammenführen
+  entfällt jedes Umbeschriften (Owner-Entscheid 2026-06-13).
+- **Tourniquet-Dialog:** TQ-Start fragt Anlageort (Arm/Bein li/re → neue
+  Spalte `patients.tq_site`) und Zeitpunkt („Jetzt" oder Uhrzeit rückwirkend —
+  TQs sitzen oft schon vor CCP-Ankunft). Anzeige im Patienten-Detail.
+- **Abschluss vereinfacht:** Beschriftung „CCP abschließen" / im Verbund
+  „CCP-Verbund abschließen"; die Übung/Einsatz-Frage entfällt (abgeleitet vom
+  neuen `praesidien.schulung`-Flag, Migration 0009); der Export-Zwischenschritt
+  entfällt — **Übergabe-Export jetzt über die Leitungs-Seite** (protokolliert
+  als `protokoll_export`, RPC `argus_mark_export`) mit Badge
+  „noch nicht exportiert" als Sicherheitsnetz vor der 72-h-Löschung.
+- **Gast-Code (24 h, mehrfach):** neue Code-Art für den Gastkräfte-Zustrom —
+  über Funk durchsagbar; serverseitig echt befristet (`expires_at`, wirkt über
+  die jti-Prüfung sofort auch auf ausgestellte Tickets); jede Einlösung
+  protokolliert (`gast_join`). Ausgabe über die Leitungs-Seite.
+- **Eröffnung:** Orts-Abfrage (überspringbar) + GPS-Koordinaten
+  (`ccps.geo_lat/geo_lng`), MasterMedic automatisch in die Checklisten-
+  Kopfdaten, Checklisten-Hinweis-Toast.
+- **Lageansicht:** kennzeichnet Verbund-CCPs (VERBUND-Chip); Klick auf den
+  CCP-Namen kopiert die GPS-Koordinaten (WGS84 dezimal — Brücke zur manuellen
+  Übernahme ins Geosystem).
+- **Schulungs-Banner:** „🎓 SCHULUNGSUMGEBUNG" im Statusbereich gegen
+  Verwechslung; Kategorie-Listen umsortierbar (neueste zuerst, umkehrbar).
+- Migration `0009` (Spalten + `argus_lage`/`argus_governance_einsaetze`
+  Neufassungen + `argus_mark_export`); SW-Cache v46; UPDATE-Sheet
+  `docs/UPDATE_v0.26.html`. Drehbuch angepasst (Lektionen „CCP abschließen",
+  „Direkt anlegen" A-12, „Tourniquet-Timer" Dialog).
+
 ## v0.25.1 — 2026-06-13
 **Westenfarben der Rollen in den Hilfestellungen**
 - „Rollen – Klartext" zeigt je Rolle die Westenfarbe als Farbpunkt

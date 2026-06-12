@@ -104,7 +104,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.25.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.26.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -127,9 +127,16 @@ var UPDATE_SHEETS = {
   '0.18.0': 'docs/UPDATE_v0.18.html',          /* Geführtes Training */
   '0.20.0': 'docs/UPDATE_v0.20.html',          /* Einsatz abschließen + Übergabe-Export */
   '0.21.0': 'docs/UPDATE_v0.21.html',          /* Foto-Schalter + Foto-Lebenszyklus */
-  '0.23.0': 'docs/UPDATE_v0.23.html'           /* Einheitliche 72-h-Löschfrist + Export als dauerhafter Weg */
+  '0.23.0': 'docs/UPDATE_v0.23.html',          /* Einheitliche 72-h-Löschfrist + Export als dauerhafter Weg */
+  '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.26.0': [
+    'Nummern heißen jetzt überall Kennung-Nummer (z. B. A-12) — genau so auf die Haut schreiben. Beim Zusammenführen von CCPs muss nichts mehr umbeschriftet werden.',
+    'Tourniquet: Beim Timer-Start fragt ARGUS nach Anlageort (Arm/Bein, li/re) und Zeitpunkt — auch rückwirkend, falls das TQ schon vor Ankunft saß.',
+    'CCP abschließen statt Einsatz abschließen: Die Frage Übung/Einsatz entfällt (erkennt ARGUS am Präsidium), der Export-Zwischenschritt auch — der Übergabe-Export läuft jetzt über die Leitung.',
+    'Beim Eröffnen: kurze Orts-Abfrage + GPS-Position (mit Erlaubnis) — fürs Lagezentrum. Dazu: Schulungsumgebungs-Banner, umsortierbare Patientenlisten (neueste zuerst).'
+  ],
   '0.25.1': [
     'Hilfestellungen: Bei den Rollen steht jetzt die Westenfarbe dabei (MasterMedic rosa, Doorman blau, Bereichsführer in der jeweiligen Bereichsfarbe).'
   ],
@@ -260,6 +267,7 @@ var _lastCreateAt  = 0;       /* Zeit der letzten Patienten-Erfassung (Doppeltip
 var _channel       = null;
 var _praesidiumId   = null;
 var _praesidiumName = '';
+var _praesidiumSchulung = false;   /* schulung-Flag des Präsidiums (Migration 0009): Banner + Abschluss-Typ */
 var _isMaster       = false;
 var _praesidienList = [];
 var _ccpKennung     = 'A';    /* Kennung des eigenen CCP (A/B/…) */
@@ -309,7 +317,7 @@ function sb(){
 function patFromRow(r){
   return normalize({
     id:r.id, num:r.num, ccp:r.ccp, cat:r.cat, status:r.status,
-    prio:!!r.prio, ready:!!r.ready, tqStart:r.tq_start,
+    prio:!!r.prio, ready:!!r.ready, tqStart:r.tq_start, tqSite:r.tq_site||null,
     created:r.created, lastTriage:r.last_triage, updated:r.updated,
     name:r.name||'', age:r.age||'', gender:r.gender||'',
     allergies:r.allergies||'', pupRe:r.pup_re||'', pupLi:r.pup_li||'',
@@ -324,7 +332,7 @@ function patToRow(p){
   return {
     id:p.id, ccp_id:p.ccpId||_ccpId, num:p.num, ccp:p.ccp||'A',
     cat:p.cat, status:p.status||'active',
-    prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null,
+    prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null, tq_site:p.tqSite||null,
     created:p.created, last_triage:p.lastTriage, updated:p.updated,
     name:p.name||'', age:p.age||'', gender:p.gender||'',
     allergies:p.allergies||'', pup_re:p.pupRe||'', pup_li:p.pupLi||'',
@@ -350,6 +358,20 @@ function applyMeta(row){
   if('merge_group_id' in row) _mergeGroupId=row.merge_group_id||null;
   if('merge_request_from' in row) _mergeReqFrom=row.merge_request_from||null;
   /* ccpMerged (Präfix-Anzeige) wird in loadPatients aus der Gruppengröße abgeleitet. */
+}
+/* schulung-Flag des aktiven Präsidiums laden (Migration 0009): steuert das
+ * Schulungs-Banner und den automatischen Abschluss-Typ. Offline-Fallback:
+ * zuletzt bekannter Wert aus localStorage. */
+async function refreshSchulungFlag(){
+  _praesidiumSchulung = localStorage.getItem('argus_praesidium_schulung')==='1';
+  var client=sb(); if(!client || !_praesidiumId) return;
+  try{
+    var r=await client.from('praesidien').select('schulung').eq('id',_praesidiumId).maybeSingle();
+    if(r && r.data){
+      _praesidiumSchulung=!!r.data.schulung;
+      try{ localStorage.setItem('argus_praesidium_schulung',_praesidiumSchulung?'1':'0'); }catch(e){}
+    }
+  }catch(e){}
 }
 async function openOrCreateCCP(){
   var client=sb(); if(!client) return false;
@@ -377,6 +399,37 @@ async function openOrCreateCCP(){
     _ccpId=ins.data.id; _ccpKennung=myK;
     localStorage.setItem('argus_ccp_id',_ccpId);
     localStorage.setItem('argus_invite',joinToken);
+    /* Eröffnungs-Abfragen (Paket 2, 2026-06-13):
+     * (a) Ort — überspringbar (Eröffnung darf unter Stress nie blockieren);
+     *     wandert in die CCP-Row (Lageansicht!) und in die Checklisten-Kopfdaten.
+     * (b) GPS-Koordinaten — still im Hintergrund (mit Berechtigungsabfrage des
+     *     Systems); erscheinen in der Lageansicht (Koordinaten-Kopier-Klick).
+     * (c) Hinweis auf die Checkliste (dezent, kein Pflicht-Gate). */
+    try{
+      var ortV=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)","");
+      if(ortV && ortV.trim()){
+        var ortT=ortV.trim();
+        try{ await client.from('ccps').update({ort:ortT}).eq('id',_ccpId); }catch(e){}
+        if(!checklist.hdr)checklist.hdr={};
+        if(!checklist.hdr.ort){ checklist.hdr.ort=ortT; await saveChecklist(); }
+      }
+    }catch(e){}
+    try{
+      if(navigator.geolocation){
+        navigator.geolocation.getCurrentPosition(function(pos){
+          try{
+            var c2=sb();
+            if(c2&&_ccpId) c2.from('ccps').update({geo_lat:pos.coords.latitude,geo_lng:pos.coords.longitude}).eq('id',_ccpId).then(function(){},function(){});
+          }catch(e){}
+        },function(){},{enableHighAccuracy:true,timeout:8000,maximumAge:60000});
+      }
+    }catch(e){}
+    /* MasterMedic-Kopfdaten der Checkliste vorbefüllen (Eröffner = MasterMedic) */
+    try{
+      if(!checklist.hdr)checklist.hdr={};
+      if(!checklist.hdr.mm && (masterMedic||operator)){ checklist.hdr.mm=masterMedic||operator; await saveChecklist(); }
+    }catch(e){}
+    toast("Tipp: Checkliste CCP durchgehen (Aufbau & Leitung)");
     return true;
   }
   return false;
@@ -877,7 +930,10 @@ function $(id){return document.getElementById(id);}
 function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
 function nowMs(){return Date.now();}
 function two(n){return (n<10?"0":"")+n;}
-function pno(p){return ccpMerged?((p.ccp||"A")+"-"+two(p.num)):(""+p.num);}
+/* Patienten-Nummer IMMER mit CCP-Kennung (Owner 2026-06-13): „A-12" wird so
+ * auch auf die Haut geschrieben — beim späteren Zusammenführen muss niemand
+ * nachträglich Buchstaben ergänzen (Arbeitsaufwand + Fehlerquelle). */
+function pno(p){return (p.ccp||"A")+"-"+p.num;}
 /* Doppelnummer-Erkennung: aktive Patienten mit gleicher (Kennung, Nummer) im
  * selben CCP. Kann entstehen, wenn mehrere Geräte (v. a. offline) unabhängig
  * nummerieren. Es wird NICHT automatisch umnummeriert (Nummer steht auf der
@@ -1155,7 +1211,7 @@ function ccpAdminUI(){
   var h='';
   var isMM=operator&&masterMedic&&operator===masterMedic;
   if(isMM){
-    h+='<button class="navbtn" data-action="ccpclose" style="margin-top:10px"><span class="ic">🏁</span><span><span class="t">Einsatz abschließen</span><br><span class="s">Übergabe-Export · sperrt alle Geräte · Löschung nach Frist</span></span></button>';
+    h+='<button class="navbtn" data-action="ccpclose" style="margin-top:10px"><span class="ic">🏁</span><span><span class="t">'+(_mergeGroupId?'CCP-Verbund':'CCP')+' abschließen</span><br><span class="s">sperrt alle Geräte · Export über die Leitung · Löschung nach Frist</span></span></button>';
   }
   if(_isMaster){
     if(_mergeGroupId){
@@ -1272,57 +1328,65 @@ async function checkClosedEinsatz(){
   }catch(e){}
   return false;
 }
-/* Typ-Wahl beim Abschluss: Übung / Einsatz — der Typ ist nur ein Merkmal fürs
- * Protokoll; die Löschfrist ist einheitlich (72 Std, serverseitig fest). */
-function closeTypModal(){
+/* TQ-Start-Dialog (Paket 2, 2026-06-13): „ab jetzt" oder eigener Zeitpunkt
+ * (TQ oft schon vor CCP-Ankunft angelegt) + Extremität (für die Übergabe).
+ * Liefert {start:ms, site:string|null} oder null bei Abbruch. */
+function tqStartModal(){
   return new Promise(function(resolve){
     var ov=document.createElement("div");ov.className="modalov";
-    ov.innerHTML='<div class="modalbx" style="max-width:360px">'+
-      '<div class="modalmsg" style="margin-bottom:14px">Was wird abgeschlossen?</div>'+
-      '<button class="mc-typ card" data-typ="uebung" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🎓 Übung</div></button>'+
-      '<button class="mc-typ card" data-typ="einsatz" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px"><div style="font-size:17px;font-weight:600">🚨 Einsatz</div></button>'+
-      '<p class="hint" style="margin:0 0 10px">Löschfrist einheitlich: 72 Std nach Abschluss — der Typ ist nur ein Merkmal fürs Protokoll.</p>'+
+    var sites=['Arm li','Arm re','Bein li','Bein re'];
+    var sBtns=sites.map(function(s){return '<button class="txbtn tq-site" data-site="'+s+'" style="flex:1;min-width:70px">'+s+'</button>';}).join('');
+    ov.innerHTML='<div class="modalbx" style="max-width:380px">'+
+      '<div class="modalmsg" style="margin-bottom:10px">Tourniquet — wo angelegt?</div>'+
+      '<div class="row" style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">'+sBtns+'</div>'+
+      '<div class="modalmsg" style="margin-bottom:10px">Wann angelegt?</div>'+
+      '<button class="mc-now card" style="width:100%;text-align:left;margin-bottom:8px;cursor:pointer;padding:12px 14px"><div style="font-size:16px;font-weight:600">⏱ Jetzt — Timer ab sofort</div></button>'+
+      '<div class="card" style="padding:12px 14px;margin-bottom:10px"><div style="font-size:14px;font-weight:600;margin-bottom:6px">Lief schon — angelegt um:</div>'+
+      '<div style="display:flex;gap:8px"><input class="mc-time" type="time" style="flex:1">'+
+      '<button class="mc-timeok ghost" style="margin:0;padding:8px 14px">Übernehmen</button></div>'+
+      '<p class="hint" style="margin:8px 0 0">Uhrzeit von Anlage/Ersthelfer — der Timer rechnet ab dort.</p></div>'+
       '<button class="ghost mc-cancel" style="margin:0">Abbrechen</button></div>';
     document.body.appendChild(ov);
+    var site=null;
     function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
-    Array.prototype.forEach.call(ov.querySelectorAll('.mc-typ'),function(b){
-      b.addEventListener('click',function(){done({typ:b.getAttribute('data-typ')});});
+    Array.prototype.forEach.call(ov.querySelectorAll('.tq-site'),function(b){
+      b.addEventListener('click',function(){
+        site=b.getAttribute('data-site');
+        Array.prototype.forEach.call(ov.querySelectorAll('.tq-site'),function(x){x.classList.remove('on');});
+        b.classList.add('on');
+      });
+    });
+    ov.querySelector('.mc-now').addEventListener('click',function(){done({start:nowMs(),site:site});});
+    ov.querySelector('.mc-timeok').addEventListener('click',function(){
+      var v=ov.querySelector('.mc-time').value;
+      if(!v){ toast("Bitte Uhrzeit wählen"); return; }
+      var hm=v.split(':'), d=new Date();
+      d.setHours(parseInt(hm[0],10),parseInt(hm[1],10),0,0);
+      var ts=d.getTime();
+      if(ts>nowMs()) ts-=86400000;   /* 23:50 eingegeben, jetzt 00:10 → gestern */
+      done({start:ts,site:site});
     });
     ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
     ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
   });
 }
-/* Export-Angebot vor dem Abschluss — drei klare Wege statt Ja/Nein-Mehrdeutigkeit. */
-function exportChoiceModal(){
-  return new Promise(function(resolve){
-    var ov=document.createElement("div");ov.className="modalov";
-    ov.innerHTML='<div class="modalbx" style="max-width:360px">'+
-      '<div class="modalmsg" style="margin-bottom:14px">Übergabe-Export erstellen? Der Übergabe-Export ist der EINZIGE dauerhafte Weg in die Einsatzdokumentation — nach 72 Std werden die Daten automatisch gelöscht. Alle Patienten als Datei (JSON) und druckbare AT-MIST-Gesamtansicht. Ohne Fotos.</div>'+
-      '<button class="prim mc-exp" style="margin:0 0 10px">Export ansehen &amp; erstellen</button>'+
-      '<button class="ghost mc-skip" style="margin:0 0 10px">Ohne Export abschließen</button>'+
-      '<button class="ghost mc-cancel" style="margin:0">Abbrechen</button></div>';
-    document.body.appendChild(ov);
-    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
-    ov.querySelector('.mc-exp').addEventListener('click',function(){done('export');});
-    ov.querySelector('.mc-skip').addEventListener('click',function(){done('skip');});
-    ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
-    ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
-  });
-}
-/* Geführte Modal-Strecke „Einsatz abschließen" (nur MasterMedic, nie Training). */
+/* closeTypModal + exportChoiceModal wurden in Paket 2 (2026-06-13) entfernt:
+ * Der Abschluss-Typ kommt aus dem schulung-Flag des Präsidiums, der Export
+ * läuft über die Leitungs-Seite. Die Druckansicht vExportPrint bleibt
+ * vorerst ohne Einstieg im Code (Rückbau-Kandidat, sobald die Leitungs-
+ * Seite eine AT-MIST-Druckansicht hat). */
+/* Geführte Modal-Strecke „CCP abschließen" (nur MasterMedic, nie Training).
+ * Paket 2 (Owner 2026-06-13): (b) Typ-Wahl ENTFÄLLT — abgeleitet aus dem
+ * schulung-Flag des Präsidiums (Schulung ⇒ 'uebung', sonst 'einsatz');
+ * (c) Export-Angebot ENTFÄLLT — der Übergabe-Export läuft im Nachgang über
+ * die Leitungs-Seite (protokolliert, mit „noch nicht exportiert"-Hinweis). */
 async function closeEinsatzWorkflow(){
   if(_training){ toast("Im Training nicht verfügbar — Training über „Beenden“ abschließen"); return; }
-  if(!isMasterMedic()){ toast("Nur MasterMedic kann den Einsatz abschließen"); return; }
-  /* (a) Bestätigung mit Klartext-Folgen (einheitliche 72-h-Frist, D-15/D-03) */
-  var ok=await confirmModal("Einsatz abschließen?\n\n• Der Einsatz wird für ALLE Geräte gesperrt.\n• Daten werden 72 Std nach Abschluss automatisch gelöscht (Verlängerung nur über die Leitung).\n• Fotos werden 72 Std nach Abschluss ENDGÜLTIG gelöscht — keine Verlängerung.\n\nDas kann nicht rückgängig gemacht werden.","Weiter");
+  if(!isMasterMedic()){ toast("Nur MasterMedic kann abschließen"); return; }
+  var lbl=_mergeGroupId?'CCP-Verbund':'CCP';
+  var ok=await confirmModal(lbl+" abschließen?\n\n• Wird für ALLE Geräte gesperrt.\n• Übergabe-Export: im Nachgang über die Leitung (innerhalb 72 Std).\n• Daten werden 72 Std nach Abschluss automatisch gelöscht (Verlängerung nur über die Leitung).\n• Fotos werden 72 Std nach Abschluss ENDGÜLTIG gelöscht — keine Verlängerung.\n\nDas kann nicht rückgängig gemacht werden.","Abschließen");
   if(!ok) return;
-  /* (b) Typ-Wahl (nur Merkmal fürs Protokoll — keine Frist-Wahl mehr) */
-  var selTyp=await closeTypModal(); if(!selTyp) return;
-  _closeTyp=selTyp.typ;
-  /* (c) Export-Angebot */
-  var choice=await exportChoiceModal();
-  if(choice===null){ _closeTyp=null; return; }
-  if(choice==='export'){ await loadPatients(); go("einsatzexport"); return; }   /* Abschluss dort über „Einsatz jetzt abschließen" */
+  _closeTyp=_praesidiumSchulung?'uebung':'einsatz';
   await finalizeCloseEinsatz();
 }
 /* (d) Abschluss: RPC argus_close_einsatz; offline wird die Absicht gequeuet
@@ -1621,7 +1685,7 @@ function vHome(){
     mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }
   return countbar()+
-  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<div class="banner"><span>⇄</span><div>'+(_praesidiumSchulung&&!_training?'<b style="color:var(--prio)">🎓 SCHULUNGSUMGEBUNG</b> · ':'')+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   '<button class="ghost" data-action="shareinvite" style="margin-bottom:12px">🔗 Einladungslink teilen</button>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
@@ -1729,7 +1793,7 @@ function vOverview(){
   /* Einsatz-Abschluss: nur MasterMedic, nie im Training (im lokalen
    * Trainings-Sandbox gibt es keinen echten Einsatz abzuschließen). */
   if(isMasterMedic() && !_training){
-    h+='<button class="ghost" data-action="closeeinsatz" style="margin-top:14px">🏁 Einsatz abschließen</button>';
+    h+='<button class="ghost" data-action="closeeinsatz" style="margin-top:14px">🏁 '+(_mergeGroupId?'CCP-Verbund':'CCP')+' abschließen</button>';
     h+='<p class="hint" style="text-align:center;margin-top:5px">Übergabe-Export · sperrt alle Geräte · Löschung nach Frist</p>';
   }
   if(operator&&masterMedic&&operator===masterMedic){
@@ -1751,7 +1815,12 @@ function vCatlist(){
     if(ca!==cb)return ca<cb?-1:1;
     return a.num-b.num;
   });
+  /* Chronologie-Umschalter (Feedback 2026-06-13): Standard neueste zuerst,
+   * auf Wunsch älteste zuerst. Nummer = Chronologie-Proxy je CCP. */
+  var sortDesc=(state.catSortDesc!==false);
+  if(sortDesc) list.reverse();
   var h='<div class="bigcat" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+';margin-bottom:14px"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+list.length+'</span></div>';
+  if(list.length>1) h+='<button class="ghost" data-action="catsort" style="margin:0 0 12px;font-size:12px;padding:7px 12px">↕ '+(sortDesc?'Neueste zuerst':'Älteste zuerst')+' — umkehren</button>';
   /* „Transportfertige auschecken" nur in den echten aktiven Kategorien. */
   if(!special){
     var readyList=list.filter(function(p){return p.ready;});
@@ -1838,7 +1907,7 @@ function vPatient(){
     '<div><label class="fieldlab">Geschl.</label><select data-kind="pat" data-field="gender"><option value=""'+sel(p.gender,"")+'>—</option><option value="m"'+sel(p.gender,"m")+'>m</option><option value="w"'+sel(p.gender,"w")+'>w</option></select></div>'+
     '<div><label class="fieldlab">Allergien</label>'+inp("allergies",p.allergies)+'</div></div></div>';
 
-  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?('TQ läuft · '+fmtDur(nowMs()-p.tqStart)+' — stoppen'):'TQ-Timer starten')+'</button></div>';
+  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?('TQ läuft'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' · '+fmtDur(nowMs()-p.tqStart)+' — stoppen'):'TQ-Timer starten')+'</button></div>';
 
   h+='<div class="sech" id="ph-tx">Maßnahmen A–E</div><div class="card">';
   TXG.forEach(function(g){h+='<div class="subl">'+esc(g[0])+'</div><div class="grid3">';
@@ -2003,7 +2072,7 @@ function vHandover(p,c){
  *      und entfallen ebenfalls. vit (inkl. vit.log) bleibt vollständig. */
 function exportRowFromPatient(p){
   var row={ id:p.id, num:p.num, ccp:p.ccp||'A', cat:p.cat, status:p.status||'active',
-    prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null,
+    prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null, tq_site:p.tqSite||null,
     created:p.created, last_triage:p.lastTriage, updated:p.updated,
     vit:p.vit||{}, tx:p.tx||{}, inj:p.inj||[] };
   var opt=[['name',p.name],['age',p.age],['gender',p.gender],['allergies',p.allergies],
@@ -2308,7 +2377,7 @@ var TRAIN_LESSONS=[
   {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
   {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
   {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen, Merksätze und der Datenschutzhinweis — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
-  {t:'Einsatz abschließen', mode:'explain', x:'Ganz unten „Einsatz abschließen": beendet den Einsatz für ALLE Geräte — mit optionalem Übergabe-Export. Danach werden die Daten 72 Std nach Abschluss automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
+  {t:'CCP abschließen', mode:'explain', x:'Ganz unten „CCP abschließen" (im Verbund: „CCP-Verbund abschließen"): beendet den Einsatz für ALLE Geräte. Der Übergabe-Export läuft danach über die Leitung. Die Daten werden 72 Std nach Abschluss automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
 
   {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
   /* ctx/ctxBack (Fix 2026-06-13, Lektion 12): verlässt der Übende die
@@ -2317,7 +2386,7 @@ var TRAIN_LESSONS=[
    * der Startseite kontextlos die Checkliste zu erklären. */
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:10},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
-  {t:'Direkt anlegen', mode:'do', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
+  {t:'Direkt anlegen', mode:'do', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
   {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen oder den „TQ"-Timer starten, „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg.', sel:'#cap-last'},
   {t:'Sichten mit tacSTART', mode:'do', x:'Unsicher bei der Kategorie? tacSTART führt Schritt für Schritt durch die Vorsichtung und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen".', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
@@ -2332,7 +2401,7 @@ var TRAIN_LESSONS=[
   {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Es erscheint nur, wenn die Leitung „Fotos erlauben" eingeschaltet hat (im Training ist das für dich schon an). Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
   {t:'Detail: Kategorie wechseln', mode:'explain', x:'Ändert sich der Zustand — verschlechtert ODER verbessert — verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie (Re-Triage, in beide Richtungen).', sel:'#ph-cat'},
   {t:'Stammdaten: pseudonym', mode:'explain', x:'ARGUS arbeitet pseudonym: Die NUMMER identifiziert den Patienten, nicht der Name. Den Namen nur erfassen, wenn er für Versorgung oder Übergabe wirklich nötig ist — die Patientenliste zeigt bewusst nur Nummern. Und in Freitexte (Hergang, Verletzung, Notizen) gehören keine Namen Dritter — nur versorgungsrelevante Fakten.', sel:'#ph-stamm'},
-  {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — er läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
+  {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — ARGUS fragt, WO das TQ sitzt und WANN es angelegt wurde (oft schon vor Ankunft am CCP — dann die Uhrzeit eintragen). Der Timer läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
   {t:'Detail: Maßnahmen (cABCDE)', mode:'explain', x:'Hier dokumentierst du durchgeführte Maßnahmen entlang des cABCDE-Schemas: kritische Blutung, Atemweg, Beatmung, Kreislauf, weitere.', sel:'#ph-tx'},
   {t:'Detail: Verletzungen', mode:'explain', x:'Verletzungen erfasst du kurz nach Region und Art — eindeutig und schnell.', sel:'#ph-inj'},
   {t:'Detail: Vitalwerte', mode:'explain', x:'Vitalwerte — Atemfrequenz, SpO₂, Herzfrequenz, RR … Sie fließen automatisch in die spätere Übergabekarte.', sel:'#ph-vit'},
@@ -2353,7 +2422,7 @@ var TRAIN_LESSONS=[
   /* Einsatz-Lebenszyklus: nur erklären — der echte Abschluss läuft nie im
    * Trainings-Sandbox; der Knopf ist im Training ausgeblendet (kein Selektor,
    * keine do-Pflicht — sonst Kollision mit dem Spotlight). */
-  {t:'Einsatz abschließen', mode:'explain', x:'Nach dem Einsatz: In der Patientenübersicht (oder auf der Startseite) schließt der MasterMedic den Einsatz ab — Typ wählen (Übung oder Einsatz, nur ein Merkmal fürs Protokoll), am besten den Übergabe-Export erzeugen: alle Patienten als Datei plus druckbare AT-MIST-Ansicht — der EINZIGE dauerhafte Weg in die Einsatzdokumentation. Danach ist der Einsatz für alle Geräte gesperrt; die Daten löschen sich 72 Std nach Abschluss automatisch, Fotos ebenso — endgültig. Hier im Training nur zur Info — es gibt nichts abzuschließen.'},
+  {t:'CCP abschließen', mode:'explain', x:'Nach dem Einsatz: In der Patientenübersicht (oder auf der Startseite) schließt der MasterMedic den CCP ab (im Verbund den ganzen Verbund). Ob Übung oder Einsatz, erkennt ARGUS automatisch am Präsidium. Der Übergabe-Export — der EINZIGE dauerhafte Weg in die Einsatzdokumentation — läuft danach über die Leitungs-Seite (innerhalb 72 Std). Nach dem Abschluss ist der Einsatz für alle Geräte gesperrt; die Daten löschen sich 72 Std nach Abschluss automatisch, Fotos ebenso — endgültig. Hier im Training nur zur Info — es gibt nichts abzuschließen.'},
   {t:'Geschafft! 🎉', mode:'explain', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben. „Beenden" räumt die Übungsdaten ab — danach kannst du es jederzeit wiederholen.'}
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
@@ -2756,6 +2825,7 @@ document.addEventListener("click",async function(e){
     _praesidiumName=el.getAttribute("data-pname")||'';
     localStorage.setItem('argus_praesidium_id',_praesidiumId);
     localStorage.setItem('argus_praesidium_name',_praesidiumName);
+    await refreshSchulungFlag();
     _ccpId=null; _channel=null;
     localStorage.removeItem('argus_ccp_id');
     await loadPatients(); await loadOpenCcpCount(); go("start"); return;
@@ -2798,6 +2868,7 @@ document.addEventListener("click",async function(e){
           _praesidiumName=(valid.praesidien&&valid.praesidien.name)||'';
           localStorage.setItem('argus_praesidium_id',_praesidiumId);
           localStorage.setItem('argus_praesidium_name',_praesidiumName);
+          refreshSchulungFlag();
         }
         await loadMeta();await loadPatients();await loadChecklist();
         subscribeRealtime();
@@ -2881,7 +2952,10 @@ document.addEventListener("click",async function(e){
     if(!operator){var vo=await promptModal("Erst dein Kürzel angeben:",operator||"");if(vo==null||!vo.trim())return;operator=vo.trim();await setOperatorStore(operator);}
     var okm=await confirmModal(masterMedic?("MasterMedic-Rolle von "+masterMedic+" übernehmen?"):"MasterMedic-Rolle übernehmen?","Übernehmen");
     if(!okm)return;
-    await setMasterMedic(operator);render();toast("Du bist jetzt MasterMedic");
+    await setMasterMedic(operator);
+    /* Checklisten-Kopfdaten nachziehen (Paket 2): neuer MasterMedic-Name */
+    try{ if(!checklist.hdr)checklist.hdr={}; checklist.hdr.mm=operator; await saveChecklist(); }catch(e){}
+    render();toast("Du bist jetzt MasterMedic");
     return;
   }
   if(a==="mergestart"){
@@ -3052,6 +3126,7 @@ document.addEventListener("click",async function(e){
     return;
   }
   if(a==="opencat"){state.cat=el.getAttribute("data-cat");go("catlist");return;}
+  if(a==="catsort"){state.catSortDesc=(state.catSortDesc===false);render();return;}
   if(a==="openpat"){
     var id=el.getAttribute("data-id");await loadPatients();
     state.id=id;state.edit=patients.find(function(p){return p.id===id;});
@@ -3074,7 +3149,16 @@ document.addEventListener("click",async function(e){
   if(a==="movecat"){var p=state.edit;p.cat=el.getAttribute("data-cat");p.lastTriage=nowMs();await savePatient(p);render();return;}
   if(a==="prio"){var p2=state.edit;p2.prio=!p2.prio;await savePatient(p2);render();return;}
   if(a==="ready"){var p3=state.edit;p3.ready=!p3.ready;await savePatient(p3);render();return;}
-  if(a==="tq"){var p4=state.edit;p4.tqStart=p4.tqStart?null:nowMs();await savePatient(p4);render();return;}
+  if(a==="tq"){
+    var p4=state.edit;
+    if(p4.tqStart){ p4.tqStart=null; p4.tqSite=null; await savePatient(p4); render(); return; }
+    /* TQ-Start-Dialog (Feedback 2026-06-13): TQs sind oft schon VOR Ankunft am
+     * CCP angelegt — Startzeitpunkt wählbar; dazu die Extremität (Übergabe). */
+    var tqr=await tqStartModal();
+    if(!tqr) return;
+    p4.tqStart=tqr.start; p4.tqSite=tqr.site||null;
+    await savePatient(p4); render(); return;
+  }
   if(a==="logvit"){
     var pv=state.edit; if(!pv) return;
     if(state.readonly){toast("Schreibgeschützt");return;}
@@ -3225,6 +3309,7 @@ setInterval(async function(){
   var urlToken=extractInviteToken();
   var urlCode=extractInviteCode();
   _praesidiumId   = localStorage.getItem('argus_praesidium_id')||null;
+  _praesidiumSchulung = localStorage.getItem('argus_praesidium_schulung')==='1';
   _praesidiumName = localStorage.getItem('argus_praesidium_name')||'';
   _isMaster       = localStorage.getItem('argus_is_master')==='true';
 
@@ -3253,6 +3338,7 @@ setInterval(async function(){
           _praesidiumName=(cdata.praesidien&&cdata.praesidien.name)||'';
           localStorage.setItem('argus_praesidium_id',_praesidiumId);
           localStorage.setItem('argus_praesidium_name',_praesidiumName);
+          refreshSchulungFlag();
         }
       }
     }
@@ -3278,6 +3364,7 @@ setInterval(async function(){
         _praesidiumName=(tokenData.praesidien&&tokenData.praesidien.name)||'';
         localStorage.setItem('argus_praesidium_id',_praesidiumId);
         localStorage.setItem('argus_praesidium_name',_praesidiumName);
+        refreshSchulungFlag();
       }
     }
   }
@@ -3328,6 +3415,7 @@ setInterval(async function(){
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
 
   await loadMeta();
+  refreshSchulungFlag();   /* fire-and-forget — localStorage-Wert trägt bis dahin */
   /* Abschluss-Erkennung (a) App-Start: wurde der Einsatz abgeschlossen, während
    * dieses Gerät weg war? → Hinweis-Modal + cleanupClosedEinsatz() (über
    * handleRemoteClose; loadMeta()→applyMeta() prüft denselben Zustand). */
