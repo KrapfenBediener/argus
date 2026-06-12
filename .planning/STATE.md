@@ -66,7 +66,16 @@
   beidseitig synchron (applyMeta/_ccpOrt → Checklisten-hdr nur wenn leer;
   hdr-Edit → ccps.ort), Lage: Verbünde OPTISCH gruppiert (vgroup-Rahmen,
   „VERBUND n — CCP A + CCP E", Gesamtzahl); Drehbuch-Lektionen angepasst;
-  UPDATE-Sheet v0.27. **Paket 3 offen** (Schulungs-Provisionierung
+  UPDATE-Sheet v0.27.
+  **Review-Runde 4 (v0.27.1 / SW v49, 2026-06-13):** Direktzuordnung hinter
+  Aufklapper „Direkt kategorisieren (Ausnahme)" (capDirect, Lektion mit
+  dynamischem sel/doit), Sofort-Optionen als POP-UP nach jeder Erfassung
+  (capPopup; Option/„Nächster Patient" schließt; Block unten bleibt; im
+  Training kein Pop-up), .modalbx scrollbar (max-height 86vh — WhatsNew-Fix),
+  Lage: Verbund als EINE kompakte Summen-Karte (verbundCard) mit Standort-
+  Zeile je Mitglied, „Einladungslink teilen" + buildShareLink/copyInviteLink
+  entfernt (redundant zu Leitungs-Ausgabe/Gast-Code).
+  **Paket 3 offen** (Schulungs-Provisionierung
   je PP inkl. Reset über Tombstones, FLZ-operativ nach DSB-Votum,
   GeoJSON-Endpunkt nach PTLS-Antwort, AT-MIST-Druck in der Leitung).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
