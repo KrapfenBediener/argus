@@ -6,6 +6,33 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.28.0 — 2026-06-13
+**Paket 3 (Schulung): Tombstone-Reset, Schulungs-Provisionierung, AT-MIST-Druck (Leitung)**
+
+### Neu
+- **Schulungs-Reset über Tombstones** (RPC `argus_schulung_reset`, Migration 0011)
+  statt hartem Client-DELETE: Offline-Geräte erkennen den Reset beim Reconnect
+  über die bestehende checkClosedEinsatz/handleRemoteClose-Mechanik und
+  bereinigen sich selbst; Tombstones älter als 7 Tage werden serverseitig
+  aufgeräumt. Demo-Neubefüllung bleibt clientseitig (genDemoRows).
+- **Schulungs-Provisionierung** (Leitungs-Seite, master-only): Knopf
+  „Schulungs-Präsidien anlegen/prüfen" legt je Produktiv-Präsidium ein
+  Schwester-Präsidium „<Name> — Schulung" an (RPC `argus_provision_schulung`,
+  idempotent).
+- **AT-MIST-Druckansicht** im Einsatzprotokoll der Leitungs-Seite: zweiter
+  Druckknopf rendert je Patient eine AT-MIST-Karte aus dem bereits geladenen
+  Protokoll — kein zusätzlicher Datenabruf, keine Fotos.
+
+### Geändert
+- **Flag-Gate statt Namensvergleich:** Training-/Reset-Knopf, loadSchulDirty,
+  Handler-Guard und Demo-Direkt-Merge prüfen jetzt `_praesidiumSchulung`
+  (Migration 0009) statt `_praesidiumName==='Schulungsumgebung'` — die
+  Schulungs-Funktionen stehen damit in JEDEM Schulungs-Präsidium bereit.
+- loadSchulDirty zählt nur noch offene CCPs (Reset-Tombstones blockieren den
+  „sauber"-Zustand nicht mehr).
+- SW-Cache v51. Kein UPDATE-Sheet (Trainer-/Leitungs-Thema, WHATS_NEW reicht).
+  Drehbuch geprüft: Reset-Knopf kommt in keiner Lektion vor.
+
 ## v0.27.2 — 2026-06-13
 **Trainings-Bugfix: TQ-Dialog lag unter dem Spotlight**
 - **Modal-Schichtung korrigiert:** `.modalov` von z-index 50 auf **8500** —
