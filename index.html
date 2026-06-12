@@ -84,7 +84,7 @@
   .qbtn{flex:1;border-radius:12px;padding:18px;font-size:18px;font-weight:600;border:1px solid var(--line);background:var(--surf2)}
   .helpa{color:var(--mut);font-size:14px}
   .modalov{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
-  .modalbx{background:var(--bg);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3)}
+  .modalbx{background:var(--bg);border-radius:16px;padding:20px;max-width:340px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.3);max-height:86vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
   .modalmsg{font-size:16px;font-weight:500;line-height:1.4}
 </style>
 
@@ -104,7 +104,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.27.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.27.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -132,6 +132,12 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.27.1': [
+    'Erfassen aufgeräumt: Die Direktzuordnung liegt jetzt hinter „Direkt kategorisieren (Ausnahme)" — tacSTART dominiert die Seite.',
+    'Nach jeder Erfassung erscheinen die Sofort-Optionen (Prio/TQ/Foto/öffnen/Verwerfen) als Pop-up mit „Nächsten Patienten erfassen" — danach wie gewohnt unten verfügbar.',
+    'Lageansicht (FLZ): Verbünde erscheinen als EINE kompakte Karte mit Gesamtzahlen (eine gemeinsame Patientenliste) — je Mitglieds-CCP bleibt die Standort-Zeile.',
+    '„Neuerungen"-Fenster ist jetzt scrollbar; der Knopf „Einladungslink teilen" ist entfernt (Zugänge laufen über Leitung und Gast-Code).'
+  ],
   '0.27.0': [
     'Erfassen: tacSTART ist jetzt der Standardweg (groß und zuerst) — die Direktzuordnung bleibt als Ausnahme für zweifelsfreie Fälle.',
     'tacSTART startet direkt bei „gehfähig?" — der Vorschalt-Schritt „Kritische Blutung?" ist entfernt (die Versorgung ist zu diesem Zeitpunkt bereits erfolgt).',
@@ -732,29 +738,10 @@ function inviteUrl(){
   if(!token) return null;
   return window.location.origin+window.location.pathname+'#inv='+token;
 }
-async function buildShareLink(){
-  var client=sb(); if(!client||!_praesidiumId) return null;
-  var wantTemp = !_isMaster; /* Master teilt dauerhaft, sonst 24-h-Code */
-  try{
-    var rs=await client.from('access_tokens').select('short_code,temporary').eq('praesidium_id',_praesidiumId);
-    var rows=rs.data||[];
-    var pick=rows.filter(function(t){return !!t.temporary===wantTemp;})[0]
-          || rows.filter(function(t){return !t.temporary;})[0] || rows[0];
-    if(!pick||!pick.short_code) return null;
-    return window.location.origin+window.location.pathname+'#code='+pick.short_code;
-  }catch(e){ return null; }
-}
-async function copyInviteLink(){
-  var url=await buildShareLink();
-  if(!url){toast('Kein Freischaltcode für dieses Präsidium gefunden');return;}
-  var label = _isMaster ? 'Link (dauerhaft) kopiert ✓' : 'Link (24 h) kopiert ✓';
-  try{
-    await navigator.clipboard.writeText(url);
-    toast(label);
-  }catch(e){
-    promptModal('Freischalt-Link (kopieren):',url);
-  }
-}
+/* buildShareLink/copyInviteLink entfernt (Feedback 2026-06-13 Runde 4):
+ * Freischalt-Links werden über die Leitungs-Seite (Zuteilung!) bzw. den
+ * Gast-Code ausgegeben — der Feld-Knopf „Einladungslink teilen" war
+ * redundant und umging die Zuteilungs-Disziplin. */
 /* ── Gesperrter Bildschirm ──────────────────────────────────────────────── */
 function vLocked(){
   var h='<div style="text-align:center;padding:48px 20px 24px">';
@@ -947,7 +934,7 @@ var FLOW={
   cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
 };
 
-var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"walk", tacResult:null, edit:null, readonly:false, lastCreatedId:null};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"walk", tacResult:null, edit:null, readonly:false, lastCreatedId:null, capDirect:false, capPopup:false};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -1727,7 +1714,6 @@ function vHome(){
   }
   return countbar()+
   '<div class="banner"><span>⇄</span><div>'+(_praesidiumSchulung&&!_training?'<b style="color:var(--prio)">🎓 SCHULUNGSUMGEBUNG</b> · ':'')+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
-  '<button class="ghost" data-action="shareinvite" style="margin-bottom:12px">🔗 Einladungslink teilen</button>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
@@ -1757,10 +1743,17 @@ function vCapture(){
   if(state.capMode==="tac")return vTac();
   /* tacSTART ist der STANDARD (Feedback 2026-06-13) — groß und zuerst;
    * die Direktzuordnung ist die Ausnahme für zweifelsfreie Fälle. */
-  var h='<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--acc);border-color:var(--acc);padding:18px 12px"><span style="text-align:center"><span class="t" style="color:#fff;font-size:17px">Erfassen mit tacSTART</span><br><span class="s" style="color:#cfd4da">geführte Vorsichtung — der Standardweg</span></span></button>'+
-    '<div class="sech">Direkt zuordnen (Ausnahme)</div>'+
-    '<p class="hint" style="margin:0 0 8px">Nur wenn die Kategorie zweifelsfrei feststeht — im Zweifel tacSTART.</p>'+
-    catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5");
+  var h='<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--acc);border-color:var(--acc);padding:18px 12px"><span style="text-align:center"><span class="t" style="color:#fff;font-size:17px">Erfassen mit tacSTART</span><br><span class="s" style="color:#cfd4da">geführte Vorsichtung — der Standardweg</span></span></button>';
+  /* Direktzuordnung hinter einem Aufklapper (Feedback 2026-06-13 Runde 4):
+   * die Kacheln erscheinen erst nach bewusstem Öffnen — tacSTART dominiert. */
+  if(state.capDirect){
+    h+='<div class="sech">Direkt zuordnen (Ausnahme)</div>'+
+      '<p class="hint" style="margin:0 0 8px">Nur wenn die Kategorie zweifelsfrei feststeht — im Zweifel tacSTART.</p>'+
+      catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5")+
+      '<button class="ghost" data-action="capdirecttoggle" style="margin-top:6px">▲ Direktzuordnung einklappen</button>';
+  }else{
+    h+='<button class="ghost" data-action="capdirecttoggle" style="margin-top:8px">▾ Direkt kategorisieren (Ausnahme)</button>';
+  }
   /* Kontext: nächste Nummer + zuletzt angelegter Patient (gegen Doppelerfassung).
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
    * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
@@ -1787,6 +1780,26 @@ function vCapture(){
   }
   h+='</div>';
   h+='<p class="hint" style="text-align:center;margin-top:14px">Die laufende Nummer wird automatisch &amp; geräteübergreifend vergeben.</p>';
+  /* Sofort-Optionen als POP-UP direkt nach der Erfassung (Feedback 2026-06-13
+   * Runde 4): eine Option wählen ODER „Nächsten Patienten erfassen" schließt
+   * das Pop-up — der Block unten bleibt danach weiter verfügbar. Im Training
+   * bewusst kein Pop-up (Coach-Spotlights zeigen auf den Block unten). */
+  if(state.capPopup && lc && !_training){
+    var pc=CATS[lc.cat]||CATS.T3;
+    h+='<div class="modalov" data-action="capnext" style="align-items:flex-end">';
+    h+='<div class="modalbx" data-action="noop" style="max-width:430px;margin:0 auto 16px">';
+    h+='<div style="text-align:center"><span class="mono" style="font-size:27px;font-weight:700">'+pno(lc)+'</span> <span class="pill" style="background:'+pc.bg+';color:'+pc.fg+(pc.bd?';border:1px solid '+pc.bd:'')+';font-size:14px;vertical-align:4px">'+pc.label+'</span>';
+    h+='<div class="hint" style="margin-top:3px">erfasst ✓ · Nummer auf die Haut schreiben · Sofort-Optionen:</div></div>';
+    h+='<div style="display:flex;gap:6px;margin-top:12px">';
+    h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="flex:1;padding:10px 4px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
+    h+='<button class="txbtn'+(lc.tqStart?' on':'')+'" data-action="captq" style="flex:1;padding:10px 4px;'+(lc.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(lc.tqStart?'TQ stop':'TQ')+'</button>';
+    if(_photosAllowed) h+='<label class="txbtn'+(lc.photo?' on':'')+'" style="flex:1;padding:10px 4px;cursor:pointer;text-align:center;'+(lc.photo?'background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(lc.photo?'Foto ✓':'Foto')+'<input type="file" accept="image/*" capture="environment" data-kind="capphoto" style="display:none"></label>';
+    h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="flex:1;padding:10px 4px">öffnen</button>';
+    h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:10px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
+    h+='</div>';
+    h+='<button class="prim" data-action="capnext" style="width:100%;margin-top:12px">Nächsten Patienten erfassen ›</button>';
+    h+='</div></div>';
+  }
   return h;
 }
 function catBig(cat){var c=CATS[cat];return '<button class="bigcat" data-action="addcat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span><br><span class="nm">'+c.nm+'</span></span><span class="cc">＋</span></button>';}
@@ -2436,7 +2449,7 @@ var TRAIN_LESSONS=[
    * der Startseite kontextlos die Checkliste zu erklären. */
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:10},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
-  {t:'Direkt anlegen (Ausnahme)', mode:'do', x:'Steht die Kategorie zweifelsfrei fest, geht es direkt — das ist die AUSNAHME, der Standardweg ist tacSTART (kommt gleich). Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
+  {t:'Direkt anlegen (Ausnahme)', mode:'do', x:'Steht die Kategorie zweifelsfrei fest, geht es direkt — das ist die AUSNAHME hinter dem Aufklapper „Direkt kategorisieren", der Standardweg ist tacSTART (kommt gleich). Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:function(){return state.capDirect?'[data-action="addcat"]':'[data-action="capdirecttoggle"]';}, doit:function(){return state.capDirect?'Tippe die markierte Kategorie':'Öffne „Direkt kategorisieren"';}, adv:function(){return trainCount()>=1;}},
   {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen, den „TQ"-Timer starten, ein „Foto" aufnehmen (wenn erlaubt), „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg, der nächste Patient ist nur einen Tipp entfernt.', sel:'#cap-last'},
   {t:'Sichten mit tacSTART (Standard)', mode:'do', x:'Der STANDARDWEG: tacSTART führt Schritt für Schritt durch die Vorsichtung — beginnend bei „gehfähig?" — und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen". (Kritische Blutungen sind zu diesem Zeitpunkt bereits versorgt — dafür gibt es keinen eigenen Abfrage-Schritt mehr.)', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
@@ -2888,7 +2901,6 @@ document.addEventListener("click",async function(e){
     _praesidienList=pr.data||[];
     go("praesidium"); return;
   }
-  if(a==="shareinvite"){await copyInviteLink();return;}
   if(a==="checkinvite"){
     var inp=document.getElementById('inv-input');
     var code=inp?inp.value.trim().toUpperCase():'';
@@ -3131,8 +3143,8 @@ document.addEventListener("click",async function(e){
   }
   if(a==="tacstart"){state.capMode="tac";state.tacNode="walk";state.tacResult=null;render();return;}
   if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
-  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;render();flashConfirm(pno(np),CATS[cat].label);return;}
-  if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;render();flashConfirm(pno(np2),CATS[cat2].label);return;}
+  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;if(_training){render();flashConfirm(pno(np),CATS[cat].label);}else{state.capPopup=true;render();}return;}
+  if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;if(_training){render();flashConfirm(pno(np2),CATS[cat2].label);}else{state.capPopup=true;render();}return;}
   if(a==="photozoom"){
     /* T1: ab Auscheckung (gpa) kein Zoom mehr — photoVisible deckt auch fehlendes Foto ab. */
     if(!photoVisible(state.edit)) return;
@@ -3145,19 +3157,23 @@ document.addEventListener("click",async function(e){
     ovz.addEventListener('click',function(){ if(ovz.parentNode)ovz.parentNode.removeChild(ovz); });
     return;
   }
+  if(a==="capdirecttoggle"){ state.capDirect=!state.capDirect; render(); return; }
+  if(a==="capnext"){ state.capPopup=false; render(); return; }
+  if(a==="noop"){ return; }   /* fängt Klicks auf den Pop-up-Korpus ab (kein Schließen) */
   if(a==="capprio"){
     var lcp=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
-    if(lcp){ lcp.prio=!lcp.prio; await savePatient(lcp); await loadPatients(); render(); toast("#"+lcp.num+(lcp.prio?" als Prio markiert":" Prio entfernt")); }
+    if(lcp){ lcp.prio=!lcp.prio; state.capPopup=false; await savePatient(lcp); await loadPatients(); render(); toast(pno(lcp)+(lcp.prio?" als Prio markiert":" Prio entfernt")); }
     return;
   }
   if(a==="captq"){
     var lct=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
-    if(lct){ lct.tqStart=lct.tqStart?null:nowMs(); await savePatient(lct); await loadPatients(); render(); toast("#"+lct.num+(lct.tqStart?" — TQ-Timer gestartet":" — TQ-Timer gestoppt")); }
+    if(lct){ lct.tqStart=lct.tqStart?null:nowMs(); state.capPopup=false; await savePatient(lct); await loadPatients(); render(); toast(pno(lct)+(lct.tqStart?" — TQ-Timer gestartet":" — TQ-Timer gestoppt")); }
     return;
   }
   if(a==="capdiscard"){
+    state.capPopup=false;
     var lcd=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
-    if(!lcd){ toast("Kein Patient zum Verwerfen"); return; }
+    if(!lcd){ toast("Kein Patient zum Verwerfen"); render(); return; }
     /* Hat der Patient schon Eingaben? Dann sicherheitshalber bestätigen lassen.
      * Frisch & leer (typischer Fehltipp) → sofort verwerfen. */
     var hasData = lcd.name||lcd.notes||lcd.moi||lcd.injury||lcd.photo||lcd.tqStart||lcd.ready||
@@ -3281,6 +3297,7 @@ document.addEventListener("change",async function(e){
     try{
       var d2=await resizePhoto(f2,640,0.5);
       lcp.photo=d2;
+      state.capPopup=false;   /* Option gewählt → Pop-up schließen */
       await savePatient(lcp);
       render();toast("Foto gespeichert ✓");
     }catch(err){toast("Foto fehlgeschlagen");}
@@ -3294,7 +3311,7 @@ document.addEventListener("click",async function(e){
   if(!p.tx)p.tx={};p.tx[f]=!p.tx[f];el.classList.toggle("on",p.tx[f]);await savePatient(p);
 });
 
-function go(view){state.view=view;if(view==="capture")state.capMode="menu";render();if(view==="start"||view==="home")maybeShowIntro();}
+function go(view){state.view=view;if(view==="capture"){state.capMode="menu";state.capDirect=false;}state.capPopup=false;render();if(view==="start"||view==="home")maybeShowIntro();}
 async function back(){
   if(state.view==="patient"){await releasePatientLock();state.readonly=false;go("catlist");}
   else if(state.view==="einsatzexport"){_closeTyp=null;go("overview");}

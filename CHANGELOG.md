@@ -6,6 +6,31 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.27.1 — 2026-06-13
+**Review-Feinschliff Runde 4: Erfassen aufgeräumt, Sofort-Optionen als Pop-up, kompakte Verbund-Karte, Aufräumarbeiten**
+- **Direktzuordnung eingeklappt:** Die Kategorie-Kacheln liegen jetzt hinter
+  einem Aufklapper „▾ Direkt kategorisieren (Ausnahme)" — tacSTART dominiert
+  die Erfassen-Seite; beim Betreten der Seite ist der Aufklapper zu.
+  Trainings-Lektion zeigt dynamisch erst auf den Aufklapper, dann auf die
+  Kacheln.
+- **Sofort-Optionen als Pop-up:** Nach jeder Erfassung (tacSTART und direkt)
+  erscheint ein Pop-up mit Nummer/Kategorie + Prio/TQ/Foto/öffnen/Verwerfen
+  und „Nächsten Patienten erfassen ›". Eine gewählte Option oder der
+  Weiter-Knopf schließt es; der Block unten bleibt danach verfügbar.
+  Im Training bewusst kein Pop-up (Coach-Spotlights zeigen auf den Block).
+- **„Neuerungen"-Fenster scrollbar:** `.modalbx` mit max-height 86vh +
+  overflow-y (betrifft alle In-App-Modals; behebt das nicht scrollbare
+  WhatsNew-Paper bei langen Listen).
+- **Lageansicht: Verbund als EINE kompakte Karte** mit Summen-Zählern
+  (die Mitglieder teilen eine Patientenliste — Einzelzähler je CCP waren
+  irreführend und platzraubend); je Mitglied bleibt eine Standort-Zeile
+  (Koordinaten-Klick, Orts-Korrektur, „Ort fehlt"-Hinweis).
+- **„Einladungslink teilen" entfernt** (inkl. buildShareLink/copyInviteLink):
+  redundant zur Code-Ausgabe der Leitungs-Seite und zum Gast-Code; umging
+  zudem die Zuteilungs-Disziplin. Einlöse-Pfade (#code=/#inv=) unverändert.
+- SW-Cache v49. Kein UPDATE-Sheet (Feinschliff). Drehbuch geprüft: Lektion
+  „Direkt anlegen (Ausnahme)" dynamisch (Aufklapper), sonst unverändert.
+
 ## v0.27.0 — 2026-06-13
 **Feedback-Runde 3: tacSTART als Standard, Foto-Schnellaktion, Einsatzort-Sync, Verbund-Gruppen in der Lage**
 - **tacSTART ist der Standardweg** beim Erfassen: großer Primärknopf zuerst,
