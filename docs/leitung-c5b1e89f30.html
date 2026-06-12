@@ -28,6 +28,8 @@
   button{font-family:var(--sans);cursor:pointer;border:0}
   input,textarea{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
   input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
+  select{font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:#fff;color:var(--tx)}
+  select:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
   .mono{font-family:var(--mono)}
   /* Topbar (Schiefer = Chrome) */
   .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;position:sticky;top:0;z-index:50}
@@ -338,9 +340,51 @@ function toggleCard(key, defCollapsed){
   try{ sessionStorage.setItem('arguslt_collapsed', JSON.stringify(_collapsed)); }catch(e){}
   render();
 }
-/* Klickbarer Karten-Kopf; def=1 → standardmäßig zugeklappt */
-function foldHead(key, defCollapsed, title, summary){
-  var open=!isCollapsed(key, defCollapsed);
+/* Filter/Sortierung für die Zugänge-Tabellen (Owner-Wunsch 2026-06-12).
+ * Rein clientseitig auf den geladenen _tokens; bei aktivem Filter werden
+ * die Karten zwangsweise aufgeklappt, sonst wäre das Ergebnis unsichtbar. */
+var _zugFilter={art:'alle',status:'alle',sort:'neu'};
+function zugFilterActive(){ return _zugFilter.art!=='alle' || _zugFilter.status!=='alle'; }
+function tokenArtKey(t){
+  if(t.observer) return 'beobachter';
+  if(t.is_master) return 'master';
+  if(t.single_use) return 'einmal';
+  return 'dauerhaft';
+}
+function tokenStatusKey(t){
+  if(t.revoked) return 'gesperrt';
+  if(t.single_use && t.used_at) return 'verbraucht';
+  return 'aktiv';
+}
+function tokenMatches(t){
+  if(_zugFilter.art!=='alle'    && tokenArtKey(t)!==_zugFilter.art) return false;
+  if(_zugFilter.status!=='alle' && tokenStatusKey(t)!==_zugFilter.status) return false;
+  return true;
+}
+function sortTokens(list){
+  var l=list.slice();
+  if(_zugFilter.sort==='code'){
+    l.sort(function(a,b){ return String(a.short_code||'').localeCompare(String(b.short_code||'')); });
+  }else{
+    l.sort(function(a,b){
+      var ta=Date.parse(a.created_at||'')||0, tb=Date.parse(b.created_at||'')||0;
+      return _zugFilter.sort==='alt' ? ta-tb : tb-ta;
+    });
+  }
+  return l;
+}
+function zugSel(field, opts){
+  var h='<select data-action="zugfilter" data-field="'+field+'">';
+  opts.forEach(function(o){
+    h+='<option value="'+o[0]+'"'+(_zugFilter[field]===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  });
+  return h+'</select>';
+}
+
+/* Klickbarer Karten-Kopf; def=1 → standardmäßig zugeklappt.
+ * forceOpen überstimmt den Merker (aktiver Filter klappt alles auf). */
+function foldHead(key, defCollapsed, title, summary, forceOpen){
+  var open=(forceOpen!==undefined) ? !!forceOpen : !isCollapsed(key, defCollapsed);
   return '<div class="cardhead'+(open?' open':'')+'" data-action="togglecard" data-key="'+esc(key)+'" data-def="'+(defCollapsed?'1':'0')+'">'
        + '<span class="chev">▶</span><span class="ctitle">'+title+'</span>'
        + (summary?'<span class="csum">'+summary+'</span>':'')
@@ -371,7 +415,7 @@ async function loadZugaenge(){
     if(pr.error){ _zugErr=pr.error.message||'Präsidien nicht lesbar'; }
     else{
       _praes=pr.data||[];
-      var tk=await cl.from('access_tokens').select('short_code,label,is_master,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer');
+      var tk=await cl.from('access_tokens').select('short_code,label,is_master,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer,created_at');
       if(tk.error){ _zugErr=tk.error.message||'Zugänge nicht lesbar'; }
       else{ _tokens=tk.data||[]; }
     }
@@ -417,6 +461,15 @@ function tokenRows(list){
 
 function secZugaenge(){
   var h='<div class="mh"><h2>Zugänge</h2><button class="btn ghost" data-action="zugreload">↻ Aktualisieren</button></div>';
+  /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) */
+  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h+='<span class="hint" style="margin:0">Filter:</span>';
+  h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['beobachter','Beobachter (FLZ)'],['master','MasterToken']]);
+  h+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht']]);
+  h+='<span class="hint" style="margin:0 0 0 8px">Sortierung:</span>';
+  h+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst'],['code','Code A–Z']]);
+  if(zugFilterActive()) h+='<button class="btn ghost" data-action="zugfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
+  h+='</div>';
   if(_zugErr){
     h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_zugErr)+'</div></div>';
     return h;
@@ -432,31 +485,38 @@ function secZugaenge(){
   _praes.forEach(function(p){
     var list=_tokens.filter(function(t){ return t.praesidium_id===p.id; });
     list.forEach(function(t){ used[t.short_code||('tok'+Math.random())]=true; });
+    var shown=sortTokens(list.filter(tokenMatches));
     var nRev=list.filter(function(t){return t.revoked;}).length;
-    var sum=list.length+' Code'+(list.length===1?'':'s')+(nRev?' · '+nRev+' gesperrt':'');
+    var sum=zugFilterActive()
+      ? shown.length+' von '+list.length+' Code'+(list.length===1?'':'s')
+      : list.length+' Code'+(list.length===1?'':'s')+(nRev?' · '+nRev+' gesperrt':'');
     var key='zug-'+p.id;
+    var open=zugFilterActive() || !isCollapsed(key, true);
     h+='<div class="card">';
-    h+=foldHead(key, true, esc(p.name), sum);
-    if(!isCollapsed(key, true)){
+    h+=foldHead(key, true, esc(p.name), sum, open);
+    if(open){
       h+='<div class="hint" style="margin:8px 0 8px">Zugangs-Link erstellen &amp; kopieren:</div>';
       h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
       h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="perm">Dauerhaft-Link</button>';
-      h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="temp">24-h-Link</button>';
       h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
       h+='<button class="btn ghost" data-action="mkobserver" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Beobachter-Zugang (FLZ)</button>';
       h+='</div>';
-      h+= list.length ? tokenRows(list) : '<div class="hint">Noch keine Codes für dieses Präsidium.</div>';
+      h+= shown.length ? tokenRows(shown)
+        : '<div class="hint">'+(list.length?'Keine Codes passend zum Filter.':'Noch keine Codes für dieses Präsidium.')+'</div>';
     }
     h+='</div>';
   });
   var rest=_tokens.filter(function(t){ return !_praes.some(function(p){return p.id===t.praesidium_id;}); });
   if(rest.length){
+    var restShown=sortTokens(rest.filter(tokenMatches));
+    var restOpen=zugFilterActive() || !isCollapsed('zug-rest', true);
     h+='<div class="card">';
-    h+=foldHead('zug-rest', true, 'Weitere Zugänge', rest.length+' Code'+(rest.length===1?'':'s'));
-    if(!isCollapsed('zug-rest', true)) h+='<div style="margin-top:8px">'+tokenRows(rest)+'</div>';
+    h+=foldHead('zug-rest', true, 'Weitere Zugänge',
+      (zugFilterActive()? restShown.length+' von ':'')+rest.length+' Code'+(rest.length===1?'':'s'), restOpen);
+    if(restOpen) h+='<div style="margin-top:8px">'+(restShown.length?tokenRows(restShown):'<div class="hint">Keine Codes passend zum Filter.</div>')+'</div>';
     h+='</div>';
   }
-  h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen".</p>';
+  h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
   h+='<p class="hint">Gesperrte Codes wirken am Feldgerät beim nächsten Start bzw. bei Wiederverbindung (ab App-Version 0.23). Geräte mit älterer App-Version verlieren den Zugang, sobald ihre Anmeldung abläuft.</p>';
   h+='<p class="hint">„Beobachter-Zugang (FLZ)" = read-only Lageansicht mit anonymen Übersichtszahlen — funktioniert NICHT in der Feld-App. Verteilungs-Disziplin: Code nur an die zuständige FLZ ausgeben, die Adresse der Lageansicht separat übermitteln. Sperrung wirkt beim nächsten Login, spätestens nach 24 h.</p>';
   return h;
@@ -496,20 +556,20 @@ async function makeLink(pid, pname, kind){
     if(ins.error||!ins.data){ toast('Konnte Einmal-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
     sc=ins.data.short_code;   /* bestätigter Code aus der DB */
   }else{
-    var wantTemp=(kind==='temp');
+    /* Dauerhaft — Code-Art „24 h" wurde 2026-06-12 abgeschafft (Migration 0006) */
     var rows=(_tokens||[]).filter(function(t){
-      return t.praesidium_id===pid && !t.single_use && !t.is_master && !t.observer && !t.revoked && !!t.temporary===wantTemp;
+      return t.praesidium_id===pid && !t.single_use && !t.is_master && !t.observer && !t.revoked && !t.temporary;
     });
     if(rows.length && rows[0].short_code){
       sc=rows[0].short_code;
     }else{
-      var ins2=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+(wantTemp?' 24-h-Code':' Dauerhaft-Code'),short_code:genShortCode(),temporary:wantTemp,ttl_hours:(wantTemp?24:null),single_use:false,used_at:null}).select('short_code').single();
+      var ins2=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+' Dauerhaft-Code',short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
       if(ins2.error||!ins2.data){ toast('Konnte Code nicht anlegen'+(ins2.error?' · '+ins2.error.message:'')); return; }
       sc=ins2.data.short_code;
     }
   }
   var url=feldAppRoot()+'#code='+sc;
-  var lbl=kind==='once'?'Einmal-Link (24 h)':(kind==='temp'?'24-h-Link':'Dauerhaft-Link');
+  var lbl=kind==='once'?'Einmal-Link (24 h)':'Dauerhaft-Link';
   try{ await navigator.clipboard.writeText(url); toast(lbl+' kopiert ✓'); }
   catch(e){ await promptModal(lbl+' — '+pname+' (kopieren):', url); }
   loadZugaenge();
@@ -951,6 +1011,7 @@ document.addEventListener('click', async function(e){
   }
   if(a==='zugreload'){ loadZugaenge(); return; }
   if(a==='togglecard'){ toggleCard(el.getAttribute('data-key'), el.getAttribute('data-def')==='1'); return; }
+  if(a==='zugfilterreset'){ _zugFilter={art:'alle',status:'alle',sort:_zugFilter.sort}; render(); return; }
   if(a==='mklink'){
     await makeLink(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'', el.getAttribute('data-kind'));
     return;
@@ -972,6 +1033,13 @@ document.addEventListener('click', async function(e){
     return;
   }
   if(a==='protoreload'){ loadProtokoll(); return; }
+});
+/* Filter-/Sortier-Selects (Zugänge): Auswahl übernehmen und neu rendern */
+document.addEventListener('change', function(e){
+  var el=e.target.closest('select[data-action="zugfilter"]');
+  if(!el) return;
+  _zugFilter[el.getAttribute('data-field')]=el.value;
+  render();
 });
 $('logininp') && $('logininp').focus();
 document.addEventListener('keydown', function(e){

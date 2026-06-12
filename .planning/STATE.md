@@ -16,6 +16,12 @@
   nachgezogen (Plan 02). Stufe b bleibt DSB-gated (Phase 8).
   Vorphase 4.11 (Self-Hosting T7): Akzeptanz „zweite Instanz" ersatzweise
   belegt, echte Zweitinstanz-Erprobung deferred; M1: Polizei BW hostet selbst.
+  **Nachschliff 2026-06-12 (Owner-Feedback):** Lage-Seite 1:1 ans Mockup
+  (UI-AUSBLICK) angeglichen; Leitungs-Seite: Karten/Blöcke einklappbar,
+  Filter/Sortierung für Zugänge; **Migration 0006 Token-Hygiene** (Code-Art
+  „24 h" abgeschafft + Altbestand gelöscht; verbrauchte Einmal-Codes werden
+  6 Monate nach Einlösung automatisch gelöscht — Löschkonzept ergänzt);
+  SELF-HOSTING.md um 0005/0006 nachgeführt.
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4 nach DSB-Votum; k-Schwelle Lageansicht = DSB-Frage).**
   Nächster realer Schritt: **DSB-Gespräch** (Briefing aktualisiert, intern)
