@@ -1267,14 +1267,16 @@ async function loadOpenCcpCount(){
  * Patienten (id-Präfix "seed", aktiv, ohne Name). _schulDirty: -1 unbekannt, 0 sauber, 1 verändert. */
 async function loadSchulDirty(){
   _schulDirty=-1;
-  if(_praesidiumName!=='Schulungsumgebung' || !_isMaster) return;
+  if(!_praesidiumSchulung || !_isMaster) return;
   var c=sb(); if(!(c && _praesidiumId)) return;
   try{
     var cr=await c.from('ccps').select('id,kennung,merged,merge_group_id,closed_at,master_medic').eq('praesidium_id',_praesidiumId);
     var ccps=cr.data||[];
     var open=ccps.filter(function(x){return !x.closed_at;});
     var kenn=open.map(function(x){return x.kennung;}).sort().join('');
-    var structPristine = ccps.length===6 && open.length===6 && kenn==='ABCDEF'
+    /* Nur OFFENE CCPs zählen: Seit dem Tombstone-Reset (0011) bleiben geschlossene
+     * Rows bis zu 7 Tage stehen — sie dürfen den „sauber"-Zustand nicht verhindern. */
+    var structPristine = open.length===6 && kenn==='ABCDEF'
       && open.every(function(x){ return !x.merged && !x.merge_group_id && DEMO_MEDICS.indexOf(x.master_medic)>=0; });
     if(!structPristine){ _schulDirty=1; return; }
     var pr=await c.from('patients').select('id,status,name').in('ccp_id',open.map(function(x){return x.id;}));
@@ -2354,13 +2356,13 @@ function vStart(){
   }else{
     h += '<p class="hint" style="text-align:center;margin:4px 0 2px">Noch kein CCP eröffnet — als Erste(r) oben einen eröffnen.</p>';
   }
-  /* Geführtes Training — automatisch über die Schulungsumgebung verfügbar. */
-  if(_praesidiumName==='Schulungsumgebung'){
+  /* Geführtes Training — automatisch in jedem Schulungs-Präsidium verfügbar. */
+  if(_praesidiumSchulung){
     h += '<button class="prim" data-action="starttraining" style="margin-top:10px;background:var(--acc);border-color:var(--acc)">🎓 Geführtes Training '+(_training?'fortsetzen':'starten')+'</button>';
   }
   /* Reset-Button nur, wenn die Schulungsumgebung verändert wurde (oder Zustand
    * unbekannt/offline) — im Originalzustand ausgeblendet. */
-  if(_praesidiumName==='Schulungsumgebung' && _isMaster && _schulDirty!==0){
+  if(_praesidiumSchulung && _isMaster && _schulDirty!==0){
     h += '<button class="ghost" data-action="schulreset" style="margin-top:10px;border-color:var(--t1)"><span style="color:var(--t1)">🎓 Schulung zurücksetzen</span></button>';
   }
   h += '<button class="ghost" data-action="nav" data-view="help" style="margin-top:8px;font-size:13px">❓ Hilfestellungen & Kurzanleitung</button>';
@@ -3052,8 +3054,10 @@ document.addEventListener("click",async function(e){
     if(!cands.length){await confirmModal("Kein zusammenführbarer CCP im Präsidium gefunden.\n\n(Nur eigenständige, noch nicht zusammengeführte CCPs.)","OK");return;}
     var tgt=await ccpJoinModal(cands);
     if(!tgt)return;
-    if(_praesidiumName==='Schulungsumgebung'){
-      /* Demo: direkt zusammenführen (kein zweites Gerät zum Bestätigen) */
+    if(_praesidiumSchulung){
+      /* Demo: direkt zusammenführen (kein zweites Gerät zum Bestätigen) — gilt für
+       * jedes Schulungs-Präsidium: Demo-CCPs haben erfundene MasterMedics, eine
+       * Merge-Anfrage könnte dort nie bestätigt werden. */
       var okd=await realMergeDirect(tgt);
       if(okd){await loadMeta();await loadPatients();render();toast("CCPs zusammengeführt");}
       else toast("Zusammenführen fehlgeschlagen");
@@ -3118,13 +3122,18 @@ document.addEventListener("click",async function(e){
     await leaveCurrentCcp();await loadOpenCcpCount();toast("Verbund gelöscht ("+members.length+" CCPs)");go("start");return;
   }
   if(a==="schulreset"){
-    if(_praesidiumName!=='Schulungsumgebung')return;
+    if(!_praesidiumSchulung)return;
     var oks2=await confirmModal("Schulung komplett zurücksetzen?\n\nALLE CCPs und Patienten der Schulungsumgebung werden gelöscht und ein frisches Demo-Szenario (6 CCPs mit zufälligen Patienten) neu angelegt.","Zurücksetzen");
     if(!oks2)return;
     var scx=sb(); if(!scx||!_praesidiumId){toast("Keine Backend-Verbindung");return;}
     toast("Setze zurück…");
-    /* 1) komplette Schulungsumgebung leeren (CASCADE löscht Patienten) */
-    try{await scx.from('ccps').delete().eq('praesidium_id',_praesidiumId);}catch(e){}
+    /* 1) Schulungsumgebung serverseitig zurücksetzen (Tombstone-RPC, Migration 0011):
+     *    CCPs werden NICHT hart gelöscht, sondern wie beim Einsatz-Abschluss tombstoned —
+     *    Offline-Geräte bereinigen sich beim Reconnect über checkClosedEinsatz/handleRemoteClose. */
+    var rr; try{ rr=await scx.rpc('argus_schulung_reset',{p_praesidium_id:_praesidiumId}); }
+    catch(e){ rr={error:{message:'keine Verbindung'}}; }
+    if(rr && rr.error){ toast('Reset fehlgeschlagen: '+(rr.error.message||'unbekannt')); return; }
+    if(rr && rr.data && rr.data.error){ toast('Reset fehlgeschlagen: '+rr.data.error); return; }
     _demoMerged=false; await sSet("ccp_merged",false);
     var slk=await sList("ccp_pat_"); for(var si=0;si<slk.length;si++){await sDel(slk[si]);}
     /* 2) frisches Demo-Szenario: 6 CCPs, ALLE mit erfundenen MasterMedics
