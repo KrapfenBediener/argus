@@ -512,8 +512,8 @@ function secZugaenge(){
     if(restOpen) h+='<div style="margin-top:8px">'+(restShown.length?tokenRows(restShown):'<div class="hint">Keine Codes passend zum Filter.</div>')+'</div>';
     h+='</div>';
   }
-  h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
-  h+='<p class="hint">Gesperrte Codes wirken am Feldgerät beim nächsten Start bzw. bei Wiederverbindung (ab App-Version 0.23). Geräte mit älterer App-Version verlieren den Zugang, sobald ihre Anmeldung abläuft.</p>';
+  h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Bei der Erstellung kann eine Zuteilung (Name/Dienstnr./Funktion) erfasst werden — sie erscheint als Bezeichnung und macht gezieltes Sperren möglich. Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
+  h+='<p class="hint">Sperren wirkt <b>sofort serverseitig</b> — auch bereits angemeldete Geräte verlieren den Zugriff umgehend (die App zeigt die Abmeldung spätestens beim nächsten Start/Reconnect an). Einzige Ausnahme: Anmeldungen aus der Zeit vor dem 12.06.2026 laufen noch bis zum Ablauf ihrer alten Anmeldung (max. 30 Tage) weiter.</p>';
   h+='<p class="hint">„Beobachter-Zugang (FLZ)" = read-only Lageansicht mit anonymen Übersichtszahlen — funktioniert NICHT in der Feld-App. Verteilungs-Disziplin: Code nur an die zuständige FLZ ausgeben, die Adresse der Lageansicht separat übermitteln. Sperrung wirkt beim nächsten Login, spätestens nach 24 h.</p>';
   return h;
 }
@@ -531,7 +531,11 @@ async function makeObserver(pid, pname){
   if(rows.length && rows[0].short_code){
     sc=rows[0].short_code;
   }else{
-    var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,observer:true,label:pname+' FLZ-Beobachter',short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
+    /* Zuteilung (Nachverfolgbarkeit) — analog Einmal-Link */
+    var zut=await promptModal('Empfangsstelle des Beobachter-Zugangs? (z. B. FLZ, Name — erscheint in der Liste; leer = ohne Zuteilung)','');
+    if(zut===null) return;   /* Abbrechen = nicht anlegen */
+    zut=(zut||'').trim();
+    var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,observer:true,label:pname+' FLZ-Beobachter'+(zut?' — '+zut:''),short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
     if(ins.error||!ins.data){ toast('Konnte Beobachter-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
     sc=ins.data.short_code;
   }
@@ -547,8 +551,14 @@ async function makeLink(pid, pname, kind){
   var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
   var sc=null;
   if(kind==='once'){
+    /* Zuteilung (Nachverfolgbarkeit): wer bekommt den Code? Erscheint als
+     * Bezeichnung in der Zugänge-Tabelle — Kette Aktion → Code → Zuteilung
+     * → Person; die Auflösung zur Person bleibt organisatorisch. */
+    var zut=await promptModal('Für wen ist der Einmal-Link? (Name/Dienstnr./Funktion — erscheint in der Liste; leer = ohne Zuteilung)','');
+    if(zut===null) return;   /* Abbrechen = nicht anlegen */
+    zut=(zut||'').trim();
     sc=genShortCode();
-    var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+' Einmal-Link',short_code:sc,temporary:true,ttl_hours:24,single_use:true,used_at:null}).select('short_code').single();
+    var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+' Einmal-Link'+(zut?' — '+zut:''),short_code:sc,temporary:true,ttl_hours:24,single_use:true,used_at:null}).select('short_code').single();
     if(ins.error||!ins.data){ toast('Konnte Einmal-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
     sc=ins.data.short_code;   /* bestätigter Code aus der DB */
   }else{

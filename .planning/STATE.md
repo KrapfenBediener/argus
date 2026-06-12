@@ -22,6 +22,18 @@
   „24 h" abgeschafft + Altbestand gelöscht; verbrauchte Einmal-Codes werden
   6 Monate nach Einlösung automatisch gelöscht — Löschkonzept ergänzt);
   SELF-HOSTING.md um 0005/0006 nachgeführt.
+  **Migration 0007 (2026-06-12): jti-Claim + Sofort-Sperrung** — jedes JWT
+  trägt den ausstellenden short_code als jti; argus_praesidium_id/is_master/
+  is_observer gaten auf argus_token_active() → Code-Sperrung wirkt SOFORT
+  serverseitig für alle Policies/RPCs (vorher: erst Re-Check/JWT-Ablauf,
+  bis 30 Tage). Alt-JWTs ohne jti: Übergangsgnade bis exp. Leitungs-Seite:
+  Zuteilungs-Abfrage bei Einmal-/Beobachter-Code-Ausgabe (Label), Hinweise
+  aktualisiert. REST-belegt (Legacy ok, Sperrung/Entsperrung sofort, auch
+  argus_lage). Kein App-Release (index.html unangetastet).
+  Intern erstellt (gitignored): DSB-Schreiben Dok. 09 (Fassung 2, M1) +
+  Sprechzettel Dok. 10 + docs/KONZEPT-POLIZEIBETRIEB.md (Stufenmodell
+  MDM/SSO/USBNK, Fragenkatalog PTLS/BITBW) — DSB-Gespräch ist terminiert
+  (KW nach 2026-06-12).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4 nach DSB-Votum; k-Schwelle Lageansicht = DSB-Frage).**
   Nächster realer Schritt: **DSB-Gespräch** (Briefing aktualisiert, intern)
