@@ -104,7 +104,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.24.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.25.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -130,6 +130,11 @@ var UPDATE_SHEETS = {
   '0.23.0': 'docs/UPDATE_v0.23.html'           /* Einheitliche 72-h-Löschfrist + Export als dauerhafter Weg */
 };
 var WHATS_NEW = {
+  '0.25.0': [
+    'Laufende Nummern sind jetzt kollisionssicher: Die Nummer kommt zentral vom Server — auch nach Verlassen und Wiederbetreten eines CCP gibt es keine doppelten Nummern mehr.',
+    'Stabilere Verbindung: Nach dem Zurückholen der App aus dem Hintergrund verbindet sich der Live-Sync automatisch neu (vorher half nur ein CCP-Wechsel).',
+    'Geführtes Training: „CCP beitreten" ist im Training gesperrt, und wer die Checkliste vorzeitig verlässt, wird automatisch zur passenden Lektion zurückgeführt.'
+  ],
   '0.24.0': [
     'Technische Vorbereitung für den Betrieb auf eigener Infrastruktur — für die Bedienung ändert sich nichts.'
   ],
@@ -1456,9 +1461,35 @@ async function loadChecklist(){
 }
 async function saveChecklist(){await sSet("ccp_checklist",checklist);}
 function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")===_ccpKennung&&p.num>m)m=p.num;});return m+1;}
+/* Nummernvergabe (Bugfix 2026-06-13): primär SERVERSEITIG-atomar über
+ * argus_claim_nums (Migration 0008) — kollisionssicher bei mehreren Geräten
+ * und nach Verlassen/Wiederbetreten des CCP (der alte rein lokale Weg begann
+ * nach leaveCurrentCcp wieder bei 1 → doppelte Nummern auf der Haut).
+ * Offline-Fallback: lokales Maximum UND die je CCP persistierte zuletzt
+ * vergebene Nummer (Schlüssel ccp_lastnum_<id>, übersteht das Leeren des
+ * Patientenbestands). Training bleibt rein lokal (Sandbox, kein Netz). */
+async function claimNum(client){
+  if(client && _ccpId && !_training){
+    try{
+      var r=await client.rpc('argus_claim_nums',{p_ccp_id:_ccpId,p_count:1});
+      var d=r?r.data:null;
+      if(d && !d.error && d.start) return d.start;
+    }catch(e){}
+  }
+  var m=nextNum();
+  if(!_training && _ccpId){
+    try{ var last=await sGet("ccp_lastnum_"+_ccpId); if(typeof last==="number" && last>=m) m=last+1; }catch(e){}
+  }
+  return m;
+}
+async function rememberNum(num){
+  if(_training || !_ccpId) return;
+  try{ var last=await sGet("ccp_lastnum_"+_ccpId); if(typeof last!=="number" || num>last) await sSet("ccp_lastnum_"+_ccpId,num); }catch(e){}
+}
 async function addPatient(cat){
   await loadPatients();
-  var num=nextNum();
+  var client=sb();
+  var num=await claimNum(client);
   var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:num,cat:cat,ccp:_ccpKennung,prio:false,ready:false,
     status:"active",created:nowMs(),lastTriage:nowMs(),tqStart:null,
     name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",
@@ -1467,7 +1498,7 @@ async function addPatient(cat){
     ccpId:_ccpId||null, _dirty:true};
   if(_training){ p.training=true; delete p._dirty; }   /* Übungsdaten: lokal-only, nie Cloud */
   await sSet("ccp_pat_"+p.id,p);
-  var client=sb();
+  await rememberNum(num);
   if(client && _ccpId && !p.training){
     try{ var r=await client.from('patients').insert(patToRow(p)); if(!r.error){ delete p._dirty; await sSet("ccp_pat_"+p.id,p); } }catch(e){}
   }
@@ -2258,7 +2289,7 @@ function cmpVer(a,b){
  * Trainings-Zustand nicht (Guards dort). */
 var TRAIN_LESSONS=[
   {t:'Willkommen', mode:'explain', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt oder synchronisiert. Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
-  {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du alle offenen CCPs in deinem Präsidium und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Alternativ eröffnest du gleich selbst einen neuen.', sel:'[data-action="joinccp"]'},
+  {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du alle offenen CCPs in deinem Präsidium und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Im Training ist Beitreten gesperrt — gleich eröffnest du selbst einen.', sel:'[data-action="joinccp"]'},
   {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
 
   {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
@@ -2270,7 +2301,11 @@ var TRAIN_LESSONS=[
   {t:'Einsatz abschließen', mode:'explain', x:'Ganz unten „Einsatz abschließen": beendet den Einsatz für ALLE Geräte — mit optionalem Übergabe-Export. Danach werden die Daten 72 Std nach Abschluss automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
 
   {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
-  {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.'},
+  /* ctx/ctxBack (Fix 2026-06-13, Lektion 12): verlässt der Übende die
+   * Checkliste vorzeitig über „zurück", springt das Training automatisch auf
+   * die Einstiegs-Lektion (Index 10, „Checkliste öffnen") zurück, statt auf
+   * der Startseite kontextlos die Checkliste zu erklären. */
+  {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:10},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
   {t:'Direkt anlegen', mode:'do', x:'Ist die Kategorie klar, geht es direkt am schnellsten. Die laufende Nummer vergibt ARGUS automatisch — sie wird dem Patienten auf die Haut geschrieben.', sel:'[data-action="addcat"]', doit:'Tippe die markierte Kategorie', adv:function(){return trainCount()>=1;}},
   {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen oder den „TQ"-Timer starten, „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg.', sel:'#cap-last'},
@@ -2417,6 +2452,12 @@ function renderCoach(){
   var ap=document.getElementById('app'); if(ap)ap.style.paddingBottom=Math.max(300,Math.round(window.innerHeight*0.7))+'px';   /* genug Scroll-Raum, damit auch der unterste Button (z. B. „Abtransport → gPA") über das Panel gescrollt werden kann */
   var n=TRAIN_LESSONS.length, fin=_trainStep>=n;
   var L=fin?null:TRAIN_LESSONS[_trainStep];
+  /* Kontext-Wächter: kontextgebundene Lektionen (ctx) prüfen ihre Ansicht —
+   * vorzeitiges Verlassen führt zur Einstiegs-Lektion (ctxBack) zurück. */
+  if(L && L.ctx && L.ctxBack!==undefined){
+    var _okCtx=false; try{ _okCtx=!!L.ctx(); }catch(e){}
+    if(!_okCtx){ _trainStep=L.ctxBack; trainSave(); L=TRAIN_LESSONS[_trainStep]; }
+  }
   var nodes=null, doitTxt=null, backRedirect=false;
   if(L){
     doitTxt=(typeof L.doit==='function')?L.doit():(L.doit||null);
@@ -2793,6 +2834,10 @@ document.addEventListener("click",async function(e){
     go("home");return;
   }
   if(a==="joinccp"){
+    /* Training (Fix 2026-06-13, Lektion 3): Beitreten würde einen ECHTEN
+     * Cloud-CCP in den lokalen Übungs-Sandkasten holen und das geführte
+     * Intro zerschießen — im Training gesperrt. */
+    if(_training){ await confirmModal('Im Training gibt es kein Beitreten — eröffne deine eigene Übungs-CCP über „Neue CCP eröffnen".','OK'); return; }
     var client2=sb();
     if(!client2){await confirmModal("Keine Backend-Verbindung.\n\nInternetverbindung prüfen.","OK");return;}
     var jres=await client2.from('ccps').select('*')      .eq('praesidium_id',_praesidiumId||'00000000-0000-0000-0000-000000000000').is('closed_at',null).order('created_at',{ascending:true});
@@ -3295,8 +3340,28 @@ if ('serviceWorker' in navigator) {
 /* Update-Erkennung beim Start und bei jedem Sichtbarwerden (iOS-Resume zeigt
  * die App ohne echten Ladevorgang → ohne diese Prüfung bliebe man auf alt). */
 checkForUpdate();
+
+/* Realtime-Selbstheilung (Bugfix 2026-06-13, Feldtest-Feedback): iOS beendet
+ * im Hintergrund den WebSocket. Beim Resume blieb der TOTE Channel in _channel
+ * stehen — subscribeRealtime() verweigerte wegen des _channel-Guards den
+ * Neuaufbau, und auch der online-Handler abonnierte nie neu. Folge: keine
+ * Live-Updates mehr („gefühlt lokaler Modus") bis zum CCP-Wechsel, dessen
+ * Pfade den Channel zufällig aufräumen. Heilung: Channel hart trennen, neu
+ * abonnieren, danach Abschluss-Check + Daten-Nachladen (Catch-up für alles,
+ * was während des toten Channels passiert ist). */
+function healRealtime(){
+  if(!_ccpId || _training || !sb()) return;
+  if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
+  subscribeRealtime();
+  checkClosedEinsatz().then(function(closed){
+    if(closed || !_ccpId) return;
+    loadPatients().then(function(){ render(); });
+  });
+}
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState==='visible') checkForUpdate();
+  if(document.visibilityState!=='visible') return;
+  checkForUpdate();
+  healRealtime();
 });
 
 /* Wiederverbindung: offline erfasste/bearbeitete Patienten nachschieben und
@@ -3308,13 +3373,8 @@ window.addEventListener('online', function(){
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
-  if(_ccpId && sb()){
-    /* Abschluss-Erkennung (b) Reconnect: erst prüfen, ob der Einsatz inzwischen
-     * abgeschlossen wurde (→ Hinweis + cleanupClosedEinsatz), sonst normal laden. */
-    checkClosedEinsatz().then(function(closed){
-      if(closed || !_ccpId) return;
-      loadPatients().then(function(){ render(); });
-    });
-  }
+  /* Channel nach Netz-Rückkehr IMMER neu aufbauen (toter Socket, s. o.) —
+   * healRealtime übernimmt Abschluss-Check + Nachladen. */
+  healRealtime();
 });
 </script>

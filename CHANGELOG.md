@@ -6,6 +6,29 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.25.0 — 2026-06-13
+**Kritische Bugfixes aus dem Feldtest-Feedback (Paket 1): Nummernvergabe, Reconnect, Training**
+- **Serverseitige Nummernvergabe (kritisch):** Die laufende Patienten-Nummer
+  kommt jetzt atomar vom Server (Migration `0008`, RPC `argus_claim_nums` mit
+  Zähler je CCP, selbstheilend gegen offline nachgesynchte Patienten). Vorher
+  begann die rein lokale Zählung nach Verlassen/Wiederbetreten eines CCP
+  wieder bei 1 → zwei Patienten mit derselben Nummer. Offline-Fallback:
+  lokales Maximum + je CCP persistierte zuletzt vergebene Nummer
+  (übersteht das Leeren des lokalen Bestands).
+- **Realtime-Selbstheilung:** iOS beendet im Hintergrund den WebSocket; der
+  tote Channel blieb stehen und blockierte den Neuaufbau — Live-Sync erst
+  nach CCP-Wechsel wieder da. Jetzt: bei jedem Sichtbarwerden der App und
+  bei Netz-Rückkehr wird der Channel hart neu aufgebaut + Daten nachgeladen
+  (inkl. Abschluss-Erkennung).
+- **Geführtes Training:** „CCP beitreten" ist im Training gesperrt (holte
+  vorher einen ECHTEN Cloud-CCP in den lokalen Sandkasten — Lektion 3
+  zerschoss das Intro); Lektionstext angepasst. Neuer Kontext-Wächter:
+  Wer die Checkliste in Lektion 12 vorzeitig über „zurück" verlässt, wird
+  automatisch auf Lektion 11 („Checkliste öffnen") zurückgeführt.
+- SW-Cache v44. Kein UPDATE-Sheet (Bugfix-Release ohne Bedienungsänderung).
+  Drehbuch geprüft: Lektion-2-Text angepasst (Beitreten-Sperre), sonst keine
+  Lektionsänderung nötig.
+
 ## v0.24.0 — 2026-06-11
 **Self-Hosting-Vorbereitung (Phase 4.11): zentrale Backend-Konfiguration (config.js)**
 - **Config-Auslagerung:** Supabase-URL und Anon-Key liegen jetzt zentral in
