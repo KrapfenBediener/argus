@@ -3128,7 +3128,9 @@ document.addEventListener("click",async function(e){
   }
   if(a==="schulreset"){
     if(!_praesidiumSchulung)return;
-    var oks2=await confirmModal("Schulung komplett zurücksetzen?\n\nALLE CCPs und Patienten der Schulungsumgebung werden gelöscht und ein frisches Demo-Szenario (6 CCPs mit zufälligen Patienten) neu angelegt.","Zurücksetzen");
+    /* Seit dem Flag-Umbau (0009/0011) gilt der Reset für JEDES Schulungs-
+     * Präsidium — Text daher mit Präsidiumsnamen statt fest „der Schulungsumgebung". */
+    var oks2=await confirmModal("Schulung komplett zurücksetzen?\n\nALLE CCPs und Patienten "+(_praesidiumName?"von „"+_praesidiumName+"“":"dieser Schulungsumgebung")+" werden zurückgesetzt und ein frisches Demo-Szenario (6 CCPs mit zufälligen Patienten) neu angelegt.","Zurücksetzen");
     if(!oks2)return;
     var scx=sb(); if(!scx||!_praesidiumId){toast("Keine Backend-Verbindung");return;}
     toast("Setze zurück…");
