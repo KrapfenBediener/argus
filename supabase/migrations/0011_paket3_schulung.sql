@@ -36,8 +36,12 @@
 -- ── 1) argus_schulung_reset: Tombstone-Reset für Schulungs-Präsidien ────────
 -- Berechtigung: Master ODER eigenes Präsidium (Trainer vor Ort resettet
 -- selbst) — Muster argus_close_einsatz (0002/0003). Je offenem CCP:
--- patients+checklists löschen, DANN tombstonen (DELETE vor UPDATE — sonst
--- erschiene ein Tombstone mit Rest-Patienten in argus_governance_einsaetze).
+-- erst tombstonen (UPDATE sperrt die ccps-Row; nach Commit blockt die RLS
+-- argus_patients_write per closed_at-Check jeden weiteren Offline-Flush),
+-- DANN patients+checklists löschen. Innerhalb der Transaktion ist die
+-- Zwischenreihenfolge nach außen unsichtbar; DELETE vor UPDATE ließe
+-- dagegen ein Race-Fenster für parallele Patient-Flushes offen
+-- (Tombstone mit Rest-Patienten in argus_governance_einsaetze).
 create or replace function public.argus_schulung_reset(p_praesidium_id uuid)
   returns jsonb
   language plpgsql
@@ -74,14 +78,16 @@ begin
   end if;
 
   -- Reset-Schleife je OFFENEM CCP des Schulungs-Präsidiums.
-  -- Reihenfolge ZWINGEND: erst DELETE, dann UPDATE (kein Tombstone mit
-  -- Rest-Patienten — Filter in argus_governance_einsaetze bliebe sonst wahr).
+  -- Reihenfolge ZWINGEND: erst UPDATE (Tombstone — sperrt die ccps-Row;
+  -- nach dem Commit blockt die RLS argus_patients_write (closed_at is null,
+  -- 0002) jeden weiteren Offline-Flush), DANN DELETE. Innerhalb der einen
+  -- Transaktion sehen Reader nur Vorher/Nachher — ein "Tombstone mit
+  -- Rest-Patienten" kann so nicht mehr entstehen; die alte Reihenfolge
+  -- DELETE→UPDATE ließ parallelen Patient-INSERTs ein Race-Fenster.
   for r in
     select c.id from public.ccps c
     where c.praesidium_id = p_praesidium_id and c.closed_at is null
   loop
-    delete from public.patients   where ccp_id = r.id;
-    delete from public.checklists where ccp_id = r.id;
     -- Tombstone-Signatur EXAKT wie Einsatz-Abschluss/Purge (isCcpClosedRow
     -- am Client matcht closed_at + ort='' + master_medic='' + join_token=null):
     update public.ccps set
@@ -90,6 +96,8 @@ begin
       master_medic = '',
       join_token   = null
     where id = r.id;
+    delete from public.patients   where ccp_id = r.id;
+    delete from public.checklists where ccp_id = r.id;
     v_reset := v_reset + 1;
   end loop;
 
@@ -113,7 +121,7 @@ grant execute on function public.argus_schulung_reset(uuid) to anon;
 comment on function public.argus_schulung_reset(uuid) is
   'Schulungs-Reset (0011): tombstont alle offenen CCPs eines Schulungs-'
   'Präsidiums (closed_at, ort='''', master_medic='''', join_token=null; '
-  'patients+checklists vorab gelöscht) — Offline-Geräte bereinigen sich '
+  'patients+checklists danach gelöscht) — Offline-Geräte bereinigen sich '
   'über die bestehende Abschluss-Erkennung. Nur schulung=true; Berechtigung '
   'Master oder eigenes Präsidium. Löscht zusätzlich Schulungs-Tombstones '
   '> 7 Tage hart (nur eigenes Präsidium). Bewusst kein Lösch-Protokoll-Eintrag.';
