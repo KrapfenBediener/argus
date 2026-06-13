@@ -991,7 +991,9 @@ function vAtmistPrint(){
     var ap=[]; if(p.age)ap.push(esc(String(p.age))+' J');
     var g=p.gender==='m'?'männl.':(p.gender==='w'?'weibl.':''); if(g)ap.push(g);
     var tp=[];
-    if(p.tqStart)tp.push('<b style="color:var(--t1)">TQ seit '+fmtDur(now-p.tqStart)+'</b>');
+    /* tq_start: snake_case — Protokoll-Rows kommen roh aus der DB (to_jsonb),
+     * NICHT aus dem normalisierten Feld-App-Modell (dort hieße es tqStart). */
+    if(p.tq_start)tp.push('<b style="color:var(--t1)">TQ seit '+fmtDur(now-p.tq_start)+'</b>');
     if(p.created)tp.push('erfasst '+ageStr(p.created));
     var il=[];
     if(Array.isArray(p.inj))p.inj.forEach(function(it){ if(it)il.push(esc(String(it.r||'?'))+' – '+esc(String(it.a||'?'))); });
@@ -1011,7 +1013,7 @@ function vAtmistPrint(){
         return '<br>'+tm+': '+(parts.join(' · ')||'—');
       }).join('')+'</div>';
     }
-    var tl=[]; if(p.tqStart)tl.push('Tourniquet · '+fmtDur(now-p.tqStart));
+    var tl=[]; if(p.tq_start)tl.push('Tourniquet · '+fmtDur(now-p.tq_start));
     if(p.tx&&typeof p.tx==='object'){
       Object.keys(TXL).forEach(function(k){ if(p.tx[k])tl.push(esc(TXL[k])); });
     }
