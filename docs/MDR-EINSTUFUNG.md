@@ -80,6 +80,17 @@ bekommt das **Sichtungsformular**.
   ursprünglich geplante Modus-Bindung; kein Umgehungsverdacht möglich).
 - [x] Statisches tacSTART-**Schaubild** (`tacChartSVG()`, reines SVG) als
   Nachschlage-Hilfe im Erfassen-Schritt UND unter Hilfestellungen.
+- [x] **Anklickbare Endpunkte** (v0.29.1, Owner-Wunsch): die farbigen
+  End-Felder im Schaubild legen die Kategorie an (`addcat`; Einzelfall-Feld →
+  T-1/T-5-Wahl). **MDR-Bewertung:** zulässig, weil das Schaubild STATISCH
+  bleibt — keine Ja/Nein-Verzweigung, alle Pfade gleichzeitig sichtbar, die App
+  rechnet/verzweigt nicht. Der Endpunkt ist funktional ein Kategorie-Knopf an
+  der vom Nutzer selbst getracten Stelle (= Dokumentation der menschlichen
+  Entscheidung), NICHT die Software, die den Algorithmus ausführt. Abgrenzung
+  zur verbotenen Variante: eine *animierte/verzweigende* Flow-Chart, die mit den
+  Befunden auf eine Kategorie zuläuft, bleibt ❌. Sitzt näher an der Linie als
+  die reine Lese-Karte → einer der Punkte für die optionale BfArM-Abgrenzungs-
+  anfrage (MDR-3).
 
 **Absichern.**
 - [x] **Qualifikations-Memo**: dieses Dokument + CHANGELOG v0.29.0 dokumentieren

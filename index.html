@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.29.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.29.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -138,6 +138,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.29.1': [
+    'tacSTART-Schaubild: Du kannst die Kategorie jetzt direkt am farbigen Endpunkt im Schema antippen — oder wie gehabt über die großen Knöpfe darunter. Der Endpunkt „keine Auto-Kategorie" fragt T-1 oder T-5 ab.'
+  ],
   '0.29.0': [
     'tacSTART ist jetzt ein statisches Sichtungs-Schaubild zum Nachschlagen (wie die gedruckte Karte) — die App rechnet und schlägt bewusst keine Kategorie mehr vor.',
     'Patient erfassen: Du beurteilst nach dem Schema selbst und wählst die Kategorie (T-1…T-5) — die Sichtungsentscheidung triffst ausschließlich du. Das Schaubild lässt sich oben ein- und ausklappen.',
@@ -956,7 +959,17 @@ var CHK = [
  * Pfad B / docs/MDR-EINSTUFUNG.md; Regel 11 wird durch das frühere, rechnende
  * Vorschlagssystem ausgelöst — genau das ist hier entfernt). Reines SVG mit
  * den App-Farbvariablen; rendert in beiden Modi gleich. */
-function tacChartSVG(){
+function tacChartSVG(clickable){
+  /* clickable=true (nur im Erfassen-Schritt): die farbigen ENDPUNKTE werden
+   * tippbar und legen die vom Menschen ermittelte Kategorie an (data-action
+   * addcat / capeinzelfall). Das bleibt MDR-konform, weil das Schaubild STATISCH
+   * ist (keine Ja/Nein-Verzweigung, alle Pfade gleichzeitig sichtbar) — der
+   * Endpunkt ist nur ein Knopf an der vom Nutzer selbst getracten Stelle, die
+   * App rechnet nichts. In der Hilfe-Ansicht clickable=false (reine Referenz). */
+  function clk(inner,act,cat){
+    if(!clickable) return inner;
+    return '<g data-action="'+act+'"'+(cat?' data-cat="'+cat+'"':'')+' style="cursor:pointer">'+inner+'</g>';
+  }
   function box(x,y,w,h,lines){
     var s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" fill="var(--surf2)" stroke="var(--line)" stroke-width="1.2"/>';
     var cx=x+w/2, n=lines.length, sy=y+h/2-(n-1)*7+4, i;
@@ -1002,13 +1015,13 @@ function tacChartSVG(){
   p.push(box(14,206,188,40,['Radialispuls / Rekap &lt; 2 s?']));
   p.push(box(14,266,188,40,['Folgt einfachen Befehlen?']));
   p.push(box(14,378,188,48,['Atemwege freimachen –','Atmung danach vorhanden?']));
-  p.push(res(14,328,188,44,'var(--t2)','#3A2C00',['T-2 · dringend']));
-  p.push(res(232,12,114,36,'var(--t3)','#fff',['T-3 · leicht']));
-  p.push(res(232,148,114,34,'var(--t1)','#fff',['T-1 · sofort']));
-  p.push(res(232,208,114,34,'var(--t1)','#fff',['T-1 · sofort']));
-  p.push(res(232,268,114,34,'var(--t1)','#fff',['T-1 · sofort']));
-  p.push(res(232,384,114,34,'var(--t1)','#fff',['T-1 · sofort']));
-  p.push(spec(14,438,188,40,['keine Auto-Kategorie ·','ärztl. Einzelfallentscheidung']));
+  p.push(clk(res(14,328,188,44,'var(--t2)','#3A2C00',['T-2 · dringend']),'addcat','T2'));
+  p.push(clk(res(232,12,114,36,'var(--t3)','#fff',['T-3 · leicht']),'addcat','T3'));
+  p.push(clk(res(232,148,114,34,'var(--t1)','#fff',['T-1 · sofort']),'addcat','T1'));
+  p.push(clk(res(232,208,114,34,'var(--t1)','#fff',['T-1 · sofort']),'addcat','T1'));
+  p.push(clk(res(232,268,114,34,'var(--t1)','#fff',['T-1 · sofort']),'addcat','T1'));
+  p.push(clk(res(232,384,114,34,'var(--t1)','#fff',['T-1 · sofort']),'addcat','T1'));
+  p.push(clk(spec(14,438,188,40,['keine Auto-Kategorie ·','ärztl. Einzelfallentscheidung']),'capeinzelfall'));
   p.push(lb(108,60,'nein'));
   p.push(lb(108,128,'ja'));
   p.push(lb(108,196,'ja'));
@@ -1844,10 +1857,10 @@ function vCapture(){
     '<button data-action="capcharttoggle" style="width:100%;text-align:left;background:var(--surf);border:0;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer">'+
       '<span><span style="font-weight:600;font-size:15px;color:var(--tx)">tacSTART · Sichtungsschema</span><br><span class="hint">Nachschlage-Hilfe wie die gedruckte Karte — die Kategorie wählst du selbst</span></span>'+
       '<span class="mono" style="color:var(--mut);font-size:13px;flex:none">'+(chartOpen?'▾':'▸')+'</span></button>'+
-    (chartOpen?'<div style="padding:4px 12px 14px">'+tacChartSVG()+'</div>':'')+
+    (chartOpen?'<div style="padding:4px 12px 14px">'+tacChartSVG(true)+'</div>':'')+
     '</div>';
   h+='<div class="sech" style="margin-top:0">Kategorie festlegen</div>';
-  h+='<p class="hint" style="margin:0 0 8px">Patient nach dem Schema beurteilen — die Sichtungsentscheidung triffst du. Tippe die Kategorie, ARGUS vergibt die Nummer automatisch.</p>';
+  h+='<p class="hint" style="margin:0 0 8px">Patient nach dem Schema beurteilen — die Sichtungsentscheidung triffst du. Tippe das farbige Endpunkt-Feld im Schema oben oder eine Kategorie unten; ARGUS vergibt die Nummer automatisch.</p>';
   h+=catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5");
   /* Kontext: nächste Nummer + zuletzt angelegter Patient (gegen Doppelerfassung).
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
@@ -1898,6 +1911,20 @@ function vCapture(){
   return h;
 }
 function catBig(cat){var c=CATS[cat];return '<button class="bigcat" data-action="addcat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span><br><span class="nm">'+c.nm+'</span></span><span class="cc">＋</span></button>';}
+/* Gemeinsamer Erfassungs-Pfad für alle Kategorie-Auslöser: die großen
+ * Kategorie-Knöpfe (catBig→addcat), die anklickbaren Schaubild-Endpunkte
+ * (tacChartSVG→addcat) und die Einzelfall-Wahl (capeinzelfall). Entprellt
+ * (700 ms) gegen Doppelerfassung; im Training Bestätigungs-Blitz, sonst
+ * Sofort-Optionen-Pop-up. */
+async function capCreate(cat){
+  if(!cat || !CATS[cat]) return;
+  if(nowMs()-_lastCreateAt<700) return;
+  _lastCreateAt=nowMs();
+  var np=await addPatient(cat);
+  state.lastCreatedId=np.id;
+  if(_training){ render(); flashConfirm(pno(np),CATS[cat].label); }
+  else { state.capPopup=true; render(); }
+}
 /* vTac() entfernt (v0.29.0): Der interaktive tacSTART-Walk, der aus den
  * Antworten eine Kategorie BERECHNETE und VORSCHLUG, ist die MDR-auslösende
  * Funktion (Anhang VIII Regel 11 — „Informationen liefern, die zu Entscheidungen
@@ -3226,7 +3253,28 @@ document.addEventListener("click",async function(e){
     return;
   }
   if(a==="capcharttoggle"){ state.capChart = state.capChart===false; render(); return; }
-  if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;if(_training){render();flashConfirm(pno(np2),CATS[cat2].label);}else{state.capPopup=true;render();}return;}
+  if(a==="addcat"){ await capCreate(el.getAttribute("data-cat")); return; }
+  if(a==="capeinzelfall"){
+    /* „Keine Spontanatmung trotz Freimachen" — tacSTART liefert hier bewusst KEINE
+     * Auto-Kategorie; die Einsatzkraft entscheidet T-1 oder T-5 (ärztliche
+     * Einzelfallentscheidung). Kein Vorschlag, nur Dokumentation der Wahl. */
+    var ov=document.createElement('div'); ov.className='modalov';
+    ov.innerHTML='<div class="modalbx" style="max-width:340px">'+
+      '<div class="modalmsg" style="margin-bottom:4px">Keine Spontanatmung trotz Freimachen</div>'+
+      '<div class="hint" style="margin-bottom:14px">tacSTART legt hier keine Kategorie fest — ärztliche Einzelfallentscheidung. Kategorie festlegen:</div>'+
+      '<div class="catset"><button data-ez="T1" style="background:var(--t1);color:#fff;border-color:var(--t1)">T-1 sofort</button>'+
+      '<button data-ez="T5" style="background:var(--t5);color:#fff;border-color:var(--t5b)">T-5 verstorben</button></div>'+
+      '<button class="ghost" data-ez="x" style="width:100%;margin-top:8px">Abbrechen</button></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener('click',async function(ev){
+      var b=ev.target.closest('[data-ez]');
+      if(!b && ev.target!==ov) return;
+      var v=b?b.getAttribute('data-ez'):'x';
+      ov.remove();
+      if(v==='T1'||v==='T5'){ await capCreate(v); }
+    });
+    return;
+  }
   if(a==="photozoom"){
     /* T1: ab Auscheckung (gpa) kein Zoom mehr — photoVisible deckt auch fehlendes Foto ab. */
     if(!photoVisible(state.edit)) return;

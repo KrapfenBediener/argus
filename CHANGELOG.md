@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.29.1 — 2026-06-13
+**tacSTART-Schaubild: anklickbare Endpunkte**
+- Die farbigen **Endpunkte** im statischen tacSTART-Schaubild sind jetzt **tippbar** und legen die Kategorie an (🟢 T-3, 🟡 T-2, 🔴 T-1; das Feld „keine Auto-Kategorie" öffnet die T-1/T-5-Wahl). Die großen Kategorie-Knöpfe bleiben darunter erhalten (⚫ T-5 direkt, Handschuh-Bedienung).
+- **MDR unverändert konform:** Das Schaubild bleibt statisch (keine Ja/Nein-Verzweigung, alle Pfade gleichzeitig sichtbar) — der Endpunkt ist nur ein Knopf an der vom Nutzer selbst ermittelten Stelle; die App rechnet/verzweigt nichts. Klickbar nur im Erfassen-Schritt, in der Hilfe-Ansicht reine Referenz. Gemeinsamer `capCreate`-Pfad für Knöpfe, Endpunkte und Einzelfall-Wahl.
+- SW-Cache v55.
+
 ## v0.29.0 — 2026-06-13
 **tacSTART vom rechnenden Vorschlagssystem zum statischen Sichtungsschema (MDR-De-Qualifikation, Pfad B)**
 - **Kern:** Der interaktive tacSTART-Walk, der aus den Ja/Nein-Antworten eine Sichtungskategorie **berechnete und vorschlug**, ist entfernt (`vTac`, `FLOW`-Baum mit `R:`-Ergebnissen, Handler `tacstart`/`tacanswer`/`tacconfirm`). Diese Funktion ist der MDR-Auslöser (Anhang VIII Regel 11 — Software, die „Informationen liefert, die zu Entscheidungen herangezogen werden"; bei Triage Klasse III).
