@@ -91,6 +91,14 @@ bekommt das **Sichtungsformular**.
   Befunden auf eine Kategorie zuläuft, bleibt ❌. Sitzt näher an der Linie als
   die reine Lese-Karte → einer der Punkte für die optionale BfArM-Abgrenzungs-
   anfrage (MDR-3).
+- [x] **Schaubild = einzige Erfassungsmethode** (v0.29.2, Owner-Wunsch): die
+  separaten Kategorie-Knöpfe sind entfernt, das Schema immer sichtbar. MDR-
+  Posture unverändert (statisch, keine Verzweigung/Berechnung). Das untere
+  Endfeld heißt jetzt „keine der vorgenannten Kategorien" und legt direkt **T-5**
+  an (statt der früheren T-1/T-5-Einzelfallwahl). *Hinweis für die DSB-/BfArM-
+  Vorlage:* T-5 bedeutet fachlich „verstorben/erwartend" — das Label „keine der
+  vorgenannten Kategorien" ist Owner-Entscheid; bei der Abgrenzungsanfrage als
+  bewusste Vereinfachung mitführen.
 
 **Absichern.**
 - [x] **Qualifikations-Memo**: dieses Dokument + CHANGELOG v0.29.0 dokumentieren

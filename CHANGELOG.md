@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.29.2 — 2026-06-13
+**tacSTART-Schaubild ist die einzige Erfassungsmethode**
+- Die separaten **Kategorie-Knöpfe** („Kategorie festlegen") sind **entfernt** — Patienten werden ausschließlich über die anklickbaren **Endpunkte des tacSTART-Schaubilds** angelegt. `catBig()` entfällt.
+- Das **Aufklapp-/Dropdown-Verhalten** des Schaubilds entfällt (`capcharttoggle`, `state.capChart`): das Schema ist immer sichtbar, weil es jetzt der Erfassungsweg ist.
+- Das unterste Schaubild-Feld („keine Auto-Kategorie · ärztl. Einzelfallentscheidung" mit T-1/T-5-Auswahl) ist umbenannt zu **„keine der vorgenannten Kategorien"** und direkt als **T-5 (schwarz)** hinterlegt (`addcat T5`); die `capeinzelfall`-Auswahl entfällt.
+- Alle vier Kategorien bleiben über die Endpunkte erreichbar (🟢 T-3, 🟡 T-2, 🔴 T-1 ×4, ⚫ T-5). MDR-Posture unverändert: Schaubild statisch, keine Verzweigung/Berechnung. Drehbuch-Lektionen angepasst.
+- SW-Cache v56.
+
 ## v0.29.1 — 2026-06-13
 **tacSTART-Schaubild: anklickbare Endpunkte**
 - Die farbigen **Endpunkte** im statischen tacSTART-Schaubild sind jetzt **tippbar** und legen die Kategorie an (🟢 T-3, 🟡 T-2, 🔴 T-1; das Feld „keine Auto-Kategorie" öffnet die T-1/T-5-Wahl). Die großen Kategorie-Knöpfe bleiben darunter erhalten (⚫ T-5 direkt, Handschuh-Bedienung).

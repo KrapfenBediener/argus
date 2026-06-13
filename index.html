@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.29.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.29.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -138,6 +138,11 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.29.2': [
+    'Erfassen läuft jetzt ausschließlich über das tacSTART-Schaubild: Patient beurteilen, das ermittelte farbige Endpunkt-Feld antippen — fertig. Die separaten Kategorie-Knöpfe entfallen.',
+    'Das unterste Schaubild-Feld heißt jetzt „keine der vorgenannten Kategorien" und legt T-5 (schwarz) an.',
+    'Das Schaubild ist immer sichtbar (kein Ein-/Ausklappen mehr) — es ist der Erfassungsweg.'
+  ],
   '0.29.1': [
     'tacSTART-Schaubild: Du kannst die Kategorie jetzt direkt am farbigen Endpunkt im Schema antippen — oder wie gehabt über die großen Knöpfe darunter. Der Endpunkt „keine Auto-Kategorie" fragt T-1 oder T-5 ab.'
   ],
@@ -962,10 +967,11 @@ var CHK = [
 function tacChartSVG(clickable){
   /* clickable=true (nur im Erfassen-Schritt): die farbigen ENDPUNKTE werden
    * tippbar und legen die vom Menschen ermittelte Kategorie an (data-action
-   * addcat / capeinzelfall). Das bleibt MDR-konform, weil das Schaubild STATISCH
-   * ist (keine Ja/Nein-Verzweigung, alle Pfade gleichzeitig sichtbar) — der
-   * Endpunkt ist nur ein Knopf an der vom Nutzer selbst getracten Stelle, die
-   * App rechnet nichts. In der Hilfe-Ansicht clickable=false (reine Referenz). */
+   * addcat; das schwarze Endfeld „keine der vorgenannten Kategorien" → T-5).
+   * Das bleibt MDR-konform, weil das Schaubild STATISCH ist (keine Ja/Nein-
+   * Verzweigung, alle Pfade gleichzeitig sichtbar) — der Endpunkt ist nur ein
+   * Knopf an der vom Nutzer selbst getracten Stelle, die App rechnet nichts.
+   * In der Hilfe-Ansicht clickable=false (reine Referenz). */
   function clk(inner,act,cat){
     if(!clickable) return inner;
     return '<g data-action="'+act+'"'+(cat?' data-cat="'+cat+'"':'')+' style="cursor:pointer">'+inner+'</g>';
@@ -980,12 +986,6 @@ function tacChartSVG(clickable){
     var s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" fill="'+fill+'" stroke="'+fill+'" stroke-width="1"/>';
     var cx=x+w/2, n=lines.length, sy=y+h/2-(n-1)*7+4, i;
     for(i=0;i<n;i++) s+='<text x="'+cx+'" y="'+(sy+i*14)+'" text-anchor="middle" font-size="'+(i?11:13.5)+'" font-weight="700" fill="'+fg+'">'+lines[i]+'</text>';
-    return s;
-  }
-  function spec(x,y,w,h,lines){
-    var s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" fill="var(--surf)" stroke="var(--prio)" stroke-width="1.4"/>';
-    var cx=x+w/2, n=lines.length, sy=y+h/2-(n-1)*7+4, i;
-    for(i=0;i<n;i++) s+='<text x="'+cx+'" y="'+(sy+i*14)+'" text-anchor="middle" font-size="11" font-weight="600" fill="var(--tx)">'+lines[i]+'</text>';
     return s;
   }
   function ar(d){return '<path d="'+d+'" fill="none" stroke="var(--mut)" stroke-width="1.5" marker-end="url(#tacarr)"/>';}
@@ -1021,7 +1021,7 @@ function tacChartSVG(clickable){
   p.push(clk(res(232,208,114,34,'var(--t1)','#fff',['T-1 · sofort']),'addcat','T1'));
   p.push(clk(res(232,268,114,34,'var(--t1)','#fff',['T-1 · sofort']),'addcat','T1'));
   p.push(clk(res(232,384,114,34,'var(--t1)','#fff',['T-1 · sofort']),'addcat','T1'));
-  p.push(clk(spec(14,438,188,40,['keine Auto-Kategorie ·','ärztl. Einzelfallentscheidung']),'capeinzelfall'));
+  p.push(clk(res(14,438,188,40,'var(--t5)','#fff',['keine der vorgenannten','Kategorien']),'addcat','T5'));
   p.push(lb(108,60,'nein'));
   p.push(lb(108,128,'ja'));
   p.push(lb(108,196,'ja'));
@@ -1038,7 +1038,7 @@ function tacChartSVG(clickable){
   return p.join('');
 }
 
-var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, edit:null, readonly:false, lastCreatedId:null, capChart:true, capPopup:false};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, edit:null, readonly:false, lastCreatedId:null, capPopup:false};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -1846,22 +1846,17 @@ function vChecklist(){
   return h;
 }
 function vCapture(){
-  /* tacSTART als STATISCHES Sichtungsschema (Nachschlage-Karte) + manuelle
-   * Kategoriewahl. Die App rechnet/empfiehlt bewusst NICHTS — die Einsatzkraft
-   * beurteilt nach dem Schema und legt die Kategorie selbst fest (MDR: reine
-   * Dokumentation, kein Medizinprodukt; Pfad B / docs/MDR-EINSTUFUNG.md).
-   * Schema einklappbar (state.capChart) — geübte Kräfte tippen direkt die
-   * Kategorie, der Block bleibt als Referenz erreichbar. */
-  var chartOpen = state.capChart!==false;
-  var h='<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">'+
-    '<button data-action="capcharttoggle" style="width:100%;text-align:left;background:var(--surf);border:0;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer">'+
-      '<span><span style="font-weight:600;font-size:15px;color:var(--tx)">tacSTART · Sichtungsschema</span><br><span class="hint">Nachschlage-Hilfe wie die gedruckte Karte — die Kategorie wählst du selbst</span></span>'+
-      '<span class="mono" style="color:var(--mut);font-size:13px;flex:none">'+(chartOpen?'▾':'▸')+'</span></button>'+
-    (chartOpen?'<div style="padding:4px 12px 14px">'+tacChartSVG(true)+'</div>':'')+
+  /* tacSTART-Schaubild ist die EINZIGE Erfassungsmethode (Owner 2026-06-13):
+   * statisches Schema mit anklickbaren Endpunkten, IMMER sichtbar (kein
+   * Aufklapp-Menü, keine separate Direkt-Kategoriewahl mehr). Die App
+   * rechnet/verzweigt bewusst NICHTS — der Endpunkt ist ein Knopf an der vom
+   * Nutzer selbst ermittelten Stelle (MDR: reine Dokumentation, kein
+   * Medizinprodukt; Pfad B / docs/MDR-EINSTUFUNG.md). */
+  var h='<div class="card" style="padding:12px 12px 14px;margin-bottom:12px">'+
+    '<div style="font-weight:600;font-size:15px;color:var(--tx)">tacSTART · Sichtungsschema</div>'+
+    '<div class="hint" style="margin:2px 0 8px">Nach dem Schema beurteilen und das ermittelte Endpunkt-Feld antippen — die Sichtungsentscheidung triffst du. ARGUS vergibt die Nummer automatisch.</div>'+
+    tacChartSVG(true)+
     '</div>';
-  h+='<div class="sech" style="margin-top:0">Kategorie festlegen</div>';
-  h+='<p class="hint" style="margin:0 0 8px">Patient nach dem Schema beurteilen — die Sichtungsentscheidung triffst du. Tippe das farbige Endpunkt-Feld im Schema oben oder eine Kategorie unten; ARGUS vergibt die Nummer automatisch.</p>';
-  h+=catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5");
   /* Kontext: nächste Nummer + zuletzt angelegter Patient (gegen Doppelerfassung).
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
    * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
@@ -1910,12 +1905,11 @@ function vCapture(){
   }
   return h;
 }
-function catBig(cat){var c=CATS[cat];return '<button class="bigcat" data-action="addcat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span><br><span class="nm">'+c.nm+'</span></span><span class="cc">＋</span></button>';}
-/* Gemeinsamer Erfassungs-Pfad für alle Kategorie-Auslöser: die großen
- * Kategorie-Knöpfe (catBig→addcat), die anklickbaren Schaubild-Endpunkte
- * (tacChartSVG→addcat) und die Einzelfall-Wahl (capeinzelfall). Entprellt
- * (700 ms) gegen Doppelerfassung; im Training Bestätigungs-Blitz, sonst
- * Sofort-Optionen-Pop-up. */
+/* Gemeinsamer Erfassungs-Pfad: ausgelöst von den anklickbaren tacSTART-
+ * Schaubild-Endpunkten (tacChartSVG→addcat, inkl. T-5-Endfeld). Seit v0.29.2
+ * ist das Schaubild die einzige Erfassungsmethode — keine separaten Kategorie-
+ * Knöpfe mehr. Entprellt (700 ms) gegen Doppelerfassung; im Training
+ * Bestätigungs-Blitz, sonst Sofort-Optionen-Pop-up. */
 async function capCreate(cat){
   if(!cat || !CATS[cat]) return;
   if(nowMs()-_lastCreateAt<700) return;
@@ -2551,9 +2545,9 @@ var TRAIN_LESSONS=[
    * der Startseite kontextlos die Checkliste zu erklären. */
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:10},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
-  {t:'tacSTART-Schema & Kategorie', mode:'do', x:'Oben steht das tacSTART-Sichtungsschema als Nachschlage-Hilfe — wie die gedruckte Karte. Du beurteilst den Patienten selbst danach und wählst dann die Kategorie. ARGUS schlägt bewusst nichts vor: die Sichtungsentscheidung triffst du. Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden). Lege jetzt einen Patienten an.', sel:'[data-action="addcat"]', doit:'Tippe eine Kategorie (T-1…T-5)', adv:function(){return trainCount()>=1;}},
+  {t:'tacSTART-Schema: Endpunkt antippen', mode:'do', x:'Das tacSTART-Sichtungsschema ist die Erfassung — wie die gedruckte Karte, nur tippbar. Du beurteilst den Patienten selbst entlang des Schemas und tippst dann das farbige Endpunkt-Feld, bei dem du landest (🟢 T-3, 🟡 T-2, 🔴 T-1, ⚫ T-5). ARGUS schlägt bewusst nichts vor: die Sichtungsentscheidung triffst du. Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden). Lege jetzt einen Patienten an.', sel:'[data-action="addcat"]', doit:'Tippe ein farbiges Endpunkt-Feld im Schema', adv:function(){return trainCount()>=1;}},
   {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen, den „TQ"-Timer starten, ein „Foto" aufnehmen (wenn erlaubt), „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg, der nächste Patient ist nur einen Tipp entfernt.', sel:'#cap-last'},
-  {t:'Noch einen Patienten erfassen', mode:'do', x:'Genau so läuft jede Erfassung: nach dem tacSTART-Schema beurteilen, Kategorie selbst wählen, Nummer auf die Haut notieren. Das Schaubild kannst du oben ein- und ausklappen — geübte Kräfte tippen direkt die Kategorie. Leg zur Übung einen zweiten Patienten an.', sel:'[data-action="addcat"]', doit:'Tippe eine Kategorie (T-1…T-5)', adv:function(){return trainCount()>=2;}},
+  {t:'Noch einen Patienten erfassen', mode:'do', x:'Genau so läuft jede Erfassung: am Schema beurteilen, das ermittelte Endpunkt-Feld antippen, Nummer auf die Haut notieren. Das schwarze Endfeld „keine der vorgenannten Kategorien" legt T-5 an. Leg zur Übung einen zweiten Patienten an.', sel:'[data-action="addcat"]', doit:'Tippe ein farbiges Endpunkt-Feld im Schema', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
   /* Foto-Schalter: nur sichtbar, wenn der Übende MasterMedic seines Übungs-CCP ist
@@ -3252,29 +3246,7 @@ document.addEventListener("click",async function(e){
     go("start");toast("Schulung zurückgesetzt — 6 Demo-CCPs angelegt");
     return;
   }
-  if(a==="capcharttoggle"){ state.capChart = state.capChart===false; render(); return; }
   if(a==="addcat"){ await capCreate(el.getAttribute("data-cat")); return; }
-  if(a==="capeinzelfall"){
-    /* „Keine Spontanatmung trotz Freimachen" — tacSTART liefert hier bewusst KEINE
-     * Auto-Kategorie; die Einsatzkraft entscheidet T-1 oder T-5 (ärztliche
-     * Einzelfallentscheidung). Kein Vorschlag, nur Dokumentation der Wahl. */
-    var ov=document.createElement('div'); ov.className='modalov';
-    ov.innerHTML='<div class="modalbx" style="max-width:340px">'+
-      '<div class="modalmsg" style="margin-bottom:4px">Keine Spontanatmung trotz Freimachen</div>'+
-      '<div class="hint" style="margin-bottom:14px">tacSTART legt hier keine Kategorie fest — ärztliche Einzelfallentscheidung. Kategorie festlegen:</div>'+
-      '<div class="catset"><button data-ez="T1" style="background:var(--t1);color:#fff;border-color:var(--t1)">T-1 sofort</button>'+
-      '<button data-ez="T5" style="background:var(--t5);color:#fff;border-color:var(--t5b)">T-5 verstorben</button></div>'+
-      '<button class="ghost" data-ez="x" style="width:100%;margin-top:8px">Abbrechen</button></div>';
-    document.body.appendChild(ov);
-    ov.addEventListener('click',async function(ev){
-      var b=ev.target.closest('[data-ez]');
-      if(!b && ev.target!==ov) return;
-      var v=b?b.getAttribute('data-ez'):'x';
-      ov.remove();
-      if(v==='T1'||v==='T5'){ await capCreate(v); }
-    });
-    return;
-  }
   if(a==="photozoom"){
     /* T1: ab Auscheckung (gpa) kein Zoom mehr — photoVisible deckt auch fehlendes Foto ab. */
     if(!photoVisible(state.edit)) return;
