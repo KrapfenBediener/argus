@@ -143,6 +143,17 @@ begin
     raise exception 'Nur mit MasterUser-Token';
   end if;
 
+  -- Race-Schutz: parallele Master-Aufrufe (zwei Leitungs-Geräte, Doppelklick)
+  -- serialisieren — sonst bestünden beide den not-exists-Check und legten
+  -- doppelte „<Name> — Schulung"-Präsidien an. Bewusst Advisory-Lock statt
+  -- Unique-Index auf praesidien.name: Bestandsdaten könnten kollidieren,
+  -- kein neues Schema (Owner-Entscheid). Der xact-Lock löst sich automatisch
+  -- am Transaktionsende.
+  -- EINSCHRÄNKUNG der Namenskonvention (dokumentiert, akzeptiert): existieren
+  -- zwei GLEICHNAMIGE Produktiv-Präsidien, erhält nur eines ein Schwester-
+  -- Präsidium — der not-exists-Check matcht über den Namen.
+  perform pg_advisory_xact_lock(hashtext('argus_provision_schulung'));
+
   -- Je Produktiv-Präsidium (schulung=false) ohne vorhandenes Schwester-
   -- Präsidium „<Name> — Schulung" eines anlegen (schulung=true):
   with neu as (
@@ -167,4 +178,6 @@ comment on function public.argus_provision_schulung() is
   'Schulungs-Provisionierung (0011, master-only): legt je Präsidium ohne '
   'schulung-Flag ein Schwester-Präsidium „<Name> — Schulung" (schulung=true) '
   'an, sofern es noch nicht existiert (Namenskonvention, kein FK-Modell). '
-  'Idempotent — Rückgabe {angelegte:[Namen]} bzw. leere Liste.';
+  'Idempotent — Rückgabe {angelegte:[Namen]} bzw. leere Liste. Parallel-'
+  'Aufrufe per pg_advisory_xact_lock serialisiert; Einschränkung: bei '
+  'gleichnamigen Produktiv-Präsidien erhält nur eines ein Schwester-Präsidium.';
