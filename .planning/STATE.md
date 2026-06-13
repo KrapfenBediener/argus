@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
 status: unknown
-last_updated: "2026-06-12T23:42:30.502Z"
+last_updated: "2026-06-13T00:00:23.060Z"
 progress:
   total_phases: 8
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 25
-  completed_plans: 18
-  percent: 63
+  completed_plans: 19
+  percent: 75
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -89,9 +89,10 @@ progress:
   Lage: Verbund als EINE kompakte Summen-Karte (verbundCard) mit Standort-
   Zeile je Mitglied, „Einladungslink teilen" + buildShareLink/copyInviteLink
   entfernt (redundant zu Leitungs-Ausgabe/Gast-Code).
-  **Paket 3 offen** (Schulungs-Provisionierung
-  je PP inkl. Reset über Tombstones, FLZ-operativ nach DSB-Votum,
-  GeoJSON-Endpunkt nach PTLS-Antwort, AT-MIST-Druck in der Leitung).
+  **Paket 3 (baubarer Teil) code-komplett (Phase 4.13, v0.28.0 — Push
+  ausstehend):** Schulungs-Provisionierung je PP + Reset über Tombstones +
+  AT-MIST-Druck in der Leitung; extern blockiert bleiben FLZ-operativ
+  (DSB-Votum) und GeoJSON-Endpunkt (PTLS-Antwort).
   **Datenschutz: technisch vollständig, offen ist nur Organisatorisches
   (+ T4 nach DSB-Votum; k-Schwelle Lageansicht = DSB-Frage).**
   Nächster realer Schritt: **DSB-Gespräch** (Briefing aktualisiert, intern)
@@ -719,9 +720,37 @@ Blocker, voll autonom — kein PAT nötig).
 - **PAT widerrufen (Owner-Punkt):** der für 04.13-01 genutzte ephemere PAT
   im Supabase-Dashboard widerrufen (zusammen mit ggf. offenen Alt-PATs).
 
-**Nächster Schritt:** Plan 04.13-02 (Feld-App: schulreset auf RPC + Flag-Gates
-`_praesidiumSchulung`; Leitungs-Seite: Provision-Knopf + AT-MIST-Druck;
-Release v0.28.0 / SW v51).
+**Ausführungsstand (Welle 2 — Phasenabschluss Code):**
+
+- **04.13-02 ✅ (2026-06-13, v0.28.0):** Feld-App: `schulreset` ruft
+  `argus_schulung_reset` per RPC (kein Client-Hard-DELETE; Fehlerpfad per
+  Toast für Transport- UND jsonb-Fehler; confirmModal, Speicher-Bereinigung
+  und genDemoRows-Loop unverändert — Offline-Geräte bereinigen sich über die
+  vorhandene checkClosedEinsatz/handleRemoteClose-Mechanik). Alle 4
+  Pflicht-Gates (loadSchulDirty, Training-Knopf, Reset-Knopf, Handler-Guard)
+  plus 5. Stelle (Demo-Direkt-Merge, Discretion: Demo-MasterMedics können
+  Merge-Anfragen nie bestätigen) auf `_praesidiumSchulung`; Rule-1-Fix:
+  loadSchulDirty zählt nur offene CCPs (Reset-Tombstones blockierten sonst
+  den „sauber"-Zustand dauerhaft). Leitungs-Seite: `makeProvision()`
+  (Knopf „Schulungs-Präsidien anlegen/prüfen" im Zugänge-Kopf,
+  `argus_provision_schulung` + Zugänge-Reload) und `vAtmistPrint()`
+  (zweiter Druckknopf im Protokoll-Detail, AT-MIST-Karten aus
+  `_detail.data.patients`, kein API-Call/kein Foto/kein img;
+  body[data-atmist-print]-Print-CSS, Render-Beleg
+  `04.13-02-atmist-preview.html`). Release v0.28.0 / SW ccp-shell-v51
+  (v50 war durch v0.27.2 verbraucht), WHATS_NEW befüllt, KEIN UPDATE-Sheet
+  (Trainer-/Leitungs-Thema); Drehbuch geprüft: Reset-Knopf in keiner Lektion.
+  JSC-Syntax + lokaler Precache-Smoke (alle Assets 200) + D-06-Gate grün.
+  Details: `.planning/phases/04.13-paket3-schulung/04.13-02-SUMMARY.md`.
+  Commits bdc10de · e7c37d4 · 1dd4a0f. **Noch nicht gepusht** (Projektregel:
+  Push macht der Orchestrator am Phasenende).
+
+**Nächster Schritt (Orchestrator):** Push/Deploy der Phase-4.13-Commits,
+danach Live-Smoke (ausgeliefertes version.json = 0.28.0, Marker
+ccp-shell-v51 / argus_schulung_reset / argus_provision_schulung) und
+Erst-Klick „Schulungs-Präsidien anlegen/prüfen" (erwartet idempotent:
+„Keine neuen Schulungs-Präsidien nötig.", da „PP Karlsruhe — Schulung"
+bereits existiert).
 
 ---
 
@@ -731,7 +760,9 @@ Release v0.28.0 / SW v51).
   Bereinigung beim geplanten Production-Repo-Schnitt (Phase 5).
 
 - **E-Mail-Platzhalter** in `LICENSE` + `README.md` → vor Open Beta ersetzen.
-- **GSD-CLI nicht lauffähig** (`node` fehlt) → `.planning/` wird manuell gepflegt.
+- **GSD-CLI lauffähig** seit 2026-06-13 (Node v22 unter `~/.local/node`,
+  Runtime `~/.claude/gsd-core`) — der alte Hinweis „node fehlt" ist überholt.
+
 - **TECH_DEBT.md** noch nicht angelegt — bei Bedarf erstellen.
 
 ## Performance Metrics
@@ -739,7 +770,9 @@ Release v0.28.0 / SW v51).
 | Phase | Plan | Duration | Notes |
 |-------|------|----------|-------|
 | Phase 04.13 P01 | 25min | 2 tasks | 2 files |
+| Phase 04.13 P02 | 12min | 3 tasks | 6 files |
 
 ## Decisions
 
 - [Phase 04.13]: 04.13-01: Provisioniertes Schwester-Praesidium 'PP Karlsruhe — Schulung' bleibt auf der Instanz (gewollter Endzustand der Provisionierung, idempotent; ZZTEST-Artefakte aufgeraeumt)
+- [Phase 04.13]: 04.13-02: Demo-Direkt-Merge (5. Gate-Stelle) ebenfalls auf _praesidiumSchulung umgestellt; loadSchulDirty zaehlt nur offene CCPs (Rule-1-Fix gegen Tombstone-Blockade); kein UPDATE-Sheet fuer v0.28.0; Push+Live-Smoke an Orchestrator delegiert

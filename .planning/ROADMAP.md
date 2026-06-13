@@ -374,11 +374,11 @@ Migration 0011. Release v0.28.0.
 **Scope-Zaun (extern blockiert, NICHT hier):** FLZ-operativ + T4 + k-Schwelle
 (DSB-Votum), GeoJSON-Endpunkt (PTLS Frage 9).
 Details: `.planning/phases/04.13-paket3-schulung/04.13-CONTEXT.md`.
-**Plans:** 1/2 plans executed
+**Plans:** 2/2 plans complete
 Plans:
 
 - [x] 04.13-01-PLAN.md — Migration 0011 (argus_schulung_reset + argus_provision_schulung) + REST-Idempotenz/Positiv-/Negativtests + SELF-HOSTING.md [Wave 1]
-- [ ] 04.13-02-PLAN.md — Feld-App (schulreset→RPC, 4 Flag-Gates) + Leitungs-Seite (Provisionierungs-Knopf, AT-MIST-Druck) + Release v0.28.0/SW v51 [Wave 2]
+- [x] 04.13-02-PLAN.md — Feld-App (schulreset→RPC, 4 Flag-Gates) + Leitungs-Seite (Provisionierungs-Knopf, AT-MIST-Druck) + Release v0.28.0/SW v51 [Wave 2]
 
 ## Phase 5 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
 
