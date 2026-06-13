@@ -51,7 +51,19 @@ declare
   v_reset      int := 0;
   v_hygiene    int := 0;
 begin
-  -- Schulung-Pflicht-Check ZUERST: echte Präsidien werden NIE getombstonet.
+  -- Berechtigungs-Gate ZUERST (Master ODER eigenes Präsidium, Muster
+  -- argus_close_einsatz): der RPC ist anon-grantet — die Existenz-/schulung-
+  -- Prüfung VOR dem Gate wäre ein Existenz-Orakel (Nicht-Berechtigte könnten
+  -- per UUID-Probe Existenz und Schulungs-Status fremder Präsidien
+  -- unterscheiden). Nicht-Berechtigte sehen einheitlich 'Keine Berechtigung'.
+  if not public.argus_is_master()
+     and ( public.argus_praesidium_id() is null
+           or p_praesidium_id is distinct from public.argus_praesidium_id() ) then
+    return jsonb_build_object('error', 'Keine Berechtigung');
+  end if;
+
+  -- Schulung-Pflicht-Check (vor jeder Mutation): echte Präsidien werden NIE
+  -- getombstonet.
   select id, schulung into v_praesidium
   from public.praesidien where id = p_praesidium_id;
   if not found then
@@ -59,13 +71,6 @@ begin
   end if;
   if not coalesce(v_praesidium.schulung, false) then
     return jsonb_build_object('error', 'Nur für Schulungs-Präsidien');
-  end if;
-
-  -- Berechtigungs-Gate: Master ODER eigenes Präsidium (Muster argus_close_einsatz).
-  if not public.argus_is_master()
-     and ( public.argus_praesidium_id() is null
-           or p_praesidium_id is distinct from public.argus_praesidium_id() ) then
-    return jsonb_build_object('error', 'Keine Berechtigung');
   end if;
 
   -- Reset-Schleife je OFFENEM CCP des Schulungs-Präsidiums.
