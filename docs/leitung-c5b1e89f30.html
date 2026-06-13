@@ -983,6 +983,11 @@ function vAtmistPrint(){
     druck:'Druckverband',tampon:'Tamponade',haemo:'Hämostatikum',becken:'Beckenschlinge',zugang:'i.v./i.o.',
     txa:'TXA',medo:'Meds andere',waerme:'Wärmeerhalt',schiene:'Schienung',hws:'HWS-Immo.'};
   var now=nowMs();
+  /* TQ-Referenzzeitpunkt je CCP: das Protokoll existiert nur für ABGESCHLOSSENE
+   * Einsätze und kann Tage später gedruckt werden — "now - tq_start" wäre dann
+   * medizinisch irreführend ("TQ seit 53 h"). Referenz ist daher closed_at des
+   * zugehörigen CCP (Fallback now, falls die Row unerwartet offen wäre). */
+  var ccpClose={}; ccps.forEach(function(c){ if(c&&c.id&&c.closed_at)ccpClose[c.id]=+c.closed_at; });
   var h='<div style="padding:12px"><div style="font-weight:700;font-size:15px;margin-bottom:2px">AT-MIST · CCP '+esc(kenn)+'</div>';
   h+='<div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">Einsatzprotokoll · gedruckt '+new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr · '+pats.length+' Patient(en) · ohne Fotos</div>';
   pats.slice().sort(function(a,b){ return (+a.num||0)-(+b.num||0); }).forEach(function(p){
@@ -992,8 +997,10 @@ function vAtmistPrint(){
     var g=p.gender==='m'?'männl.':(p.gender==='w'?'weibl.':''); if(g)ap.push(g);
     var tp=[];
     /* tq_start: snake_case — Protokoll-Rows kommen roh aus der DB (to_jsonb),
-     * NICHT aus dem normalisierten Feld-App-Modell (dort hieße es tqStart). */
-    if(p.tq_start)tp.push('<b style="color:var(--t1)">TQ seit '+fmtDur(now-p.tq_start)+'</b>');
+     * NICHT aus dem normalisierten Feld-App-Modell (dort hieße es tqStart).
+     * Dauer bis Einsatzende (closed_at), plus absolute Anlagezeit. */
+    var tqRef=ccpClose[p.ccp_id]||now;
+    if(p.tq_start)tp.push('<b style="color:var(--t1)">TQ angelegt '+ageStr(p.tq_start)+' · '+fmtDur(tqRef-p.tq_start)+' bis Einsatzende</b>');
     if(p.created)tp.push('erfasst '+ageStr(p.created));
     var il=[];
     if(Array.isArray(p.inj))p.inj.forEach(function(it){ if(it)il.push(esc(String(it.r||'?'))+' – '+esc(String(it.a||'?'))); });
@@ -1013,7 +1020,7 @@ function vAtmistPrint(){
         return '<br>'+tm+': '+(parts.join(' · ')||'—');
       }).join('')+'</div>';
     }
-    var tl=[]; if(p.tq_start)tl.push('Tourniquet · '+fmtDur(now-p.tq_start));
+    var tl=[]; if(p.tq_start)tl.push('Tourniquet · angelegt '+ageStr(p.tq_start));
     if(p.tx&&typeof p.tx==='object'){
       Object.keys(TXL).forEach(function(k){ if(p.tx[k])tl.push(esc(TXL[k])); });
     }
