@@ -6,6 +6,24 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.28.1 — 2026-06-13
+**Code-Review-Korrekturen zu v0.28.0 (Review 04.13: 1 Critical, 5 Warnings, 2 Info gefixt)**
+- **AT-MIST-Druck (Leitung):** Tourniquet-Zeit erscheint jetzt zuverlässig
+  (Feldname `tq_start` statt camelCase — war auf JEDEM Ausdruck still leer);
+  TQ-Dauer wird gegen das Einsatzende gerechnet („angelegt HH:MM Uhr ·
+  X min bis Einsatzende") statt gegen den Druckzeitpunkt; Druck-Cleanup über
+  `afterprint` (iOS-sicher); null-Eintraege in Vitalwert-Verläufen brechen
+  den Druck nicht mehr ab.
+- **Migration 0011 gehärtet (neu angewendet, idempotent):** Berechtigungs-
+  Gate vor der Existenzprüfung (kein Existenz-Orakel per UUID-Probe mehr);
+  Reset tombstoned je CCP ERST die Row und löscht dann Inhalte (kein
+  Patienten-Rest bei konkurrierendem Offline-Flush); Provisionierung mit
+  Advisory-Lock race-fest.
+- Schulungs-Reset-Dialog nennt das jeweilige Präsidium („dieses
+  Schulungs-Präsidium" statt fest „der Schulungsumgebung").
+- SW-Cache v52. Drehbuch geprüft: Reset/Confirm-Texte kommen in keiner
+  Lektion vor — keine Anpassung nötig.
+
 ## v0.28.0 — 2026-06-13
 **Paket 3 (Schulung): Tombstone-Reset, Schulungs-Provisionierung, AT-MIST-Druck (Leitung)**
 

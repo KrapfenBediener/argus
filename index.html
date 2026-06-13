@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.28.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.28.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -137,6 +137,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.28.1': [
+    'Korrekturen aus dem Code-Review: AT-MIST-Druck der Leitung zeigt die Tourniquet-Zeit jetzt zuverlässig (mit Anlagezeit und Dauer bis Einsatzende); Schulungs-Reset-Dialog nennt das jeweilige Präsidium.'
+  ],
   '0.28.0': [
     'Schulungs-Reset jetzt offline-sicher: Geräte, die beim Zurücksetzen offline waren, bereinigen sich beim nächsten Verbinden automatisch (gleicher Mechanismus wie der Einsatz-Abschluss).',
     'Jedes Präsidium kann eine eigene Schulungsumgebung erhalten — Training und Reset stehen dort automatisch zur Verfügung (Anlage über die Leitung).',
