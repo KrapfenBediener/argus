@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.28.2 — 2026-06-13
+**Bugfix: Schulungs-Präsidien zeigen korrekte Bezeichnung in der Präsidiumsauswahl**
+- `schulung`-Flag wird jetzt in allen Präsidien-Abfragen mitgeladen (`select id,name,schulung`); Erkennungslogik auf `p.schulung` statt Namensvergleich `==='Schulungsumgebung'` umgestellt — neu provisionierte Schulungs-Präsidien (z. B. „PP Karlsruhe — Schulung") zeigen damit korrekt „Training & Demo-Szenarien" statt „Einsatzbetrieb".
+- SW-Cache v53.
+
 ## v0.28.1 — 2026-06-13
 **Code-Review-Korrekturen zu v0.28.0 (Review 04.13: 1 Critical, 5 Warnings, 2 Info gefixt)**
 - **AT-MIST-Druck (Leitung):** Tourniquet-Zeit erscheint jetzt zuverlässig

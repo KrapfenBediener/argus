@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.28.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.28.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -729,7 +729,7 @@ async function doUnlock(rawCode){
   } else {
     toast("Code ohne Präsidium"); return;
   }
-  var pru=await sb().from('praesidien').select('id,name').order('name');
+  var pru=await sb().from('praesidien').select('id,name,schulung').order('name');
   _praesidienList=pru.data||[];
   render();
 }
@@ -812,7 +812,7 @@ function vPraesidium(){
     h+='<p class="muted" style="text-align:center;margin-bottom:14px">Noch kein Präsidium freigeschaltet.<br>Gib unten deinen 8-stelligen Code ein.</p>';
   }else{
     list.forEach(function(p){
-      var isSchul=p.name==='Schulungsumgebung';
+      var isSchul=!!p.schulung;
       h+='<button class="navbtn" data-action="selectpraesidium" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'">';
       h+='<span class="ic">'+(isSchul?'🎓':'🏗')+' </span>';
       h+='<span><span class="t">'+esc(p.name)+'</span>';
@@ -2854,7 +2854,7 @@ document.addEventListener("click",async function(e){
   if(a==="back"){await back();return;}
   if(a==="openadmin"){
     if(!_isMaster){toast("Nur MasterToken");return;}
-    if(!_praesidienList.length && sb()){ var pra=await sb().from('praesidien').select('id,name').order('name'); _praesidienList=pra.data||[]; }
+    if(!_praesidienList.length && sb()){ var pra=await sb().from('praesidien').select('id,name,schulung').order('name'); _praesidienList=pra.data||[]; }
     go("admin"); return;
   }
   if(a==="adminlink"){
@@ -2915,7 +2915,7 @@ document.addEventListener("click",async function(e){
     _praesidiumId=null; _praesidiumName='';
     localStorage.removeItem('argus_praesidium_id');
     localStorage.removeItem('argus_praesidium_name');
-    var pr=await sb().from('praesidien').select('id,name').order('name');
+    var pr=await sb().from('praesidien').select('id,name,schulung').order('name');
     _praesidienList=pr.data||[];
     go("praesidium"); return;
   }
@@ -2936,7 +2936,7 @@ document.addEventListener("click",async function(e){
         localStorage.removeItem('argus_praesidium_id');
         localStorage.removeItem('argus_praesidium_name');
         _praesidiumId=null; _praesidiumName='';
-        var prlc=await sb().from('praesidien').select('id,name').order('name');
+        var prlc=await sb().from('praesidien').select('id,name,schulung').order('name');
         _praesidienList=prlc.data||[];
         go("praesidium");
       } else {
@@ -3491,7 +3491,7 @@ setInterval(async function(){
 
   /* Präsidienliste laden (für die Landingpage) */
   if(sb()){
-    var prlAll=await sb().from('praesidien').select('id,name').order('name');
+    var prlAll=await sb().from('praesidien').select('id,name,schulung').order('name');
     _praesidienList=prlAll.data||[];
   }
 
