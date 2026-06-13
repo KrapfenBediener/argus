@@ -1012,7 +1012,9 @@ function vAtmistPrint(){
     if(p.allergies)sVal+='<br><b style="color:var(--t1)">⚠ Allergien: '+esc(String(p.allergies))+'</b>';
     var vlog=Array.isArray(v.log)?v.log:[];
     if(vlog.length){
-      sVal+='<div style="margin-top:4px;font-size:11.5px;color:var(--mut)">Verlauf:'+vlog.map(function(m){
+      /* filter(Boolean): ein null-Eintrag im gemeinsam geschriebenen jsonb-Log
+       * darf nicht den gesamten Druck per TypeError abbrechen. */
+      sVal+='<div style="margin-top:4px;font-size:11.5px;color:var(--mut)">Verlauf:'+vlog.filter(Boolean).map(function(m){
         var tm=(m&&m.t)?new Date(+m.t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—';
         var parts=[]; if(m.af)parts.push('AF '+esc(String(m.af))); if(m.spo2)parts.push('SpO₂ '+esc(String(m.spo2)));
         if(m.hf)parts.push('HF '+esc(String(m.hf))); if(m.rr)parts.push('RR '+esc(String(m.rr)));
