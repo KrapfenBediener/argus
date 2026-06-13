@@ -1046,9 +1046,23 @@ function vAtmistPrint(){
   if(!overlay){ overlay=document.createElement('div'); overlay.id='atmist-print-overlay'; document.body.appendChild(overlay); }
   overlay.innerHTML=h;
   document.body.setAttribute('data-atmist-print','1');
-  window.print();
-  document.body.removeAttribute('data-atmist-print');
-  overlay.innerHTML='';
+  /* Cleanup erst NACH dem Druck-Snapshot: auf nicht-blockierenden Browsern
+   * (iOS/iPadOS Safari) laeuft das Skript hinter window.print() sofort weiter —
+   * direktes Entfernen des Attributs druckte die normale Protokollansicht.
+   * Daher einmaliger afterprint-Listener; Fallback-Timeout fuer Browser ohne
+   * afterprint; try/catch, damit das Attribut bei werfendem print() nicht
+   * dauerhaft gesetzt bleibt. */
+  var cleaned=false;
+  function atmistCleanup(){
+    if(cleaned)return; cleaned=true;
+    try{ window.removeEventListener('afterprint',atmistCleanup); }catch(e){}
+    document.body.removeAttribute('data-atmist-print');
+    overlay.innerHTML='';
+  }
+  window.addEventListener('afterprint',atmistCleanup);
+  setTimeout(atmistCleanup,60000);
+  try{ window.print(); }
+  catch(e){ atmistCleanup(); }
 }
 
 /* Foto-Einzelabruf (Lazy-Load, eigener Protokoll-Eintrag foto_view) */
