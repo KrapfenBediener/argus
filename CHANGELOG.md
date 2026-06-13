@@ -6,6 +6,15 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.29.0 — 2026-06-13
+**tacSTART vom rechnenden Vorschlagssystem zum statischen Sichtungsschema (MDR-De-Qualifikation, Pfad B)**
+- **Kern:** Der interaktive tacSTART-Walk, der aus den Ja/Nein-Antworten eine Sichtungskategorie **berechnete und vorschlug**, ist entfernt (`vTac`, `FLOW`-Baum mit `R:`-Ergebnissen, Handler `tacstart`/`tacanswer`/`tacconfirm`). Diese Funktion ist der MDR-Auslöser (Anhang VIII Regel 11 — Software, die „Informationen liefert, die zu Entscheidungen herangezogen werden"; bei Triage Klasse III).
+- **Neu:** „Patient erfassen" zeigt das tacSTART-Schema als **statisches SVG-Schaubild** (Nachschlage-Karte wie die gedruckte Vorlage, einklappbar via `state.capChart`) + **manuelle Kategoriewahl** (T-1…T-5). Die App rechnet/empfiehlt nichts — die Sichtungsentscheidung trifft ausschließlich die Einsatzkraft. „tacSTART"- und „Direkt"-Pfad sind zu **einem** Erfassen-Weg verschmolzen.
+- **Wortlaut** durchgängig entschärft: „Ergebnis tacSTART" / „Entscheidungsunterstützung" / „geführt" → „Sichtungsschema" / „Kategorie festlegen (Entscheidung der Einsatzkraft)". Hilfe-Sektion zeigt jetzt dasselbe Schaubild.
+- **Training:** Drehbuch-Lektionen (Erfassen) auf den neuen Ablauf umgeschrieben (Dauerregel UI-Änderung → Drehbuch).
+- Rechtlicher Anker: `docs/MDR-EINSTUFUNG.md` (MDR-2). **Keine Rechtsberatung** — verbindliche Qualifizierung trifft BfArM/Benannte Stelle.
+- SW-Cache v54, Update-Sheet `docs/UPDATE_v0.29.html`.
+
 ## v0.28.2 — 2026-06-13
 **Bugfix: Schulungs-Präsidien zeigen korrekte Bezeichnung in der Präsidiumsauswahl**
 - `schulung`-Flag wird jetzt in allen Präsidien-Abfragen mitgeladen (`select id,name,schulung`); Erkennungslogik auf `p.schulung` statt Namensvergleich `==='Schulungsumgebung'` umgestellt — neu provisionierte Schulungs-Präsidien (z. B. „PP Karlsruhe — Schulung") zeigen damit korrekt „Training & Demo-Szenarien" statt „Einsatzbetrieb".

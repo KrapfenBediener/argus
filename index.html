@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.28.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.29.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -127,6 +127,7 @@ var DS_KONTAKT = {
  * würde ein bereits durchlaufenes Sheet angezeigt). Bei jedem RELEVANTEN Update ein
  * neues Sheet unter docs/ anlegen und hier unter der Zielversion eintragen. */
 var UPDATE_SHEETS = {
+  '0.29.0': 'docs/UPDATE_v0.29.html',          /* tacSTART als statisches Schaubild + manuelle Kategoriewahl (MDR) */
   '0.27.0': 'docs/UPDATE_v0.27.html',          /* tacSTART-Standard, Foto-Schnellaktion, Ort-Sync, Verbund-Gruppen */
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html',  /* deckt v0.9.0 → v0.12.x ab */
   '0.17.0': 'docs/UPDATE_v0.17.html',          /* AT-MIST-Übergabekarte */
@@ -137,6 +138,11 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.29.0': [
+    'tacSTART ist jetzt ein statisches Sichtungs-Schaubild zum Nachschlagen (wie die gedruckte Karte) — die App rechnet und schlägt bewusst keine Kategorie mehr vor.',
+    'Patient erfassen: Du beurteilst nach dem Schema selbst und wählst die Kategorie (T-1…T-5) — die Sichtungsentscheidung triffst ausschließlich du. Das Schaubild lässt sich oben ein- und ausklappen.',
+    'Hintergrund: Eine rechnende Triage-Empfehlung wäre ein zulassungspflichtiges Medizinprodukt. Als reines Dokumentations- und Nachschlagewerkzeug bleibt ARGUS frei nutzbar — bei vollem Funktionsumfang.'
+  ],
   '0.28.1': [
     'Korrekturen aus dem Code-Review: AT-MIST-Druck der Leitung zeigt die Tourniquet-Zeit jetzt zuverlässig (mit Anlagezeit und Dauer bis Einsatzende); Schulungs-Reset-Dialog nennt das jeweilige Präsidium.'
   ],
@@ -282,7 +288,7 @@ var WHATS_NEW = {
  * jederzeit aus den Hilfestellungen erneut aufrufbar). Keine Wisch-Gesten. */
 var INTRO_STEPS = [
   {icon:'🛡️', title:'Willkommen bei ARGUS', text:'ARGUS erfasst und sichtet Patienten am CCP — einhändig bedienbar, offline-fähig und für mehrere Geräte gleichzeitig.'},
-  {icon:'＋', title:'Patienten erfassen', text:'„Patient erfassen" → geführt mit tacSTART oder direkt eine Kategorie (T-1…T-5). Die laufende Nummer vergibt ARGUS automatisch.'},
+  {icon:'＋', title:'Patienten erfassen', text:'„Patient erfassen" → nach dem tacSTART-Schema beurteilen und selbst die Kategorie (T-1…T-5) wählen. Die laufende Nummer vergibt ARGUS automatisch.'},
   {icon:'▦', title:'Übersicht & Bearbeiten', text:'Über die Kacheln oder „Alle Patienten" findest du jeden Fall. Antippen öffnet Vitalwerte, Maßnahmen, Foto und Kategorie.'},
   {icon:'⇄', title:'Mehrere Geräte', text:'Alle im selben CCP teilen dieselbe Liste. Wer einen Patienten bearbeitet, sperrt ihn kurz. Offline läuft alles weiter und gleicht sich später ab.'},
   {icon:'🎓', title:'Erst mal üben?', text:'Auf der Startseite findest du „Geführtes Training" — es führt dich Schritt für Schritt durch den kompletten Ablauf. Ideal zum gefahrlosen Üben: nichts wird dabei geteilt oder gespeichert.'}
@@ -941,16 +947,85 @@ var CHK = [
 /* <C>-Vorschaltschritt entfernt (Feedback 2026-06-13): kritische Blutungen
  * werden ohnehin VOR der Verbringung zum CCP versorgt — der Hinweis war eine
  * zeitfressende Redundanz im Sichtungsfluss. Einstieg direkt bei „gehfähig?". */
-var FLOW={
-  walk:{q:"Patient gehfähig?",ans:[["Ja","R:T3"],["Nein","breath"]]},
-  breath:{q:"Spontane Atmung vorhanden?",ans:[["Ja","af"],["Nein","airway"]]},
-  airway:{q:"Atemwege freimachen – Atmung jetzt vorhanden?",note:"Esmarch-Handgriff / Wendl-Tubus",ans:[["Ja","R:T1"],["Nein","R:NOBR"]]},
-  af:{q:"Atemfrequenz 10–30 / min?",ans:[["Ja","pulse"],["Nein","R:T1"]]},
-  pulse:{q:"Radialispuls tastbar / Rekap < 2 s?",ans:[["Ja","cmd"],["Nein","R:T1"]]},
-  cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
-};
+/* ── tacSTART · STATISCHES Sichtungsschema (Nachschlage-Karte) ───────────────
+ * Bewusst KEIN interaktiver Ablauf und KEINE Berechnung: Die App führt den
+ * tacSTART-Algorithmus nicht aus und schlägt keine Kategorie vor — die
+ * Einsatzkraft beurteilt selbst und wählt die Kategorie manuell (vCapture).
+ * Das Schaubild ist Wissen wie die gedruckte tacSTART-Karte → reine
+ * Dokumentations-/Nachschlagefunktion, kein Medizinprodukt (MDR-Abgrenzung,
+ * Pfad B / docs/MDR-EINSTUFUNG.md; Regel 11 wird durch das frühere, rechnende
+ * Vorschlagssystem ausgelöst — genau das ist hier entfernt). Reines SVG mit
+ * den App-Farbvariablen; rendert in beiden Modi gleich. */
+function tacChartSVG(){
+  function box(x,y,w,h,lines){
+    var s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" fill="var(--surf2)" stroke="var(--line)" stroke-width="1.2"/>';
+    var cx=x+w/2, n=lines.length, sy=y+h/2-(n-1)*7+4, i;
+    for(i=0;i<n;i++) s+='<text x="'+cx+'" y="'+(sy+i*14)+'" text-anchor="middle" font-size="12" font-weight="600" fill="var(--tx)">'+lines[i]+'</text>';
+    return s;
+  }
+  function res(x,y,w,h,fill,fg,lines){
+    var s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" fill="'+fill+'" stroke="'+fill+'" stroke-width="1"/>';
+    var cx=x+w/2, n=lines.length, sy=y+h/2-(n-1)*7+4, i;
+    for(i=0;i<n;i++) s+='<text x="'+cx+'" y="'+(sy+i*14)+'" text-anchor="middle" font-size="'+(i?11:13.5)+'" font-weight="700" fill="'+fg+'">'+lines[i]+'</text>';
+    return s;
+  }
+  function spec(x,y,w,h,lines){
+    var s='<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+h+'" rx="9" fill="var(--surf)" stroke="var(--prio)" stroke-width="1.4"/>';
+    var cx=x+w/2, n=lines.length, sy=y+h/2-(n-1)*7+4, i;
+    for(i=0;i<n;i++) s+='<text x="'+cx+'" y="'+(sy+i*14)+'" text-anchor="middle" font-size="11" font-weight="600" fill="var(--tx)">'+lines[i]+'</text>';
+    return s;
+  }
+  function ar(d){return '<path d="'+d+'" fill="none" stroke="var(--mut)" stroke-width="1.5" marker-end="url(#tacarr)"/>';}
+  function lb(cx,cy,t){
+    var w=t.length*6+8;
+    return '<rect x="'+(cx-w/2)+'" y="'+(cy-7)+'" width="'+w+'" height="14" rx="3" fill="var(--bg)"/>'+
+           '<text x="'+cx+'" y="'+(cy+3.5)+'" text-anchor="middle" font-size="10" font-weight="700" fill="var(--mut)">'+t+'</text>';
+  }
+  var p=[];
+  p.push('<svg viewBox="0 0 360 484" width="100%" xmlns="http://www.w3.org/2000/svg" style="max-width:360px;display:block;margin:0 auto" role="img" aria-label="tacSTART Sichtungsschema (statische Nachschlage-Karte)">');
+  p.push('<defs><marker id="tacarr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--mut)"/></marker></defs>');
+  p.push(ar('M14 92 L7 92 L7 402 L14 402'));   /* Spontanatmung „nein" → Atemwege-Pfad */
+  p.push(ar('M108 50 L108 70'));
+  p.push(ar('M108 110 L108 146'));
+  p.push(ar('M108 186 L108 206'));
+  p.push(ar('M108 246 L108 266'));
+  p.push(ar('M108 306 L108 328'));
+  p.push(ar('M202 30 L232 30'));
+  p.push(ar('M202 165 L232 165'));
+  p.push(ar('M202 225 L232 225'));
+  p.push(ar('M202 285 L232 285'));
+  p.push(ar('M202 401 L232 401'));
+  p.push(ar('M108 426 L108 438'));
+  p.push(box(14,10,188,40,['gehfähig?']));
+  p.push(box(14,70,188,40,['Spontane Atmung?']));
+  p.push(box(14,146,188,40,['Atemfrequenz 10–30 / min?']));
+  p.push(box(14,206,188,40,['Radialispuls / Rekap &lt; 2 s?']));
+  p.push(box(14,266,188,40,['Folgt einfachen Befehlen?']));
+  p.push(box(14,378,188,48,['Atemwege freimachen –','Atmung danach vorhanden?']));
+  p.push(res(14,328,188,44,'var(--t2)','#3A2C00',['T-2 · dringend']));
+  p.push(res(232,12,114,36,'var(--t3)','#fff',['T-3 · leicht']));
+  p.push(res(232,148,114,34,'var(--t1)','#fff',['T-1 · sofort']));
+  p.push(res(232,208,114,34,'var(--t1)','#fff',['T-1 · sofort']));
+  p.push(res(232,268,114,34,'var(--t1)','#fff',['T-1 · sofort']));
+  p.push(res(232,384,114,34,'var(--t1)','#fff',['T-1 · sofort']));
+  p.push(spec(14,438,188,40,['keine Auto-Kategorie ·','ärztl. Einzelfallentscheidung']));
+  p.push(lb(108,60,'nein'));
+  p.push(lb(108,128,'ja'));
+  p.push(lb(108,196,'ja'));
+  p.push(lb(108,256,'ja'));
+  p.push(lb(108,317,'ja'));
+  p.push(lb(217,24,'geht'));
+  p.push(lb(217,159,'nein'));
+  p.push(lb(217,219,'nein'));
+  p.push(lb(217,279,'nein'));
+  p.push(lb(217,395,'ja'));
+  p.push(lb(108,432,'nein'));
+  p.push(lb(22,128,'nein'));
+  p.push('</svg>');
+  return p.join('');
+}
 
-var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"walk", tacResult:null, edit:null, readonly:false, lastCreatedId:null, capDirect:false, capPopup:false};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, edit:null, readonly:false, lastCreatedId:null, capChart:true, capPopup:false};
 var patients = [];
 var checklist = {hdr:{}, items:{}};
 var operator = "";
@@ -1733,7 +1808,7 @@ function vHome(){
   return countbar()+
   '<div class="banner"><span>⇄</span><div>'+(_praesidiumSchulung&&!_training?'<b style="color:var(--prio)">🎓 SCHULUNGSUMGEBUNG</b> · ':'')+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
-  navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
+  navbtn("capture","＋","Patient erfassen","tacSTART-Schema · Kategorie selbst wählen")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
   navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze")+
   ccpAdminUI();
@@ -1758,20 +1833,22 @@ function vChecklist(){
   return h;
 }
 function vCapture(){
-  if(state.capMode==="tac")return vTac();
-  /* tacSTART ist der STANDARD (Feedback 2026-06-13) — groß und zuerst;
-   * die Direktzuordnung ist die Ausnahme für zweifelsfreie Fälle. */
-  var h='<button class="navbtn" data-action="tacstart" style="justify-content:center;background:var(--acc);border-color:var(--acc);padding:18px 12px"><span style="text-align:center"><span class="t" style="color:#fff;font-size:17px">Erfassen mit tacSTART</span><br><span class="s" style="color:#cfd4da">geführte Vorsichtung — der Standardweg</span></span></button>';
-  /* Direktzuordnung hinter einem Aufklapper (Feedback 2026-06-13 Runde 4):
-   * die Kacheln erscheinen erst nach bewusstem Öffnen — tacSTART dominiert. */
-  if(state.capDirect){
-    h+='<div class="sech">Direkt zuordnen (Ausnahme)</div>'+
-      '<p class="hint" style="margin:0 0 8px">Nur wenn die Kategorie zweifelsfrei feststeht — im Zweifel tacSTART.</p>'+
-      catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5")+
-      '<button class="ghost" data-action="capdirecttoggle" style="margin-top:6px">▲ Direktzuordnung einklappen</button>';
-  }else{
-    h+='<button class="ghost" data-action="capdirecttoggle" style="margin-top:8px">▾ Direkt kategorisieren (Ausnahme)</button>';
-  }
+  /* tacSTART als STATISCHES Sichtungsschema (Nachschlage-Karte) + manuelle
+   * Kategoriewahl. Die App rechnet/empfiehlt bewusst NICHTS — die Einsatzkraft
+   * beurteilt nach dem Schema und legt die Kategorie selbst fest (MDR: reine
+   * Dokumentation, kein Medizinprodukt; Pfad B / docs/MDR-EINSTUFUNG.md).
+   * Schema einklappbar (state.capChart) — geübte Kräfte tippen direkt die
+   * Kategorie, der Block bleibt als Referenz erreichbar. */
+  var chartOpen = state.capChart!==false;
+  var h='<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">'+
+    '<button data-action="capcharttoggle" style="width:100%;text-align:left;background:var(--surf);border:0;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer">'+
+      '<span><span style="font-weight:600;font-size:15px;color:var(--tx)">tacSTART · Sichtungsschema</span><br><span class="hint">Nachschlage-Hilfe wie die gedruckte Karte — die Kategorie wählst du selbst</span></span>'+
+      '<span class="mono" style="color:var(--mut);font-size:13px;flex:none">'+(chartOpen?'▾':'▸')+'</span></button>'+
+    (chartOpen?'<div style="padding:4px 12px 14px">'+tacChartSVG()+'</div>':'')+
+    '</div>';
+  h+='<div class="sech" style="margin-top:0">Kategorie festlegen</div>';
+  h+='<p class="hint" style="margin:0 0 8px">Patient nach dem Schema beurteilen — die Sichtungsentscheidung triffst du. Tippe die Kategorie, ARGUS vergibt die Nummer automatisch.</p>';
+  h+=catBig("T1")+catBig("T2")+catBig("T3")+catBig("T5");
   /* Kontext: nächste Nummer + zuletzt angelegter Patient (gegen Doppelerfassung).
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
    * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
@@ -1821,31 +1898,11 @@ function vCapture(){
   return h;
 }
 function catBig(cat){var c=CATS[cat];return '<button class="bigcat" data-action="addcat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span><br><span class="nm">'+c.nm+'</span></span><span class="cc">＋</span></button>';}
-function vTac(){
-  if(state.tacResult){
-    var rc=state.tacResult;
-    if(rc==="NOBR"){
-      return '<div class="card" style="padding:22px 16px"><div style="font-size:19px;font-weight:600;margin-bottom:8px">Keine Spontanatmung trotz Freimachen</div>'+
-        '<div class="muted" style="font-size:14px">Keine automatische Sichtungskategorie. Einzelfall- bzw. ärztliche Entscheidung – die App ordnet hier nichts selbsttätig zu.</div></div>'+
-        '<div class="catset" style="margin-top:4px"><button data-action="tacconfirm" data-cat="T1" style="background:var(--t1);color:#fff;border-color:var(--t1)">als T-1</button><button data-action="tacconfirm" data-cat="T5" style="background:var(--t5);color:#fff;border-color:var(--t5b)">als T-5</button></div>'+
-        '<button class="ghost" data-action="tacstart">nochmal</button>';
-    }
-    var c=CATS[rc];
-    return '<div class="card" style="text-align:center;padding:26px 16px"><div class="hint">Ergebnis tacSTART</div>'+
-      '<div style="display:inline-block;margin:14px auto;border-radius:14px;padding:18px 30px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="mono" style="font-size:34px;font-weight:600">'+c.label+'</span><br><span style="font-size:13px">'+c.nm+'</span></div></div>'+
-      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient '+_ccpKennung+'-'+nextNum()+' anlegen</button>'+
-      '<button class="ghost" data-action="tacstart">nochmal</button>'+
-      '<p class="hint" style="text-align:center;margin-top:10px;font-size:11px">tacSTART ist eine Entscheidungsunterstützung – kein Ersatz für die ärztliche/fachliche Beurteilung.</p>';
-  }
-  var node=FLOW[state.tacNode];
-  var h='<div class="card" style="padding:20px 16px"><div style="font-size:20px;font-weight:600;margin-bottom:6px">'+esc(node.q)+'</div>';
-  if(node.note)h+='<div class="muted" style="font-size:14px;margin-bottom:14px">'+esc(node.note)+'</div>';else h+='<div style="height:8px"></div>';
-  h+='<div class="row">';
-  node.ans.forEach(function(a){h+='<button class="qbtn" data-action="tacanswer" data-go="'+a[1]+'">'+esc(a[0])+'</button>';});
-  h+='</div></div>';
-  h+='<button class="ghost" data-action="nav" data-view="capture">abbrechen</button>';
-  return h;
-}
+/* vTac() entfernt (v0.29.0): Der interaktive tacSTART-Walk, der aus den
+ * Antworten eine Kategorie BERECHNETE und VORSCHLUG, ist die MDR-auslösende
+ * Funktion (Anhang VIII Regel 11 — „Informationen liefern, die zu Entscheidungen
+ * herangezogen werden"). Ersetzt durch das statische Schaubild (tacChartSVG) +
+ * manuelle Kategoriewahl in vCapture. Siehe docs/MDR-EINSTUFUNG.md (MDR-2). */
 function vOverview(){
   var h=countbar();
   var dupO=dupNumKeys();
@@ -2283,15 +2340,15 @@ function vHelp(){
   h+='<button class="ghost" data-action="nav" data-view="datenschutz" style="margin-bottom:14px">🛡 Datenschutzhinweis</button>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kurzanleitung</div>'+
     kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>.')+
-    kb('Patient erfassen','<b>Patient erfassen</b> → <b>tacSTART</b> (geführt) oder direkt eine <b>Kategorie</b> (T-1…T-5). Nummer kommt automatisch — auf die Haut notieren. Unten am zuletzt Angelegten: Prio · TQ · öffnen · Verwerfen.')+
+    kb('Patient erfassen','<b>Patient erfassen</b> → nach dem <b>tacSTART-Schema</b> beurteilen und selbst die <b>Kategorie</b> (T-1…T-5) wählen. Nummer kommt automatisch — auf die Haut notieren. Unten am zuletzt Angelegten: Prio · TQ · öffnen · Verwerfen.')+
     kb('Patient verwalten','Über <b>Patientenübersicht</b> (Kacheln, PRIO/gPA, „Alle Patienten") oder <b>öffnen</b>. Im Detail: Vitalwerte (+ Verlauf), Maßnahmen A–E, Verletzungen, <b>Foto</b> (antippen = Vollbild), Kategorie, Prio, TQ-Timer.')+
     kb('Abtransport','Im Patienten <b>Abtransport → gPA</b>, oder in der Kategorieliste alle transportfertigen sammeln. Ausgecheckte (gPA) lassen sich zurückholen.')+
     kb('Mehrere Geräte','Wer einen Patienten bearbeitet, <b>sperrt</b> ihn kurz für andere. Beim Verlassen / nach 45 s gibt die Sperre automatisch frei. <b>MasterMedic</b> kann übernehmen.')+
     kb('Offline & Updates','Offline läuft alles weiter und gleicht später ab („⏳ nicht synchronisiert" zeigt Offenes). Bei neuer Version „<b>Jetzt aktualisieren</b>" tippen. Version steht unten auf der Startseite.')+
     '</div>';
-  h+='<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
-    '<div class="helpa">Gehfähig → T-3. Sonst Atmung prüfen: keine Spontanatmung auch nach Freimachen → keine Auto-Kategorie (Einzelfall). Atmung nur nach Freimachen → T-1. Bei Spontanatmung: AF außerhalb 10–30 → T-1; kein Radialispuls → T-1; folgt nicht Befehlen → T-1. Alle vier ok (Atmung, AF, Puls, Befehle) → T-2.</div>'+
-    '<div class="hint" style="margin-top:8px;font-size:11px">tacSTART ist eine Entscheidungsunterstützung – kein Ersatz für die ärztliche/fachliche Beurteilung.</div></div>';
+  h+='<div class="card"><div class="sech" style="margin-top:0">tacSTART · Sichtungsschema</div>'+
+    '<div style="margin:6px 0 4px">'+tacChartSVG()+'</div>'+
+    '<div class="hint" style="margin-top:6px;font-size:11px">Nachschlage-Schema wie die gedruckte tacSTART-Karte. ARGUS führt den Algorithmus nicht aus und schlägt nichts vor — die Sichtungsentscheidung trifft ausschließlich die Einsatzkraft.</div></div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kategorien</div>';
   CATORDER.forEach(function(cat){var c=CATS[cat];h+='<div style="display:flex;align-items:center;gap:10px;padding:5px 0"><span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span><span class="helpa">'+c.nm+'</span></div>';});
   h+='</div>';
@@ -2455,7 +2512,7 @@ var TRAIN_LESSONS=[
   {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
   {t:'Status & Bediener', mode:'explain', x:'Darunter der Status: 🟢 Echtzeit-Modus (mit Verbindung) oder 🔴 Lokaler Modus (offline — funktioniert trotzdem voll). Hier stehen auch dein Bediener-Kürzel und ob noch etwas nicht synchronisiert ist.', sel:'.banner'},
   {t:'Knopf: Checkliste CCP', mode:'explain', x:'Der erste Knopf: die Checkliste für Aufbau und Leitung der Sammelstelle (Örtlichkeit, Sicherung, Rollen, Material …). Gleich öffnen wir sie selbst.', sel:'[data-action="nav"][data-view="checklist"]'},
-  {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — direkt einer Kategorie oder geführt per tacSTART. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
+  {t:'Knopf: Patient erfassen', mode:'explain', x:'Der zweite Knopf: neue Verletzte anlegen — nach dem tacSTART-Schema beurteilen und selbst die Kategorie wählen. Dein häufigster Griff im Einsatz.', sel:'[data-action="nav"][data-view="capture"]'},
   {t:'Knopf: Patientenübersicht', mode:'explain', x:'Der dritte Knopf: alle Patienten nach Kategorie sortiert — hier steuerst du Prio, transportfertig und Abtransport.', sel:'[data-action="nav"][data-view="overview"]'},
   {t:'Knopf: Hilfestellungen', mode:'explain', x:'Der vierte Knopf: Kurzanleitungen, tacSTART-Hilfe, Rollen, Merksätze und der Datenschutzhinweis — zum Nachschlagen, wenn du etwas brauchst.', sel:'[data-action="nav"][data-view="help"]'},
   {t:'CCP abschließen', mode:'explain', x:'Ganz unten „CCP abschließen" (im Verbund: „CCP-Verbund abschließen"): beendet den Einsatz für ALLE Geräte. Der Übergabe-Export läuft danach über die Leitung. Die Daten werden 72 Std nach Abschluss automatisch gelöscht. Voraussetzung: Du musst MasterMedic sein (die Leitungsrolle). Mehr dazu am Ende des Trainings.', sel:'[data-action="ccpclose"]'},
@@ -2467,9 +2524,9 @@ var TRAIN_LESSONS=[
    * der Startseite kontextlos die Checkliste zu erklären. */
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:10},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
-  {t:'Direkt anlegen (Ausnahme)', mode:'do', x:'Steht die Kategorie zweifelsfrei fest, geht es direkt — das ist die AUSNAHME hinter dem Aufklapper „Direkt kategorisieren", der Standardweg ist tacSTART (kommt gleich). Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:function(){return state.capDirect?'[data-action="addcat"]':'[data-action="capdirecttoggle"]';}, doit:function(){return state.capDirect?'Tippe die markierte Kategorie':'Öffne „Direkt kategorisieren"';}, adv:function(){return trainCount()>=1;}},
+  {t:'tacSTART-Schema & Kategorie', mode:'do', x:'Oben steht das tacSTART-Sichtungsschema als Nachschlage-Hilfe — wie die gedruckte Karte. Du beurteilst den Patienten selbst danach und wählst dann die Kategorie. ARGUS schlägt bewusst nichts vor: die Sichtungsentscheidung triffst du. Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden). Lege jetzt einen Patienten an.', sel:'[data-action="addcat"]', doit:'Tippe eine Kategorie (T-1…T-5)', adv:function(){return trainCount()>=1;}},
   {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen, den „TQ"-Timer starten, ein „Foto" aufnehmen (wenn erlaubt), „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg, der nächste Patient ist nur einen Tipp entfernt.', sel:'#cap-last'},
-  {t:'Sichten mit tacSTART (Standard)', mode:'do', x:'Der STANDARDWEG: tacSTART führt Schritt für Schritt durch die Vorsichtung — beginnend bei „gehfähig?" — und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen". (Kritische Blutungen sind zu diesem Zeitpunkt bereits versorgt — dafür gibt es keinen eigenen Abfrage-Schritt mehr.)', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
+  {t:'Noch einen Patienten erfassen', mode:'do', x:'Genau so läuft jede Erfassung: nach dem tacSTART-Schema beurteilen, Kategorie selbst wählen, Nummer auf die Haut notieren. Das Schaubild kannst du oben ein- und ausklappen — geübte Kräfte tippen direkt die Kategorie. Leg zur Übung einen zweiten Patienten an.', sel:'[data-action="addcat"]', doit:'Tippe eine Kategorie (T-1…T-5)', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
   /* Foto-Schalter: nur sichtbar, wenn der Übende MasterMedic seines Übungs-CCP ist
@@ -3168,9 +3225,7 @@ document.addEventListener("click",async function(e){
     go("start");toast("Schulung zurückgesetzt — 6 Demo-CCPs angelegt");
     return;
   }
-  if(a==="tacstart"){state.capMode="tac";state.tacNode="walk";state.tacResult=null;render();return;}
-  if(a==="tacanswer"){var g=el.getAttribute("data-go");if(g.indexOf("R:")===0){state.tacResult=g.slice(2);}else{state.tacNode=g;}render();return;}
-  if(a==="tacconfirm"){var cat=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np=await addPatient(cat);state.lastCreatedId=np.id;state.capMode="menu";state.tacResult=null;if(_training){render();flashConfirm(pno(np),CATS[cat].label);}else{state.capPopup=true;render();}return;}
+  if(a==="capcharttoggle"){ state.capChart = state.capChart===false; render(); return; }
   if(a==="addcat"){var cat2=el.getAttribute("data-cat");if(nowMs()-_lastCreateAt<700)return;_lastCreateAt=nowMs();var np2=await addPatient(cat2);state.lastCreatedId=np2.id;if(_training){render();flashConfirm(pno(np2),CATS[cat2].label);}else{state.capPopup=true;render();}return;}
   if(a==="photozoom"){
     /* T1: ab Auscheckung (gpa) kein Zoom mehr — photoVisible deckt auch fehlendes Foto ab. */
@@ -3184,7 +3239,7 @@ document.addEventListener("click",async function(e){
     ovz.addEventListener('click',function(){ if(ovz.parentNode)ovz.parentNode.removeChild(ovz); });
     return;
   }
-  if(a==="capdirecttoggle"){ state.capDirect=!state.capDirect; render(); return; }
+  /* capdirecttoggle entfernt (v0.29.0) — einheitlicher Erfassen-Pfad: Schaubild + manuelle Kategoriewahl. */
   if(a==="capnext"){ state.capPopup=false; render(); return; }
   if(a==="noop"){ return; }   /* fängt Klicks auf den Pop-up-Korpus ab (kein Schließen) */
   if(a==="capprio"){
@@ -3338,12 +3393,11 @@ document.addEventListener("click",async function(e){
   if(!p.tx)p.tx={};p.tx[f]=!p.tx[f];el.classList.toggle("on",p.tx[f]);await savePatient(p);
 });
 
-function go(view){state.view=view;if(view==="capture"){state.capMode="menu";state.capDirect=false;}state.capPopup=false;render();if(view==="start"||view==="home")maybeShowIntro();}
+function go(view){state.view=view;state.capPopup=false;render();if(view==="start"||view==="home")maybeShowIntro();}
 async function back(){
   if(state.view==="patient"){await releasePatientLock();state.readonly=false;go("catlist");}
   else if(state.view==="einsatzexport"){_closeTyp=null;go("overview");}
   else if(state.view==="catlist"){go("overview");}
-  else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
   else if(state.view==="home"){await loadOpenCcpCount();go("start");}
   else if(state.view==="admin"){go("praesidium");}
   else if(state.view==="help"){ go(_ccpId?"home":"start"); }
