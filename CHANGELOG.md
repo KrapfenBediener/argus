@@ -6,6 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.30.0 — 2026-06-21
+**Geführter tacSTART zurück (Owner-Entscheid 2026-06-21)**
+- Die Erfassung läuft wieder über den **geführten tacSTART-Walk** (Schritt-für-Schritt-Vorsichtung mit Kategorie-Ausgabe) wie bis v0.28.2. Der statische-Schaubild-Ansatz aus v0.29.x (`tacChartSVG`, manuelle Endpunkt-Wahl, einziger Erfassungsweg) ist **zurückgenommen**.
+- Konkret wiederhergestellt: `FLOW`-Baum, `vTac()`, Handler `tacstart`/`tacanswer`/`tacconfirm`, der „Direkt kategorisieren (Ausnahme)"-Pfad (`capdirecttoggle`), die zugehörigen `state`-Felder und Drehbuch-Lektionen — durch `git checkout` der v0.28.2-Fassung, danach Versions-Forward.
+- **MDR-Hintergrund:** Der geführte tacSTART ist nach EU-MDR Anhang VIII Regel 11 grundsätzlich einstufungsrelevant. Diese Einstufung wird auf ausdrücklichen Owner-Entscheid (Rücksprache mit mehreren Stellen) aus plausiblen Gründen **bewusst in Kauf genommen**. Details/Begründung: intern. Diese Entscheidung NICHT eigenmächtig rückgängig machen.
+- SW-Cache v57, Update-Sheet `docs/UPDATE_v0.30.html`.
+
 ## v0.29.2 — 2026-06-13
 **tacSTART-Schaubild ist die einzige Erfassungsmethode**
 - Die separaten **Kategorie-Knöpfe** („Kategorie festlegen") sind **entfernt** — Patienten werden ausschließlich über die anklickbaren **Endpunkte des tacSTART-Schaubilds** angelegt. `catBig()` entfällt.
