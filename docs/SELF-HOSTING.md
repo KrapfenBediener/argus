@@ -82,13 +82,17 @@ supabase/migrations/0008_nummernvergabe.sql            Serverseitige Nummernverg
 supabase/migrations/0009_paket2_gastcode_schulung.sql  Gast-Code (24 h), schulung-Flag, Geo, TQ-Anlageort, Export-Status
 supabase/migrations/0010_lage_ort.sql                  FLZ-Orts-Korrektur (argus_lage_set_ort, protokolliert)
 supabase/migrations/0011_paket3_schulung.sql           Schulungs-Reset über Tombstones (argus_schulung_reset, 7-Tage-Hygiene), Schulungs-Provisionierung (argus_provision_schulung)
+supabase/migrations/0012_kurs_evaluation.sql           Anonymer Kurs-Evaluationsbogen
+supabase/migrations/0013_phase414_admin_rolle.sql      Präsidiums-Admin-Rolle (is_admin-Token, Admin-Exchange, scoped Gast-Code-RPCs, argus_lage-Admin)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
 wofür sie gebraucht wird, und wie sie geprüft wird (0005 nutzt dieselben
 Abhängigkeiten wie 0001/0003: pgjwt + Vault-Secret für den Observer-Exchange;
 0006 und 0007 haben keine neuen Abhängigkeiten — 0007 erweitert nur die
-JWT-Payloads und die Claim-Helfer):
+JWT-Payloads und die Claim-Helfer; 0013 nutzt dieselben Abhängigkeiten wie
+0005/0007: pgjwt + Vault-Secret `argus_jwt_secret` für den Admin-Exchange-RPC,
+jti-Sofortsperre über `argus_token_active` — KEINE neuen Server-Abhängigkeiten):
 
 | Abhängigkeit | Vorkommen | Wofür | Einstufung | Prüfung |
 |---|---|---|---|---|
@@ -137,7 +141,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0010 → 0011`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
@@ -243,6 +247,14 @@ values (encode(extensions.gen_random_bytes(16), 'hex'),
 insert into public.access_tokens (token, short_code, is_master, label)
 values (encode(extensions.gen_random_bytes(16), 'hex'),
         '<XXXX-XXXX>', true, 'MasterToken');
+
+-- 6) Admin-Code (Präsidiums-Admin, Migration 0013) — immer präsidiumsgebunden
+--    Einlösung über argus_exchange_admin_code; JWT trägt is_admin + admin_praesidium_id,
+--    KEIN praesidium_id / KEIN is_master (dadurch verweigert die Feld-App-RLS Roh-Zugriff).
+--    Ein Admin-Code MUSS eine praesidium_id haben — NULL ist ein Konfigurationsfehler.
+insert into public.access_tokens (token, short_code, praesidium_id, is_admin, label)
+values (encode(extensions.gen_random_bytes(16), 'hex'),
+        '<XXXX-XXXX>', '<praesidium-uuid>', true, 'Admin <Bezeichnung>');
 ```
 
 Codes können später jederzeit über die Leitungs-Oberfläche gesperrt werden
