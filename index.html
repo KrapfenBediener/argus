@@ -2646,7 +2646,12 @@ function cmpVer(a,b){
  * schreibt im Training nie in die Cloud; applyMeta/loadMeta überschreiben den
  * Trainings-Zustand nicht (Guards dort). */
 var TRAIN_LESSONS=[
-  {t:'Willkommen', mode:'explain', x:'Dieses Training läuft nur auf DEINEM Gerät — übe ohne Sorge, nichts wird geteilt oder synchronisiert. Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
+  /* DAUERREGEL (Plan 05.1-04): Lektionen spiegeln das neue Login/Picker-Verhalten.
+   * Das Training läuft ausschließlich im Schulungs-Reiter / Schulungsumgebung.
+   * Der gelbe SCHULUNG-Banner (vollbreit, permanent) ist für den Übenden sichtbar.
+   * Person-Login wird im Training NICHT erzwungen (single-user, lokal, offline-first).
+   * tacSTART-Lektionen unverändert (mdr-tacstart-accepted). */
+  {t:'Willkommen', mode:'explain', x:'Du befindest dich in der Schulungsumgebung — der gelbe Banner oben bestätigt das. Dieses Training läuft nur auf DEINEM Gerät (nichts wird synchronisiert). Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
   {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du alle offenen CCPs in deinem Präsidium und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Im Training ist Beitreten gesperrt — gleich eröffnest du selbst einen.', sel:'[data-action="joinccp"]'},
   {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
 
