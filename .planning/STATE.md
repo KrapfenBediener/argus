@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
 status: Executing Phase 04.14
-last_updated: "2026-06-27T16:34:47.836Z"
+last_updated: "2026-06-27T17:30:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 6
   total_plans: 28
-  completed_plans: 20
+  completed_plans: 21
   percent: 67
 ---
 
@@ -740,6 +740,29 @@ Blocker, voll autonom — kein PAT nötig).
 - **PAT widerrufen (Owner-Punkt):** der für 04.14-01 genutzte ephemere PAT
   im Supabase-Dashboard widerrufen (zusammen mit ggf. offenen Alt-PATs).
 
+**Ausführungsstand (Welle 2):**
+
+- **04.14-02 ✅ (2026-06-27):** Leitungs-Seite rollen-adaptiv:
+  `doLogin()` dual-exchange (Master-RPC zuerst; Admin-RPC nur als Fallback —
+  verhindert Doppel-Log); `sessionRole()` liefert 'master'|'admin' (Default
+  'master', abwärtskompatibel); Router/SECTIONS/sideNav rollen-adaptiv —
+  Admin sieht nur „Gast-Code" + „Lage" (eigenes Präsidium, keine Phase-7-Zone);
+  Master: neuer Button „Admin-Token" je Präsidiums-Karte (direkter
+  access_tokens-Insert, is_admin=true), tokenArt-Zweig „Admin",
+  zugSel-Filter „Admin"; Admin: secAdminZugang (argus_admin_issue_gast,
+  argus_admin_revoke_gast, sitzungsbasierte Gast-Code-Liste — RLS-Grenze:
+  Admin-JWT kein access_tokens-Select); secAdminLage (argus_lage, ~20s
+  Auto-Refresh, Offline-Hinweis). Kein index.html/sw.js berührt — kein
+  App-Release.
+  Browser-Roundtrip alle 8 Checks PASS (freigegeben 2026-06-27): Master-
+  Regression, Admin-Token-Ausgabe+Sperre, Admin-Login, Gast-Code-Ausgabe+Sperre,
+  Lage, Instant-Revoke via jti-Gate. D-06 gewahrt (0 Treffer). Testdaten
+  aufgeräumt.
+  Key-Decision: Admin-JWT kann access_tokens nicht lesen (kein praesidium_id-
+  Claim) → sitzungsbasierte Gast-Code-Liste als korrekte Architektur-Antwort.
+  Details: `.planning/phases/04.14-governance-panel/04.14-02-SUMMARY.md`.
+  Commits eb636b6 · 4c0cb33.
+
 ---
 
 ## Phase 4.13 — Paket 3: Schulungs-Provisionierung, Tombstone-Reset, AT-MIST-Druck (IN ARBEIT)
@@ -819,9 +842,11 @@ bereits existiert).
 | Phase 04.13 P01 | 25min | 2 tasks | 2 files |
 | Phase 04.13 P02 | 12min | 3 tasks | 6 files |
 | Phase 04.14 P01 | multi-session | 3 tasks | 2 files |
+| Phase 04.14 P02 | 90min | 3 tasks | 1 file |
 
 ## Decisions
 
 - [Phase 04.13]: 04.13-01: Provisioniertes Schwester-Praesidium 'PP Karlsruhe — Schulung' bleibt auf der Instanz (gewollter Endzustand der Provisionierung, idempotent; ZZTEST-Artefakte aufgeraeumt)
 - [Phase 04.13]: 04.13-02: Demo-Direkt-Merge (5. Gate-Stelle) ebenfalls auf _praesidiumSchulung umgestellt; loadSchulDirty zaehlt nur offene CCPs (Rule-1-Fix gegen Tombstone-Blockade); kein UPDATE-Sheet fuer v0.28.0; Push+Live-Smoke an Orchestrator delegiert
 - [Phase 04.14]: 04.14-01: Admin-JWT traegt bewusst KEIN praesidium_id/is_master — alle bestehenden RLS-Policies liefern [] ohne Extra-Policies; argus_is_admin() gated auf argus_token_active() fuer jti-Sofortsperre; Gast-Code-Ausgabe/-Sperre als security-definer-RPCs (direkte Writes master-only per RLS 0001); 0013 nutzt dieselben Server-Abhaengigkeiten wie 0005/0007
+- [Phase 04.14]: 04.14-02: Admin-JWT kein access_tokens-Select (kein praesidium_id-Claim) → sitzungsbasierte Gast-Code-Liste als Architektur-Loesung; dual-exchange doLogin (Master-RPC zuerst, Admin-Fallback) vermeidet Doppel-Log; kein App-Release (Leitungs-Seite Desktop-Begleitseite)
