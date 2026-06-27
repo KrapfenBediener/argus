@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 5.1 (Feld-App Pro-Person-Login & Echt/Schulung-Picker) — CONTEXT erstellt, als Nächstes /gsd-plan-phase 5.1
-last_updated: "2026-06-27T21:15:00.000Z"
+status: Phase 5.1 (Feld-App Pro-Person-Login & Picker) — GEPLANT & verifiziert (Checker PASS, 0 Blocker), als Nächstes /gsd-execute-phase 5.1
+last_updated: "2026-06-27T21:40:00.000Z"
 progress:
   total_phases: 10
   completed_phases: 8
