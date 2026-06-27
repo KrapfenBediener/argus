@@ -396,6 +396,12 @@ Pflicht: Privilege-Escalation-Negativtests, SELF-HOSTING.md, D-06.
 Architektur: `.planning/PHASE7-ROLLENMODELL-DRAFT.md` · Context:
 `.planning/phases/04.14-governance-panel/04.14-CONTEXT.md`.
 
+**Plans:** 3 plans (3 Wellen — File-Ownership der Leitungs-Seite erzwingt seriell).
+Plans:
+- [ ] 04.14-01-PLAN.md — Migration 0013: is_admin-Rolle, Admin-Exchange, scoped Gast-Code-RPCs, argus_lage-Admin, Negativtests, SELF-HOSTING (Wave 1)
+- [ ] 04.14-02-PLAN.md — Rollen-adaptive Leitungs-Seite: Admin-Login, Master gibt Admin-Token aus, Admin-Gast-Code + eigene Lage (Wave 2)
+- [ ] 04.14-03-PLAN.md — QR-Ausgabe (Deep-Link, kein CDN), Übungspräsidium leeren, Audit-Ansicht kürzelbasiert, Doku-Sync (Wave 3)
+
 ## Phase 5 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
 
 **Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
