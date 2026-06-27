@@ -380,7 +380,7 @@ Plans:
 - [x] 04.13-01-PLAN.md — Migration 0011 (argus_schulung_reset + argus_provision_schulung) + REST-Idempotenz/Positiv-/Negativtests + SELF-HOSTING.md [Wave 1]
 - [x] 04.13-02-PLAN.md — Feld-App (schulreset→RPC, 4 Flag-Gates) + Leitungs-Seite (Provisionierungs-Knopf, AT-MIST-Druck) + Release v0.28.0/SW v51 [Wave 2]
 
-## Phase 4.14 — Governance-Panel-Vervollständigung (schlank, ohne Stufe 1) ⬜ (INSERTED 2026-06-22)
+## Phase 4.14 — Governance-Panel-Vervollständigung (schlank, ohne Stufe 1) ✅ 2026-06-27
 
 **Ziel:** Das Governance-Panel (Leitungs-Seite) soweit aktuell möglich
 fertigstellen — die jetzt baubaren, nicht DSB-/PTLS-gateten Teile des

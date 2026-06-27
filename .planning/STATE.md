@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 04.14 abgeschlossen
-last_updated: "2026-06-27T17:30:00.000Z"
+status: Milestone complete
+last_updated: "2026-06-27T17:40:45.347Z"
 progress:
   total_phases: 9
   completed_phases: 7
   total_plans: 28
   completed_plans: 22
-  percent: 79
+  percent: 78
 ---
 
 # Projekt-Status — Argus (CCP-App)
