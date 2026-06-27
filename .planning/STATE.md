@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 05 abgeschlossen (3/3 Pläne) — Identitäten & Audit-Protokoll Stufe 1
-last_updated: "2026-06-27T20:38:58.738Z"
+status: Milestone complete
+last_updated: "2026-06-27T21:02:25.416Z"
 progress:
   total_phases: 10
   completed_phases: 8

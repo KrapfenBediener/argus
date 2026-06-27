@@ -403,7 +403,7 @@ Plans:
 - [x] 04.14-02-PLAN.md — Rollen-adaptive Leitungs-Seite: Admin-Login, Master gibt Admin-Token aus, Admin-Gast-Code + eigene Lage (Wave 2)
 - [x] 04.14-03-PLAN.md — QR-Ausgabe (Deep-Link, kein CDN), Übungspräsidium leeren, Audit-Ansicht kürzelbasiert, Doku-Sync (Wave 3)
 
-## Phase 5 — Identitäten & Audit-Protokoll (Stufe 1) ⬜
+## Phase 5 — Identitäten & Audit-Protokoll (Stufe 1) ✅ 2026-06-27
 
 **Ziel:** Die Identitäts-/Audit-Schicht des Rollenmodells (Stufe 1 aus
 `.planning/PHASE7-ROLLENMODELL-DRAFT.md`), aufsetzend auf der konsolidierten
