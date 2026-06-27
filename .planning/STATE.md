@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: unknown
-last_updated: "2026-06-13T00:00:23.060Z"
+status: in_progress
+last_updated: "2026-06-21T00:00:00.000Z"
 progress:
   total_phases: 8
   completed_phases: 6
@@ -13,6 +13,18 @@ progress:
 ---
 
 # Projekt-Status — Argus (CCP-App)
+
+> ## Stand 2026-06-21 (aktuell — manuell nachgezogen)
+> **App feature-complete; Releases bis v0.31.0 live.** Seit dem letzten STATE-Update (13.06.):
+> - **Phase 4.13** (Schulungs-Provisionierung, Tombstone-Reset, AT-MIST-Druck) abgeschlossen.
+> - **tacSTART:** kurz zum statischen Schaubild de-qualifiziert (v0.29.x, MDR-Grund), dann auf **Owner-Entscheid zurück zum geführten Walk** (v0.30.0). MDR-Einstufung bewusst akzeptiert → Memory [[mdr-tacstart-accepted]] · `docs/MDR-EINSTUFUNG.md`. NICHT eigenmächtig rückbauen.
+> - **Fotos dauerhaft an** (v0.31.0, DSB-Freigabe) — MasterMedic-Schalter entfernt, 72-h-Löschung bleibt.
+> - **DSB-Gespräch geführt (2026-06-21):** freigegeben; Supabase-Sorge via Self-Hosting beantwortet; Bedenken überschätzt. T4-Audit-Log (JI-Regime) NICHT explizit votiert → bleibt konditional.
+> - **PTLS-Blocker:** PTLS Pol sperrt KI-generierte Apps bis zur kommenden Richtlinie → **offizieller Echtbetrieb extern blockiert** (Adoptions-, kein Technik-Blocker).
+> - **PPF-Kurs:** Präsidium 'PPF-Kurse' (Rename von 'PP Karlsruhe — Schulung'), anonymer Evaluationsbogen `docs/evaluation.html` + Migration 0012 live; frische Daten-Sicherung gezogen.
+>
+> **Roadmap-Neuordnung (Owner-Entscheid 2026-06-21):** Übergabe-Paket (Phase 5/6) ans **Ende**; **Phase 7 (Identitäten & Rollen) vorgezogen**, um die PTLS-Wartezeit produktiv zu nutzen. Audit-Log/T4 bleibt in Phase 7 ausgeklammert (DSB-gated). Erstes Inkrement: präsidiums-begrenzte **„Kurs-Host"-Rolle**.
+> **Nächster Schritt:** Phase 7 **Kontext + Rollenmodell klären via `/gsd-discuss-phase 7`**, dann `/gsd-plan-phase 7`. (Phase 7 in GSD noch nicht registriert: phase_found=false, kein CONTEXT.md.)
 
 - **Milestone:** Closed Beta V1 — läuft
 - **Aktuelle Phase:** 4.12 FLZ-Lageansicht Stufe a — **ABGESCHLOSSEN
