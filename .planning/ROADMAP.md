@@ -421,8 +421,9 @@ Leitungs-Oberfläche (Phase 4.9) und der Präsidiums-Admin-Rolle (Phase 4.14).
 - **Stufe-1-Identität (USBNK):** Pro-Person-Token statt geteiltem Code —
   personengebundene Identität (USBNK als Identitätsmerkmal); der in Phase 4.14
   bewusst vertagte passwort-artige Missbrauchsschutz des Stufe-1-Tokens gehört hierher.
-- **Master-USBNK-/Namenssuche:** Auflösung personenscharfer Identitäten in der
-  Leitungs-Oberfläche (Master).
+- **Master-USBNK-Suche:** Auflösung personenscharfer Identitäten in der
+  Leitungs-Oberfläche (Master) — **nur USBNK**, keine Klarnamen in ARGUS (D-02; externe
+  Namensauflösung im Polizei-Personalsystem).
 - **Audit-/Einsatzprotokoll (= T4 der DATENSCHUTZ-SPEC):** personenscharfes,
   zeitgestempeltes Verlaufsprotokoll (wer/wann/was/welcher CCP), append-only —
   baut auf dem kürzelbasierten `governance_log` (Phase 4.14) auf. Umfang +
@@ -433,8 +434,25 @@ Leitungs-Oberfläche (Phase 4.9) und der Präsidiums-Admin-Rolle (Phase 4.14).
 - **Nutzerverzeichnis (Voll):** Präsidien zuweisen / aufschalten, Rollen verwalten
   (die reine Code-Sperre liegt seit 4.9 in der Leitungs-Oberfläche).
 - **RLS-Feinschliff** auf Basis der Phase-4-Grundlage.
-- **Feld-App-Anpassungen (aus Phase 4.14 vertagt):** normaler Token = Echt+Schulung-
-  Präsidiums-Verknüpfung; FLZ-Picker (zwei Reiter Echt/Schulung).
+
+**Zuschnitt (discuss-phase 2026-06-27, D-01):** Phase 5 = **nur Backend +
+Leitungs-Seite, kein App-Release**. Provisionierung = Batch-Paste (USBNK[,Rolle]),
+ein Geheim-Token je USBNK, Pro-Person-Widerruf via `jti`. Rollen: Normal/Master/FLZ/Admin.
+T4-Umfang = mittel (Lebenszyklus + Login + Governance, append-only, 12 Mon.).
+Context: `.planning/phases/05-identitaeten-audit-stufe1/05-CONTEXT.md`.
+
+## Phase 5.1 — Feld-App: Pro-Person-Login & Echt/Schulung-Picker ⬜
+
+**Ziel:** Die Feld-App auf das Stufe-1-Identitätsmodell umstellen — abgespalten von
+Phase 5 (Owner-Entscheid 2026-06-27, D-01), weil App-Release + Trainings-Drehbuch-Update
+nötig sind.
+
+- **Pro-Person-Login:** Token-Eingabe statt (bzw. neben) dem Sammelcode; die Sitzung
+  trägt USBNK + Rolle + Scope. Stufe-0-Sammel-/Gast-Codes bleiben als Fremdkräfte-Fallback.
+- **Präsidiums-/FLZ-Picker** mit zwei Reitern **Echtbetrieb / Schulung** (harte Trennung;
+  normaler Token = beide Scopes). Im MANV schnelle Auswahl.
+- **Trainings-Drehbuch** anpassen (DAUERREGEL); App-Release (Version-Bump, SW-Cache, WHATS_NEW).
+- Erst danach ist das T4-Protokoll für Feld-Aktionen voll personenscharf.
 
 ## Phase 6 — Lageübersicht für FLZ / ILS, Stufe b (read-only Dashboard) ⬜
 

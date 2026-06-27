@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Roadmap neu geordnet (2026-06-27) — als Nächstes Phase 5 (Identitäten & Audit, Stufe 1)
-last_updated: "2026-06-27T18:30:00.000Z"
+status: Phase 5 (Identitäten & Audit, Stufe 1) — CONTEXT erstellt, als Nächstes /gsd-plan-phase 5
+last_updated: "2026-06-27T18:50:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 7
