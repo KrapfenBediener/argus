@@ -6,6 +6,15 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.32.0 — 2026-06-28
+**Pro-Person-Login + Echt/Schulung-Picker**
+- **Pro-Person-Login mit Auto-Erkennung:** Ein Freischalt-Feld für alle Code-Typen — ARGUS erkennt automatisch, ob ein persönlicher Code oder ein Sammelcode eingegeben wurde, und stellt eine personenscharfe Sitzung aus (USBNK-tragendes JWT → Feld-Aktionen werden personenscharf ins Audit-Log geschrieben).
+- **Echt/Schulung-Zwei-Reiter-Picker:** Beim Anmelden wählen Nutzer mit zwei großen Reitern, in welchem Modus sie arbeiten. Default Echtbetrieb; der Schulungsreiter zeigt einen unübersehbaren vollbreiten gelben Banner. Beim Wechsel zwischen den Modi ist eine bewusste Bestätigung erforderlich.
+- **Strenge Modus-Trennung:** Echtbetrieb und Schulungsumgebung sind durch server-seitigen Scope-Wechsel (twin-scoped JWT, Migration 0019) strikt getrennt — kein versehentliches Vermischen möglich, RLS unverändert.
+- **Migration 0018 (LIVE):** Feld-Audit-Trigger: Patienten-Anlage/-Kategorie-Wechsel/Transportbereit/Auscheckung/Foto und CCP-Eröffnung/-Schließung/-Zusammenführung werden personenscharf ins `audit_log` geschrieben. `normal`-Rolle wieder für Einzel-Ausgabe freigegeben.
+- **Migration 0019 (LIVE):** `argus_exchange_person_code` um optionalen `p_scope`-Parameter erweitert — bei `p_scope='schulung'` wird server-seitig ein twin-scoped JWT ausgestellt (Schulungs-Zwilling). Rückwärtskompatibel.
+- SW-Cache v59.
+
 ## v0.31.0 — 2026-06-21
 **Patientenfotos dauerhaft an (DSB-Freigabe 2026-06-21)**
 - Der einsatzweite MasterMedic-Schalter „Fotos erlauben" entfällt. `_photosAllowed` ist fest `true`; die Sync-/Restore-Stellen (`row.photos_allowed`, `sGet('ccp_photos_allowed')`) und der `togglephotos`-Handler sind entfernt, der Schalter aus der Patientenübersicht raus, die „deaktiviert"-Zustände im Patientendetail entfallen.

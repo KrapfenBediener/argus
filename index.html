@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.31.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.32.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -127,6 +127,7 @@ var DS_KONTAKT = {
  * würde ein bereits durchlaufenes Sheet angezeigt). Bei jedem RELEVANTEN Update ein
  * neues Sheet unter docs/ anlegen und hier unter der Zielversion eintragen. */
 var UPDATE_SHEETS = {
+  '0.32.0': 'docs/UPDATE_v0.32.html',          /* Pro-Person-Login + Echt/Schulung-Reiter */
   '0.30.0': 'docs/UPDATE_v0.30.html',          /* Geführter tacSTART zurück (Schritt-für-Schritt-Vorsichtung) */
   '0.27.0': 'docs/UPDATE_v0.27.html',          /* tacSTART-Standard, Foto-Schnellaktion, Ort-Sync, Verbund-Gruppen */
   '0.12.0': 'docs/UPDATE_v0.9_zu_v0.12.html',  /* deckt v0.9.0 → v0.12.x ab */
@@ -138,6 +139,11 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.32.0': [
+    'Persönliche Anmeldung: Ein Freischalt-Feld genügt — ARGUS erkennt automatisch, ob es ein persönlicher oder ein Gruppen-Code ist. Nach dem Login erscheint dein Präsidium direkt.',
+    'Echtbetrieb oder Schulung: Beim Anmelden wählst du mit zwei großen Reitern, in welchem Modus du arbeitest. Standard ist Echtbetrieb; der Schulungsreiter zeigt einen unübersehbaren gelben Banner — damit ist klar, dass keine echten Patientendaten eingegeben werden.',
+    'Echtbetrieb und Schulungsumgebung sind strikt getrennt — ein versehentliches Vermischen ist nicht möglich.'
+  ],
   '0.31.0': [
     'Patientenfotos sind jetzt dauerhaft verfügbar — der Kamera-Button erscheint auf allen Geräten, ohne dass die Leitung Fotos erst je Einsatz freischalten muss. Fotos dienen weiterhin nur der Wiedererkennung (statt Name) und werden 72 Std nach Einsatzende automatisch gelöscht.'
   ],
