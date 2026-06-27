@@ -87,6 +87,7 @@ supabase/migrations/0013_phase414_admin_rolle.sql      Präsidiums-Admin-Rolle (
 supabase/migrations/0014_phase414_admin_exchange_hardening.sql  Härtung: argus_exchange_code weist is_admin-Codes ab (CR-02); argus_exchange_admin_code erzwingt expires_at (CR-01)
 supabase/migrations/0015_phase5_identitaeten.sql               Stufe-1-Identität (is_person/usbnk/role auf access_tokens, schulungs_zwilling_id auf praesidien, Claim-Helfer argus_is_flz/argus_usbnk/argus_argus_role, Person-Exchange argus_exchange_person_code, Master-Issue/Revoke/Search-RPCs, audit_log append-only, CR-02-Härtung is_person, argus_lage-FLZ-Zweig)
 supabase/migrations/0016_phase5_t4_audit.sql                   T4-Audit-Retention (argus_run_purge Schritt (e): audit_log > 12 Monate löschen)
+supabase/migrations/0017_phase5_review_fixes.sql               Code-Review-Fixes Phase 5 (atomarer argus_master_role_change_person; ILIKE-Escape in der USBNK-Suche; Normalisierung + Idempotenz im Revoke; 'normal'-Rolle bis Phase 5.1 gesperrt)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -155,7 +156,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
