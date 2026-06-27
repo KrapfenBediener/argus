@@ -89,6 +89,7 @@ supabase/migrations/0015_phase5_identitaeten.sql               Stufe-1-Identitä
 supabase/migrations/0016_phase5_t4_audit.sql                   T4-Audit-Retention (argus_run_purge Schritt (e): audit_log > 12 Monate löschen)
 supabase/migrations/0017_phase5_review_fixes.sql               Code-Review-Fixes Phase 5 (atomarer argus_master_role_change_person; ILIKE-Escape in der USBNK-Suche; Normalisierung + Idempotenz im Revoke; 'normal'-Rolle bis Phase 5.1 gesperrt)
 supabase/migrations/0018_phase51_feld_audit_normal.sql         Feld-Audit-Trigger (AFTER INSERT/UPDATE auf patients und ccps schreiben personenscharf via argus_usbnk() ins audit_log; alle D-06-Lebenszyklus-Aktionen: patient_create/cat_change/ready/checkout/photo, ccp_open/close/merge); 'normal'-Rolle wieder in den Issue-/Role-Change-Whitelists (5.1-Freigabe für Einzel-Ausgabe)
+supabase/migrations/0019_phase51_twin_scope.sql                 Schulungs-Twin-Scope: argus_exchange_person_code erhält optionalen p_scope-Parameter (Default 'echt'); bei p_scope='schulung' wird server-seitig die schulungs_zwilling_id des Token-Präsidiums aufgelöst und ein twin-scoped JWT ausgestellt (praesidium_id = Twin; usbnk/role/jti unverändert). Rückwärtskompatibel (kein p_scope → 'echt'). Keine RLS-Änderung, keine neuen Server-Abhängigkeiten. Idempotent.
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -115,7 +116,10 @@ führung) `argus_usbnk()` aus dem signierten JWT lesen und einen Eintrag ins
 `audit_log` schreiben — manipulationssicher, client-unabhängig, lückenlos;
 außerdem wird 'normal' wieder in den Whitelists von `argus_master_issue_person`
 und `argus_master_role_change_person` zugelassen (5.1-Freigabe für die individuelle
-Einzel-Ausgabe an Feld-Nutzer; KEINE neuen Server-Abhängigkeiten):
+Einzel-Ausgabe an Feld-Nutzer; KEINE neuen Server-Abhängigkeiten); 0019 erweitert
+`argus_exchange_person_code` um einen optionalen `p_scope`-Parameter (Default 'echt'),
+damit der Schulungs-Reiter der Feld-App per Re-Exchange ein twin-scoped JWT erhält
+(`praesidium_id` = Schulungs-Zwilling) — KEINE RLS-Änderung, KEINE neuen Server-Abhängigkeiten:
 
 
 | Abhängigkeit | Vorkommen | Wofür | Einstufung | Prüfung |
@@ -165,7 +169,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
