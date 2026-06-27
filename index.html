@@ -758,6 +758,9 @@ async function applyRevokedLock(){
     localStorage.removeItem('argus_usbnk');
     localStorage.removeItem('argus_role');
     localStorage.removeItem('argus_person_praesidium');
+    /* IN-01: Picker-Modus zurücksetzen — kein nächster Nutzer landet im
+     * Schulungs-Reiter des gesperrten Vorgänger-Kontos. */
+    localStorage.removeItem('argus_picker_mode');
   }catch(e){}
   _isMaster=false; _praesidiumId=null; _praesidiumName='';
   _usbnk=null; _argusRole=null;
@@ -1168,9 +1171,11 @@ function pno(p){return (p.ccp||"A")+"-"+p.num;}
 /* TQ-Knopf-Beschriftung (Feedback 2026-06-13: „läuft · 12:34 — stoppen" war
  * missverständlich): „TQ (Bein re) läuft seit 12:34 min — tippen zum Stoppen" */
 function tqLabel(p){
+  /* WR-02: Klartext-Rückgabe (kein esc()). Callsites, die in innerHTML einbetten,
+   * müssen tqSite selbst escapen (→ vPatient-Callsite bei h+=). */
   var ms=nowMs()-p.tqStart;
   var unit=ms>=3600000?' Std':' min';
-  return 'TQ'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' läuft seit '+fmtDur(ms)+unit+' — tippen zum Stoppen';
+  return 'TQ'+(p.tqSite?' ('+p.tqSite+')':'')+' läuft seit '+fmtDur(ms)+unit+' — tippen zum Stoppen';
 }
 /* Doppelnummer-Erkennung: aktive Patienten mit gleicher (Kennung, Nummer) im
  * selben CCP. Kann entstehen, wenn mehrere Geräte (v. a. offline) unabhängig
@@ -2186,7 +2191,8 @@ function vPatient(){
     '<div><label class="fieldlab">Geschl.</label><select data-kind="pat" data-field="gender"><option value=""'+sel(p.gender,"")+'>—</option><option value="m"'+sel(p.gender,"m")+'>m</option><option value="w"'+sel(p.gender,"w")+'>w</option></select></div>'+
     '<div><label class="fieldlab">Allergien</label>'+inp("allergies",p.allergies)+'</div></div></div>';
 
-  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?tqLabel(p):'TQ-Timer starten')+'</button></div>';
+  /* WR-02: tqLabel gibt Klartext zurück → esc() hier für den innerHTML-Kontext. */
+  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?esc(tqLabel(p)):'TQ-Timer starten')+'</button></div>';
 
   h+='<div class="sech" id="ph-tx">Maßnahmen A–E</div><div class="card">';
   TXG.forEach(function(g){h+='<div class="subl">'+esc(g[0])+'</div><div class="grid3">';
@@ -3121,11 +3127,21 @@ document.addEventListener("click",async function(e){
           return;
         }
         /* JWT gesetzt; aktives Präsidium auf das effektive (Echt oder Twin) setzen */
+        /* WR-03: praesidium_id kann theoretisch null sein (Edge-Case); in diesem
+         * Fall darf localStorage nicht den alten Wert behalten → immer setzen/entfernen. */
         _praesidiumId  = reex.praesidium_id||null;
         _praesidiumName= reex.praesidium_name||'';
         if(_praesidiumId){
           localStorage.setItem('argus_praesidium_id',   _praesidiumId);
           localStorage.setItem('argus_praesidium_name', _praesidiumName);
+          /* CR-01: Twin-Präsidium (Schulungs-Scope) ebenfalls dauerhaft freischalten,
+           * damit ein Kaltstart nach Schulungs-Re-Exchange isUnlocked() besteht.
+           * Gilt symmetrisch auch für Echt-Re-Exchange (idempotent, exp=0). */
+          addUnlock(_praesidiumId, null);
+        } else {
+          /* Edge-Case: kein Präsidium im Re-Exchange-Ergebnis → stale Werte entfernen */
+          localStorage.removeItem('argus_praesidium_id');
+          localStorage.removeItem('argus_praesidium_name');
         }
         await refreshSchulungFlag();
       }
@@ -3625,7 +3641,8 @@ setInterval(function(){
   document.querySelectorAll(".js-age").forEach(function(n){n.textContent=ageStr(+n.getAttribute("data-ts"));});
   document.querySelectorAll(".js-tq").forEach(function(n){n.textContent=fmtDur(nowMs()-(+n.getAttribute("data-tq")));});
   var tb=document.querySelector('[data-action="tq"]');
-  if(tb&&state.edit&&state.edit.tqStart){var _tl=document.createElement('span');_tl.innerHTML=tqLabel(state.edit);tb.textContent=_tl.textContent;}
+  /* WR-02: kein Zwischenelement mehr — tqLabel gibt Klartext zurück (kein esc()); direkte textContent-Zuweisung. */
+  if(tb&&state.edit&&state.edit.tqStart){ tb.textContent=tqLabel(state.edit); }
 },1000);
 setInterval(async function(){
   if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
