@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 5 (Identitäten & Audit, Stufe 1) — CONTEXT erstellt, als Nächstes /gsd-plan-phase 5
-last_updated: "2026-06-27T18:50:00.000Z"
+status: Phase 5 (Identitäten & Audit, Stufe 1) — GEPLANT & verifiziert (Checker PASS), als Nächstes /gsd-execute-phase 5
+last_updated: "2026-06-27T19:10:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 7

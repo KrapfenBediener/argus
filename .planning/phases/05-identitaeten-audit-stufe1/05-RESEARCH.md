@@ -646,9 +646,15 @@ get diagnostics n_alog = row_count;
 
 ---
 
-## Open Questions
+## Open Questions (RESOLVED 2026-06-27)
 
-1. **FLZ-Scope: ein Präsidium oder alle?**
+> Alle vier durch Owner-Entscheide / locked decisions geklärt:
+> Q1 → **D-12** (FLZ präsidienübergreifend, `praesidium_id=null`) ·
+> Q2 → Koexistenz `is_flz`/`is_observer`, kein Merge (im Research bestätigt) ·
+> Q3 → **D-13** (Master darf Master ausgeben, im T4 protokolliert; Bootstrap-Insert) ·
+> Q4 → **D-11** (kein `expires_at`; Widerruf-only via jti; 30-Tage-JWT-`exp` nur als Bearer-Hygiene).
+
+1. **FLZ-Scope: ein Präsidium oder alle?** — **RESOLVED: D-12** (präsidienübergreifend)
    - Was wir wissen: PHASE7-ROLLENMODELL-DRAFT sagt FLZ sieht „FLZ-/Lageansicht + alles vom normalen User; präsidienübergreifend (durch Protokoll gedeckt)".
    - Was unklar: Bedeutet das `praesidium_id=null` im JWT (sieht alle via Master-ähnlichem Gate) oder ein Array von Präsidien oder ein dynamischer Picker?
    - Empfehlung: Für Phase 5 (nur Leitungs-Seite): `praesidium_id=null` im FLZ-JWT → `argus_lage()` FLZ-Zweig ohne Präsidiums-Filter. Ein FLZ-Person-Token ist immer bundesland-/landesweit. Der Präsidiums-Picker (Phase 5.1) kann das verfeinern.
