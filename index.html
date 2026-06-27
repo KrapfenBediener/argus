@@ -425,14 +425,33 @@ function applyMeta(row){
 /* schulung-Flag des aktiven Präsidiums laden (Migration 0009): steuert das
  * Schulungs-Banner und den automatischen Abschluss-Typ. Offline-Fallback:
  * zuletzt bekannter Wert aus localStorage. */
+/* CR-01 (Banner-Resthälfte): refreshSchulungFlag wird beim Kaltstart
+ * fire-and-forget aufgerufen — die erste Home-View kann VOR der Auflösung von
+ * _praesidiumSchulung rendern, sodass der SCHULUNG-Banner ((_praesidiumSchulung
+ * && !_training)) zum Render-Zeitpunkt false ist und nie neu bewertet wird.
+ * Sicherheitskritisch: ein Nutzer, der im Schulungsmodus neu lädt, MUSS den
+ * Banner weiter sehen. Deshalb stößt diese Funktion selbst ein render() an,
+ * wenn sich der Banner-Zustand ändert UND die aktuelle View den Banner zeigt
+ * (nur vHome). Schleifen-/Redundanz-Schutz: render() nur bei echter Änderung. */
+function _maybeRenderSchulBanner(prev){
+  if(prev===_praesidiumSchulung) return;          /* keine Änderung → kein render */
+  if(state && state.view==='home'){ try{ render(); }catch(e){} }
+}
 async function refreshSchulungFlag(){
+  var _prevSync=_praesidiumSchulung;
   _praesidiumSchulung = localStorage.getItem('argus_praesidium_schulung')==='1';
+  /* Synchroner localStorage-Wert trägt sofort (Kaltstart): wenn er den Banner
+   * ändert, gleich neu rendern — ohne auf den DB-Roundtrip zu warten. */
+  _maybeRenderSchulBanner(_prevSync);
   var client=sb(); if(!client || !_praesidiumId) return;
   try{
     var r=await client.from('praesidien').select('schulung').eq('id',_praesidiumId).maybeSingle();
     if(r && r.data){
+      var _prevDb=_praesidiumSchulung;
       _praesidiumSchulung=!!r.data.schulung;
       try{ localStorage.setItem('argus_praesidium_schulung',_praesidiumSchulung?'1':'0'); }catch(e){}
+      /* DB bestätigt/korrigiert den Wert → bei echter Abweichung erneut rendern. */
+      _maybeRenderSchulBanner(_prevDb);
     }
   }catch(e){}
 }
