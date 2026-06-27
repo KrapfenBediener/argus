@@ -139,6 +139,327 @@
  * Sitzung bewusst flüchtig: sessionStorage, kein Verlauf.
  * ============================================================ */
 
+/* ── Inline-QR-Generator (Plan 04.14-03, Task 1) ───────────────────
+ * Kompakte QR-Encoder-Implementierung — Byte-Modus, Fehlerkorrektur L.
+ * Quelle: eigene schlanke Implementierung (kein externes CDN, kein npm).
+ * Lizenz: MIT — frei verwendbar ohne Einschränkungen.
+ *
+ * Öffentliche API:
+ *   drawQR(targetEl, text)  — rendert einen QR-Code als <canvas> in targetEl.
+ *   buildGastDeepLink(sc)   — baut den Deep-Link für einen Gast-Code.
+ *
+ * Spezifikation: QR-Code-Symbol Version 2–10 (automatisch), ECC Level M,
+ * Byte-Modus. Ausreichend für Deep-Links bis ~150 Zeichen.
+ * ──────────────────────────────────────────────────────────────────── */
+(function(){
+  /* ---- GF(256)-Arithmetik (Galois-Feld, Primpolynom 0x11D) ---- */
+  var GF_EXP=new Uint8Array(512), GF_LOG=new Uint8Array(256);
+  (function(){
+    var x=1;
+    for(var i=0;i<255;i++){
+      GF_EXP[i]=x; GF_LOG[x]=i;
+      x<<=1; if(x&256) x^=0x11D;
+    }
+    for(var j=255;j<512;j++) GF_EXP[j]=GF_EXP[j-255];
+  })();
+  function gfMul(a,b){ return (a===0||b===0)?0:GF_EXP[GF_LOG[a]+GF_LOG[b]]; }
+  function gfPolyMul(p,q){
+    var r=new Uint8Array(p.length+q.length-1);
+    for(var i=0;i<p.length;i++) for(var j=0;j<q.length;j++) r[i+j]^=gfMul(p[i],q[j]);
+    return r;
+  }
+  function eccPoly(n){
+    var g=new Uint8Array([1]);
+    for(var i=0;i<n;i++) g=gfPolyMul(g,[1,GF_EXP[i]]);
+    return g;
+  }
+  function eccDivide(msg,gen){
+    var r=new Uint8Array(msg); // copy
+    var n=gen.length-1;
+    for(var i=0;i<msg.length-n;i++){
+      var c=r[i]; if(!c) continue;
+      for(var j=1;j<gen.length;j++) r[i+j]^=gfMul(gen[j],c);
+    }
+    return r.slice(msg.length-n);
+  }
+
+  /* ---- QR-Versionsdaten (nur was wir brauchen: Level M Byte-Modus) ---- */
+  /* [version]: [dataCodewords, eccCodewordsPerBlock, blocks] */
+  var VER_M=[
+    null, // 0 placeholder
+    [16,10,1],[28,16,1],[44,26,1],[64,18,2],[86,24,2],
+    [108,16,4],[124,18,4],[154,22,2],[182,22,3],[196,26,4]
+  ];
+  /* Alignment-Pattern-Positionen (Version 2+) */
+  var ALIGN_POS=[null,null,[6,18],[6,22],[6,26],[6,30],[6,34],
+    [6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+
+  /* ---- Masken (Pattern 0: (i+j)%2==0 ist Standard, wir wählen optimal) ---- */
+  var MASKS=[
+    function(i,j){return (i+j)%2===0;},
+    function(i){return i%2===0;},
+    function(i,j){return j%3===0;},
+    function(i,j){return (i+j)%3===0;},
+    function(i,j){return (Math.floor(i/2)+Math.floor(j/3))%2===0;},
+    function(i,j){return (i*j)%2+(i*j)%3===0;},
+    function(i,j){return ((i*j)%2+(i*j)%3)%2===0;},
+    function(i,j){return ((i+j)%2+(i*j)%3)%2===0;}
+  ];
+
+  /* ---- Format-Informationsbits (ECC Level M = 0b01) ---- */
+  /* Precomputed per mask 0–7; XOR mit 0b101010000010010 */
+  var FMT_M=[0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0];
+
+  /* ---- Hauptfunktion: QR-Matrix erzeugen ---- */
+  function buildMatrix(text){
+    /* Daten in Bytes kodieren (Byte-Modus) */
+    var bytes=[];
+    for(var k=0;k<text.length;k++){
+      var cc=text.charCodeAt(k);
+      if(cc<0x80){ bytes.push(cc); }
+      else if(cc<0x800){ bytes.push(0xC0|(cc>>6)); bytes.push(0x80|(cc&0x3F)); }
+      else { bytes.push(0xE0|(cc>>12)); bytes.push(0x80|((cc>>6)&0x3F)); bytes.push(0x80|(cc&0x3F)); }
+    }
+    var nbytes=bytes.length;
+    /* Version wählen (Level M) */
+    var ver=null;
+    for(var v=1;v<=10;v++){
+      if(VER_M[v][0]-2>=nbytes+2){ ver=v; break; }
+    }
+    if(!ver) return null; // zu lang
+    var info=VER_M[ver];
+    var totalDC=info[0], eccPerBlock=info[1], nblocks=info[2];
+    var dcPerBlock=Math.floor((totalDC-nblocks*eccPerBlock)/nblocks);
+
+    /* Bit-Stream aufbauen */
+    var bitstream=[];
+    function pushBits(val,n){ for(var b=n-1;b>=0;b--) bitstream.push((val>>b)&1); }
+    pushBits(0b0100,4); // Byte-Modus
+    pushBits(nbytes,8);
+    for(var i=0;i<nbytes;i++) pushBits(bytes[i],8);
+    pushBits(0,4); // Terminator
+    while(bitstream.length%8!==0) bitstream.push(0);
+    var codewords=[];
+    for(var i=0;i<bitstream.length;i+=8){
+      var w=0; for(var b=0;b<8;b++) w=(w<<1)|bitstream[i+b];
+      codewords.push(w);
+    }
+    var PAD=[0xEC,0x11];
+    for(var p=0;codewords.length<dcPerBlock*nblocks;p++) codewords.push(PAD[p%2]);
+
+    /* ECC erzeugen */
+    var gen=eccPoly(eccPerBlock);
+    var allDC=[], allECC=[];
+    for(var bl=0;bl<nblocks;bl++){
+      var blk=codewords.slice(bl*dcPerBlock,(bl+1)*dcPerBlock);
+      var msg=new Uint8Array(dcPerBlock+eccPerBlock);
+      for(var i=0;i<dcPerBlock;i++) msg[i]=blk[i];
+      var ec=eccDivide(msg,gen);
+      allDC.push(blk); allECC.push(ec);
+    }
+    /* Interleaving */
+    var final=[];
+    for(var i=0;i<dcPerBlock;i++) for(var bl=0;bl<nblocks;bl++) final.push(allDC[bl][i]);
+    for(var i=0;i<eccPerBlock;i++) for(var bl=0;bl<nblocks;bl++) final.push(allECC[bl][i]);
+    /* Bits extrahieren */
+    var databits=[];
+    for(var i=0;i<final.length;i++) for(var b=7;b>=0;b--) databits.push((final[i]>>b)&1);
+
+    /* Modulgröße */
+    var sz=17+4*ver;
+    /* Matrix (0=hell,1=dunkel,null=ungesetzt) */
+    var mat=[];
+    for(var i=0;i<sz;i++){ mat.push(new Int8Array(sz)); /* 0 = hell by default */ }
+    var fixed=[];
+    for(var i=0;i<sz;i++){ fixed.push(new Uint8Array(sz)); }
+
+    function setFixed(r,c,v){ mat[r][c]=v; fixed[r][c]=1; }
+
+    /* Finder-Pattern */
+    function finder(tr,tc){
+      for(var dr=0;dr<7;dr++) for(var dc=0;dc<7;dc++){
+        var v=(dr===0||dr===6||dc===0||dc===6)?1:(dr>=2&&dr<=4&&dc>=2&&dc<=4)?1:0;
+        setFixed(tr+dr,tc+dc,v);
+      }
+      /* Separator */
+      if(tr===0){
+        for(var i=0;i<=7;i++){ if(tc+7<sz)setFixed(tr+i,tc+7,0); if(tr+7<sz)setFixed(tr+7,tc+i,0); }
+      } else { // bottom-left
+        for(var i=0;i<=7;i++){ if(tc+7<sz)setFixed(tr+i,tc+7,0); if(tr-1>=0)setFixed(tr-1,tc+i,0); }
+      }
+      if(tc===0) { for(var i=0;i<=7;i++){ if(tc+7<sz)setFixed(tr+i,tc+7,0); } }
+    }
+    finder(0,0); finder(0,sz-7); finder(sz-7,0);
+
+    /* Timing */
+    for(var i=8;i<sz-8;i++){ setFixed(6,i,i%2===0?1:0); setFixed(i,6,i%2===0?1:0); }
+
+    /* Dark module */
+    setFixed(4*ver+9,8,1);
+
+    /* Alignment (Version 2+) */
+    if(ver>=2){
+      var ap=ALIGN_POS[ver];
+      for(var ai=0;ai<ap.length;ai++) for(var aj=0;aj<ap.length;aj++){
+        var ar=ap[ai],ac=ap[aj];
+        if(!fixed[ar][ac]){
+          for(var dr=-2;dr<=2;dr++) for(var dc=-2;dc<=2;dc++){
+            var v=(dr===0&&dc===0)?1:(Math.abs(dr)===2||Math.abs(dc)===2)?1:0;
+            setFixed(ar+dr,ac+dc,v);
+          }
+        }
+      }
+    }
+
+    /* Format-Info-Platzhalter (werden nach Maskenwahl gesetzt) */
+    function placeFormat(maskIdx){
+      var fi=FMT_M[maskIdx];
+      var bits=[];
+      for(var i=14;i>=0;i--) bits.push((fi>>i)&1);
+      /* positions around top-left finder */
+      var pos1=[[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[8,7],[8,8],[7,8],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8]];
+      for(var i=0;i<15;i++){ setFixed(pos1[i][0],pos1[i][1],bits[i]); }
+      /* top-right + bottom-left */
+      var col2=[sz-1,sz-2,sz-3,sz-4,sz-5,sz-6,sz-7,sz-8];
+      for(var i=0;i<8;i++) setFixed(8,col2[i],bits[i]);
+      var row2=[sz-7,sz-6,sz-5,sz-4,sz-3,sz-2,sz-1];
+      for(var i=0;i<7;i++) setFixed(row2[i],8,bits[8+i]);
+    }
+
+    /* Daten in Nicht-Fixed-Module schreiben (Schlangenmuster von rechts unten) */
+    function placeData(maskFn){
+      var idx=0;
+      var col=sz-1;
+      var goUp=true;
+      while(col>0){
+        if(col===6) col--; // skip timing column
+        var rows=[];
+        for(var r=0;r<sz;r++) rows.push(goUp?(sz-1-r):r);
+        for(var ri=0;ri<rows.length;ri++){
+          var r=rows[ri];
+          for(var dc=0;dc<2;dc++){
+            var c=col-dc;
+            if(!fixed[r][c]){
+              var bit=(idx<databits.length)?databits[idx++]:0;
+              if(maskFn(r,c)) bit^=1;
+              mat[r][c]=bit;
+            }
+          }
+        }
+        col-=2;
+        goUp=!goUp;
+      }
+    }
+
+    /* Maske bewerten (niedrigster Penalty-Score) */
+    function penalty(m){
+      var s=0;
+      /* Regel 1: 5+ gleiche in Reihe */
+      for(var r=0;r<sz;r++){
+        var run=1;
+        for(var c=1;c<sz;c++){
+          if(m[r][c]===m[r][c-1]) run++; else{ if(run>=5)s+=run-2; run=1; }
+        }
+        if(run>=5)s+=run-2;
+      }
+      for(var c=0;c<sz;c++){
+        var run=1;
+        for(var r=1;r<sz;r++){
+          if(m[r][c]===m[r-1][c]) run++; else{ if(run>=5)s+=run-2; run=1; }
+        }
+        if(run>=5)s+=run-2;
+      }
+      /* Regel 2: 2×2 gleich */
+      for(var r=0;r<sz-1;r++) for(var c=0;c<sz-1;c++){
+        if(m[r][c]===m[r+1][c]&&m[r][c]===m[r][c+1]&&m[r][c]===m[r+1][c+1]) s+=3;
+      }
+      return s;
+    }
+
+    var bestMask=0, bestScore=Infinity;
+    for(var mi=0;mi<8;mi++){
+      /* Reset non-fixed */
+      var tmp=[];
+      for(var r=0;r<sz;r++) tmp.push(new Int8Array(mat[r]));
+      placeData(MASKS[mi]);
+      var sc=penalty(mat);
+      if(sc<bestScore){ bestScore=sc; bestMask=mi; }
+      /* Restore */
+      for(var r=0;r<sz;r++) mat[r]=tmp[r];
+    }
+    placeData(MASKS[bestMask]);
+    placeFormat(bestMask);
+
+    return { matrix:mat, size:sz };
+  }
+
+  /* ---- drawQR: rendert einen QR als <canvas> in targetEl ---- */
+  window.drawQR=function(targetEl, text){
+    var qr=buildMatrix(text);
+    if(!qr){ targetEl.textContent='QR zu lang'; return; }
+    var sz=qr.size, mat=qr.matrix;
+    var msize=Math.max(3, Math.floor(Math.min(256, targetEl.offsetWidth||256)/(sz+8)));
+    var quiet=4;
+    var cw=(sz+2*quiet)*msize;
+    var cv=document.createElement('canvas');
+    cv.width=cw; cv.height=cw;
+    cv.style.cssText='display:block;image-rendering:pixelated;max-width:100%;height:auto';
+    var ctx=cv.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,cw,cw);
+    ctx.fillStyle='#000';
+    for(var r=0;r<sz;r++) for(var c=0;c<sz;c++){
+      if(mat[r][c]) ctx.fillRect((c+quiet)*msize,(r+quiet)*msize,msize,msize);
+    }
+    targetEl.innerHTML='';
+    targetEl.appendChild(cv);
+  };
+})();
+/* ── Ende Inline-QR-Generator ─────────────────────────────────────── */
+
+/* ── APP_INSTALL_URL: öffentliche Feld-App-Installadresse (Plan 04.14-03, Task 2)
+ * PFLEGE: diese Konstante auf die öffentliche Installadresse der ARGUS-Feld-App
+ * setzen (z. B. "https://argus.example.de"). Bewusst NICHT die geheime
+ * Leitungs-URL (D-06). Leer lassen = QR zeigt Hinweis statt Link. */
+var APP_INSTALL_URL = 'https://argus-ccp.netlify.app';
+
+/* buildGastDeepLink(short_code) → <APP_INSTALL_URL>/index.html#code=<sc>
+ * Der Feld-App unterstützt #code= BEREITS (index.html, wird hier NICHT geändert). */
+function buildGastDeepLink(sc){
+  if(!APP_INSTALL_URL) return '';
+  return APP_INSTALL_URL.replace(/\/+$/,'')+'/index.html#code='+encodeURIComponent(sc);
+}
+
+/* showGastQrModal(sc, label) — zeigt QR + Klartext-Code nach Gast-Code-Ausgabe.
+ * Kein natives alert/confirm/prompt — In-App-Modal (Projektkonvention). */
+function showGastQrModal(sc, label){
+  var link=buildGastDeepLink(sc);
+  var qrHtml='';
+  if(link){
+    qrHtml='<div id="gast-qr-canvas" style="display:flex;justify-content:center;margin:10px 0"></div>';
+  }else{
+    qrHtml='<div class="hint" style="margin:8px 0;color:var(--t1)">App-Adresse nicht hinterlegt — QR nicht verfügbar. Bitte APP_INSTALL_URL in der Leitungs-Seite setzen.</div>';
+  }
+  var ov=document.createElement('div'); ov.className='modalov';
+  ov.innerHTML='<div class="modalbx" style="max-width:380px">'
+    +'<div style="font-weight:700;font-size:15px;margin-bottom:6px">Gast-Code QR</div>'
+    +(label?'<div class="hint" style="margin-bottom:8px">'+esc(label)+'</div>':'')
+    +qrHtml
+    +'<div style="text-align:center;font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:3px;margin:8px 0">'+esc(sc)+'</div>'
+    +(link?'<div class="hint" style="word-break:break-all;margin-bottom:6px">'+esc(link)+'</div>':'')
+    +'<div class="hint" style="margin-bottom:12px">Scannen öffnet die ARGUS-App mit vorausgefülltem Code.</div>'
+    +'<div class="modalrow"><button class="btn" data-m="close">Schließen</button></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  if(link){
+    var cel=ov.querySelector('#gast-qr-canvas');
+    if(cel) drawQR(cel, link);
+  }
+  ov.addEventListener('click',function(e){
+    var b=e.target.closest('[data-m]');
+    if(b||e.target===ov) ov.remove();
+  });
+}
+
 /* Backend-Konfiguration kommt zentral aus ../config.js (window.ARGUS_CONFIG) —
  * einzige Stelle für den Instanz-Tausch beim Self-Hosting (Phase 4.11, D-01). */
 var _cfg = window.ARGUS_CONFIG || null;
@@ -468,7 +789,7 @@ async function loadZugaenge(){
   var cl=sb();
   if(!cl){ _zugErr='Sitzung abgelaufen — bitte neu anmelden.'; if(state.section==='zugaenge') render(); return; }
   try{
-    var pr=await cl.from('praesidien').select('id,name').order('name');
+    var pr=await cl.from('praesidien').select('id,name,schulung').order('name');
     if(pr.error){ _zugErr=pr.error.message||'Präsidien nicht lesbar'; }
     else{
       _praes=pr.data||[];
@@ -515,7 +836,13 @@ function tokenRows(list){
     }else if(t.revoked){
       h+='<td><button class="btn ghost" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="1">Entsperren</button></td>';
     }else{
-      h+='<td><button class="btn warn" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="0">Sperren</button></td>';
+      var btnHtml='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      if(t.gast && !t.revoked){
+        btnHtml+='<button class="btn ghost" data-action="showgastqr" data-sc="'+esc(t.short_code)+'" data-lbl="'+esc(t.label||'')+'" title="QR anzeigen">QR</button>';
+      }
+      btnHtml+='<button class="btn warn" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="0">Sperren</button>';
+      btnHtml+='</div>';
+      h+='<td>'+btnHtml+'</td>';
     }
     h+='</tr>';
   });
@@ -568,6 +895,9 @@ function secZugaenge(){
       h+='<button class="btn ghost" data-action="mkgast" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Gast-Code (24 h)</button>';
       h+='<button class="btn ghost" data-action="mkobserver" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Beobachter-Zugang (FLZ)</button>';
       h+='<button class="btn ghost" data-action="mkadmin" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Admin-Token</button>';
+      if(p.schulung){
+        h+='<button class="btn warn" data-action="mkreset" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" style="margin-left:auto">Übungs-Präsidium leeren</button>';
+      }
       h+='</div>';
       h+= shown.length ? tokenRows(shown)
         : '<div class="hint">'+(list.length?'Keine Codes passend zum Filter.':'Noch keine Codes für dieses Präsidium.')+'</div>';
@@ -607,6 +937,7 @@ async function makeGast(pid, pname){
   var sc=ins.data.short_code;
   try{ await navigator.clipboard.writeText(sc); }catch(e){}
   await promptModal('Gast-Code (24 h gültig, mehrfach einlösbar — zum Durchsagen/Anschreiben; jede Einlösung wird protokolliert):', sc);
+  showGastQrModal(sc, ins.data.label||('Gast-Code — '+pname+(zut?' — '+zut:'')));
   loadZugaenge();
 }
 
@@ -623,6 +954,27 @@ async function makeProvision(){
   toast(neu.length
     ? 'Schulungs-Präsidien angelegt: '+neu.map(function(n){return String(n);}).join(', ')
     : 'Keine neuen Schulungs-Präsidien nötig.');
+  loadZugaenge();
+}
+
+/* Schulungs-Präsidium leeren (Plan 04.14-03, Task 3A, master-only):
+ * Ruft argus_schulung_reset auf — tombstont alle offenen CCPs des Schulungs-
+ * Präsidiums (patients+checklists gelöscht). Nur bei schulung=true.
+ * Muster: makeProvision (master-only RPC-Aktion). */
+async function makeReset(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var ok=await confirmModal(
+    'Alle offenen Übungs-CCPs von „'+pname+'“ leeren?\nPatienten und Checklisten dieser CCPs werden gelöscht. Nur Schulungsdaten.',
+    'Leeren'
+  );
+  if(!ok) return;
+  var r; try{ r=await cl.rpc('argus_schulung_reset',{p_praesidium_id:pid}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error||!r.data){ toast('Leeren fehlgeschlagen: '+(r.error?r.error.message:'kein Ergebnis')); return; }
+  if(r.data.error){ toast('Leeren nicht möglich: '+r.data.error); return; }
+  var res=r.data.reset!=null?r.data.reset:0;
+  var hyg=r.data.hygiene!=null?r.data.hygiene:0;
+  toast('Präsidium geleert — '+res+' CCP(s) zurückgesetzt, '+hyg+' alte(r) Tombstone(s) bereinigt.');
   loadZugaenge();
 }
 
@@ -750,7 +1102,10 @@ function secAdminZugang(){
       h+='<td class="hint">'+exp+'</td>';
       h+='<td>'+(c.revoked ? '<span class="pill red">GESPERRT</span>' : '<span class="pill green">aktiv</span>')+'</td>';
       if(!c.revoked){
-        h+='<td><button class="btn warn" data-action="adminrevoke" data-sc="'+esc(c.short_code)+'">Sperren</button></td>';
+        h+='<td><div style="display:flex;gap:6px;flex-wrap:wrap">'
+          +'<button class="btn ghost" data-action="showgastqr" data-sc="'+esc(c.short_code)+'" data-lbl="'+esc(c.label||'')+'" title="QR anzeigen">QR</button>'
+          +'<button class="btn warn" data-action="adminrevoke" data-sc="'+esc(c.short_code)+'">Sperren</button>'
+          +'</div></td>';
       }else{
         h+='<td></td>';
       }
@@ -788,6 +1143,7 @@ async function makeAdminGast(){
   _adminGastCodes.unshift({short_code:sc, label:lbl, expires_at:exp, revoked:false});
   try{ await navigator.clipboard.writeText(sc); }catch(e){}
   await promptModal('Gast-Code (24 h gültig, mehrfach einlösbar — zum Durchsagen/Anschreiben; jede Einlösung wird protokolliert):', sc);
+  showGastQrModal(sc, lbl);
   if(state.section==='admin-zugang') render();
 }
 async function makeAdminRevoke(sc){
@@ -1267,6 +1623,8 @@ async function extendFrist(ccpId, kennung, frist){
 /* ── Bereich „Protokoll" (D-13): governance_log + purge_log ─────
  * Reine Anzeige — Zugriffe/Verlängerungen und Lösch-Läufe (inhaltsfrei). */
 var _glog=null, _glogErr=null, _plog=null, _plogErr=null;
+/* Filter-Zustand für die Protokoll-Ansicht (Plan 04.14-03, Task 3B) */
+var _glogFilter={action:'alle', kuerzel:''};
 
 async function loadProtokoll(){
   _glog=null; _glogErr=null; _plog=null; _plogErr=null;
@@ -1293,6 +1651,12 @@ function actionLabel(a){
   if(a==='protokoll_view') return 'Einsatzprotokoll-Aufruf';
   if(a==='frist_verlaengert') return 'Frist verlängert';
   if(a==='lage_view') return 'Lageansicht-Login (FLZ)';
+  if(a==='gast_join') return 'Gast-Code eingelöst';
+  if(a==='protokoll_export') return 'Protokoll exportiert';
+  /* Plan 04.14-01/03: Admin-Aktionen */
+  if(a==='admin_login') return 'Admin-Login';
+  if(a==='admin_gast_issue') return 'Admin: Gast-Code ausgegeben';
+  if(a==='admin_gast_revoke') return 'Admin: Gast-Code gesperrt';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -1304,20 +1668,57 @@ function purgeReasonLabel(r){
 
 function secProtokoll(){
   var h='<div class="mh"><h2>Protokoll</h2><button class="btn ghost" data-action="protoreload">↻ Aktualisieren</button></div>';
+
+  /* ── Filter-Leiste (Plan 04.14-03, Task 3B) ── */
+  var GLOG_ACTIONS=[
+    ['alle','Alle Aktionen'],
+    ['protokoll_view','Einsatzprotokoll-Aufruf'],
+    ['foto_view','Foto-Abruf'],
+    ['frist_verlaengert','Frist verlängert'],
+    ['protokoll_export','Protokoll exportiert'],
+    ['lage_view','Lageansicht-Login (FLZ)'],
+    ['gast_join','Gast-Code eingelöst'],
+    ['admin_login','Admin-Login'],
+    ['admin_gast_issue','Admin: Gast-Code ausgegeben'],
+    ['admin_gast_revoke','Admin: Gast-Code gesperrt']
+  ];
+  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
+  h+='<span class="hint" style="margin:0">Filter:</span>';
+  h+='<select data-action="glogfilter" data-field="action">';
+  GLOG_ACTIONS.forEach(function(o){
+    h+='<option value="'+o[0]+'"'+(_glogFilter.action===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  });
+  h+='</select>';
+  h+='<input type="text" placeholder="Kürzel…" value="'+esc(_glogFilter.kuerzel)+'" data-action="glogfilter" data-field="kuerzel" style="width:120px;padding:6px 9px;font-size:13px">';
+  if(_glogFilter.action!=='alle'||_glogFilter.kuerzel){
+    h+='<button class="btn ghost" data-action="glogfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
+  }
+  h+='</div>';
+
   /* Zugriffe & Verlängerungen */
   var glogOpen=!isCollapsed('proto-glog', false);
-  h+='<div class="sech fold'+(glogOpen?' open':'')+'" style="margin-top:0" data-action="togglecard" data-key="proto-glog" data-def="0"><span class="chev">▶</span>Zugriffe &amp; Verlängerungen'+(_glog?' ('+_glog.length+')':'')+'</div>';
+  /* Gefilterte Liste */
+  var glogShown=(_glog||[]).filter(function(l){
+    if(_glogFilter.action!=='alle' && l.action!==_glogFilter.action) return false;
+    if(_glogFilter.kuerzel && !(l.kuerzel||'').toLowerCase().includes(_glogFilter.kuerzel.toLowerCase())) return false;
+    return true;
+  });
+  var filterActive=_glogFilter.action!=='alle'||!!_glogFilter.kuerzel;
+  var glogLabel='Zugriffe &amp; Verlängerungen'+(
+    _glog ? (filterActive ? ' ('+glogShown.length+' von '+_glog.length+')' : ' ('+_glog.length+')') : ''
+  );
+  h+='<div class="sech fold'+(glogOpen?' open':'')+'" style="margin-top:14px" data-action="togglecard" data-key="proto-glog" data-def="0"><span class="chev">▶</span>'+glogLabel+'</div>';
   if(!glogOpen){
     /* zugeklappt */
   }else if(_glogErr){
     h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_glogErr)+'</div></div>';
   }else if(_glog===null){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
-  }else if(!_glog.length){
-    h+='<div class="card"><p class="hint" style="margin:0">Noch keine Einträge.<br>Hier erscheint jeder Einsatzprotokoll-Aufruf, jeder Foto-Abruf und jede Frist-Verlängerung (Kürzel + Zeitpunkt).</p></div>';
+  }else if(!glogShown.length){
+    h+='<div class="card"><p class="hint" style="margin:0">'+(filterActive?'Keine Einträge passend zum Filter.':'Noch keine Einträge.<br>Hier erscheint jeder Einsatzprotokoll-Aufruf, jeder Foto-Abruf und jede Frist-Verlängerung (Kürzel + Zeitpunkt).')+'</p></div>';
   }else{
     h+='<div class="card">';
-    _glog.forEach(function(l){
+    glogShown.forEach(function(l){
       var subj='';
       if(l.patient_id!=null) subj='Patient '+esc(String(l.patient_id).slice(0,10))+'…';
       if(l.ccp_id) subj+=(subj?' · ':'')+'CCP '+esc(String(l.ccp_id).slice(0,8))+'…';
@@ -1515,12 +1916,34 @@ document.addEventListener('click', async function(e){
     await _doAdminLagePoll();
     return;
   }
+  /* Plan 04.14-03: neue Aktionen */
+  if(a==='mkreset'){
+    await makeReset(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
+    return;
+  }
+  if(a==='showgastqr'){
+    showGastQrModal(el.getAttribute('data-sc'), el.getAttribute('data-lbl')||'');
+    return;
+  }
+  if(a==='glogfilterreset'){
+    _glogFilter={action:'alle',kuerzel:''};
+    render();
+    return;
+  }
 });
 /* Filter-/Sortier-Selects (Zugänge): Auswahl übernehmen und neu rendern */
 document.addEventListener('change', function(e){
   var el=e.target.closest('select[data-action="zugfilter"]');
+  if(el){ _zugFilter[el.getAttribute('data-field')]=el.value; render(); return; }
+  /* Protokoll-Filter (Plan 04.14-03, Task 3B): Select */
+  var gl=e.target.closest('select[data-action="glogfilter"]');
+  if(gl){ _glogFilter[gl.getAttribute('data-field')]=gl.value; render(); return; }
+});
+/* Protokoll-Filter Freitext-Kürzel: live filtern bei Eingabe */
+document.addEventListener('input', function(e){
+  var el=e.target.closest('input[data-action="glogfilter"][data-field="kuerzel"]');
   if(!el) return;
-  _zugFilter[el.getAttribute('data-field')]=el.value;
+  _glogFilter.kuerzel=el.value;
   render();
 });
 $('logininp') && $('logininp').focus();
