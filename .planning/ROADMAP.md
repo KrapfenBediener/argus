@@ -380,6 +380,22 @@ Plans:
 - [x] 04.13-01-PLAN.md — Migration 0011 (argus_schulung_reset + argus_provision_schulung) + REST-Idempotenz/Positiv-/Negativtests + SELF-HOSTING.md [Wave 1]
 - [x] 04.13-02-PLAN.md — Feld-App (schulreset→RPC, 4 Flag-Gates) + Leitungs-Seite (Provisionierungs-Knopf, AT-MIST-Druck) + Release v0.28.0/SW v51 [Wave 2]
 
+## Phase 4.14 — Governance-Panel-Vervollständigung (schlank, ohne Stufe 1) ⬜ (INSERTED 2026-06-22)
+
+**Ziel:** Das Governance-Panel (Leitungs-Seite) soweit aktuell möglich
+fertigstellen — die jetzt baubaren, nicht DSB-/PTLS-gateten Teile des
+Rollenmodells. Erste Rolle unterhalb MasterUser: **Präsidiums-Admin**
+(präsidiumsbegrenzt; nur 24h-Gast-Code + QR + eigene Lage).
+
+**Scope:** (1) rollen-adaptive Leitungs-Seite (Weg B, keine Seite je Rolle);
+(2) Präsidiums-Admin end-to-end (`is_admin` + `admin_praesidium_id`, Muster 0005,
+jti-Sofortsperre); (3) QR-Ausgabe für Gast-Codes (selbst-enthalten, Deep-Link);
+(4) Übungspräsidium „leeren" + Demo opt-in; (5) Audit-Ansicht kürzelbasiert.
+Pflicht: Privilege-Escalation-Negativtests, SELF-HOSTING.md, D-06.
+**Nicht hier:** Stufe-1-Identität (USBNK/T4), Feld-App-Änderungen, SSO (Folgephasen).
+Architektur: `.planning/PHASE7-ROLLENMODELL-DRAFT.md` · Context:
+`.planning/phases/04.14-governance-panel/04.14-CONTEXT.md`.
+
 ## Phase 5 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
 
 **Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
