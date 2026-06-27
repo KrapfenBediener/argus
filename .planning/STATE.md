@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Executing Phase 04.14
+status: Phase 04.14 abgeschlossen
 last_updated: "2026-06-27T17:30:00.000Z"
 progress:
   total_phases: 9
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 28
-  completed_plans: 21
-  percent: 67
+  completed_plans: 22
+  percent: 79
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -24,13 +24,22 @@ progress:
 > - **PPF-Kurs:** Präsidium 'PPF-Kurse' (Rename von 'PP Karlsruhe — Schulung'), anonymer Evaluationsbogen `docs/evaluation.html` + Migration 0012 live; frische Daten-Sicherung gezogen.
 >
 > **Roadmap-Neuordnung (Owner-Entscheid 2026-06-21):** Übergabe-Paket (Phase 5/6) ans **Ende**; **Phase 7 (Identitäten & Rollen) vorgezogen**, um die PTLS-Wartezeit produktiv zu nutzen. Audit-Log/T4 bleibt in Phase 7 ausgeklammert (DSB-gated). Erstes Inkrement: präsidiums-begrenzte **„Kurs-Host"-Rolle**.
-> **Nächster Schritt (GSD-sauber, FRISCH machen — nicht ermüdet):**
-> **Phase 04.14 ist GEPLANT & verifiziert** (2026-06-22) — „Governance-Panel-
-> Vervollständigung (schlank, ohne Stufe 1)". 3 Pläne / 3 Wellen, gsd-plan-checker
-> PASS. Ordner `.planning/phases/04.14-governance-panel/` (CONTEXT + 01/02/03-PLAN).
-> **Nächster Schritt:** `/gsd-execute-phase 04.14` (Plan 01 pausiert für PAT-Freigabe
-> vor Migration 0013). 1 offener WARNING (nicht-blockierend): Plan 03 T1 `tdd`-Attribut
-> ohne Auto-Matrix-Test — durch Manuell-Checkpoint gedeckt.
+> **Phase 04.14 ist ABGESCHLOSSEN** (2026-06-27) — „Governance-Panel-
+> Vervollständigung (schlank, ohne Stufe 1)". Alle 3 Pläne / 3 Wellen ausgeführt
+> & per Browser-Checkpoint freigegeben. Ordner `.planning/phases/04.14-governance-panel/`
+> (CONTEXT + 01/02/03-PLAN + 01/02/03-SUMMARY).
+> - **Plan 01** (Migration 0013, Admin-Rolle is_admin + scoped RPCs + REST-Negativtests),
+>   **Plan 02** (rollen-adaptive Leitungs-Seite: Admin-Login, Gast-Code, eigene Lage),
+>   **Plan 03** (Gast-Code-QR via Inline-`qrcode-generator` MIT + Deep-Link,
+>   Master-Aktion „Übungs-Präsidium leeren" schulung-gated → `argus_schulung_reset`,
+>   Audit-Ansicht kürzelbasiert ausgebaut + interner Datenschutz-Doku-Sync local-only).
+> - **Plan-03-Notiz:** hand-gerollter QR-Encoder war nicht lauffähig → durch erprobte
+>   MIT-Library ersetzt, im Browser per jsQR dekodiert (scannbar). `APP_INSTALL_URL`
+>   = kanonische Feld-App-Adresse (GitHub Pages). Live-Leeren per Owner-Entscheid
+>   NICHT ausgeführt (RPC bereits in 4.13 bewiesen). „Demo-Befüllung opt-in" Befund:
+>   bereits benutzerausgelöst, nichts zu entfernen.
+> **Nächster Schritt:** nächste Phase wählen — Phase 7 (Identitäten & Rollen, Stufe 1/
+>   USBNK/T4) bleibt DSB-gated; Übergabe-Paket (Phase 5/6) ans Ende der Roadmap.
 > **Architektur-Grundlage:** `.planning/PHASE7-ROLLENMODELL-DRAFT.md` (Stufenmodell;
 > Stufe 1/USBNK/T4, Feld-App-Änderungen, SSO sind spätere Folgephasen).
 > **GSD-Hinweis:** Phasen werden über ihr Verzeichnis getrackt; 5–9 bleiben ROADMAP-
