@@ -85,6 +85,7 @@ supabase/migrations/0011_paket3_schulung.sql           Schulungs-Reset über Tom
 supabase/migrations/0012_kurs_evaluation.sql           Anonymer Kurs-Evaluationsbogen
 supabase/migrations/0013_phase414_admin_rolle.sql      Präsidiums-Admin-Rolle (is_admin-Token, Admin-Exchange, scoped Gast-Code-RPCs, argus_lage-Admin)
 supabase/migrations/0014_phase414_admin_exchange_hardening.sql  Härtung: argus_exchange_code weist is_admin-Codes ab (CR-02); argus_exchange_admin_code erzwingt expires_at (CR-01)
+supabase/migrations/0015_phase5_identitaeten.sql               Stufe-1-Identität (is_person/usbnk/role auf access_tokens, schulungs_zwilling_id auf praesidien, Claim-Helfer argus_is_flz/argus_usbnk/argus_argus_role, Person-Exchange argus_exchange_person_code, Master-Issue/Revoke/Search-RPCs, audit_log append-only, CR-02-Härtung is_person, argus_lage-FLZ-Zweig)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -96,7 +97,11 @@ JWT-Payloads und die Claim-Helfer; 0013 nutzt dieselben Abhängigkeiten wie
 jti-Sofortsperre über `argus_token_active` — KEINE neuen Server-Abhängigkeiten;
 0014 fasst nur argus_exchange_code/argus_exchange_admin_code neu (zusätzliche
 Guards: is_admin-Abweisung im Feld-App-Exchange, expires_at im Admin-Exchange) —
-ebenfalls KEINE neuen Server-Abhängigkeiten):
+ebenfalls KEINE neuen Server-Abhängigkeiten; 0015 nutzt dieselben Abhängigkeiten
+wie 0013/0014: pgjwt + Vault-Secret `argus_jwt_secret` für den Person-Exchange-RPC
+`argus_exchange_person_code`, jti-Sofortsperre über `argus_token_active` für die
+neuen Claim-Helfer argus_is_flz/argus_usbnk/argus_argus_role — KEINE neuen
+Server-Abhängigkeiten):
 
 | Abhängigkeit | Vorkommen | Wofür | Einstufung | Prüfung |
 |---|---|---|---|---|
@@ -145,7 +150,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
@@ -259,6 +264,30 @@ values (encode(extensions.gen_random_bytes(16), 'hex'),
 insert into public.access_tokens (token, short_code, praesidium_id, is_admin, label)
 values (encode(extensions.gen_random_bytes(16), 'hex'),
         '<XXXX-XXXX>', '<praesidium-uuid>', true, 'Admin <Bezeichnung>');
+
+-- 7) Erster Stufe-1-Master-Token (Migration 0015) — EINMALIG, direkt per
+--    Dashboard-Insert oder Management-API. Voraussetzung für die Leitungs-Seite
+--    der Pro-Person-Identitäts-Schicht (argus_exchange_person_code / Master-RPCs).
+--    is_person = true kennzeichnet diesen als Pro-Person-Token (Stufe 1).
+--    usbnk = USBNK des ersten Masters (z. B. Dienstausweis-Kennung), KEIN Klarname.
+--    role = 'master' — ergibt im JWT is_master=true + alle Master-RPCs freigeschaltet.
+--    KEIN expires_at (Pro-Person-Tokens laufen nicht ab; Widerruf über revoked).
+--    Nach dem Insert kann dieser Master über die Leitungs-Oberfläche (argus_master_issue_person)
+--    weitere Pro-Person-Tokens (FLZ, Admin, Normal, weitere Master) ausgeben.
+--    Alle Flags explizit false setzen, um versehentliche Privilegien zu verhindern.
+insert into public.access_tokens (
+  token, short_code,
+  is_person, usbnk, role,
+  is_master, is_admin, observer, gast, single_use, temporary,
+  label
+)
+values (
+  encode(extensions.gen_random_bytes(16), 'hex'),
+  '<XXXX-XXXX>',
+  true, '<USBNK-des-Masters>', 'master',
+  false, false, false, false, false, false,
+  'Stufe-1-Master <Bezeichnung>'
+);
 ```
 
 Codes können später jederzeit über die Leitungs-Oberfläche gesperrt werden
