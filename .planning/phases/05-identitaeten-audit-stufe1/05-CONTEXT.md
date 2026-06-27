@@ -81,6 +81,19 @@ T4-Audit). Master kann Rollen je USBNK vergeben/sperren und per USBNK suchen.
   Sessions (Master/FLZ/Admin auf der Leitungs-Seite). Vor 5.1 bleibt das kürzelbasierte `governance_log`
   (4.14) für Feld-Aktionen die Brücke.
 
+### Token-Lebenszyklus (Owner 2026-06-27, aus Research-Rückfragen)
+- **D-11:** **Pro-Person-Tokens laufen NICHT ab** — kein `expires_at`. Der Lebenszyklus ist
+  **Widerruf, nicht Ablauf**: eine Person *ist* ihre Rolle, bis der Master sie entzieht
+  (`jti`-Sofortsperre = der echte Kill-Switch). Anders als Gast-Codes (24h `expires_at`).
+  Das JWT trägt nur ein **technisch gebundenes `exp`** (30 Tage) als Bearer-Hygiene —
+  Leitungs-Seite ist `sessionStorage` (tab-scoped), Feld-App (5.1) verlängert still;
+  niemand wird durch Zeitablauf zur Neu-Provisionierung gezwungen.
+- **D-12 (aus Research):** **FLZ-Scope = präsidienübergreifend** (Scope-Claim null/alle, wie
+  Master-Lesezugriff), gedeckt durch personenscharfes T4-Protokoll (jeder Zugriff geloggt) —
+  konsistent zur Architektur-Vorlage.
+- **D-13 (aus Research):** **Master darf weitere Master-/Rollen-Tokens ausgeben** (jede Ausgabe
+  personenscharf im T4-Audit). Erster Master per Bootstrap (Dashboard-Insert, SELF-HOSTING §8).
+
 ### Scope-Revision (Owner 2026-06-27)
 - **D-10:** **Massen-Provisionierung gestrichen.** Begründung: Das Ausrollen von ~30.000 Pro-Person-Tokens
   hängt am Personaldatenbank-Anschluss und wird durch **Stufe 2 (SSO)** ohnehin abgelöst — reine
