@@ -912,33 +912,100 @@ function vInstall(){
   h+='<p class="hint" style="text-align:center;margin-top:14px;font-size:11px">Dieser Code ist dein persönlicher Zugang · nicht weitergeben</p>';
   return h;
 }
+/* ── Echt/Schulung-Picker-Hilfsfunktionen (Plan 05.1-03) ────────────────────
+ * pickerMode(): gibt den persistierten Reiter-Zustand zurück ('echt'|'schulung').
+ * setPickerMode(m): setzt und persistiert den Reiter.
+ * pickerIsSchulungActive(): true wenn aktiver Reiter = schulung. */
+function pickerMode(){ return localStorage.getItem('argus_picker_mode')||'echt'; }
+function setPickerMode(m){
+  try{ localStorage.setItem('argus_picker_mode', m==='schulung'?'schulung':'echt'); }catch(e){}
+}
+function pickerIsSchulungActive(){ return pickerMode()==='schulung'; }
+
+/* Ermittelt die angezeigte Präsidienliste je Reiter und Sitzungstyp.
+ * Person-Sitzung (_argusRole gesetzt, _usbnk gesetzt):
+ *   Echt-Reiter  → eigenes Echt-Präsidium (argus_person_praesidium)
+ *   Schul-Reiter → schulungs_zwilling_id-Twin davon (aus _praesidienList auflösen)
+ * Sammelcode/Master:
+ *   Echt-Reiter  → nicht-Schulungs-Präsidien im Scope (isUnlocked / _isMaster)
+ *   Schul-Reiter → Schulungs-Präsidien im Scope */
+function pickerList(tab){
+  var isSchulTab=(tab==='schulung');
+  var isPersonSession=!!(_argusRole&&_usbnk);
+  if(isPersonSession){
+    var ownPid=localStorage.getItem('argus_person_praesidium')||'';
+    if(!isSchulTab){
+      /* Echt: nur eigenes Präsidium */
+      return _praesidienList.filter(function(p){return p.id===ownPid && !p.schulung;});
+    } else {
+      /* Schulung: Twin über schulungs_zwilling_id auflösen */
+      var ownEntry=_praesidienList.find(function(p){return p.id===ownPid;});
+      if(!ownEntry||!ownEntry.schulungs_zwilling_id) return [];
+      var twinId=ownEntry.schulungs_zwilling_id;
+      return _praesidienList.filter(function(p){return p.id===twinId && !!p.schulung;});
+    }
+  }else{
+    /* Sammelcode / Master */
+    var scope = _isMaster ? _praesidienList : _praesidienList.filter(function(p){return isUnlocked(p.id);});
+    return scope.filter(function(p){ return isSchulTab ? !!p.schulung : !p.schulung; });
+  }
+}
+
 function vPraesidium(){
+  var mode=pickerMode();
+  var isSchulTab=(mode==='schulung');
   var h='<div style="text-align:center;padding:32px 0 16px">';
   h+='<img src="./icon-180.png" alt="ARGUS" style="width:72px;height:72px;border-radius:16px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
   h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">ARGUS</div>';
-  h+='<div class="hint" style="margin-bottom:24px">Präsidium auswählen</div>';
+  h+='<div class="hint" style="margin-bottom:16px">Präsidium auswählen</div>';
   h+='</div>';
-  var list = _isMaster ? _praesidienList : _praesidienList.filter(function(p){return isUnlocked(p.id);});
+
+  /* ── Zwei-Reiter Echtbetrieb / Schulung (D5.1-03) ───────────────────────
+   * Großflächige, einhändig bedienbare Tabs; hoher Kontrast.
+   * Default: Echtbetrieb. Aktiver Reiter klar hervorgehoben. */
+  h+='<div style="display:flex;gap:6px;margin-bottom:14px">';
+  h+='<button data-action="pickertab" data-tab="echt" style="flex:1;padding:14px 8px;font-size:15px;font-weight:600;border-radius:10px;border:2px solid '+(!isSchulTab?'var(--acc)':'var(--line)')+';background:'+(!isSchulTab?'var(--acc)':'var(--surf)')+';color:'+(!isSchulTab?'#fff':'var(--tx)')+';cursor:pointer">🏗 Echtbetrieb</button>';
+  h+='<button data-action="pickertab" data-tab="schulung" style="flex:1;padding:14px 8px;font-size:15px;font-weight:600;border-radius:10px;border:2px solid '+(isSchulTab?'#F2B600':'var(--line)')+';background:'+(isSchulTab?'#F2B600':'var(--surf)')+';color:'+(isSchulTab?'#1b1d20':'var(--tx)')+';cursor:pointer">🎓 Schulung</button>';
+  h+='</div>';
+
+  /* ── Schulungsmodus-Banner: permanent, vollbreit, unverkennbar ── */
+  if(isSchulTab){
+    h+='<div style="background:#F2B600;color:#1b1d20;border-radius:10px;padding:12px 14px;margin-bottom:12px;text-align:center;font-weight:700;font-size:15px;border:2px solid #c9960a">';
+    h+='🎓 SCHULUNGSUMGEBUNG — keine echten Patientendaten';
+    h+='</div>';
+  }
+
+  /* ── Präsidiumsliste für aktiven Reiter ── */
   if(!_praesidienList.length){
     h+='<p class="muted" style="text-align:center;margin-bottom:14px">Lade Präsidien…</p>';
-  }else if(!list.length){
-    h+='<p class="muted" style="text-align:center;margin-bottom:14px">Noch kein Präsidium freigeschaltet.<br>Gib unten deinen 8-stelligen Code ein.</p>';
   }else{
-    list.forEach(function(p){
-      var isSchul=!!p.schulung;
-      h+='<button class="navbtn" data-action="selectpraesidium" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'">';
-      h+='<span class="ic">'+(isSchul?'🎓':'🏗')+' </span>';
-      h+='<span><span class="t">'+esc(p.name)+'</span>';
-      h+='<br><span class="s">'+(isSchul?'Training & Demo-Szenarien':'Einsatzbetrieb')+'</span></span>';
-      h+='</button>';
-    });
+    var list=pickerList(mode);
+    if(!list.length){
+      if(isSchulTab){
+        h+='<p class="muted" style="text-align:center;margin-bottom:14px">Kein Schulungs-Präsidium verfügbar.<br>Sammelcode für Schulung eingeben oder Echt-Twin noch nicht zugewiesen.</p>';
+      }else{
+        h+='<p class="muted" style="text-align:center;margin-bottom:14px">Noch kein Präsidium freigeschaltet.<br>Gib unten deinen 8-stelligen Code ein.</p>';
+      }
+    }else{
+      list.forEach(function(p){
+        var isSchul=!!p.schulung;
+        h+='<button class="navbtn" data-action="selectpraesidium" data-pid="'+p.id+'" data-pname="'+esc(p.name)+'">';
+        h+='<span class="ic">'+(isSchul?'🎓':'🏗')+' </span>';
+        h+='<span><span class="t">'+esc(p.name)+'</span>';
+        h+='<br><span class="s">'+(isSchul?'Training & Demo-Szenarien':'Einsatzbetrieb')+'</span></span>';
+        h+='</button>';
+      });
+    }
   }
+
+  /* ── Freischalt-Eingabe (Sammelcodes + Person-Codes) ── */
   h+='<div class="card" style="padding:16px 14px;margin-top:10px">';
   h+='<label class="fieldlab">Präsidium freischalten</label>';
   h+='<input id="unlock-input" placeholder="XXXX-XXXX" style="font-family:monospace;font-size:16px;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">';
   h+='<div class="row" style="margin:0"><button class="txbtn" data-action="pastecode" style="flex:1">📋 Einfügen</button><button class="prim" data-action="checkunlock" style="flex:2;margin:0">Freischalten</button></div>';
   h+='<div class="hint" style="margin-top:8px;font-size:11px">Code oder erhaltenen Link kopieren, dann „Einfügen" — kein Abtippen nötig.</div>';
   h+='</div>';
+
   if(_isMaster){
     h+='<button class="navbtn" data-action="openadmin" style="margin-top:10px"><span class="ic">⚙️</span><span><span class="t">Administration</span><br><span class="s">Zugangs-Links teilen · Codes</span></span></button>';
   }
@@ -1843,8 +1910,14 @@ function vHome(){
   }else{
     mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }
-  return countbar()+
-  '<div class="banner"><span>⇄</span><div>'+(_praesidiumSchulung&&!_training?'<b style="color:var(--prio)">🎓 SCHULUNGSUMGEBUNG</b> · ':'')+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  /* ── Verstärkter SCHULUNG-Banner (Plan 05.1-03, D5.1-03, T-053-02) ─────────
+   * Permanent, vollbreit, unverkennbar — verhindert das versehentliche Mischen
+   * von Trainingsdaten mit echten Patientendaten. Erscheint ÜBER dem Status-Banner. */
+  var schulBanner=(_praesidiumSchulung&&!_training)?
+    '<div style="background:#F2B600;color:#1b1d20;padding:12px 14px;margin-bottom:8px;border-radius:10px;text-align:center;font-weight:700;font-size:16px;border:2px solid #c9960a;letter-spacing:.3px">🎓 SCHULUNGSUMGEBUNG — keine echten Patientendaten</div>':
+    '';
+  return countbar()+schulBanner+
+  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
@@ -2986,6 +3059,26 @@ document.addEventListener("click",async function(e){
     catch(e){ await promptModal(albl+' — '+apname+' (kopieren):',aurl); }
     return;
   }
+  /* ── Echt/Schulung-Reiter wechseln (Plan 05.1-03) ──────────────────────── */
+  if(a==="pickertab"){
+    var newTab=el.getAttribute("data-tab")||'echt';
+    var oldTab=pickerMode();
+    if(newTab===oldTab){ return; }   /* kein Wechsel nötig */
+    /* Bewusste Bestätigung beim Moduswechsel (D5.1-03, T-053-02):
+     * verhindert versehentliches Mischen von Echt- und Schulungsdaten. */
+    var fromLabel=oldTab==='echt'?'ECHTBETRIEB':'SCHULUNG';
+    var toLabel=newTab==='echt'?'ECHTBETRIEB':'SCHULUNG';
+    var ok=await confirmModal(
+      'Du wechselst von '+fromLabel+' zu '+toLabel+'.\n\n'+
+      (newTab==='schulung'
+        ? 'Im Schulungsmodus werden NUR Übungsdaten erfasst — niemals echte Patientendaten.'
+        : 'Im Echtbetrieb werden echte Patientendaten erfasst. Sicherstellen, dass du den richtigen Modus wählst.'),
+      'Wechseln'
+    );
+    if(!ok) return;
+    setPickerMode(newTab);
+    render(); return;
+  }
   if(a==="checkunlock"){
     var uinp=document.getElementById('unlock-input');
     await doUnlock(uinp?uinp.value:''); return;
@@ -3006,9 +3099,36 @@ document.addEventListener("click",async function(e){
     if(uinp2){ uinp2.focus(); } return;
   }
   if(a==="selectpraesidium"){
-    if(!isUnlocked(el.getAttribute("data-pid"))){toast("Dieses Präsidium ist nicht freigeschaltet");return;}
-    _praesidiumId=el.getAttribute("data-pid");
-    _praesidiumName=el.getAttribute("data-pname")||'';
+    var selPid=el.getAttribute("data-pid");
+    var selPname=el.getAttribute("data-pname")||'';
+    /* Person-Sitzung: eigenes Präsidium + Twin sind immer freigeschaltet;
+     * Sammelcode/Master: isUnlocked-Prüfung wie bisher. */
+    var isPersonSession2=!!(_argusRole&&_usbnk);
+    if(!isPersonSession2 && !isUnlocked(selPid)){toast("Dieses Präsidium ist nicht freigeschaltet");return;}
+    /* Moduswechsel-Bestätigung (D5.1-03, T-053-02): wenn das gewählte Präsidium
+     * einen anderen Modus hat als der aktuell aktive Picker-Reiter. */
+    var selEntry=_praesidienList.find(function(p){return p.id===selPid;});
+    var selIsSchul=selEntry?!!selEntry.schulung:false;
+    var curIsSchul=pickerIsSchulungActive();
+    /* Wenn aktives Präsidium bereits ein Schulungs-Präsidium war und jetzt
+     * Echtbetrieb gewählt wird (oder umgekehrt) → ebenfalls bestätigen. */
+    var modeConflict=(_praesidiumId && _praesidiumSchulung !== selIsSchul);
+    if(modeConflict){
+      var fromModeLabel=_praesidiumSchulung?'SCHULUNG':'ECHTBETRIEB';
+      var toModeLabel=selIsSchul?'SCHULUNG':'ECHTBETRIEB';
+      var mok=await confirmModal(
+        'Du wechselst von '+fromModeLabel+' zu '+toModeLabel+'.\n\n'+
+        (selIsSchul
+          ? 'Im Schulungsmodus werden NUR Übungsdaten erfasst — niemals echte Patientendaten.'
+          : 'Im Echtbetrieb werden echte Patientendaten erfasst. Sicherstellen, dass du den richtigen Modus wählst.'),
+        'Wechseln'
+      );
+      if(!mok) return;
+    }
+    /* Picker-Reiter an das gewählte Präsidium anpassen (offline persistiert) */
+    setPickerMode(selIsSchul?'schulung':'echt');
+    _praesidiumId=selPid;
+    _praesidiumName=selPname;
     localStorage.setItem('argus_praesidium_id',_praesidiumId);
     localStorage.setItem('argus_praesidium_name',_praesidiumName);
     await refreshSchulungFlag();
