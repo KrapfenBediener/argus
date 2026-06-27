@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
 status: Executing Phase 05
-last_updated: "2026-06-27T21:00:00Z"
+last_updated: "2026-06-27T22:20:00Z"
 progress:
   total_phases: 10
   completed_phases: 7
   total_plans: 31
-  completed_plans: 23
-  percent: 74
+  completed_plans: 24
+  percent: 77
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -174,7 +174,11 @@ D-02 + D-06 durchgängig gewahrt. Commits a0b50a8 (Tasks 1+2), 1593fbb (Task 3).
 SUMMARY: `.planning/phases/05-identitaeten-audit-stufe1/05-01-SUMMARY.md`.
 Offener Owner-Punkt: ephemeren PAT widerrufen (Supabase Dashboard → Account → Access Tokens).
 
-**Pläne 05-02/05-03:** offen (Audit-Retention / Leitungs-Seite UI)
+**Plan 05-02 ✅ (2026-06-27):** Migration 0016 — argus_run_purge() um Schritt (e) audit_log-Retention (365 Tage, bigint-ms-Cutoff) erweitert. 0016 zweimal live angewendet (beide HTTP 201, idempotent). Retention-Funktionstest: Alt-Row (>366 Tage) gelöscht, Frisch-Row blieb, bestehende Schritte a–d intakt, Return-JSON additiv um audit_log_retention-Schlüssel. Kein zweiter Cron-Job (argus_purge greift automatisch). SELF-HOSTING.md nachgeführt (0016 Dateiliste/Reihenfolge/Prosa). D-06 gewahrt. Commits e92bfbe (Task 1), 904fa37 (Task 2).
+SUMMARY: `.planning/phases/05-identitaeten-audit-stufe1/05-02-SUMMARY.md`.
+Offener Owner-Punkt: ephemeren PAT widerrufen (Supabase Dashboard → Account → Access Tokens), sofern nach Plan 05-01 noch nicht erledigt.
+
+**Plan 05-03:** offen (Leitungs-Seite UI — Audit-Ansicht)
 
 ---
 
@@ -895,6 +899,8 @@ bereits existiert).
 | Phase 04.13 P02 | 12min | 3 tasks | 6 files |
 | Phase 04.14 P01 | multi-session | 3 tasks | 2 files |
 | Phase 04.14 P02 | 90min | 3 tasks | 1 file |
+| Phase 05-01 | multi-session | 3 tasks | 2 files |
+| Phase 05-02 | 5min | 2 tasks | 2 files |
 
 ## Decisions
 
@@ -902,3 +908,4 @@ bereits existiert).
 - [Phase 04.13]: 04.13-02: Demo-Direkt-Merge (5. Gate-Stelle) ebenfalls auf _praesidiumSchulung umgestellt; loadSchulDirty zaehlt nur offene CCPs (Rule-1-Fix gegen Tombstone-Blockade); kein UPDATE-Sheet fuer v0.28.0; Push+Live-Smoke an Orchestrator delegiert
 - [Phase 04.14]: 04.14-01: Admin-JWT traegt bewusst KEIN praesidium_id/is_master — alle bestehenden RLS-Policies liefern [] ohne Extra-Policies; argus_is_admin() gated auf argus_token_active() fuer jti-Sofortsperre; Gast-Code-Ausgabe/-Sperre als security-definer-RPCs (direkte Writes master-only per RLS 0001); 0013 nutzt dieselben Server-Abhaengigkeiten wie 0005/0007
 - [Phase 04.14]: 04.14-02: Admin-JWT kein access_tokens-Select (kein praesidium_id-Claim) → sitzungsbasierte Gast-Code-Liste als Architektur-Loesung; dual-exchange doLogin (Master-RPC zuerst, Admin-Fallback) vermeidet Doppel-Log; kein App-Release (Leitungs-Seite Desktop-Begleitseite)
+- [Phase 05-02]: 05-02-01: audit_log-Retention als Schritt (e) in argus_run_purge (create or replace) — kein zweiter Cron-Job; bigint-ms-Cutoff analog governance_log; Return-JSON additiv (audit_log_retention-Schluessel); 0016 live angewendet + idempotent + Funktionstest bestanden
