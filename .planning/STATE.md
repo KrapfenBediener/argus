@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 5.1 — 05.1-01/02/03 fertig (05.1-03 inkl. Twin-Scope-Gap-Closure via Migration 0019 LIVE); nur noch 05.1-04 Release (Version-/SW-Bump, CHANGELOG/WHATS_NEW/UPDATE-Sheet, Drehbuch, SELF-HOSTING-Nachzug 0019) ausstehend
-last_updated: "2026-06-28T00:20:00.000Z"
+status: Phase 5.1 ABGESCHLOSSEN — alle 4 Pläne fertig (v0.32.0 Release gebaut: APP_VERSION/SW-Cache v59/version.json/CHANGELOG/WHATS_NEW/UPDATE-Sheet/TRAIN_LESSONS/SELF-HOSTING 0019); Owner-Gate Deploy ausstehend (kein Push)
+last_updated: "2026-06-28T00:00:00.000Z"
 progress:
   total_phases: 11
-  completed_phases: 8
+  completed_phases: 9
   total_plans: 35
-  completed_plans: 28
-  percent: 80
+  completed_plans: 30
+  percent: 84
 ---
 
 # Projekt-Status — Argus (CCP-App)
