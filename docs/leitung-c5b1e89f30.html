@@ -1898,56 +1898,26 @@ async function doUsbnkSearch(){
   if(state.section==='identitaeten') render();
 }
 async function doPersonRole(sc, usbnk, oldRole, oldPid){
-  /* Plan 01 hat keinen dedizierten Rollen-Change-RPC.
-   * Implementierung: alten Token sperren + neuen mit gleicher USBNK ausgeben. */
-  var rolleOpts='master=Master | flz=FLZ | admin=Admin';
+  /* CR-01+WR-03 (0017): atomarer RPC argus_master_role_change_person.
+   * Kein zweistufiger revoke+issue mehr — kein Lockout bei Teilfehler. */
   var neueRolle=await promptModal(
-    'USBNK: '+usbnk+'\nAktuell: '+rolleLabel(oldRole)+'\n\nNeue Rolle eingeben (master/flz/admin):',
+    'USBNK: '+esc(usbnk)+'\nAktuell: '+esc(rolleLabel(oldRole))+'\n\nNeue Rolle eingeben (master/flz/admin):',
     oldRole
   );
   if(!neueRolle) return;
   neueRolle=neueRolle.trim().toLowerCase();
-  if(!['master','flz','admin','normal'].includes(neueRolle)){ toast('Ungültige Rolle — erlaubt: master, flz, admin, normal'); return; }
-  /* Admin: Präsidium abfragen */
-  var neuPid=null;
-  if(neueRolle==='admin'){
-    if(!_praes||!_praes.length){ toast('Präsidien nicht geladen — bitte Seite neu laden.'); return; }
-    var praesOpts=(_praes||[]).map(function(p){ return p.name; }).join('\n');
-    var praesName=await promptModal('Präsidium für Admin-Rolle:\n'+praesOpts+'\n\nNamen (exakt) eingeben:','');
-    if(!praesName) return;
-    var praesMatch=(_praes||[]).find(function(p){ return p.name===praesName.trim(); });
-    if(!praesMatch){ toast('Präsidium nicht gefunden.'); return; }
-    neuPid=praesMatch.id;
-  }
+  if(!['master','flz','admin'].includes(neueRolle)){ toast('Ungültige Rolle — erlaubt: master, flz, admin'); return; }
   var ok=await confirmModal(
-    'Rollenwechsel für USBNK '+usbnk+':\n'+rolleLabel(oldRole)+' → '+rolleLabel(neueRolle)+'\n\nAlter Token wird gesperrt, neuer Token wird ausgegeben.\nBeide Aktionen werden im Audit-Log protokolliert.',
+    'Rollenwechsel für USBNK '+esc(usbnk)+':\n'+esc(rolleLabel(oldRole))+' → '+esc(rolleLabel(neueRolle))+'\n\nDer bestehende Code bleibt gültig; die neue Rolle gilt ab der nächsten Anmeldung.\nDer Wechsel wird im Audit-Log protokolliert.',
     'Rollenwechsel durchführen'
   );
   if(!ok) return;
   var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
-  /* 1. Alt sperren */
-  var r1;
-  try{ r1=await cl.rpc('argus_master_revoke_person',{p_short_code:sc}); }
-  catch(e){ r1={error:{message:'keine Verbindung'}}; }
-  if(r1.error){ toast('Sperren fehlgeschlagen: '+(r1.error.message||'unbekannt')); return; }
-  /* 2. Neu ausgeben */
-  var r2;
-  try{
-    r2=await cl.rpc('argus_master_issue_person',{
-      p_usbnk: usbnk,
-      p_role: neueRolle,
-      p_praesidium_id: neuPid||null,
-      p_label: 'Rollenwechsel von '+rolleLabel(oldRole)
-    });
-  }catch(e){ r2={error:{message:'keine Verbindung'}}; }
-  if(r2.error||!r2.data||!r2.data.short_code){
-    toast('Neu-Ausgabe fehlgeschlagen: '+(r2.error?r2.error.message:'unbekannt')+' — alter Token bereits gesperrt!');
-    return;
-  }
-  var newSc=r2.data.short_code;
-  try{ await navigator.clipboard.writeText(newSc); }catch(e){}
-  await promptModal('Rollenwechsel abgeschlossen.\nNeuer Code (kopieren; an Nutzer weitergeben):', newSc);
-  toast('Rollenwechsel protokolliert (person_revoke + person_issue).');
+  var r;
+  try{ r=await cl.rpc('argus_master_role_change_person',{p_short_code:sc, p_new_role:neueRolle}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Rollenwechsel fehlgeschlagen: '+esc(r.error.message||'unbekannt')); return; }
+  toast('Rolle geändert (gilt ab nächster Anmeldung) — Audit-Log: person_role_change');
   /* Suche neu laden */
   var inp=document.getElementById('pers-search');
   if(inp&&inp.value) await doUsbnkSearch();
