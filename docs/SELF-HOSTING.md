@@ -88,6 +88,7 @@ supabase/migrations/0014_phase414_admin_exchange_hardening.sql  Härtung: argus_
 supabase/migrations/0015_phase5_identitaeten.sql               Stufe-1-Identität (is_person/usbnk/role auf access_tokens, schulungs_zwilling_id auf praesidien, Claim-Helfer argus_is_flz/argus_usbnk/argus_argus_role, Person-Exchange argus_exchange_person_code, Master-Issue/Revoke/Search-RPCs, audit_log append-only, CR-02-Härtung is_person, argus_lage-FLZ-Zweig)
 supabase/migrations/0016_phase5_t4_audit.sql                   T4-Audit-Retention (argus_run_purge Schritt (e): audit_log > 12 Monate löschen)
 supabase/migrations/0017_phase5_review_fixes.sql               Code-Review-Fixes Phase 5 (atomarer argus_master_role_change_person; ILIKE-Escape in der USBNK-Suche; Normalisierung + Idempotenz im Revoke; 'normal'-Rolle bis Phase 5.1 gesperrt)
+supabase/migrations/0018_phase51_feld_audit_normal.sql         Feld-Audit-Trigger (AFTER INSERT/UPDATE auf patients und ccps schreiben personenscharf via argus_usbnk() ins audit_log; alle D-06-Lebenszyklus-Aktionen: patient_create/cat_change/ready/checkout/photo, ccp_open/close/merge); 'normal'-Rolle wieder in den Issue-/Role-Change-Whitelists (5.1-Freigabe für Einzel-Ausgabe)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -107,7 +108,15 @@ Server-Abhängigkeiten; 0016 fasst ausschließlich argus_run_purge neu (additive
 Retention-Schritt (e): audit_log-Einträge älter als 12 Monate löschen, D-07,
 § 73 PolG BW) — KEINE neuen Server-Abhängigkeiten und KEIN zweiter Cron-Job;
 der bestehende stündliche Job `argus_purge` (0002) ruft die erweiterte Funktion
-automatisch auf):
+automatisch auf; 0018 ergänzt zwei security-definer AFTER-Trigger auf `patients`
+und `ccps`, die bei D-06-Lebenszyklus-Aktionen (Patienten-Anlage/-Kategorie-
+wechsel/Transportbereit/Auscheckung/Foto, CCP-Eröffnung/-Schließung/-Zusammen-
+führung) `argus_usbnk()` aus dem signierten JWT lesen und einen Eintrag ins
+`audit_log` schreiben — manipulationssicher, client-unabhängig, lückenlos;
+außerdem wird 'normal' wieder in den Whitelists von `argus_master_issue_person`
+und `argus_master_role_change_person` zugelassen (5.1-Freigabe für die individuelle
+Einzel-Ausgabe an Feld-Nutzer; KEINE neuen Server-Abhängigkeiten):
+
 
 | Abhängigkeit | Vorkommen | Wofür | Einstufung | Prüfung |
 |---|---|---|---|---|
@@ -156,7 +165,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
