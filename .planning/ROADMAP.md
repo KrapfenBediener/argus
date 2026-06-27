@@ -470,6 +470,13 @@ nötig sind.
 - **Trainings-Drehbuch** anpassen (DAUERREGEL); App-Release (Version-Bump, SW-Cache, WHATS_NEW).
 - Erst danach ist das T4-Protokoll für Feld-Aktionen voll personenscharf.
 
+**Kontext (discuss-phase 2026-06-27):** Ein Freischalt-Feld mit Auto-Erkennung
+(`argus_exchange_code` → `argus_exchange_person_code`); Top-Level Zwei-Reiter Echt/Schulung
+(Default Echt, lauter SCHULUNG-Banner; Person-Token = Präsidium + `schulungs_zwilling_id`-Twin);
+**server-seitige Audit-Trigger** (patients/ccps → `audit_log` mit `argus_usbnk()`, Migration ~0018);
+**`'normal'`-Rolle entsperren** (Einzel-Ausgabe, Massen-Provisionierung bleibt SSO-gated).
+Context: `.planning/phases/05.1-feldapp-login-picker/05.1-CONTEXT.md`.
+
 ## Phase 6 — Lageübersicht für FLZ / ILS, Stufe b (read-only Dashboard) ⬜
 
 **Ziel:** Browserbasierte Leseansicht für Führungs- und Lagezentrum (FLZ)
