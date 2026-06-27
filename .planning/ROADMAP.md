@@ -403,70 +403,40 @@ Plans:
 - [x] 04.14-02-PLAN.md — Rollen-adaptive Leitungs-Seite: Admin-Login, Master gibt Admin-Token aus, Admin-Gast-Code + eigene Lage (Wave 2)
 - [x] 04.14-03-PLAN.md — QR-Ausgabe (Deep-Link, kein CDN), Übungspräsidium leeren, Audit-Ansicht kürzelbasiert, Doku-Sync (Wave 3)
 
-## Phase 5 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
+## Phase 5 — Identitäten & Audit-Protokoll (Stufe 1) ⬜
 
-**Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
-M1-Entscheid (2026-06-11); Detailplanung NACH dem DSB-Gespräch.
-
-- Übergabe-/Deployment-Paket auf Basis von `docs/SELF-HOSTING.md` (Phase 4.11)
-  + `docs/PROD-SETUP.md` (vorhanden, anzupassen).
-- **Repo-Schnitt** (privates Repo, Git-History, Lizenz-/IP-Schutz) bleibt
-  relevant — unabhängig vom Hosting.
-
-- Daten-Hygiene der Dev-Instanz (verwaiste CCPs, frische Codes inkl. neuem
-  MasterToken — der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
-
-- Backup-/Löschkonzept im **Betrieb der Polizei** = Sache des Verantwortlichen;
-  ARGUS liefert die technische Grundlage (Migrationen, Purge-Jobs, Doku).
-
-- ~~Supabase Pro-Tier / separates Prod-Projekt beim Eigentümer~~ — entfallen (M1).
-
-## Phase 6 — Betriebsbereitschaft & Open Beta ⬜
-
-**Ziel:** Die App ist legal, organisatorisch und dokumentarisch bereit für
-einen erweiterten Testkreis und perspektivisch echten Einsatz.
-
-- **Compliance-Checkliste** abarbeiten (→ `docs/COMPLIANCE.md`): EU-Hosting
-  bestätigen, Verschlüsselung, Zugriffsprotokoll, Löschkonzept, MDR-Einstufung
-  mit zuständiger Behörde klären.
-
-- **E-Mail-Adresse** für Lizenzanfragen in `LICENSE` + `README.md` eintragen.
-- **Kurzanleitung** für Tester (Installation, Rollen, CCP eröffnen/beitreten,
-  Kategorien, Abtransport).
-
-- **Feldtest** (LebEL-Übung oder vergleichbar): echte Geräte, echte Lage,
-  Sperre / Rolle / Merge unter realen Netzbedingungen.
-
-- **Open Beta:** breiterer Testkreis, strukturiertes Feedback-Verfahren.
-- ✅ **Vorbereitet (2026-06-04):** DSB-Gesprächsvorlage `docs/DSB-BRIEFING.md`
-  und `docs/TESTER-ANLEITUNG.md` (nützt schon dem laufenden Testkreis).
-
-## Phase 7 — Governance: Identitäten & Audit-Protokoll ⬜ *(DSB-abhängig)*
-
-**Ziel:** Die **DSB-abhängige** Schicht der Governance, die auf der konsolidierten
-Oberfläche aus Phase 4.9 aufsetzt. Erst nach dem DSB-Gespräch umsetzbar — die
-Eckpfeiler (Regime, Identitäten, Protokoll-Form) entscheidet der DSB.
+**Ziel:** Die Identitäts-/Audit-Schicht des Rollenmodells (Stufe 1 aus
+`.planning/PHASE7-ROLLENMODELL-DRAFT.md`), aufsetzend auf der konsolidierten
+Leitungs-Oberfläche (Phase 4.9) und der Präsidiums-Admin-Rolle (Phase 4.14).
+**DSB-Abhängigkeit entfällt** (DSB-Freigabe 2026-06-21; Owner-Entscheid
+2026-06-27: ohne weiteres DSB-Votum baubar — ersetzt den früheren
+„nur nach DSB-Gespräch"-Vorbehalt; vorgezogen vor Betrieb/Übergabe).
 
 > Die Desktop-Leitungs-Oberfläche (Zugänge inkl. Code-Sperre, Einsatzprotokolle
 > mit protokolliertem Abruf, Protokoll-Ansicht) ist seit **Phase 4.9** gebaut
-> (✅ 2026-06-11, v0.23.0) — inkl. sichtbar gesperrter Sektion „Phase 7 · nach
-> DSB". Phase 7 ergänzt dort nur noch die Inhalte, die ohne DSB-Votum nicht
-> festgelegt werden können.
+> (✅ 2026-06-11, v0.23.0) — inkl. der sichtbar gesperrten Sektion „Phase 7 · nach
+> DSB". Diese Phase füllt diese Sektion und baut das Stufe-1-Inkrement; Phase 4.14
+> lieferte den Präsidiums-Admin als Stufe-0-Rolle.
 
+- **Stufe-1-Identität (USBNK):** Pro-Person-Token statt geteiltem Code —
+  personengebundene Identität (USBNK als Identitätsmerkmal); der in Phase 4.14
+  bewusst vertagte passwort-artige Missbrauchsschutz des Stufe-1-Tokens gehört hierher.
+- **Master-USBNK-/Namenssuche:** Auflösung personenscharfer Identitäten in der
+  Leitungs-Oberfläche (Master).
+- **Audit-/Einsatzprotokoll (= T4 der DATENSCHUTZ-SPEC):** personenscharfes,
+  zeitgestempeltes Verlaufsprotokoll (wer/wann/was/welcher CCP), append-only —
+  baut auf dem kürzelbasierten `governance_log` (Phase 4.14) auf. Umfang +
+  Aufbewahrung nach § 73 PolG BW (12 Monate). **Nicht mehr DSB-gesperrt**
+  (Owner-Entscheid 2026-06-27; löst den früheren „JI-Regime"-Vorbehalt ab).
 - **Zwei-Ebenen-Modell:** Feld-Zugang bleibt pseudonym (Code, kein Login);
-  Admin-/Rollen-Konten erhalten echte Identitäten (Supabase Auth,
-  E-Mail / Magic-Link).
-
+  Rollen-/Identitäts-Konten erhalten echte Identitäten (Stufenmodell, USBNK).
 - **Nutzerverzeichnis (Voll):** Präsidien zuweisen / aufschalten, Rollen verwalten
   (die reine Code-Sperre liegt seit 4.9 in der Leitungs-Oberfläche).
-
 - **RLS-Feinschliff** auf Basis der Phase-4-Grundlage.
-- **Audit-/Einsatzprotokoll (= T4 der DATENSCHUTZ-SPEC):** personenscharfes,
-  zeitgestempeltes Verlaufsprotokoll (wer/wann/was/welcher CCP), append-only.
-  Heute nur „zuletzt geändert von/wann". **Hart gesperrt bis DSB-Votum „JI-Regime"**;
-  Umfang + Aufbewahrung (§ 73 PolG BW: 12 Monate) nach DSB/LDSG/Polizeidatenrecht.
+- **Feld-App-Anpassungen (aus Phase 4.14 vertagt):** normaler Token = Echt+Schulung-
+  Präsidiums-Verknüpfung; FLZ-Picker (zwei Reiter Echt/Schulung).
 
-## Phase 8 — Lageübersicht für FLZ / ILS (read-only Dashboard) ⬜
+## Phase 6 — Lageübersicht für FLZ / ILS, Stufe b (read-only Dashboard) ⬜
 
 **Ziel:** Browserbasierte Leseansicht für Führungs- und Lagezentrum (FLZ)
 oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
@@ -497,7 +467,7 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
   - Stufe a: **aggregierte Zahlen** je Kategorie/CCP (anonym).
   - Stufe b (falls zulässig): zusätzlich **pro Patient** Kategorie + Alter + Geschlecht
     + Verletzungsblock (pseudonym; **ohne** Name/Foto/Vitalwerte/Notizen).
-- **Weiteres:** widerrufbare Tokens (Phase 7); Re-Identifikation bei Kleinstzahlen in
+- **Weiteres:** widerrufbare Tokens (Phase 5); Re-Identifikation bei Kleinstzahlen in
   der DSFA bedenken; ggf. Protokollierung des Observer-Zugriffs (DSB). IVENA wäre ein
   separater Push, getrennt halten.
 
@@ -510,6 +480,44 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
   Patientendaten/Protokolle/Fotos, jede Aktion protokolliert — damit ist
   die Leitstelle nachts handlungsfähig (einzige 24/7 besetzte Stelle).
 
+## Phase 7 — Betriebsbereitschaft & Open Beta ⬜
+
+**Ziel:** Die App ist legal, organisatorisch und dokumentarisch bereit für
+einen erweiterten Testkreis und perspektivisch echten Einsatz.
+
+- **Compliance-Checkliste** abarbeiten (→ `docs/COMPLIANCE.md`): EU-Hosting
+  bestätigen, Verschlüsselung, Zugriffsprotokoll, Löschkonzept, MDR-Einstufung
+  mit zuständiger Behörde klären.
+
+- **E-Mail-Adresse** für Lizenzanfragen in `LICENSE` + `README.md` eintragen.
+- **Kurzanleitung** für Tester (Installation, Rollen, CCP eröffnen/beitreten,
+  Kategorien, Abtransport).
+
+- **Feldtest** (LebEL-Übung oder vergleichbar): echte Geräte, echte Lage,
+  Sperre / Rolle / Merge unter realen Netzbedingungen.
+
+- **Open Beta:** breiterer Testkreis, strukturiertes Feedback-Verfahren.
+- ✅ **Vorbereitet (2026-06-04):** DSB-Gesprächsvorlage `docs/DSB-BRIEFING.md`
+  und `docs/TESTER-ANLEITUNG.md` (nützt schon dem laufenden Testkreis).
+
+## Phase 8 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
+
+**Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
+M1-Entscheid (2026-06-11).
+
+- Übergabe-/Deployment-Paket auf Basis von `docs/SELF-HOSTING.md` (Phase 4.11)
+  + `docs/PROD-SETUP.md` (vorhanden, anzupassen).
+- **Repo-Schnitt** (privates Repo, Git-History, Lizenz-/IP-Schutz) bleibt
+  relevant — unabhängig vom Hosting.
+
+- Daten-Hygiene der Dev-Instanz (verwaiste CCPs, frische Codes inkl. neuem
+  MasterToken — der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
+
+- Backup-/Löschkonzept im **Betrieb der Polizei** = Sache des Verantwortlichen;
+  ARGUS liefert die technische Grundlage (Migrationen, Purge-Jobs, Doku).
+
+- ~~Supabase Pro-Tier / separates Prod-Projekt beim Eigentümer~~ — entfallen (M1).
+
 ## Phase 9 — Native App für PTLS Pol 🔒 *Conditional*
 
 **Ziel:** PWA via Capacitor in native iOS-App (.ipa), verteilt über den
@@ -519,7 +527,7 @@ dienstlichen App-Store von PTLS Pol (MDM, kein öffentlicher App Store).
 PWA-Grenzen beim Onboarding — **Deep-Links könnten die App direkt öffnen und den
 enthaltenen Code automatisch einlösen** (entfällt die manuelle Kopier-/„Einfügen"-
 Brücke); engere Integration mit dem Gerät; ggf. Freischaltung/Verwaltung über das
-Governance-/„Systempanel" aus Phase 7. Daher: Onboarding-Feinschliff in der PWA
+Governance-/„Systempanel" aus Phase 5. Daher: Onboarding-Feinschliff in der PWA
 bewusst minimal halten, die „richtige" Lösung kommt mit nativ.
 
 **Konzeptpapier (2026-06-12, intern/gitignored):** `docs/KONZEPT-POLIZEIBETRIEB.md`
@@ -539,7 +547,6 @@ App-zu-App-Schnittstelle) und Fragenkatalog an PTLS Pol/BITBW.
 > Diese Phase ist kein regulärer Entwicklungs-Meilenstein, sondern an eine
 > organisatorisch-politische Entscheidung gebunden. Keine Planung vor
 > Bedingungserfüllung.
-
 ---
 
 ## Technische Schuld (geparkt, kein aktiver Meilenstein)
@@ -552,8 +559,8 @@ App-zu-App-Schnittstelle) und Fragenkatalog an PTLS Pol/BITBW.
 | SW-Cache-Version automatisch bumpen | aktuell manuell | teilw. adressiert (`version.json`); Auto-Bump offen |
 | Laufnummern-Kollision bei gleichzeitigem Anlegen (2 Geräte) | Audit 06-04 | serverseitige Nummernvergabe — offen |
 | JWT-Refresh nur bei Start/`online` (lange Dauer-Sessions) | Audit 06-04 | offen, geringe Priorität |
-| Verwaiste CCPs `praesidium_id = NULL` | Audit 06-04 | beim Produktiv-Schnitt (Phase 5) bereinigen |
-| Master-Code-Rotation vor Echtbetrieb | Audit 06-04 | in Phase 5 (frische Codes im Prod-Projekt) |
+| Verwaiste CCPs `praesidium_id = NULL` | Audit 06-04 | beim Produktiv-Schnitt (Phase 8) bereinigen |
+| Master-Code-Rotation vor Echtbetrieb | Audit 06-04 | in Phase 8 (frische Codes im Prod-Projekt) |
 
 ---
 

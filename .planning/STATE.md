@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Milestone complete
-last_updated: "2026-06-27T17:40:45.347Z"
+status: Roadmap neu geordnet (2026-06-27) — als Nächstes Phase 5 (Identitäten & Audit, Stufe 1)
+last_updated: "2026-06-27T18:30:00.000Z"
 progress:
   total_phases: 9
   completed_phases: 7
@@ -14,7 +14,28 @@ progress:
 
 # Projekt-Status — Argus (CCP-App)
 
-> ## Stand 2026-06-21 (aktuell — manuell nachgezogen)
+> ## Stand 2026-06-27 (Roadmap-Neuordnung + Sicherheits-Nachzug, aktuell)
+> **Phase 04.14 abgeschlossen & gepusht** (origin/main, GitHub Pages live).
+> Beim Phasen-Code-Review + projektweitem Review zwei echte Funde behoben:
+> (1) **CR-02 Privilege-Escalation** — `argus_exchange_code` akzeptierte
+> `is_admin`-Codes → **Migration 0014** weist sie ab + erzwingt `expires_at`
+> im Admin-Exchange (CR-01); live verifiziert. (2) **Tote, aber deployte Edge
+> Function `exchange-code`** (alte schwache Exchange-Logik, BOOT_ERROR) **undeployt
+> + Quelle entfernt** (Endpunkt 404) — latente Bypass-Fläche beseitigt. QR-Encoder
+> (Plan 03) war nicht lauffähig → durch MIT-Lib ersetzt, per jsQR als scanbar belegt.
+> Offener Follow-up-Task: pre-existing Foto-`src`-XSS (Leitungs-Protokollansicht).
+>
+> **Roadmap-Neuordnung (Owner-Entscheid 2026-06-27)** — ersetzt die Ordnung vom
+> 2026-06-21. Neue Nummern = Ausführungsreihenfolge:
+> **Phase 5 Identitäten & Audit-Protokoll (Stufe 1)** ← **DSB-Abhängigkeit entfällt**
+> (Owner-Entscheid; löst den „JI-Regime"-Vorbehalt ab) · **Phase 6 FLZ-Lage Stufe b** ·
+> **Phase 7 Betriebsbereitschaft & Open Beta** (danach PPF-Nutzungsfreigabe) ·
+> **Phase 8 Übergabe-Paket** · **Phase 9 Native App PTLS** (conditional).
+> **Nächster Schritt:** Phase 5 — `/gsd-discuss-phase 5` (oder direkt planen).
+> Architektur-Grundlage Stufe 1: `.planning/PHASE7-ROLLENMODELL-DRAFT.md`.
+> Hinweis: Schulungsumgebung-Leeren („Übungs-Präsidium leeren") ist seit 4.14 live.
+
+> ## Stand 2026-06-21 (Vorgänger — manuell nachgezogen)
 > **App feature-complete; Releases bis v0.31.0 live.** Seit dem letzten STATE-Update (13.06.):
 > - **Phase 4.13** (Schulungs-Provisionierung, Tombstone-Reset, AT-MIST-Druck) abgeschlossen.
 > - **tacSTART:** kurz zum statischen Schaubild de-qualifiziert (v0.29.x, MDR-Grund), dann auf **Owner-Entscheid zurück zum geführten Walk** (v0.30.0). MDR-Einstufung bewusst akzeptiert → Memory [[mdr-tacstart-accepted]] · `docs/MDR-EINSTUFUNG.md`. NICHT eigenmächtig rückbauen.
