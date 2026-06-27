@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: in_progress
-last_updated: "2026-06-21T00:00:00.000Z"
+status: Executing Phase 04.14
+last_updated: "2026-06-27T16:34:47.836Z"
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 6
-  total_plans: 25
-  completed_plans: 19
-  percent: 75
+  total_plans: 28
+  completed_plans: 20
+  percent: 67
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -718,6 +718,30 @@ Blocker, voll autonom — kein PAT nötig).
 
 ---
 
+## Phase 04.14 — Governance-Panel-Vervollständigung (IN ARBEIT)
+
+**Planung:** 3 Pläne in 3 Wellen. Phase läuft.
+
+**Ausführungsstand (Welle 1):**
+
+- **04.14-01 ✅ (2026-06-27):** Migration `0013_phase414_admin_rolle.sql` (388 Zeilen)
+  geschrieben, zweimal live angewendet (Management API, HTTP 201 × 2 = Idempotenz-Beleg).
+  Alle 16 REST-Positiv-/Negativ-Tests + Sofortsperre-Test grün:
+  `argus_exchange_admin_code` (JWT mit is_admin+admin_praesidium_id+jti, KEIN is_master/praesidium_id),
+  `argus_admin_issue_gast`/`argus_admin_revoke_gast` (scoped security-definer-RPCs,
+  harte Scope-Prüfung), `argus_lage`-Admin-Zweig; jti-Sofortsperre wirkt.
+  Alle Privilege-Escalation-Vektoren (Fremd-Präsidium, Master-Code-Sperre, Roh-Patientenzugriff,
+  Token-Insert) VERWEIGERT. `docs/SELF-HOSTING.md` auf 0012+0013 nachgeführt.
+  D-06 gewahrt (kein konkreter Leitungs-Dateiname in committeten Texten).
+  Testdaten aufgeräumt. **Offener Owner-Punkt: PAT widerrufen.**
+  Details: `.planning/phases/04.14-governance-panel/04.14-01-SUMMARY.md`.
+  Commits da103c7 · b4e4219.
+
+- **PAT widerrufen (Owner-Punkt):** der für 04.14-01 genutzte ephemere PAT
+  im Supabase-Dashboard widerrufen (zusammen mit ggf. offenen Alt-PATs).
+
+---
+
 ## Phase 4.13 — Paket 3: Schulungs-Provisionierung, Tombstone-Reset, AT-MIST-Druck (IN ARBEIT)
 
 **Planung:** 2 Pläne in 2 Wellen (Backend vor Frontend), geplant 2026-06-13.
@@ -794,8 +818,10 @@ bereits existiert).
 |-------|------|----------|-------|
 | Phase 04.13 P01 | 25min | 2 tasks | 2 files |
 | Phase 04.13 P02 | 12min | 3 tasks | 6 files |
+| Phase 04.14 P01 | multi-session | 3 tasks | 2 files |
 
 ## Decisions
 
 - [Phase 04.13]: 04.13-01: Provisioniertes Schwester-Praesidium 'PP Karlsruhe — Schulung' bleibt auf der Instanz (gewollter Endzustand der Provisionierung, idempotent; ZZTEST-Artefakte aufgeraeumt)
 - [Phase 04.13]: 04.13-02: Demo-Direkt-Merge (5. Gate-Stelle) ebenfalls auf _praesidiumSchulung umgestellt; loadSchulDirty zaehlt nur offene CCPs (Rule-1-Fix gegen Tombstone-Blockade); kein UPDATE-Sheet fuer v0.28.0; Push+Live-Smoke an Orchestrator delegiert
+- [Phase 04.14]: 04.14-01: Admin-JWT traegt bewusst KEIN praesidium_id/is_master — alle bestehenden RLS-Policies liefern [] ohne Extra-Policies; argus_is_admin() gated auf argus_token_active() fuer jti-Sofortsperre; Gast-Code-Ausgabe/-Sperre als security-definer-RPCs (direkte Writes master-only per RLS 0001); 0013 nutzt dieselben Server-Abhaengigkeiten wie 0005/0007
