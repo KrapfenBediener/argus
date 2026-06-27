@@ -680,8 +680,47 @@ async function doLogin(raw){
       return;
     }
 
+    /* ── 3. Pro-Person-Versuch (argus_exchange_person_code, Plan 05-03) ──
+     * Erst NACHDEM Master- und Admin-Versuch fehlgeschlagen sind. Ein
+     * Person-Code an argus_exchange_code liefert dank CR-02-Härtung (Plan 01)
+     * bereits einen Fehler statt eines is_master-JWT — der Master-Versuch
+     * scheitert also korrekt zuerst. Der Person-Token trägt die USBNK, damit
+     * Leitungs-Seiten-Aktionen personenscharf protokolliert werden (D-08). */
+    var resp3=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_person_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data3=await resp3.json();
+
+    if(data3 && data3.jwt){
+      var prole=(data3.argus_role||'').toLowerCase();
+      sessionStorage.setItem('argusl_jwt', data3.jwt);
+      sessionStorage.setItem('argusl_jwt_exp', String(data3.exp*1000));
+      /* USBNK als Sitzungs-Kürzel (Actor) — erscheint in Governance-/Audit-Aktionen */
+      sessionStorage.setItem('argusl_kuerzel', data3.usbnk||'');
+      if(prole==='master'){
+        sessionStorage.setItem('argusl_role', 'master');
+        state.section='zugaenge';     /* volle Master-Ansicht */
+      }else if(prole==='admin'){
+        sessionStorage.setItem('argusl_role', 'admin');
+        sessionStorage.setItem('argusl_padmin', data3.praesidium_id||'');
+        sessionStorage.setItem('argusl_padmin_name', data3.praesidium_name||'');
+        state.section='admin-zugang'; /* reduzierte Admin-Ansicht */
+      }else{
+        /* flz / normal: in Phase 5 (noch) keine Leitungs-Seiten-Ansicht.
+         * Anmeldung akzeptieren, aber freundlichen Hinweis zeigen — KEINE
+         * kaputte/leere Master-Ansicht rendern. */
+        sessionStorage.setItem('argusl_role', prole||'normal');
+        state.section='noview';
+      }
+      render();
+      loadSection();
+      return;
+    }
+
     /* ── Abweisung — KEIN sessionStorage-Schreiben ── */
-    setLoginError('Nur mit Master- oder Admin-Token — dieser Code hat keine Leitungs-Berechtigung.');
+    setLoginError('Nur mit Master-, Admin- oder Pro-Person-Token — dieser Code hat keine Leitungs-Berechtigung.');
   }catch(e){
     setLoginError('Keine Verbindung — bitte erneut versuchen.');
   }finally{
@@ -707,7 +746,11 @@ var SECTIONS_ADMIN=[
 ];
 function sideNav(){
   var role=sessionRole();
-  var secs=(role==='admin') ? SECTIONS_ADMIN : SECTIONS_MASTER;
+  /* Rollen ohne Leitungs-Seiten-Ansicht (flz/normal, Phase 5): keine
+   * privilegierten Bereiche anbieten — die Navigation bleibt leer. */
+  var secs=(role==='admin') ? SECTIONS_ADMIN
+         : (role==='master') ? SECTIONS_MASTER
+         : [];
   var h='<nav class="side"><div class="sh">Bereiche</div>';
   secs.forEach(function(s){
     h+='<div class="it'+(state.section===s.id?' on':'')+'" data-nav="'+s.id+'">'+esc(s.label)+'</div>';
@@ -731,6 +774,7 @@ function render(){
   else if(state.section==='audit')        h+=secAudit();
   else if(state.section==='admin-zugang') h+=secAdminZugang();
   else if(state.section==='admin-lage')   h+=secAdminLage();
+  else if(state.section==='noview')       h+=secNoView();
   h+='</main></div>';
   app.innerHTML=h;
 }
@@ -742,6 +786,22 @@ function loadSection(){
   else if(state.section==='audit')        loadAudit();
   else if(state.section==='admin-zugang') loadAdminZugang();
   else if(state.section==='admin-lage')   loadAdminLage();
+}
+
+/* ── Hinweis-Ansicht für Rollen ohne Leitungs-Seiten-Bereich ──────
+ * flz/normal sind in Phase 5 gültige Anmeldungen (Person-Token), haben
+ * aber noch keine eigene Ansicht — FLZ-Lage/Feld-App folgen in einer
+ * Folgephase. Statt einer kaputten/leeren Master-Ansicht: klarer Hinweis. */
+function secNoView(){
+  var usbnk=esc(sessionStorage.getItem('argusl_kuerzel')||'');
+  var role=esc(sessionRole());
+  var h='<div class="mh"><h2>Angemeldet</h2></div>';
+  h+='<div class="card">';
+  h+='<div class="hint" style="margin:0 0 6px">USBNK: <b>'+(usbnk||'—')+'</b> · Rolle: <b>'+role+'</b></div>';
+  h+='<p style="margin:8px 0 0">Für diese Rolle ist auf der Leitungs-Seite noch keine Ansicht verfügbar.</p>';
+  h+='<p class="hint" style="margin-top:6px">FLZ-Lage und Feld-App-Funktionen kommen in einer Folgephase. Die Anmeldung ist gültig und wurde personenscharf protokolliert.</p>';
+  h+='</div>';
+  return h;
 }
 
 /* ── Login-View ────────────────────────────────────────────────── */
