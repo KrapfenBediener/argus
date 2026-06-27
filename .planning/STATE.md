@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 5 (Identitäten & Audit, Stufe 1) — GEPLANT & verifiziert (Checker PASS), als Nächstes /gsd-execute-phase 5
-last_updated: "2026-06-27T19:10:00.000Z"
+status: Executing Phase 05
+last_updated: "2026-06-27T21:00:00Z"
 progress:
-  total_phases: 9
+  total_phases: 10
   completed_phases: 7
-  total_plans: 28
-  completed_plans: 22
-  percent: 78
+  total_plans: 31
+  completed_plans: 23
+  percent: 74
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -153,6 +153,28 @@ progress:
 
 - **Deploy:** GitHub Pages · Repo `KrapfenBediener/argus` · Branch `main`
 - **Backend:** Supabase EU (`sehuosjyjmrpzcqrelej`) · Free Tier
+
+---
+
+## Phase 5 — Identitäten & Audit-Protokoll Stufe 1 (in Arbeit 2026-06-27)
+
+**Plan 05-01 ✅ (2026-06-27):** Migration 0015 — Stufe-1-Identitäts-Schicht serverseitig
+komplett. is_person/usbnk/role auf access_tokens, schulungs_zwilling_id auf praesidien,
+Claim-Helfer argus_is_flz/argus_usbnk/argus_argus_role (jti-gated), CR-02-Guard is_person
+in argus_exchange_code, audit_log append-only (RLS argus_is_master, kein anon-Write-Grant),
+argus_exchange_person_code (usbnk+role-Claims, kein Klarname D-02, 30-Tage-exp D-11,
+person_login-Log, CR-02-Spiegel), argus_master_issue_person (alle Flags explizit, kein
+expires_at, person_issue-Log mit actor-USBNK, Master darf weitere Master ausgeben D-13),
+argus_master_revoke_person (revoked+jti-Sofortsperre, person_revoke-Log),
+argus_master_search_usbnk (ohne token-Spalte), argus_lage FLZ-Zweig (präsidienübergreifend
+D-12). 0015 zweimal live angewendet (beide HTTP 201, idempotent). Vollständige
+21+Positiv-/Negativ-/jti-Testbatterie bestanden; alle Privilege-Escalation-Vektoren verweigert.
+SELF-HOSTING.md nachgeführt (0015 in Dateiliste/Reihenfolge + Audit-Prosa + Stufe-1-Bootstrap).
+D-02 + D-06 durchgängig gewahrt. Commits a0b50a8 (Tasks 1+2), 1593fbb (Task 3).
+SUMMARY: `.planning/phases/05-identitaeten-audit-stufe1/05-01-SUMMARY.md`.
+Offener Owner-Punkt: ephemeren PAT widerrufen (Supabase Dashboard → Account → Access Tokens).
+
+**Pläne 05-02/05-03:** offen (Audit-Retention / Leitungs-Seite UI)
 
 ---
 
