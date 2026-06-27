@@ -479,7 +479,7 @@ Context: `.planning/phases/05.1-feldapp-login-picker/05.1-CONTEXT.md`.
 
 **Plans:** 4 Pläne in 3 Wellen (geplant 2026-06-27).
 - [x] 05.1-01-PLAN.md — Migration 0018: Feld-Audit-Trigger (patients/ccps → audit_log via argus_usbnk()) + `normal`-Entsperrung (issue/role-change); Management-API-Apply-Checkpoint [Welle 1] ✅ 2026-06-27
-- [ ] 05.1-02-PLAN.md — Leitungs-Seite: `normal`-Option im Ausgabe-Dropdown + Rollenwechsel + Präsidiums-Pflicht (Einzel-Ausgabe) [Welle 2]
+- [x] 05.1-02-PLAN.md — Leitungs-Seite: `normal`-Option im Ausgabe-Dropdown + Rollenwechsel + Präsidiums-Pflicht (Einzel-Ausgabe) [Welle 2] ✅ 2026-06-27
 - [ ] 05.1-03-PLAN.md — Feld-App: Ein-Feld-Person-Login (Auto-Erkennung) + Echt/Schulung-Zwei-Reiter-Picker + verstärkter SCHULUNG-Banner + USBNK-Sitzung [Welle 2]
 - [ ] 05.1-04-PLAN.md — Release v0.32.0 (APP_VERSION/SW v59/version.json/CHANGELOG/WHATS_NEW/UPDATE_v0.32.html) + Trainings-Drehbuch; Deploy bleibt Owner-Gate [Welle 3]
 

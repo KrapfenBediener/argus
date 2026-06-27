@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
 status: Executing Phase 05.1
-last_updated: "2026-06-27T22:00:00.000Z"
+last_updated: "2026-06-27T21:47:45Z"
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 35
-  completed_plans: 26
-  percent: 74
+  completed_plans: 27
+  percent: 77
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -190,6 +190,9 @@ SUMMARY: `.planning/phases/05-identitaeten-audit-stufe1/05-03-SUMMARY.md`.
 **Plan 05.1-01 ✅ (2026-06-27):** Migration 0018 — Feld-Audit-Trigger (patients/ccps → audit_log via argus_usbnk()) + 'normal'-Entsperrung. Zwei security-definer AFTER-Trigger-Funktionen (argus_audit_patients_aiu, argus_audit_ccps_aiu) leiten die 8 D-06-Lebenszyklus-Aktionen aus NEW/OLD-Spaltendiff ab (photo > checkout > ready > cat_change; ccp_close > ccp_merge); schreiben genau 1 Eintrag pro DML; reine Vitalwert-Updates = kein Eintrag (D-06). argus_usbnk() liest USBNK aus dem signierten JWT — Client kann nicht fälschen; usbnk=null bei Stufe-0-Sessions wird trotzdem protokolliert (§73-Vollständigkeit). praesidium_id für patients über ccps JOIN aufgelöst. argus_master_issue_person + argus_master_role_change_person byte-nah zu 0017 neu erstellt, nur Whitelist + Fehlertext geändert: 'normal' wieder enthalten (5.1-Freigabe). 0018 zweimal live angewendet (beide HTTP 201, idempotent). Alle 8 Trigger-Aktionen live verifiziert; vital-only → 0 Einträge bestätigt; CR-02 intakt; append-only (anon INSERT → HTTP 401); Testdaten bereinigt. SELF-HOSTING.md nachgeführt (0018 Dateiliste/Reihenfolge/Prosa). Kein App-Release (index.html/sw.js unverändert). Commits 68d2a80 (Tasks 1+2), 1b0f7c0 (SUMMARY).
 SUMMARY: `.planning/phases/05.1-feldapp-login-picker/05.1-01-SUMMARY.md`.
 Offener Owner-Punkt: ephemeren PAT widerrufen (Supabase Dashboard → Account → Access Tokens).
+
+**Plan 05.1-02 ✅ (2026-06-27):** Leitungs-Seite — 'normal'-Rolle im Ausgabe-Dropdown + Präsidiums-Pflicht + Rollenwechsel-Annahme. pers-rolle-Select um `<option value="normal">Normal</option>` erweitert (nach Admin; FLZ bleibt Default). doMkPerson(): Präsidiums-Pflicht auf admin||normal ausgeweitet (Toast: „Für diese Rolle ist ein Präsidium erforderlich."); pers-praes-wrap-Sichtbarkeits-Listener auf admin||normal erweitert; Label „Präsidium (für Admin-/Normal-Rolle)" angepasst. doPersonRole(): Prompt-Text auf master/flz/admin/normal; Whitelist um 'normal' ergänzt; kein clientseitiges Abweisen. rolleLabel('normal')='Normal'/rolleColor bereits aus Phase 5 vorhanden — kein Tweak. Hinweistext: „Einzel-Ausgabe (Master/FLZ/Admin/Normal) — pro Präsidium, geringe Menge. Massen-Provisionierung normaler Nutzer bleibt SSO-gated (D-10)." D-06-Gate: 0 Treffer. Nur In-App-Modals; D-02/D-06 gewahrt; index.html/sw.js unverändert (kein App-Release). Commits 099b5bf (Tasks 1), 2bbaaf4 (Task 2).
+SUMMARY: `.planning/phases/05.1-feldapp-login-picker/05.1-02-SUMMARY.md`.
 
 ---
 
