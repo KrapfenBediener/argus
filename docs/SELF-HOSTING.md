@@ -84,6 +84,7 @@ supabase/migrations/0010_lage_ort.sql                  FLZ-Orts-Korrektur (argus
 supabase/migrations/0011_paket3_schulung.sql           Schulungs-Reset über Tombstones (argus_schulung_reset, 7-Tage-Hygiene), Schulungs-Provisionierung (argus_provision_schulung)
 supabase/migrations/0012_kurs_evaluation.sql           Anonymer Kurs-Evaluationsbogen
 supabase/migrations/0013_phase414_admin_rolle.sql      Präsidiums-Admin-Rolle (is_admin-Token, Admin-Exchange, scoped Gast-Code-RPCs, argus_lage-Admin)
+supabase/migrations/0014_phase414_admin_exchange_hardening.sql  Härtung: argus_exchange_code weist is_admin-Codes ab (CR-02); argus_exchange_admin_code erzwingt expires_at (CR-01)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -92,7 +93,10 @@ Abhängigkeiten wie 0001/0003: pgjwt + Vault-Secret für den Observer-Exchange;
 0006 und 0007 haben keine neuen Abhängigkeiten — 0007 erweitert nur die
 JWT-Payloads und die Claim-Helfer; 0013 nutzt dieselben Abhängigkeiten wie
 0005/0007: pgjwt + Vault-Secret `argus_jwt_secret` für den Admin-Exchange-RPC,
-jti-Sofortsperre über `argus_token_active` — KEINE neuen Server-Abhängigkeiten):
+jti-Sofortsperre über `argus_token_active` — KEINE neuen Server-Abhängigkeiten;
+0014 fasst nur argus_exchange_code/argus_exchange_admin_code neu (zusätzliche
+Guards: is_admin-Abweisung im Feld-App-Exchange, expires_at im Admin-Exchange) —
+ebenfalls KEINE neuen Server-Abhängigkeiten):
 
 | Abhängigkeit | Vorkommen | Wofür | Einstufung | Prüfung |
 |---|---|---|---|---|
@@ -141,7 +145,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
