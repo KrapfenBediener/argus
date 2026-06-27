@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Executing Phase 05.1
-last_updated: "2026-06-27T21:47:45Z"
+status: Phase 5.1 PAUSIERT am Checkpoint 05.1-03 — Twin-Scope-Entscheidung offen (D5.1-03) + D-06-Historie-Rotation; 05.1-01/02 fertig, 05.1-03-Code committet (Picker-UI ok, Twin-Schreibzugriff fehlt), 05.1-04 Release ausstehend
+last_updated: "2026-06-28T00:05:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 8
