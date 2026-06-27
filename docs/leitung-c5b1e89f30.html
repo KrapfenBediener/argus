@@ -830,9 +830,12 @@ function foldHead(key, defCollapsed, title, summary, forceOpen){
 
 /* Code-/Token-Erzeugung — 1:1 aus der Feld-App portiert */
 function genShortCode(){
+  /* WR-02 (04.14 Code-Review): kryptografisch statt Math.random. Das Alphabet hat
+     32 Zeichen (Zweierpotenz) → b%32 ist bias-frei (256/32=8). Konsistent zu genToken. */
   var AL="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  function blk(){var s='';for(var i=0;i<4;i++)s+=AL[Math.floor(Math.random()*AL.length)];return s;}
-  return blk()+'-'+blk();
+  var a=new Uint8Array(8); crypto.getRandomValues(a);
+  var s='';for(var i=0;i<8;i++){ if(i===4)s+='-'; s+=AL[a[i]%32]; }
+  return s;
 }
 function genToken(){ var a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a,function(b){return b.toString(16).padStart(2,'0');}).join(''); }
 
