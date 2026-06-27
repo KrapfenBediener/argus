@@ -7,6 +7,8 @@ Was es tut:
   Lädt alle Tabellen der ARGUS-Datenbank (praesidien, ccps, checklists,
   access_tokens, patients) read-only herunter und schreibt sie als eine
   JSON-Datei nach  ~/ARGUS-Backups/argus-backup-<zeitstempel>.json
+  Zusätzlich werden die Kurs-Evaluationen über die Master-RPC argus_eval_list()
+  gesichert (course_evaluations ist per RLS für direktes SELECT gesperrt).
 
 Authentifizierung:
   Über den MasterToken-CODE (kein Management-PAT nötig). Der Code wird NICHT
@@ -89,6 +91,19 @@ def main():
         out["tables"][t] = rows
         out["counts"][t] = len(rows)
         print("%d Zeilen" % len(rows))
+    # Kurs-Evaluationen separat über die Master-RPC (RLS sperrt direktes SELECT).
+    print("· Sichere course_evaluations (via argus_eval_list) …", end=" ", flush=True)
+    try:
+        evals = _post("/rest/v1/rpc/argus_eval_list", {}, jwt)
+        if not isinstance(evals, list):
+            evals = []
+        out["tables"]["course_evaluations"] = evals
+        out["counts"]["course_evaluations"] = len(evals)
+        print("%d Zeilen" % len(evals))
+    except Exception as e:
+        out["tables"]["course_evaluations"] = []
+        out["counts"]["course_evaluations"] = 0
+        print("übersprungen (%s)" % e)
     outdir = os.path.expanduser("~/ARGUS-Backups")
     os.makedirs(outdir, exist_ok=True)
     path = os.path.join(outdir, "argus-backup-" + time.strftime("%Y%m%d-%H%M%S") + ".json")
