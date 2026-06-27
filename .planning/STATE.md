@@ -25,17 +25,17 @@ progress:
 >
 > **Roadmap-Neuordnung (Owner-Entscheid 2026-06-21):** Übergabe-Paket (Phase 5/6) ans **Ende**; **Phase 7 (Identitäten & Rollen) vorgezogen**, um die PTLS-Wartezeit produktiv zu nutzen. Audit-Log/T4 bleibt in Phase 7 ausgeklammert (DSB-gated). Erstes Inkrement: präsidiums-begrenzte **„Kurs-Host"-Rolle**.
 > **Nächster Schritt (GSD-sauber, FRISCH machen — nicht ermüdet):**
-> Phasen 5–8 sind in GSD **nicht registriert** (nur ROADMAP-Skizze; `phase_found=false`).
-> Korrekte Reihenfolge: **`/gsd-complete-milestone`** (Closed Beta V1 formell abschließen)
-> → **`/gsd-new-milestone`** (Milestone „Governance & Übergabe", neu sortiert: Rollen
-> zuerst, Übergabe ans Ende, T4/FLZ-b DSB-gated) → **`/gsd-discuss-phase`** (Rollen)
-> → **`/gsd-plan-phase`**.
-> **Rollenmodell ist bereits vorgedacht:** Entscheidungsvorlage in
-> `.planning/PHASE7-ROLLENMODELL-DRAFT.md` (Empfehlung: Token-Rollen statt Konten;
-> neue Rolle „Präsidiums-Admin/Kurs-Host" präsidiums-begrenzt; Capability-Matrix +
-> Sicherheits-Leitplanken + offene Owner-Fragen). In die `discuss-phase` einspeisen.
-> **Sofort-nützliche Einzel-Builds (unabhängig, ohne Phase-7-Ceremony):**
-> QR-Ausgabe für Gast-Codes (Deep-Link) · In-App-©/„proprietär"-Hinweis · Repo privat schalten.
+> **Phase 04.14 ist GEPLANT & verifiziert** (2026-06-22) — „Governance-Panel-
+> Vervollständigung (schlank, ohne Stufe 1)". 3 Pläne / 3 Wellen, gsd-plan-checker
+> PASS. Ordner `.planning/phases/04.14-governance-panel/` (CONTEXT + 01/02/03-PLAN).
+> **Nächster Schritt:** `/gsd-execute-phase 04.14` (Plan 01 pausiert für PAT-Freigabe
+> vor Migration 0013). 1 offener WARNING (nicht-blockierend): Plan 03 T1 `tdd`-Attribut
+> ohne Auto-Matrix-Test — durch Manuell-Checkpoint gedeckt.
+> **Architektur-Grundlage:** `.planning/PHASE7-ROLLENMODELL-DRAFT.md` (Stufenmodell;
+> Stufe 1/USBNK/T4, Feld-App-Änderungen, SSO sind spätere Folgephasen).
+> **GSD-Hinweis:** Phasen werden über ihr Verzeichnis getrackt; 5–9 bleiben ROADMAP-
+> Skizzen ohne Ordner. Formaler Milestone-Schnitt (complete/new-milestone) bleibt
+> optional/später (Buchführungs-Drift, kein Mehrwert für die Arbeit).
 
 - **Milestone:** Closed Beta V1 — läuft
 - **Aktuelle Phase:** 4.12 FLZ-Lageansicht Stufe a — **ABGESCHLOSSEN
