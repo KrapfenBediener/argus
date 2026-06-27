@@ -150,6 +150,11 @@ var _sb = null;
 var _sbJwt = null;
 var state = { section:'zugaenge' };   /* Direkteinstieg: Zugänge — keine Übersichtsseite */
 
+/* ── Rollen-Helfer (Plan 04.14-02) ──────────────────────────────
+ * sessionRole() liefert 'admin' oder Default 'master'.
+ * Abwärtskompatibel: Altsitzungen ohne argusl_role → 'master'. */
+function sessionRole(){ return sessionStorage.getItem('argusl_role')||'master'; }
+
 /* ── Hilfsfunktionen ─────────────────────────────────────────── */
 function $(id){ return document.getElementById(id); }
 function nowMs(){ return Date.now(); }
@@ -236,39 +241,67 @@ function sb(){
   return _sb;
 }
 
-/* ── Login (D-07): nur MasterToken ──────────────────────────────
- * Tauscht den Code via rpc/argus_exchange_code gegen ein JWT.
- * Antworten OHNE is_master=true werden abgewiesen — NICHTS wird
- * gespeichert (kein sessionStorage-Schreiben im Abweisungspfad). */
+/* ── Login (D-07): MasterToken oder Admin-Token ──────────────────
+ * Ablauf: zuerst argus_exchange_code versuchen (Master-Strecke).
+ * Liefert sie kein JWT oder keinen Master, zweiten Versuch gegen
+ * argus_exchange_admin_code mit demselben Code. Erst wenn auch das
+ * scheitert, wird die Abweisung gezeigt.
+ * Wichtig: argus_exchange_admin_code NUR aufrufen, wenn Master-Versuch
+ * wirklich keinen Master ergab — Doppel-Log vermeiden.
+ * NICHTS wird im Abweisungspfad in sessionStorage gespeichert. */
 async function doLogin(raw){
   /* Ohne Config liefe der fetch relativ gegen den eigenen Origin (kryptischer
    * 404) — daher hier hart abfangen, Hinweis steht auch in der Login-Ansicht. */
   if(_configError){ setLoginError('Konfiguration fehlt (config.js) — kein Backend verbunden.'); return; }
   var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
-  if(clean.length<8){ setLoginError('Bitte vollständigen MasterToken eingeben.'); return; }
+  if(clean.length<8){ setLoginError('Bitte vollständigen Zugangs-Token eingeben.'); return; }
   setLoginError('');
   var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
   try{
+    /* ── 1. Master-Versuch (argus_exchange_code) ── */
     var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_code',{
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
       body:JSON.stringify({ code:clean })
     });
     var data=await resp.json();   /* ungültiger Code = HTTP 200 + {error:…} */
-    if(!data || !data.jwt){
-      setLoginError(data && data.error ? data.error : 'Ungültiger oder verbrauchter Code.');
+
+    if(data && data.jwt && data.is_master===true){
+      /* ── Master-Pfad: alles wie bisher ── */
+      sessionStorage.setItem('argusl_jwt', data.jwt);
+      sessionStorage.setItem('argusl_jwt_exp', String(data.exp*1000));
+      sessionStorage.setItem('argusl_role', 'master');
+      state.section='zugaenge';     /* D-10: direkt in den ersten Bereich */
+      render();
+      loadSection();
       return;
     }
-    if(data.is_master !== true){
-      /* Abweisung OHNE Speicherung — die Leitungs-Seite akzeptiert nur den MasterToken. */
-      setLoginError('Nur mit MasterToken — dieser Code hat keine Leitungs-Berechtigung.');
+
+    /* ── 2. Admin-Versuch (argus_exchange_admin_code) ──
+     * Nur wenn Master-Versuch kein Master-JWT geliefert hat —
+     * vermeidet Doppel-Log im governance_log. */
+    var resp2=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_admin_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data2=await resp2.json();
+
+    if(data2 && data2.jwt){
+      /* ── Admin-Pfad ── */
+      sessionStorage.setItem('argusl_jwt', data2.jwt);
+      sessionStorage.setItem('argusl_jwt_exp', String(data2.exp*1000));
+      sessionStorage.setItem('argusl_role', 'admin');
+      sessionStorage.setItem('argusl_padmin', data2.praesidium_id||'');
+      sessionStorage.setItem('argusl_padmin_name', data2.praesidium_name||'');
+      state.section='admin-zugang'; /* Direkteinstieg für Admin */
+      render();
+      loadSection();
       return;
     }
-    sessionStorage.setItem('argusl_jwt', data.jwt);
-    sessionStorage.setItem('argusl_jwt_exp', String(data.exp*1000));
-    state.section='zugaenge';     /* D-10: direkt in den ersten Bereich */
-    render();
-    loadSection();
+
+    /* ── Abweisung — KEIN sessionStorage-Schreiben ── */
+    setLoginError('Nur mit Master- oder Admin-Token — dieser Code hat keine Leitungs-Berechtigung.');
   }catch(e){
     setLoginError('Keine Verbindung — bitte erneut versuchen.');
   }finally{
@@ -279,22 +312,32 @@ function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
 function doLogout(){ sessionStorage.clear(); location.reload(); }
 
 /* ── Navigation / Router ───────────────────────────────────────── */
-var SECTIONS=[
+/* Master-Bereiche (volle Governance) */
+var SECTIONS_MASTER=[
   { id:'zugaenge',   label:'Zugänge' },
   { id:'einsaetze',  label:'Einsatzprotokolle' },
   { id:'protokoll',  label:'Protokoll' }
 ];
+/* Admin-Bereiche (reduziert: nur eigenes Präsidium) */
+var SECTIONS_ADMIN=[
+  { id:'admin-zugang', label:'Gast-Code' },
+  { id:'admin-lage',   label:'Lage' }
+];
 function sideNav(){
+  var role=sessionRole();
+  var secs=(role==='admin') ? SECTIONS_ADMIN : SECTIONS_MASTER;
   var h='<nav class="side"><div class="sh">Bereiche</div>';
-  SECTIONS.forEach(function(s){
+  secs.forEach(function(s){
     h+='<div class="it'+(state.section===s.id?' on':'')+'" data-nav="'+s.id+'">'+esc(s.label)+'</div>';
   });
-  /* Sichtbar gesperrte Zone (D-09): bewusst KEIN data-action, KEIN Klick-Verhalten.
-   * Diese Funktionen kommen erst in Phase 7 (nach DSB-Votum). */
-  h+='<div class="lockedsec"><div class="sh">Phase 7 · nach DSB</div>';
-  h+='<div class="locked"><span>Identitäten</span><span>🔒</span></div>';
-  h+='<div class="locked"><span>Audit-Log</span><span>🔒</span></div>';
-  h+='</div></nav>';
+  /* Phase-7-Sperrzone NUR für Master — Admin bekommt sie nicht zu sehen. */
+  if(role==='master'){
+    h+='<div class="lockedsec"><div class="sh">Phase 7 · nach DSB</div>';
+    h+='<div class="locked"><span>Identitäten</span><span>🔒</span></div>';
+    h+='<div class="locked"><span>Audit-Log</span><span>🔒</span></div>';
+    h+='</div>';
+  }
+  h+='</nav>';
   return h;
 }
 function render(){
@@ -306,16 +349,20 @@ function render(){
     return;
   }
   var h='<div class="layout">'+sideNav()+'<main class="main">';
-  if(state.section==='zugaenge')       h+=secZugaenge();
-  else if(state.section==='einsaetze') h+=secEinsaetze();
-  else if(state.section==='protokoll') h+=secProtokoll();
+  if(state.section==='zugaenge')          h+=secZugaenge();
+  else if(state.section==='einsaetze')    h+=secEinsaetze();
+  else if(state.section==='protokoll')    h+=secProtokoll();
+  else if(state.section==='admin-zugang') h+=secAdminZugang();
+  else if(state.section==='admin-lage')   h+=secAdminLage();
   h+='</main></div>';
   app.innerHTML=h;
 }
 function loadSection(){
-  if(state.section==='zugaenge')       loadZugaenge();
-  else if(state.section==='einsaetze') loadEinsaetze();
-  else if(state.section==='protokoll') loadProtokoll();
+  if(state.section==='zugaenge')          loadZugaenge();
+  else if(state.section==='einsaetze')    loadEinsaetze();
+  else if(state.section==='protokoll')    loadProtokoll();
+  else if(state.section==='admin-zugang') loadAdminZugang();
+  else if(state.section==='admin-lage')   loadAdminLage();
 }
 
 /* ── Login-View ────────────────────────────────────────────────── */
@@ -323,9 +370,9 @@ function vLogin(){
   var h='<div class="loginwrap"><div class="loginbox">';
   h+='<div class="arg-logo">ARGUS</div>';
   h+='<h1 style="text-align:center">Leitung</h1>';
-  h+='<div class="hint" style="text-align:center">Anmeldung nur mit MasterToken.<br>Die Sitzung endet mit dem Schließen des Tabs.</div>';
+  h+='<div class="hint" style="text-align:center">Anmeldung mit Master- oder Admin-Token.<br>Die Sitzung endet mit dem Schließen des Tabs.</div>';
   if(_configError){ h+='<div class="lerr" style="text-align:center">⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden.</div>'; }
-  h+='<label class="fieldlab" for="logininp">MasterToken</label>';
+  h+='<label class="fieldlab" for="logininp">Zugangs-Token</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
   h+='<div class="modalrow" style="justify-content:stretch;gap:8px">';
   h+='<button class="btn ghost" data-action="pastetoken" style="flex:1">📋 Einfügen</button>';
@@ -358,6 +405,7 @@ var _zugFilter={art:'alle',status:'alle',sort:'neu'};
 function zugFilterActive(){ return _zugFilter.art!=='alle' || _zugFilter.status!=='alle'; }
 function tokenArtKey(t){
   if(t.observer) return 'beobachter';
+  if(t.is_admin) return 'admin';
   if(t.is_master) return 'master';
   if(t.gast) return 'gast';
   if(t.single_use) return 'einmal';
@@ -424,7 +472,7 @@ async function loadZugaenge(){
     if(pr.error){ _zugErr=pr.error.message||'Präsidien nicht lesbar'; }
     else{
       _praes=pr.data||[];
-      var tk=await cl.from('access_tokens').select('short_code,label,is_master,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer,created_at,gast,expires_at');
+      var tk=await cl.from('access_tokens').select('short_code,label,is_master,is_admin,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer,created_at,gast,expires_at');
       if(tk.error){ _zugErr=tk.error.message||'Zugänge nicht lesbar'; }
       else{ _tokens=tk.data||[]; }
     }
@@ -434,6 +482,7 @@ async function loadZugaenge(){
 
 function tokenArt(t){
   if(t.observer) return 'Beobachter (FLZ)';
+  if(t.is_admin) return 'Admin';
   if(t.is_master) return 'MasterToken';
   if(t.gast) return 'Gast (24 h)';
   if(t.single_use) return 'Einmalig';
@@ -481,7 +530,7 @@ function secZugaenge(){
   /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) */
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
-  h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['gast','Gast (24 h)'],['beobachter','Beobachter (FLZ)'],['master','MasterToken']]);
+  h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['gast','Gast (24 h)'],['beobachter','Beobachter (FLZ)'],['admin','Admin'],['master','MasterToken']]);
   h+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht'],['abgelaufen','abgelaufen']]);
   h+='<span class="hint" style="margin:0 0 0 8px">Sortierung:</span>';
   h+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst']]);
@@ -518,6 +567,7 @@ function secZugaenge(){
       h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
       h+='<button class="btn ghost" data-action="mkgast" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Gast-Code (24 h)</button>';
       h+='<button class="btn ghost" data-action="mkobserver" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Beobachter-Zugang (FLZ)</button>';
+      h+='<button class="btn ghost" data-action="mkadmin" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Admin-Token</button>';
       h+='</div>';
       h+= shown.length ? tokenRows(shown)
         : '<div class="hint">'+(list.length?'Keine Codes passend zum Filter.':'Noch keine Codes für dieses Präsidium.')+'</div>';
@@ -602,6 +652,28 @@ async function makeObserver(pid, pname){
   loadZugaenge();
 }
 
+/* Admin-Token ausgeben (Plan 04.14-02): Master-Pfad, direkter Insert
+ * mit is_admin:true (RLS argus_tokens_insert erlaubt nur dem Master).
+ * Muster: makeObserver, aber mit is_admin statt observer. */
+async function makeAdmin(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var zut=await promptModal('Empfangsstelle/Person des Admin-Tokens? (erscheint in der Liste; leer = ohne Angabe)','');
+  if(zut===null) return;   /* Abbrechen = nicht anlegen */
+  zut=(zut||'').trim();
+  var ins=await cl.from('access_tokens').insert({
+    token:genToken(), praesidium_id:pid,
+    is_admin:true, is_master:false, observer:false, gast:false,
+    single_use:false, temporary:false, ttl_hours:null, used_at:null,
+    label:pname+' Admin-Token'+(zut?' — '+zut:''),
+    short_code:genShortCode()
+  }).select('short_code').single();
+  if(ins.error||!ins.data){ toast('Konnte Admin-Token nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
+  var sc=ins.data.short_code;
+  try{ await navigator.clipboard.writeText(sc); }catch(e){}
+  await promptModal('Admin-Token — gibt NUR fürs Präsidium „'+pname+'“ Gast-Codes aus und sieht dessen Lage. Adresse der Leitungs-Seite separat übermitteln. (Code kopieren)', sc);
+  loadZugaenge();
+}
+
 /* Link erstellen (Portierung adminlink-Handler der Feld-App):
  * Einmalig = immer neuer Insert; Dauerhaft/24 h = vorhandenen passenden,
  * NICHT gesperrten Code anbieten, sonst neu anlegen. */
@@ -651,6 +723,85 @@ async function toggleRevoke(sc, isRevoked){
   if(r.error){ toast('Änderung fehlgeschlagen: '+(r.error.message||'unbekannt')); return; }
   toast(isRevoked?'Code entsperrt':'Code gesperrt');
   loadZugaenge();
+}
+
+/* ── Bereich „Admin-Zugang" (Plan 04.14-02, Admin-Pfad) ────────────
+ * Admin gibt 24h-Gast-Codes fürs eigene Präsidium aus (via argus_admin_issue_gast)
+ * und sperrt sie (via argus_admin_revoke_gast). Da Admin kein access_tokens-Select
+ * darf (kein praesidium_id-Claim im JWT), werden die in DIESER Sitzung ausgegebenen
+ * Codes clientseitig im Speicher vorgehalten (_adminGastCodes).
+ * Entscheidung (dokumentiert in SUMMARY): sitzungsbasierte Liste statt DB-Select,
+ * weil Admin-JWT access_tokens nicht lesen darf. */
+var _adminGastCodes=[];   /* {short_code, label, expires_at, revoked} — diese Sitzung */
+
+function secAdminZugang(){
+  var pname=esc(sessionStorage.getItem('argusl_padmin_name')||'');
+  var h='<div class="mh"><h2>Gast-Code</h2></div>';
+  h+='<div class="card"><div class="hint" style="margin:0 0 6px">Präsidium: <b>'+pname+'</b></div>';
+  h+='<button class="btn" data-action="mkadmingast">Gast-Code (24 h) ausgeben</button></div>';
+  if(_adminGastCodes.length){
+    h+='<div class="sech">Ausgegebene Codes dieser Sitzung</div>';
+    h+='<div class="tablewrap"><table><thead><tr><th>Code</th><th>Bezeichnung</th><th>Gültig bis</th><th>Status</th><th></th></tr></thead><tbody>';
+    _adminGastCodes.forEach(function(c){
+      var exp=c.expires_at ? fmtMs(c.expires_at) : '24 h';
+      h+='<tr>';
+      h+='<td class="mono" style="font-weight:600;white-space:nowrap">'+esc(c.short_code)+'</td>';
+      h+='<td>'+esc(c.label||'')+'</td>';
+      h+='<td class="hint">'+exp+'</td>';
+      h+='<td>'+(c.revoked ? '<span class="pill red">GESPERRT</span>' : '<span class="pill green">aktiv</span>')+'</td>';
+      if(!c.revoked){
+        h+='<td><button class="btn warn" data-action="adminrevoke" data-sc="'+esc(c.short_code)+'">Sperren</button></td>';
+      }else{
+        h+='<td></td>';
+      }
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='<p class="hint">Gast-Codes sind 24 Stunden gültig. Jede Einlösung wird protokolliert. Je Anlass einen frischen Code erstellen. Sperren wirkt sofort serverseitig.</p>';
+  h+='<p class="hint">Nur Codes dieser Anmelde-Sitzung werden hier angezeigt — nach Abmeldung ist die Liste leer (Datenhaltung serverseitig, kein Direkt-Zugriff für Admin-Tokens).</p>';
+  return h;
+}
+async function loadAdminZugang(){
+  /* Kein DB-Abruf nötig — Admin-JWT darf access_tokens nicht lesen.
+   * Sitzungsliste ist bereits in _adminGastCodes. Nur rendern. */
+  if(state.section==='admin-zugang') render();
+}
+async function makeAdminGast(){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var pid=sessionStorage.getItem('argusl_padmin');
+  if(!pid){ toast('Admin-Präsidium nicht gesetzt — bitte neu anmelden.'); return; }
+  var zut=await promptModal('Anlass/Einsatz? (erscheint in der Liste; leer = ohne Angabe)','');
+  if(zut===null) return;
+  zut=(zut||'').trim();
+  var pname=sessionStorage.getItem('argusl_padmin_name')||'';
+  var lbl=(pname ? pname+' Gast-Code' : 'Gast-Code')+(zut?' — '+zut:'');
+  var r;
+  try{ r=await cl.rpc('argus_admin_issue_gast',{p_praesidium_id:pid, p_label:lbl}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error||!r.data||!r.data.short_code){
+    toast('Konnte Gast-Code nicht anlegen'+(r.error?' · '+r.error.message:''));
+    return;
+  }
+  var sc=r.data.short_code;
+  var exp=r.data.expires_at||null;
+  _adminGastCodes.unshift({short_code:sc, label:lbl, expires_at:exp, revoked:false});
+  try{ await navigator.clipboard.writeText(sc); }catch(e){}
+  await promptModal('Gast-Code (24 h gültig, mehrfach einlösbar — zum Durchsagen/Anschreiben; jede Einlösung wird protokolliert):', sc);
+  if(state.section==='admin-zugang') render();
+}
+async function makeAdminRevoke(sc){
+  var ok=await confirmModal('Gast-Code '+sc+' sperren? Einlösungen sind sofort nicht mehr möglich.','Sperren');
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_admin_revoke_gast',{p_short_code:sc}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Sperren fehlgeschlagen: '+(r.error.message||'unbekannt')); return; }
+  /* Sitzungsliste aktualisieren */
+  _adminGastCodes.forEach(function(c){ if(c.short_code===sc) c.revoked=true; });
+  toast('Code gesperrt');
+  if(state.section==='admin-zugang') render();
 }
 
 /* ── Bereich „Einsatzprotokolle" (D-12, D-01, D-02, D-03) ──────── */
@@ -1207,10 +1358,97 @@ function secProtokoll(){
   return h;
 }
 
+/* ── Bereich „Admin-Lage" (Plan 04.14-02, Admin-Pfad) ─────────────
+ * Anonyme Lage des eigenen Präsidiums via argus_lage() (kein Parameter —
+ * der RPC liest admin_praesidium_id() aus dem JWT). Render-Muster wie
+ * docs/lage-*.html: Summen-Kacheln + CCP-Karten in Triage-Farben.
+ * Auto-Refresh alle 20 s; Intervall beim Bereichswechsel/Logout sauber clearen. */
+var _adminLageData=null, _adminLageErr=null, _adminLageTimer=null;
+
+function secAdminLage(){
+  var pname=esc(sessionStorage.getItem('argusl_padmin_name')||'');
+  var h='<div class="mh"><h2>Lage — '+pname+'</h2>';
+  h+='<button class="btn ghost" data-action="adminlagereload">↻ Aktualisieren</button></div>';
+  if(_adminLageErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div>';
+    h+='<div class="hint" style="margin-top:4px">'+esc(_adminLageErr)+'</div></div>';
+    return h;
+  }
+  if(_adminLageData===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+    return h;
+  }
+  var ccps=Array.isArray(_adminLageData.ccps) ? _adminLageData.ccps : [];
+  var stand=_adminLageData.stand ? fmtMs(_adminLageData.stand) : '—';
+  h+='<div class="hint" style="margin-bottom:10px">Stand: '+stand+'</div>';
+  if(!ccps.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine aktiven CCPs in diesem Präsidium.</p></div>';
+    return h;
+  }
+  /* Summen-Zeile */
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0};
+  ccps.forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+  });
+  var pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px">'+ccps.length+'</div><div class="hint">aktive CCPs</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px">'+pat+'</div><div class="hint">Patienten</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--t1)">'+s.t1+'</div><div class="hint">T-1</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--prio)">'+s.prio+'</div><div class="hint">Prio-Transport</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--mut)">'+s.gpa+'</div><div class="hint">gPA</div></div>';
+  h+='</div>';
+  /* CCP-Karten */
+  ccps.forEach(function(c){
+    var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
+    h+='<div class="card" style="margin-bottom:10px">';
+    h+='<div style="font-weight:600;font-size:14px;margin-bottom:8px">CCP '+esc(c.kennung||'?')+(c.ort?' · '+esc(c.ort):'')+' <span class="hint" style="font-weight:400;font-size:12px">'+total+' Pat.</span></div>';
+    h+='<div style="display:flex;gap:4px;margin-bottom:8px">';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t1);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t1||0)+'</div><div style="font-size:9px;opacity:.95">T1</div></div>';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t2);color:#3A2C00;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t2||0)+'</div><div style="font-size:9px;opacity:.95">T2</div></div>';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t3);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t3||0)+'</div><div style="font-size:9px;opacity:.95">T3</div></div>';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t5);border:1px solid var(--t5b);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t5||0)+'</div><div style="font-size:9px;opacity:.95">T5</div></div>';
+    h+='</div>';
+    h+='<div class="hint">Prio-Transport <b>'+(+c.prio||0)+'</b> · transportfertig <b>'+(+c.ready||0)+'</b> · gPA <b>'+(+c.gpa||0)+'</b></div>';
+    h+='</div>';
+  });
+  h+='<p class="hint">Anonyme Übersichtszahlen — keine Patientendetails, keine Namen/Fotos. Aktualisiert sich automatisch alle 20 s.</p>';
+  return h;
+}
+async function loadAdminLage(){
+  _adminLageData=null; _adminLageErr=null;
+  if(state.section==='admin-lage') render();
+  /* Auto-Refresh starten (Intervall sauber clearen falls schon läuft) */
+  if(_adminLageTimer){ clearInterval(_adminLageTimer); _adminLageTimer=null; }
+  await _doAdminLagePoll();
+  _adminLageTimer=setInterval(_doAdminLagePoll, 20000);
+}
+async function _doAdminLagePoll(){
+  var cl=sb();
+  if(!cl){
+    _adminLageErr='Sitzung abgelaufen — bitte neu anmelden.';
+    if(state.section==='admin-lage') render();
+    if(_adminLageTimer){ clearInterval(_adminLageTimer); _adminLageTimer=null; }
+    return;
+  }
+  try{
+    var r=await cl.rpc('argus_lage');
+    if(r.error){ _adminLageErr=r.error.message||'Abruf fehlgeschlagen'; }
+    else{ _adminLageData=r.data||null; _adminLageErr=null; }
+  }catch(e){ _adminLageErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='admin-lage') render();
+}
+/* Intervall beim Bereichswechsel/Logout sauber clearen */
+function clearAdminLageTimer(){
+  if(_adminLageTimer){ clearInterval(_adminLageTimer); _adminLageTimer=null; }
+}
+
 /* ── Klick-Dispatcher ──────────────────────────────────────────── */
 document.addEventListener('click', async function(e){
   var nav=e.target.closest('[data-nav]');
   if(nav){
+    clearAdminLageTimer();   /* Lage-Intervall beim Bereichswechsel sauber clearen */
     state.section=nav.getAttribute('data-nav');
     _detail=null;   /* geöffnetes Protokoll beim Bereichswechsel schließen */
     render(); loadSection();
@@ -1219,7 +1457,7 @@ document.addEventListener('click', async function(e){
   var el=e.target.closest('[data-action]');
   if(!el) return;
   var a=el.getAttribute('data-action');
-  if(a==='logout'){ doLogout(); return; }
+  if(a==='logout'){ clearAdminLageTimer(); doLogout(); return; }
   if(a==='login'){ var li=$('logininp'); await doLogin(li?li.value:''); return; }
   if(a==='pastetoken'){
     var pi=$('logininp');
@@ -1262,6 +1500,21 @@ document.addEventListener('click', async function(e){
     return;
   }
   if(a==='protoreload'){ loadProtokoll(); return; }
+  if(a==='mkadmin'){
+    await makeAdmin(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
+    return;
+  }
+  if(a==='mkadmingast'){ await makeAdminGast(); return; }
+  if(a==='adminrevoke'){
+    await makeAdminRevoke(el.getAttribute('data-sc'));
+    return;
+  }
+  if(a==='adminlagereload'){
+    _adminLageData=null; _adminLageErr=null;
+    if(state.section==='admin-lage') render();
+    await _doAdminLagePoll();
+    return;
+  }
 });
 /* Filter-/Sortier-Selects (Zugänge): Auswahl übernehmen und neu rendern */
 document.addEventListener('change', function(e){
