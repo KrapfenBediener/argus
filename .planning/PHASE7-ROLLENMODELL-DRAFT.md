@@ -109,13 +109,20 @@ Mini-Seite ODER reduzierte Leitungs-Seite — Discretion).
 
 ---
 
-## Offene Fragen → für `discuss-phase` (Owner entscheidet)
-1. Darf der Präsidiums-Admin **nur Gast-Code (24 h)** oder auch Einmal-/Dauerhaft-Codes ausgeben?
-2. Darf der Admin die **anonyme Lage** seines Präsidiums sehen (oder strikt nur Code-Verwaltung)?
-3. Token-Art im Schema: **boolean `is_admin`** (empfohlen) vs. `role`-Text-Spalte?
-4. **Eigene Admin-Mini-Seite** vs. abgespeckte Leitungs-Seite für den Admin?
-5. Gibt der **MasterUser** die Admin-Tokens aus (über die Leitungs-Seite)? *(vermutlich ja)*
-6. Sprich-/Anzeigename der Rolle: „Kurs-Host", „Präsidiums-Admin", „Standort-Verwalter"?
+## Ratifizierte Entscheidungen (Owner, 2026-06-22)
+- **Rollenname: „Präsidiums-Admin"** (allgemein, auch über Kurse hinaus tauglich).
+- **Code-Umfang: NUR Gast-Code (24 h)** fürs eigene Präsidium (+ QR). Keine Einmal-/Dauerhaft-Codes.
+- **Lage-Zugriff: JA** — der Präsidiums-Admin darf die **anonyme Lage seines eigenen Präsidiums** sehen (wie ein Beobachter, auf sein Präsidium begrenzt).
+- Token-Art: boolean `is_admin` + `admin_praesidium_id` (Claude's Discretion, bestätigt durch Muster).
+- MasterUser gibt die Admin-Tokens aus (über die Leitungs-Seite).
+
+## OFFEN & GRÖSSER ALS GEDACHT → Admin-Surface-Architektur (Owner-Hinweis 2026-06-22)
+Die Frage „wo bedient der Admin das?" ist **nicht** eine UI-Detailfrage, sondern die
+Spitze der **Admin-Oberflächen-Architektur**, die uns vor dem Echtbetrieb ohnehin
+erwartet (mehr Rollen: Master, Präsidiums-Admin, Beobachter, später FLZ-operativ,
+Landes-Observer, echte Konten). Owner will das **im großen Ganzen** entscheiden,
+nicht ad hoc. → Eigener Diskussionspunkt, siehe Chat 2026-06-22. Backend der Rolle
+ist UI-unabhängig und kann unabhängig gebaut werden.
 
 ---
 
