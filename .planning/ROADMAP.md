@@ -442,6 +442,12 @@ Rollen (Master/FLZ/Admin, 4.14-Muster) — **keine Massen-Provisionierung** (die
 PTLS Pol/SSO; normale Feldnutzer bleiben bis dahin Stufe 0). T4 = mittel (Lebenszyklus + Login +
 Governance, append-only, 12 Mon.). Context: `.planning/phases/05-identitaeten-audit-stufe1/05-CONTEXT.md`.
 
+**Plans:** 3 Pläne in 3 Wellen (geplant 2026-06-27):
+
+- [ ] 05-01-PLAN.md — Migration 0015: Identitäts-Spalten (is_person/usbnk/role), Claim-Helfer, CR-02-Härtung, audit_log-Tabelle, Person-Exchange + Master-Issue/Revoke/Search-RPCs, argus_lage-FLZ-Zweig (Wave 1, PAT-Checkpoint)
+- [ ] 05-02-PLAN.md — Migration 0016: T4-Audit-Retention (argus_run_purge Schritt (e): audit_log > 12 Monate) (Wave 2, PAT-Checkpoint)
+- [ ] 05-03-PLAN.md — Leitungs-Seite: „Identitäten" (Ausgabe/USBNK-Suche/Rollenverwaltung/Sperre) + „Audit-Log" (T4-Anzeige mit USBNK-Filter) entsperren (Wave 3, Browser-Verify)
+
 ## Phase 5.1 — Feld-App: Pro-Person-Login & Echt/Schulung-Picker ⬜
 
 **Ziel:** Die Feld-App auf das Stufe-1-Identitätsmodell umstellen — abgespalten von
