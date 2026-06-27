@@ -638,15 +638,21 @@ async function exchangeCode(code){
  * Rückgabe: {usbnk, argus_role, praesidium_id, praesidium_name} oder null.
  * sessionStorage kommt hier NICHT zum Einsatz — die Feld-App nutzt localStorage
  * für offline-persistente Sitzungen (anders als die Leitungs-Seite). */
-async function exchangePersonCode(clean){
+/* scope: 'echt' (default) oder 'schulung' — für Twin-Scope Re-Exchange (0019).
+ * Bei scope='schulung' wird p_scope an die RPC übergeben; die Funktion löst
+ * den schulungs_zwilling_id-Twin server-seitig auf (keine Client-Injection).
+ * argus_person_praesidium bleibt das ECHT-Präsidium (Ankerpunkt für den Picker);
+ * das aktive Präsidium (_praesidiumId) wird vom Aufrufer auf data.praesidium_id gesetzt. */
+async function exchangePersonCode(clean, scope){
   _lastExchangeError=null;
   if(_configError){ _lastExchangeError='Konfiguration fehlt (config.js) — kein Backend verbunden'; return null; }
   if(!clean||clean.length<8) return null;
+  var effectiveScope=(scope==='schulung')?'schulung':'echt';
   try{
     var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_person_code',{
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
-      body:JSON.stringify({ code:clean })
+      body:JSON.stringify({ code:clean, p_scope:effectiveScope })
     });
     var data=await resp.json();
     if(data && data.error) _lastExchangeError=String(data.error);
@@ -658,7 +664,12 @@ async function exchangePersonCode(clean){
     /* Stufe-1-Sitzungsfelder */
     localStorage.setItem('argus_usbnk',   data.usbnk||'');
     localStorage.setItem('argus_role',    data.argus_role||'');
-    localStorage.setItem('argus_person_praesidium', data.praesidium_id||'');
+    /* argus_person_praesidium = Echt-Anker: nur beim Echt-Exchange setzen.
+     * Beim Schulungs-Re-Exchange bleibt der gespeicherte Echt-Wert erhalten
+     * (Picker braucht ihn um den Schulungs-Twin aufzulösen). */
+    if(effectiveScope==='echt'){
+      localStorage.setItem('argus_person_praesidium', data.praesidium_id||'');
+    }
     /* Globale setzen */
     _usbnk     = data.usbnk||null;
     _argusRole = (data.argus_role||null);
@@ -666,7 +677,8 @@ async function exchangePersonCode(clean){
       usbnk:           data.usbnk||null,
       argus_role:      data.argus_role||null,
       praesidium_id:   data.praesidium_id||null,
-      praesidium_name: data.praesidium_name||null
+      praesidium_name: data.praesidium_name||null,
+      scope:           data.scope||effectiveScope
     };
   }catch(e){ return null; }
 }
@@ -684,9 +696,11 @@ async function refreshJwtIfNeeded(){
   var storedCode=localStorage.getItem('argus_code')||'';
   if(!storedCode) return;
   /* Stufe-1 Person-Sitzung: argus_role ist gesetzt → exchangePersonCode nutzen.
-   * argus_exchange_code würde Person-Codes über CR-02 abweisen. */
+   * argus_exchange_code würde Person-Codes über CR-02 abweisen.
+   * Scope: aktiven Picker-Modus übergeben, damit das frische JWT dasselbe
+   * Präsidium (Echt oder Schulungs-Twin) enthält wie das ablaufende (0019). */
   var isPersonSession=!!(localStorage.getItem('argus_role'));
-  var result=isPersonSession ? await exchangePersonCode(storedCode) : await exchangeCode(storedCode);
+  var result=isPersonSession ? await exchangePersonCode(storedCode, pickerMode()) : await exchangeCode(storedCode);
   if(!result && _lastExchangeError && _lastExchangeError.indexOf('gesperrt')>=0){
     /* Der gespeicherte Code wurde von der Leitung gesperrt → nicht still
      * ignorieren, sondern dieselbe Lock-Wirkung wie der Re-Check (D-20). */
@@ -3076,6 +3090,35 @@ document.addEventListener("click",async function(e){
       'Wechseln'
     );
     if(!ok) return;
+    /* Person-Sitzung: JWT für den neuen Scope re-exchangieren (0019 Twin-Scope).
+     * Der neue JWT trägt praesidium_id = Echt-Präsidium (newTab='echt') oder
+     * schulungs_zwilling_id-Twin (newTab='schulung'). RLS sieht dann die
+     * richtigen CCPs — ohne RLS-Änderung, one scope at a time.
+     * Offline: kein Re-Exchange möglich → Toast, im alten Modus bleiben. */
+    var isPersonSess=!!(_argusRole&&_usbnk);
+    if(isPersonSess){
+      if(!navigator.onLine){
+        toast("Moduswechsel braucht kurz Netz — bitte online gehen und erneut tippen");
+        return;
+      }
+      var storedPersonCode=localStorage.getItem('argus_code')||'';
+      if(storedPersonCode){
+        var reex=await exchangePersonCode(storedPersonCode, newTab);
+        if(!reex){
+          /* Fehler (z. B. kein Schulungs-Zwilling) → nicht wechseln, Fehler anzeigen */
+          toast(_lastExchangeError||"Moduswechsel fehlgeschlagen — bitte erneut versuchen");
+          return;
+        }
+        /* JWT gesetzt; aktives Präsidium auf das effektive (Echt oder Twin) setzen */
+        _praesidiumId  = reex.praesidium_id||null;
+        _praesidiumName= reex.praesidium_name||'';
+        if(_praesidiumId){
+          localStorage.setItem('argus_praesidium_id',   _praesidiumId);
+          localStorage.setItem('argus_praesidium_name', _praesidiumName);
+        }
+        await refreshSchulungFlag();
+      }
+    }
     setPickerMode(newTab);
     render(); return;
   }
