@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 5.1 PAUSIERT am Checkpoint 05.1-03 — Twin-Scope-Entscheidung offen (D5.1-03) + D-06-Historie-Rotation; 05.1-01/02 fertig, 05.1-03-Code committet (Picker-UI ok, Twin-Schreibzugriff fehlt), 05.1-04 Release ausstehend
-last_updated: "2026-06-28T00:05:00.000Z"
+status: Phase 5.1 — 05.1-01/02/03 fertig (05.1-03 inkl. Twin-Scope-Gap-Closure via Migration 0019 LIVE); nur noch 05.1-04 Release (Version-/SW-Bump, CHANGELOG/WHATS_NEW/UPDATE-Sheet, Drehbuch, SELF-HOSTING-Nachzug 0019) ausstehend
+last_updated: "2026-06-28T00:20:00.000Z"
 progress:
   total_phases: 11
   completed_phases: 8
   total_plans: 35
-  completed_plans: 27
-  percent: 77
+  completed_plans: 28
+  percent: 80
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -193,6 +193,9 @@ Offener Owner-Punkt: ephemeren PAT widerrufen (Supabase Dashboard → Account �
 
 **Plan 05.1-02 ✅ (2026-06-27):** Leitungs-Seite — 'normal'-Rolle im Ausgabe-Dropdown + Präsidiums-Pflicht + Rollenwechsel-Annahme. pers-rolle-Select um `<option value="normal">Normal</option>` erweitert (nach Admin; FLZ bleibt Default). doMkPerson(): Präsidiums-Pflicht auf admin||normal ausgeweitet (Toast: „Für diese Rolle ist ein Präsidium erforderlich."); pers-praes-wrap-Sichtbarkeits-Listener auf admin||normal erweitert; Label „Präsidium (für Admin-/Normal-Rolle)" angepasst. doPersonRole(): Prompt-Text auf master/flz/admin/normal; Whitelist um 'normal' ergänzt; kein clientseitiges Abweisen. rolleLabel('normal')='Normal'/rolleColor bereits aus Phase 5 vorhanden — kein Tweak. Hinweistext: „Einzel-Ausgabe (Master/FLZ/Admin/Normal) — pro Präsidium, geringe Menge. Massen-Provisionierung normaler Nutzer bleibt SSO-gated (D-10)." D-06-Gate: 0 Treffer. Nur In-App-Modals; D-02/D-06 gewahrt; index.html/sw.js unverändert (kein App-Release). Commits 099b5bf (Tasks 1), 2bbaaf4 (Task 2).
 SUMMARY: `.planning/phases/05.1-feldapp-login-picker/05.1-02-SUMMARY.md`.
+
+**Plan 05.1-03 ✅ (2026-06-28):** Feld-App (index.html) — Pro-Person-Login + Echt/Schulung-Picker + twin-scope Re-Exchange. (1) Ein-Feld-Auto-Erkennung: `exchangeCode()` zuerst (CR-02 weist Person-Codes ab), `exchangePersonCode()`-Fallback NUR bei Nicht-„gesperrt"-Fehler (Muster der Leitungs-Seiten-doLogin). USBNK-Sitzung lokal persistiert (neue Keys `argus_usbnk`/`argus_role`/`argus_person_praesidium`, Globale `_usbnk`/`_argusRole`); `applyRevokedLock()` räumt sie; `refreshJwtIfNeeded()` verlängert Person-Sitzungen scope-bewusst über `exchangePersonCode()`. master/flz-Person-Token (`praesidium_id=null`) im Feld höflich abgewiesen („für die Leitungs-Seite"), kein `_isMaster` aus Person-Token (T-053-04). (2) Zwei-Reiter Echt/Schulung (`argus_picker_mode`, Default Echt), `pickerList()` löst je Sitzungstyp auf (Person: Echt=eigenes Präsidium, Schulung=`schulungs_zwilling_id`-Twin; Sammel/Master=heutiges Modell), verstärkter vollbreiter permanenter SCHULUNG-Banner (#F2B600), bewusste `confirmModal`-Bestätigung beim Echt↔Schulung-Wechsel (kein Mischen, T-053-02). **Gap-Closure (Browser-Checkpoint, Rule 2):** Person-JWT trug nur Echt-`praesidium_id` → Twin im Picker sichtbar aber RLS-denied (live: Twin-CCPs=0). Owner-Entscheid = RE-EXCHANGE → **Migration 0019 (LIVE)**: `argus_exchange_person_code(code, p_scope default 'echt')` löst bei `p_scope='schulung'` die `schulungs_zwilling_id` server-seitig auf und stellt ein twin-scoped JWT aus (`praesidium_id`=Twin; `usbnk`/`role`/`jti` unverändert; kein Twin→Fehler); Feld-App re-exchanged beim bewussten Wechsel (offline-guarded); stilles Refresh behält den aktiven Scope. **RLS UNVERÄNDERT.** Live+Browser+REST verifiziert: Sammelcode-Koexistenz intakt; Person-Login → Toast „Angemeldet als USBNK <usbnk>" (kein Klarname, D-02); Person-JWT-Patienteninsert → `audit_log{usbnk, patient_create}` (Wave-1-Trigger); nach Schulungs-Wechsel JWT-`praesidium_id`=Twin, Twin-CCPs lesbar (5, war 0); Backward-Compat + master-person + no-twin-Fehler ok; Testdaten bereinigt. CR-02/Offline/tacSTART unberührt; kein Version-/SW-Bump (Plan 04). Commits 5181735 (Task 1), 09e1f58 (Task 2), 584e606 (Gap-Closure/Migration 0019), 5b002b9 (SUMMARY).
+SUMMARY: `.planning/phases/05.1-feldapp-login-picker/05.1-03-SUMMARY.md`.
 
 ---
 
