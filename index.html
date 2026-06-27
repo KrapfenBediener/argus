@@ -310,6 +310,8 @@ var _praesidiumId   = null;
 var _praesidiumName = '';
 var _praesidiumSchulung = false;   /* schulung-Flag des Präsidiums (Migration 0009): Banner + Abschluss-Typ */
 var _isMaster       = false;
+var _usbnk          = null;   /* USBNK der laufenden Person-Sitzung (Stufe-1, Plan 05.1-03) */
+var _argusRole      = null;   /* Rolle der Person-Sitzung: 'normal'|'admin'|'flz'|'master'|null */
 var _praesidienList = [];
 var _ccpKennung     = 'A';    /* Kennung des eigenen CCP (A/B/…) */
 var _ccpOrt         = '';     /* Ortsbezeichnung der eigenen CCP-Row (auch FLZ-Nachtrag, 0010) */
@@ -628,6 +630,47 @@ async function exchangeCode(code){
     };
   }catch(e){ return null; }
 }
+/* ── Phase 5.1 Plan 03: Pro-Person-Code tauschen (Stufe-1-Sitzung) ──────────
+ * Eigener Exchange für is_person-Tokens. Bei Erfolg: JWT + Standard-Felder
+ * setzen UND Stufe-1-Sitzungsfelder persistieren.
+ * Neue localStorage-Keys: argus_usbnk, argus_role, argus_person_praesidium.
+ * Globale: _usbnk, _argusRole.
+ * Rückgabe: {usbnk, argus_role, praesidium_id, praesidium_name} oder null.
+ * sessionStorage kommt hier NICHT zum Einsatz — die Feld-App nutzt localStorage
+ * für offline-persistente Sitzungen (anders als die Leitungs-Seite). */
+async function exchangePersonCode(clean){
+  _lastExchangeError=null;
+  if(_configError){ _lastExchangeError='Konfiguration fehlt (config.js) — kein Backend verbunden'; return null; }
+  if(!clean||clean.length<8) return null;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_person_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data=await resp.json();
+    if(data && data.error) _lastExchangeError=String(data.error);
+    if(!data || !data.jwt) return null;
+    /* JWT + Standard-Felder (analog exchangeCode) */
+    localStorage.setItem('argus_jwt', data.jwt);
+    localStorage.setItem('argus_jwt_exp', String(data.exp*1000));
+    localStorage.setItem('argus_code', clean);
+    /* Stufe-1-Sitzungsfelder */
+    localStorage.setItem('argus_usbnk',   data.usbnk||'');
+    localStorage.setItem('argus_role',    data.argus_role||'');
+    localStorage.setItem('argus_person_praesidium', data.praesidium_id||'');
+    /* Globale setzen */
+    _usbnk     = data.usbnk||null;
+    _argusRole = (data.argus_role||null);
+    return {
+      usbnk:           data.usbnk||null,
+      argus_role:      data.argus_role||null,
+      praesidium_id:   data.praesidium_id||null,
+      praesidium_name: data.praesidium_name||null
+    };
+  }catch(e){ return null; }
+}
+
 /* Stille JWT-Verlängerung: wenn Restlaufzeit < 7 Tage und online → mit dem
  * gespeicherten Code ein frisches JWT holen. Nutzer merkt nichts.
  * Bei Einmal-/24-h-Codes schlägt der Re-Exchange ggf. fehl → kein Problem,
@@ -640,7 +683,10 @@ async function refreshJwtIfNeeded(){
   if(exp-nowMs() > 7*24*3600*1000) return; /* noch frisch */
   var storedCode=localStorage.getItem('argus_code')||'';
   if(!storedCode) return;
-  var result=await exchangeCode(storedCode);
+  /* Stufe-1 Person-Sitzung: argus_role ist gesetzt → exchangePersonCode nutzen.
+   * argus_exchange_code würde Person-Codes über CR-02 abweisen. */
+  var isPersonSession=!!(localStorage.getItem('argus_role'));
+  var result=isPersonSession ? await exchangePersonCode(storedCode) : await exchangeCode(storedCode);
   if(!result && _lastExchangeError && _lastExchangeError.indexOf('gesperrt')>=0){
     /* Der gespeicherte Code wurde von der Leitung gesperrt → nicht still
      * ignorieren, sondern dieselbe Lock-Wirkung wie der Re-Check (D-20). */
@@ -688,8 +734,13 @@ async function applyRevokedLock(){
     localStorage.removeItem('argus_is_master');
     localStorage.removeItem('argus_praesidium_id');
     localStorage.removeItem('argus_praesidium_name');
+    /* Stufe-1 Person-Sitzungsfelder (Plan 05.1-03) */
+    localStorage.removeItem('argus_usbnk');
+    localStorage.removeItem('argus_role');
+    localStorage.removeItem('argus_person_praesidium');
   }catch(e){}
   _isMaster=false; _praesidiumId=null; _praesidiumName='';
+  _usbnk=null; _argusRole=null;
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }   /* Realtime nicht weiter nutzen */
   await confirmModal("Der Zugangscode wurde von der Leitung gesperrt. Bitte neuen Zugangscode anfordern.","OK");
   state.view='praesidium'; render();
@@ -724,7 +775,62 @@ async function doUnlock(rawCode){
   if(uc2.length<8){toast("Bitte vollständigen Code eingeben (Format: XXXX-XXXX)");return;}
   toast("Prüfe Code…");
   var uv=await exchangeCode(uc2);
-  if(!uv){toast(_lastExchangeError||"Ungültiger oder abgelaufener Code");return;}   /* Server-Klartext (z. B. „Code wurde gesperrt") statt generischem Text */
+  if(!uv){
+    /* ── Stufe-1-Fallback: Person-Code (Plan 05.1-03, D5.1-02) ──────────────
+     * Nur versuchen wenn der erste Exchange kein „gesperrt"-Fehler war.
+     * CR-02 in 0015 weist Person-Codes bei argus_exchange_code sauber mit
+     * „Pro-Person-Code — nur für die Leitungs-Seite gültig" ab; das ist KEIN
+     * Sperr-Fehler — wir versuchen den Person-Exchange. */
+    var wasGesperrt=_lastExchangeError && _lastExchangeError.indexOf('gesperrt')>=0;
+    if(!wasGesperrt){
+      var pv=await exchangePersonCode(uc2);
+      if(pv){
+        /* Person-Token empfangen: Rolle und Präsidium prüfen */
+        var prole=(pv.argus_role||'').toLowerCase();
+        if(prole==='master'||prole==='flz'){
+          /* master/flz-Person-Tokens sind für die Leitungs-Seite (T-053-04).
+           * Im Feld höflich abweisen — kein _isMaster setzen. */
+          /* Stufe-1-Felder wieder räumen (kein Halbzustand) */
+          try{
+            localStorage.removeItem('argus_jwt');
+            localStorage.removeItem('argus_jwt_exp');
+            localStorage.removeItem('argus_code');
+            localStorage.removeItem('argus_usbnk');
+            localStorage.removeItem('argus_role');
+            localStorage.removeItem('argus_person_praesidium');
+          }catch(e){}
+          _usbnk=null; _argusRole=null;
+          toast("Dieser Zugang ist für die Leitungs-Seite — bitte dort anmelden");
+          return;
+        }
+        if(!pv.praesidium_id){
+          toast("Person-Code ohne Präsidium"); return;
+        }
+        /* normal/admin: Präsidium dauerhaft freischalten (kein TTL — Person-Session) */
+        localStorage.setItem('argus_verified','true');
+        addUnlock(pv.praesidium_id, null);   /* dauerhaft */
+        _praesidiumId=pv.praesidium_id;
+        _praesidiumName=pv.praesidium_name||'';
+        localStorage.setItem('argus_praesidium_id',_praesidiumId);
+        localStorage.setItem('argus_praesidium_name',_praesidiumName);
+        await refreshSchulungFlag();
+        /* Picker-Startzustand Echtbetrieb (sofern nicht schon Schulungs-Präsidium) */
+        if(!localStorage.getItem('argus_picker_mode')){
+          localStorage.setItem('argus_picker_mode','echt');
+        }
+        /* Präsidienliste mit schulungs_zwilling_id laden (für Picker) */
+        if(sb()){
+          var pruP=await sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name');
+          _praesidienList=pruP.data||[];
+        }
+        /* D-02: kein Klarname im Toast — nur USBNK (Pseudonymität) */
+        toast("Angemeldet als USBNK "+esc(_usbnk||''));
+        render();
+        return;
+      }
+    }
+    toast(_lastExchangeError||"Ungültiger oder abgelaufener Code");return;   /* Server-Klartext (z. B. „Code wurde gesperrt") statt generischem Text */
+  }
   localStorage.setItem('argus_verified','true');
   if(uv.is_master){
     _isMaster=true; localStorage.setItem('argus_is_master','true');
@@ -736,7 +842,7 @@ async function doUnlock(rawCode){
   } else {
     toast("Code ohne Präsidium"); return;
   }
-  var pru=await sb().from('praesidien').select('id,name,schulung').order('name');
+  var pru=await sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name');
   _praesidienList=pru.data||[];
   render();
 }
@@ -2914,7 +3020,7 @@ document.addEventListener("click",async function(e){
     _praesidiumId=null; _praesidiumName='';
     localStorage.removeItem('argus_praesidium_id');
     localStorage.removeItem('argus_praesidium_name');
-    var pr=await sb().from('praesidien').select('id,name,schulung').order('name');
+    var pr=await sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name');
     _praesidienList=pr.data||[];
     go("praesidium"); return;
   }
@@ -3421,6 +3527,9 @@ setInterval(async function(){
   _praesidiumSchulung = localStorage.getItem('argus_praesidium_schulung')==='1';
   _praesidiumName = localStorage.getItem('argus_praesidium_name')||'';
   _isMaster       = localStorage.getItem('argus_is_master')==='true';
+  /* Stufe-1 Person-Sitzung wiederherstellen (Plan 05.1-03) */
+  _usbnk     = localStorage.getItem('argus_usbnk')||null;
+  _argusRole = localStorage.getItem('argus_role')||null;
 
   /* ── Freischalt-Link mit 8-stelligem Code (#code=) ──────────────── */
   if(urlCode){
@@ -3478,9 +3587,9 @@ setInterval(async function(){
     }
   }
 
-  /* Präsidienliste laden (für die Landingpage) */
+  /* Präsidienliste laden (für die Landingpage; schulungs_zwilling_id für Picker) */
   if(sb()){
-    var prlAll=await sb().from('praesidien').select('id,name,schulung').order('name');
+    var prlAll=await sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name');
     _praesidienList=prlAll.data||[];
   }
 
