@@ -19,10 +19,13 @@ Pro-Person-USBNK-Token (batch provisioniert, Pro-Person-Widerruf, personenscharf
 T4-Audit). Master kann Rollen je USBNK vergeben/sperren und per USBNK suchen.
 
 **IN SCOPE (Phase 5, Backend + Leitungs-Seite):**
-- Datenmodell: `access_tokens` um `usbnk` + `role` (+ Scope via `praesidium_id`) erweitern.
-- Batch-Provisionierung Stufe-1-Tokens (security-definer-RPC, ein Geheim-Token je USBNK).
+- Datenmodell: `access_tokens` um `usbnk` + `role` (+ Scope via `praesidium_id`) erweitern → das
+  **(USBNK→Rolle/Scope)-Register** (der dauerhafte Kern).
+- **Einzel-Ausgabe** von Pro-Person-Tokens (security-definer-RPC, 4.14-Muster) für die privilegierten
+  Leitungs-Seiten-Rollen (Master/FLZ/Admin) — **keine Massen-Provisionierung** (D-03/D-10).
 - Stufe-1-Exchange-RPC → JWT mit `usbnk` + rollen-abgeleiteten Claims + Präsidiums-Scope + `jti`.
-- Rollen: Normaler User, Master-User, FLZ-User, Präsidiums-Admin (alle provisionierbar).
+- Rollen: Normaler User, Master-User, FLZ-User, Präsidiums-Admin (im Register; vor SSO aktiv = die
+  Leitungs-Seiten-Rollen).
 - Master: USBNK-Suche + Rollen erteilen/widerrufen (jti-Sofortsperre), auf der Leitungs-Seite.
 - **T4-Audit:** personenscharfes, append-only Verlaufsprotokoll (USBNK/Zeit/Aktion/CCP/Patient),
   12-Monats-Frist (§ 73 PolG BW), Anzeige in der ausgebauten Audit-Ansicht (4.14).
@@ -50,17 +53,20 @@ T4-Audit). Master kann Rollen je USBNK vergeben/sperren und per USBNK suchen.
   **USBNK-Suche**. Bewahrt die Pseudonymitäts-Leitlinie; USBNK ist personenbeziehbar (genau der Zweck
   von Stufe 1/T4), aber ARGUS hält kein zusätzliches PII.
 
-### B — Provisionierung & Token-Modell
-- **D-03:** **Batch-Paste auf der Leitungs-Seite** — Master fügt eine Liste ein (Zeilen `USBNK[,Rolle]`);
-  ein `security definer`-RPC erzeugt **pro USBNK genau ein Geheim-Token**. „passwort-artig" = generiertes,
-  person-gebundenes Geheimnis (kein selbst gesetztes Passwort). Pro-Person-Widerruf über `jti`-Sofortsperre.
-  (CSV-Upload optional als spätere Bequemlichkeit; Einzel-Anlage nur Randfall.)
-- **D-04:** **Provisionierbare Rollen:** Normaler User · Master-User · FLZ-User · Präsidiums-Admin.
-  FLZ-User ist jetzt baubar (DSB-Gate entfällt). Präsidiums-Admin existiert als `is_admin` (4.14) und wird
-  in Stufe 1 zusätzlich USBNK-gebunden.
-- **D-05:** **Koexistenz mit Stufe 0:** die bestehenden Sammelcodes (`argus_exchange_code`, Gast-Codes)
-  bleiben gültig (Fremdkräfte-/Gäste-Fallback). Stufe-1-Tokens laufen über einen eigenen/erweiterten
-  Exchange. Privilege-Escalation-Leitplanken aus 4.14 (CR-02!) beachten: Token-Art-Trennung sauber halten.
+### B — Identitäts-Register & Token-Modell (REVIDIERT 2026-06-27, D-10)
+- **D-03 (REVIDIERT):** **KEINE Massen-Provisionierung.** Der dauerhafte Wert ist das
+  **(USBNK→Rolle/Scope)-Register + Master-Verwaltung**, nicht das Ausrollen von ~30.000 Pro-Person-Tokens.
+  Stattdessen: **Einzel-Ausgabe** von Pro-Person-Tokens durch den Master, NUR für die privilegierten
+  Leitungs-Seiten-Rollen (Master/FLZ/Admin) — geringe Stückzahl, exakt das **4.14-Muster** („Master gibt
+  Token aus", `security definer`-RPC, ein Geheim-Token, `jti`-Sofortsperre). Batch-Paste/CSV gestrichen.
+- **D-04:** **Rollen im Register:** Normaler User · Master-User · FLZ-User · Präsidiums-Admin.
+  Vor SSO **aktiv nutzbar** sind die Leitungs-Seiten-Rollen (Master existiert; Admin aus 4.14; FLZ neu,
+  jetzt baubar). Die Rolle „Normaler User" wird im Register **vorgemerkt**, aktiviert sich aber erst mit
+  der USBNK-Quelle (SSO / Phase 5.1) — bis dahin bleiben normale Feldnutzer Stufe 0 (pseudonym).
+- **D-05:** **Koexistenz mit Stufe 0:** die bestehenden Sammel-/Gast-Codes (`argus_exchange_code`)
+  bleiben gültig (Fremdkräfte-/Gäste-/Normalfeld-Fallback bis SSO). Privilegierte Pro-Person-Tokens
+  laufen über einen eigenen/erweiterten Exchange. Privilege-Escalation-Leitplanken aus 4.14 (CR-02!)
+  beachten: jede Exchange-Funktion weist fremde Token-Arten ab.
 
 ### C — T4-Audit-Protokoll
 - **D-06:** **Umfang = mittel:** Patienten-Lebenszyklus (anlegen, Kategorie-Wechsel, transportfertig,
@@ -74,6 +80,15 @@ T4-Audit). Master kann Rollen je USBNK vergeben/sperren und per USBNK suchen.
   mitsenden (Phase 5.1)**. In Phase 5 wird die Infrastruktur gebaut und erfasst bereits alle Stufe-1-
   Sessions (Master/FLZ/Admin auf der Leitungs-Seite). Vor 5.1 bleibt das kürzelbasierte `governance_log`
   (4.14) für Feld-Aktionen die Brücke.
+
+### Scope-Revision (Owner 2026-06-27)
+- **D-10:** **Massen-Provisionierung gestrichen.** Begründung: Das Ausrollen von ~30.000 Pro-Person-Tokens
+  hängt am Personaldatenbank-Anschluss und wird durch **Stufe 2 (SSO)** ohnehin abgelöst — reine
+  Übergangsbrücke, doppelte Arbeit. Stufe 2 liefert die USBNK transparent → normale Nutzer brauchen
+  dann kein ARGUS-Token. **Identität ≠ Berechtigung:** die Personaldatenbank/SSO kennt nur die Identität
+  (USBNK), NICHT die ARGUS-Rolle/-Scope — deshalb bleibt das Rollen-Register + die Master-Verwaltung der
+  dauerhafte, jetzt zu bauende Wert (unabhängig von der USBNK-Quelle; „kein Re-Architecting zwischen den
+  Stufen"). Massen-/Personaldatenbank-Anbindung wird **später präzise mit PTLS Pol abgestimmt**.
 
 ### Claude's Discretion (Implementierung — Researcher/Planner entscheiden)
 - Datenmodell-Details: neue Spalten auf `access_tokens` vs. separate `identities`-Tabelle; `role` als
@@ -137,8 +152,9 @@ T4-Audit). Master kann Rollen je USBNK vergeben/sperren und per USBNK suchen.
 - **Stufe 2 (SSO):** Connector gegen Polizei-IdP (PoliPhone-Profil / PC-Login) → Deployment (PTLS/BITBW).
 - **Stufe-1-Token-Missbrauchsschutz** (Rotation/Geräte-Bindung/2. Faktor) — bewusst vertagt
   („wenn die Zeit kommt", Owner 2026-06-22).
+- **Massen-Provisionierung** (~30.000 Pro-Person-Tokens, Batch-Paste/CSV) — gestrichen (D-10);
+  später präzise mit PTLS Pol + Personaldatenbank/SSO abstimmen. Normale Feldnutzer bleiben bis SSO Stufe 0.
 - **Klarname-Speicherung in ARGUS** — bewusst ABGELEHNT (D-02); nur USBNK.
-- **CSV-Datei-Upload** für Provisionierung — optionale spätere Bequemlichkeit (Batch-Paste reicht zunächst).
 </deferred>
 
 ---

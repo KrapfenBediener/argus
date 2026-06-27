@@ -435,11 +435,12 @@ Leitungs-Oberfläche (Phase 4.9) und der Präsidiums-Admin-Rolle (Phase 4.14).
   (die reine Code-Sperre liegt seit 4.9 in der Leitungs-Oberfläche).
 - **RLS-Feinschliff** auf Basis der Phase-4-Grundlage.
 
-**Zuschnitt (discuss-phase 2026-06-27, D-01):** Phase 5 = **nur Backend +
-Leitungs-Seite, kein App-Release**. Provisionierung = Batch-Paste (USBNK[,Rolle]),
-ein Geheim-Token je USBNK, Pro-Person-Widerruf via `jti`. Rollen: Normal/Master/FLZ/Admin.
-T4-Umfang = mittel (Lebenszyklus + Login + Governance, append-only, 12 Mon.).
-Context: `.planning/phases/05-identitaeten-audit-stufe1/05-CONTEXT.md`.
+**Zuschnitt (discuss-phase 2026-06-27, D-01/D-10):** Phase 5 = **nur Backend +
+Leitungs-Seite, kein App-Release**. Kern = **(USBNK→Rolle/Scope)-Register + Master-Verwaltung
++ T4-Audit**. Nur USBNK (keine Klarnamen). Pro-Person-Tokens = **Einzel-Ausgabe** für privilegierte
+Rollen (Master/FLZ/Admin, 4.14-Muster) — **keine Massen-Provisionierung** (die kommt später mit
+PTLS Pol/SSO; normale Feldnutzer bleiben bis dahin Stufe 0). T4 = mittel (Lebenszyklus + Login +
+Governance, append-only, 12 Mon.). Context: `.planning/phases/05-identitaeten-audit-stufe1/05-CONTEXT.md`.
 
 ## Phase 5.1 — Feld-App: Pro-Person-Login & Echt/Schulung-Picker ⬜
 
