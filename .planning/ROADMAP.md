@@ -362,7 +362,7 @@ Governance-RPCs verweigern; Cross-Exchange beidseitig abgewiesen; revoked
 wirkt; `lage_view` genau 1× je Login). KEIN App-Release — Feld-App
 (index.html/sw.js/version.json) unangetastet, weiterhin v0.24.0.
 
-## Phase 4.13 — Paket 3 (baubarer Teil): Schulungs-Provisionierung, Tombstone-Reset, AT-MIST-Druck ⬜
+## Phase 4.13 — Paket 3 (baubarer Teil): Schulungs-Provisionierung, Tombstone-Reset, AT-MIST-Druck ✅ 2026-06-13
 
 **Ziel:** Der extern UNblockierte Teil von Paket 3 (Feedback-Triage
 2026-06-13): (1) Schulungs-Reset über Tombstones statt hartem DELETE —
