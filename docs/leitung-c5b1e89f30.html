@@ -1791,12 +1791,13 @@ function secIdentitaeten(){
   h+='<option value="master">Master</option>';
   h+='<option value="flz" selected>FLZ</option>';
   h+='<option value="admin">Admin</option>';
+  h+='<option value="normal">Normal</option>';
   h+='</select></div>';
   h+='<button class="btn" data-action="mkperson" style="white-space:nowrap;align-self:end;margin-bottom:1px">Token ausgeben</button>';
   h+='</div>';
-  /* Präsidiums-Select für Admin-Rolle (immer gerendert, JS-Sichtbarkeit) */
+  /* Präsidiums-Select für Admin- und Normal-Rolle (immer gerendert, JS-Sichtbarkeit) */
   h+='<div id="pers-praes-wrap" style="margin-top:8px;display:none">';
-  h+='<label class="fieldlab" for="pers-praes">Präsidium (für Admin-Rolle)</label>';
+  h+='<label class="fieldlab" for="pers-praes">Präsidium (für Admin-/Normal-Rolle)</label>';
   h+='<select id="pers-praes" style="width:100%;padding:9px 11px;font-size:14px">';
   h+='<option value="">— bitte wählen —</option>';
   (_praes||[]).forEach(function(p){
@@ -1861,7 +1862,7 @@ async function doMkPerson(){
   var praesId=(praesEl?praesEl.value:'')||null;
   var lbl=(labelEl?labelEl.value:'').trim();
   if(!usbnk){ toast('USBNK ist erforderlich (D-02).'); return; }
-  if(rolle==='admin' && !praesId){ toast('Für Rolle Admin ist ein Präsidium erforderlich.'); return; }
+  if((rolle==='admin' || rolle==='normal') && !praesId){ toast('Für diese Rolle ist ein Präsidium erforderlich.'); return; }
   var r;
   try{
     r=await cl.rpc('argus_master_issue_person',{
@@ -1901,12 +1902,12 @@ async function doPersonRole(sc, usbnk, oldRole, oldPid){
   /* CR-01+WR-03 (0017): atomarer RPC argus_master_role_change_person.
    * Kein zweistufiger revoke+issue mehr — kein Lockout bei Teilfehler. */
   var neueRolle=await promptModal(
-    'USBNK: '+esc(usbnk)+'\nAktuell: '+esc(rolleLabel(oldRole))+'\n\nNeue Rolle eingeben (master/flz/admin):',
+    'USBNK: '+esc(usbnk)+'\nAktuell: '+esc(rolleLabel(oldRole))+'\n\nNeue Rolle eingeben (master/flz/admin/normal):',
     oldRole
   );
   if(!neueRolle) return;
   neueRolle=neueRolle.trim().toLowerCase();
-  if(!['master','flz','admin'].includes(neueRolle)){ toast('Ungültige Rolle — erlaubt: master, flz, admin'); return; }
+  if(!['master','flz','admin','normal'].includes(neueRolle)){ toast('Ungültige Rolle — erlaubt: master, flz, admin, normal'); return; }
   var ok=await confirmModal(
     'Rollenwechsel für USBNK '+esc(usbnk)+':\n'+esc(rolleLabel(oldRole))+' → '+esc(rolleLabel(neueRolle))+'\n\nDer bestehende Code bleibt gültig; die neue Rolle gilt ab der nächsten Anmeldung.\nDer Wechsel wird im Audit-Log protokolliert.',
     'Rollenwechsel durchführen'
@@ -2416,7 +2417,7 @@ document.addEventListener('change', function(e){
   var ro=e.target.closest('select#pers-rolle');
   if(ro){
     var pw=document.getElementById('pers-praes-wrap');
-    if(pw) pw.style.display=(ro.value==='admin')?'':'none';
+    if(pw) pw.style.display=(ro.value==='admin'||ro.value==='normal')?'':'none';
     return;
   }
 });
