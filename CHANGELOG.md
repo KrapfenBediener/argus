@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.31.0 — 2026-06-21
+**Patientenfotos dauerhaft an (DSB-Freigabe 2026-06-21)**
+- Der einsatzweite MasterMedic-Schalter „Fotos erlauben" entfällt. `_photosAllowed` ist fest `true`; die Sync-/Restore-Stellen (`row.photos_allowed`, `sGet('ccp_photos_allowed')`) und der `togglephotos`-Handler sind entfernt, der Schalter aus der Patientenübersicht raus, die „deaktiviert"-Zustände im Patientendetail entfallen.
+- Der Kamera-Button erscheint dadurch auf allen Geräten ohne Freischaltung. **Unverändert:** Fotos nur zur Wiedererkennung (pseudonym), ab gPA nicht mehr sichtbar, **72-h-Auto-Löschung nach Abschluss** (serverseitig).
+- Drehbuch-Lektionen angepasst (Foto-Schalter-Lektion → „Patientenfotos"; Detail-Foto-Wortlaut). SW-Cache v58.
+
 ## v0.30.0 — 2026-06-21
 **Geführter tacSTART zurück (Owner-Entscheid 2026-06-21)**
 - Die Erfassung läuft wieder über den **geführten tacSTART-Walk** (Schritt-für-Schritt-Vorsichtung mit Kategorie-Ausgabe) wie bis v0.28.2. Der statische-Schaubild-Ansatz aus v0.29.x (`tacChartSVG`, manuelle Endpunkt-Wahl, einziger Erfassungsweg) ist **zurückgenommen**.

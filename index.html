@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.30.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.31.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -138,6 +138,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.31.0': [
+    'Patientenfotos sind jetzt dauerhaft verfügbar — der Kamera-Button erscheint auf allen Geräten, ohne dass die Leitung Fotos erst je Einsatz freischalten muss. Fotos dienen weiterhin nur der Wiedererkennung (statt Name) und werden 72 Std nach Einsatzende automatisch gelöscht.'
+  ],
   '0.30.0': [
     'Erfassen nach tacSTART ist wieder geführt: Schritt für Schritt durch die Vorsichtung (gehfähig? → Atmung → Atemfrequenz → Puls → Befehle) bis zur Kategorie — wie aus den früheren Versionen gewohnt. Die Direktzuordnung bleibt als Ausnahme erreichbar.'
   ],
@@ -313,7 +316,7 @@ var _ccpOrt         = '';     /* Ortsbezeichnung der eigenen CCP-Row (auch FLZ-N
 var _mergeGroupId   = null;   /* gemeinsame Merge-Gruppe; null = eigenständig */
 var _mergeReqFrom   = null;   /* eingehende Merge-Anfrage von diesem CCP */
 var _demoMerged     = false;  /* lokale Demo-Zusammenführung (nur Schulungsumgebung) */
-var _photosAllowed  = false;  /* T1: einsatzweiter Schalter „Fotos erlauben" (ccps.photos_allowed) — Default AUS */
+var _photosAllowed  = true;   /* Fotos dauerhaft AN (v0.31.0, DSB-Freigabe 2026-06-21) — kein einsatzweiter Schalter mehr; Wert bleibt true, 72-h-Löschung nach Abschluss unverändert */
 var _mergeReqHandling = false;/* Re-Entrancy-Schutz für Bestätigungsdialog */
 var _prevGroupSize  = 1;      /* zur Erkennung, dass ein CCP der Gruppe beigetreten ist */
 var _lastView       = null;   /* für Scroll-Reset nur bei View-Wechsel */
@@ -392,7 +395,7 @@ function applyMeta(row){
   if(typeof row.master_medic==='string') masterMedic=row.master_medic;
   /* T1 Foto-Schalter: synct über die ccps-Row (Realtime-UPDATE + loadMeta).
    * Im Training nicht überschreiben — dort gilt der lokale Trainings-Zustand. */
-  if('photos_allowed' in row && !_training) _photosAllowed=!!row.photos_allowed;
+  /* Fotos dauerhaft AN (v0.31.0) — row.photos_allowed wird bewusst ignoriert. */
   if(typeof row.kennung==='string' && row.kennung) _ccpKennung=row.kennung;
   /* Ortsbezeichnung (auch FLZ-Nachtrag über die Lageansicht, Migration 0010):
    * in die Checklisten-Kopfdaten „Einsatzort" übernehmen, solange dort noch
@@ -1030,7 +1033,7 @@ async function loadMeta(){
   var mg=await sGet("ccp_merged");_demoMerged=!!mg;
   /* T1: lokaler Fallback (reiner Offline-/Demo-Betrieb ohne CCP-Row).
    * Im Training nicht überschreiben (lokaler Trainings-Zustand). */
-  var pa=await sGet("ccp_photos_allowed"); if(!_training)_photosAllowed=!!pa;
+  /* Fotos dauerhaft AN (v0.31.0) — kein gespeicherter Schalter-Zustand mehr. */
 }
 async function setMasterMedic(v){
   masterMedic=v; await sSet("ccp_mastermedic",v);
@@ -1857,14 +1860,8 @@ function vOverview(){
     var labels=Object.keys(dupO).map(function(k){var pp=k.split('|');return ccpMerged?(pp[0]+'-'+pp[1]):pp[1];});
     h+='<div class="banner" style="margin-bottom:12px;background:var(--surf2);border:1px solid var(--prio)"><span>⚠</span><div><b style="color:var(--prio)">Doppelte Nummer'+(labels.length>1?'n':'')+': '+esc(labels.join(', '))+'</b><br><span class="hint">Im selben CCP doppelt vergeben (z. B. durch parallele Erfassung). Bitte prüfen und einen Patienten neu kennzeichnen.</span></div></div>';
   }
-  /* T1 Foto-Schalter „Fotos erlauben": Bedienelement NUR für MasterMedic/Eröffner —
-   * alle anderen Geräte folgen still dem gesyncten Zustand (kein Hinweis-Spam). */
-  if(isMasterMedic()){
-    h+='<div class="card" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:12px">'+
-      '<div style="flex:1"><div style="font-weight:600;font-size:14px">📷 Fotos erlauben</div>'+
-      '<div class="hint" style="margin-top:2px">'+(_photosAllowed?'An — Aufnahme auf allen Geräten dieses Einsatzes möglich':'Aus — Kamera-Button ist ausgeblendet')+'</div></div>'+
-      '<button class="txbtn'+(_photosAllowed?' on':'')+'" data-action="togglephotos" style="width:auto;padding:9px 16px'+(_photosAllowed?';background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(_photosAllowed?'an':'aus')+'</button></div>';
-  }
+  /* Foto-Schalter entfernt (v0.31.0): Fotos sind dauerhaft an (DSB-Freigabe).
+   * Kamera-Button erscheint überall; 72-h-Löschung nach Abschluss bleibt. */
   CATORDER.forEach(function(cat){var c=CATS[cat];var n=countCat(cat);
     h+='<button class="bigcat" data-action="opencat" data-cat="'+cat+'" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span><span class="lab">'+c.label+'</span> <span class="nm">'+c.nm+'</span></span><span class="cc">'+n+'</span></button>';
   });
@@ -1960,23 +1957,21 @@ function vPatient(){
     h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:11px;margin-top:8px"><span style="color:var(--prio);font-weight:600">⚠ Nummer '+esc(pno(p))+' doppelt vergeben</span><div class="hint" style="margin-top:3px">Ein weiterer aktiver Patient im selben CCP trägt dieselbe Nummer. Bitte einen davon neu kennzeichnen.</div></div>';
   }
 
-  /* T1 Foto-Lebenszyklus: Aufnahme-Elemente NUR bei _photosAllowed (einsatzweiter
-   * Schalter, Default AUS). Bestehende Fotos bleiben bei Schalter AUS sichtbar —
-   * nur die Aufnahme ist gesperrt; „Foto entfernen" bleibt verfügbar. */
+  /* T1 Foto-Lebenszyklus: Fotos sind dauerhaft an (v0.31.0) — Kamera-Button immer
+   * verfügbar. Bestehende Fotos bleiben sichtbar; „Foto entfernen" bleibt verfügbar;
+   * 72-h-Löschung nach Abschluss unverändert. */
   var fotoHint='<div class="hint" style="margin-top:6px">Nur zur Wiedererkennung (statt Name). Wird mit den Geräten dieses Einsatzes geteilt. Nach dem Einsatz 72 Std nur für die Leitung einsehbar, danach automatisch gelöscht.</div>';
   h+='<div class="sech" id="ph-foto">Foto zur Identifikation</div><div class="card">';
   if(photoVisible(p)){
     h+='<img src="'+p.photo+'" alt="Patientenfoto" data-action="photozoom" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;cursor:pointer">';
     h+='<div class="hint" style="text-align:center;margin-top:4px;font-size:11px">Antippen zum Vergrößern</div>';
     h+='<div class="row" style="margin-top:9px">'+
-      (_photosAllowed?'<label class="txbtn" style="flex:1;cursor:pointer;line-height:1.3">Neues Foto<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>':'')+
+      '<label class="txbtn" style="flex:1;cursor:pointer;line-height:1.3">Neues Foto<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>'+
       '<button class="txbtn" data-action="delphoto" data-id="'+p.id+'" style="flex:1">Foto entfernen</button></div>';
     h+=fotoHint;
-  }else if(_photosAllowed){
+  }else{
     h+='<label class="txbtn" style="display:block;padding:16px;cursor:pointer;font-size:15px">📷 Foto aufnehmen oder wählen<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>';
     h+=fotoHint;
-  }else{
-    h+='<div class="hint">Foto-Aufnahme deaktiviert. Die Leitung (MasterMedic) kann sie in der Patientenübersicht mit „Fotos erlauben" einschalten.</div>';
   }
   h+='</div>';
 
@@ -2479,11 +2474,11 @@ var TRAIN_LESSONS=[
   /* Foto-Schalter: nur sichtbar, wenn der Übende MasterMedic seines Übungs-CCP ist
    * (Normalfall — der Eröffner wird automatisch MasterMedic). Fehlt das Element,
    * zeigt der Coach die Lektion ohne Spotlight — kein Blocker. */
-  {t:'Fotos erlauben (MasterMedic)', mode:'explain', x:'Patientenfotos sind standardmäßig AUS. Nur die Leitung (MasterMedic) schaltet sie hier je Einsatz ein — erst dann erscheint der Kamera-Button auf allen Geräten. Fotos dienen nur der Wiedererkennung und werden nach dem Einsatz automatisch gelöscht. Im Training ist der Schalter für dich schon an.', sel:'[data-action="togglephotos"]'},
+  {t:'Patientenfotos', mode:'explain', x:'Patientenfotos sind verfügbar — der Kamera-Button erscheint auf allen Geräten. Fotos dienen nur der Wiedererkennung (statt Name) und werden nach dem Einsatz automatisch gelöscht (72 Std nach Abschluss). Ein Foto machst du gleich direkt am Patienten.', sel:function(){return null;}},
   {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Zwei Wege (beide markiert): oben eine Sichtungs-Kachel (nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,[data-action="opencat"][data-cat="all"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
-  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Es erscheint nur, wenn die Leitung „Fotos erlauben" eingeschaltet hat (im Training ist das für dich schon an). Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
+  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Der Kamera-Button ist immer verfügbar. Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
   {t:'Detail: Kategorie wechseln', mode:'explain', x:'Ändert sich der Zustand — verschlechtert ODER verbessert — verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie (Re-Triage, in beide Richtungen).', sel:'#ph-cat'},
   {t:'Stammdaten: pseudonym', mode:'explain', x:'ARGUS arbeitet pseudonym: Die NUMMER identifiziert den Patienten, nicht der Name. Den Namen nur erfassen, wenn er für Versorgung oder Übergabe wirklich nötig ist — die Patientenliste zeigt bewusst nur Nummern. Und in Freitexte (Hergang, Verletzung, Notizen) gehören keine Namen Dritter — nur versorgungsrelevante Fakten.', sel:'#ph-stamm'},
   {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — ARGUS fragt, WO das TQ sitzt und WANN es angelegt wurde (oft schon vor Ankunft am CCP — dann die Uhrzeit eintragen). Der Timer läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
@@ -2521,7 +2516,7 @@ async function endTraining(){
   try{ trainClearSpot(); var pe=document.getElementById('train-coach'); if(pe&&pe.parentNode)pe.parentNode.removeChild(pe); }catch(e){}
   var ok=await confirmModal('Training beenden?\n\nDie Übungsdaten auf diesem Gerät werden entfernt. Echte CCPs sind nicht betroffen.','Beenden');
   if(!ok){ try{ renderCoach(); }catch(e){} return; }
-  _training=false; _photosAllowed=false; trainSave(); try{ trainTeardown(); }catch(e){}   /* Foto-Schalter zurück auf Default AUS (nach dem Training gibt es keinen aktiven CCP mehr) */ try{await trainReset();}catch(e){} if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
+  _training=false; _photosAllowed=true; trainSave(); try{ trainTeardown(); }catch(e){}   /* Fotos bleiben dauerhaft an (v0.31.0) */ try{await trainReset();}catch(e){} if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
 }
 function trainStep(d){
   if(d>0){ _trainStep=Math.min(_trainStep+1,TRAIN_LESSONS.length); if(_trainStep>_trainMax)_trainMax=_trainStep; }
@@ -3087,17 +3082,7 @@ document.addEventListener("click",async function(e){
     return;
   }
   if(a==="togglephotos"){
-    /* T1 Foto-Schalter: nur MasterMedic/Eröffner. Einschalten mit Folge-Erklärung
-     * (Teilen + automatische Löschung); Ausschalten direkt — bestehende Fotos
-     * bleiben sichtbar, nur die Aufnahme wird gesperrt. */
-    if(!isMasterMedic()){toast("Nur MasterMedic kann das ändern");return;}
-    if(_photosAllowed){
-      await setPhotosAllowed(false);render();toast("Foto-Aufnahme ausgeschaltet");
-    }else{
-      var okph=await confirmModal("Fotos erlauben?\n\nFotos werden mit allen Geräten dieses Einsatzes geteilt und nach dem Einsatz automatisch gelöscht (72 Std nach Abschluss).","Erlauben");
-      if(!okph)return;
-      await setPhotosAllowed(true);render();toast("Foto-Aufnahme erlaubt");
-    }
+    /* togglephotos entfernt (v0.31.0) — Fotos sind dauerhaft an, kein Schalter mehr. */
     return;
   }
   if(a==="closeeinsatz"){ await closeEinsatzWorkflow(); return; }
