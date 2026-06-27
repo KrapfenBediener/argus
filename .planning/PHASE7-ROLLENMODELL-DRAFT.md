@@ -1,132 +1,126 @@
-# Phase 7 — Rollenmodell · Entscheidungsvorlage (Vordenken)
+# Phase 7 — Rollen- & Identitätsmodell · Architektur (konvergiert)
 
-> **Status:** ENTWURF zur Ratifizierung — autonom erstellt 2026-06-21, während Owner offline.
-> Dies ist KEIN GSD-`CONTEXT.md` (bewusst außerhalb `.planning/phases/`, damit es
-> die GSD-Phasenerkennung nicht stört). Es ist die inhaltliche Vorarbeit, die in
-> die spätere `/gsd-discuss-phase` einfließt — der Owner entscheidet final.
+> **Status:** Lebendes Architektur-Dokument, konversationell erarbeitet 2026-06-21/22
+> (Owner + Claude). Dies IST der inhaltliche Phase-7-Design-Input.
 >
-> **Korrekter nächster GSD-Weg (frisch, nicht heute):**
-> `/gsd-complete-milestone` (Closed Beta V1 abschließen) → `/gsd-new-milestone`
-> (Governance & Übergabe, neu sortiert) → `/gsd-discuss-phase` (dieses Dokument
-> als Input) → `/gsd-plan-phase`.
-
-## Ausgangslage
-Heute gibt es genau **zwei Zugangsebenen**, dazwischen nichts:
-- **MasterToken** (`is_master`-JWT, global): volle Governance, alle Präsidien, Leitungs-Seite.
-- **Feld-Codes** (pro Präsidium, pseudonym, kein Login): Dauerhaft / Einmal / Gast-24h.
-- **Beobachter** (`is_observer` + `observer_praesidium_id`): read-only Lage, ein Präsidium.
-
-Der „Kurs-Host"-Wunsch (Trainer gibt selbst Codes/QR fürs eigene Präsidium aus,
-ohne globalen Zugriff) fällt genau in die Lücke → erstes Inkrement von Phase 7.
-
-**Unverrückbares Prinzip:** Der **Feld-Zugang bleibt IMMER pseudonym** (Code, kein
-Login). Nur die Admin-/Delegations-Ebene bekommt Rollen.
+> **GSD-Hinweis:** Der formale Weg (`complete-milestone` → `new-milestone` →
+> `discuss-phase`) ist aktuell durch **GSD-Buchführungs-Drift** blockiert (keine
+> MILESTONES.md, fehlende SUMMARYs für Phasen 01/04, Milestone intern als
+> v0.19.5 gelabelt, `phases.list` leer). Retroaktive GSD-Buchführung bringt
+> keinen echten Mehrwert (Historie liegt in Git/CHANGELOG/STATE). Daher wird die
+> Phase-7-Planung **pragmatisch** über dieses Dokument geführt.
 
 ---
 
-## Entscheidung 1 — Token-Rollen vs. echte Konten
-**Empfehlung: Token-gebundene Rollen JETZT.** Echte Konten (Supabase Auth) als
-separate, spätere Phase (offizieller Echtbetrieb, ohnehin PTLS-gated).
+## Leitprinzip: SCOPE und IDENTITÄT trennen
+- **Scope** (was darf ich? welches Präsidium?) ← kommt aus der **Rolle**.
+- **Identität** (wer bin ich? fürs Protokoll) ← kommt aus der **USBNK**.
+- **Architektur-Invariante:** Eine Sitzung trägt IMMER `(USBNK, Rolle, Präsidiums-Scope)`.
+  Über alle Ausbaustufen bleibt diese Schicht **gleich** — nur die **Quelle** der
+  USBNK steigt auf. → **Kein Re-Architecting zwischen den Stufen.**
 
-**Warum:**
-- Token-Rollen passen zur Pseudonymität und nutzen die **bestehende** Mechanik:
-  `access_tokens` + `jti`-Sofortsperre (`argus_token_active`) + JWT-Claims
-  (`argus_praesidium_id`/`argus_is_master`/`argus_is_observer`). Minimaler
-  Architektur-Eintrag: eine neue Token-Art + ein Claim.
-- Echte Konten = E-Mail, Account-/Reset-Flows, Identitätsdaten (DSGVO),
-  Auth-Umbau → großer Schritt, erst für den echten Polizei-Betrieb sinnvoll.
-- Token-Rollen sind **sofort lieferbar** (Kurs-Host für den laufenden PPF-Kurs)
-  und konsistent zu allem Bestehenden.
-
----
-
-## Entscheidung 2 — Rollenliste (für JETZT)
-1. **MasterUser** (global) — bleibt (`is_master`), Leitungs-Seite, volle Governance. *(existiert)*
-2. **Präsidiums-Admin / „Kurs-Host"** (NEU, präsidiums-begrenzt) — darf NUR fürs
-   **eigene** Präsidium nicht-privilegierte Codes ausgeben/sperren + die eigene
-   Zugänge-Liste sehen. KEIN globaler Zugriff, keine anderen Präsidien, KEINE
-   Einsatzprotokolle/Foto-Abrufe, KEINE Präsidiums-Anlage.
-3. **Beobachter (FLZ)** — bleibt (`is_observer` + `observer_praesidium_id`). *(existiert)*
-
-*(Landes-Observer = Phase 8, hier raus.)*
+Begründung DSB/Recht (Owner-Read 2026-06-22): ARGUS läuft polizei-intern;
+**personenscharfe Protokollierung ist dort Normalfall** (POLAS wird ebenso
+personenscharf protokolliert). Der DSB sieht darin grundsätzlich kein Problem.
+→ Die Identitäts-/Protokoll-Schicht (inkl. T4-Audit) ist damit **kein
+Sonderhindernis** mehr. *(Prudenz: konkrete Rechtsgrundlage/JI-Regime bei T4-Bau
+schriftlich bestätigen lassen.)*
 
 ---
 
-## Entscheidung 3 — Capability-Matrix (Entwurf)
-| Fähigkeit | MasterUser | Präsidiums-Admin | Beobachter | Feld-Code |
-|---|---|---|---|---|
-| Gast-/Einmal-Code ausgeben | alle Präsidien | **nur eigenes** | – | – |
-| Code sperren | alle | **nur eigene** | – | – |
-| Zugänge-Liste sehen | alle | **nur eigene** | – | – |
-| Einsatzprotokolle (abgeschlossen) | ✓ | – | – | – |
-| Foto-Einzelabruf (protokolliert) | ✓ | – | – | – |
-| Präsidium anlegen/provisionieren | ✓ | – | – | – |
-| Lage (anonym) sehen | ✓ | optional? (offen) | eigenes | – |
-| Patienten erfassen/verwalten | – | – | – | eigenes Präsidium |
-| **master/admin/observer-Token erzeugen** | ✓ | **NIE** | – | – |
+## Stufenmodell (nur die USBNK-Quelle ändert sich)
+| Stufe | Identitätsquelle | Authentifiziert? | Wann |
+|---|---|---|---|
+| **0** | geteilter Präsidiums-/Rollen-Code (+ optional Kürzel) | nein (pseudonym) | jetzt · Übung · PPF-Kurs |
+| **1** | **Pro-Person-Token, USBNK-gekoppelt** (batch aus Personalbestand provisioniert) | passwort-artig (an Person gebunden) | **vor der Übergabe baubar** |
+| **2** | **SSO / Geräte-Profil** (PoliPhone-Profil bzw. PC-Anmeldung liefert USBNK) | **ja, POLAS-Niveau**, kein Extra-Login | Echtbetrieb (Deployment; PTLS/BITBW) |
+
+**Gerätelandschaft (Owner 2026-06-22):**
+- **PoliPhone:** persönliches, persistentes Profil (1:1 Person; abmeldbar → andere Person). Stufe 2 liefert USBNK transparent, ohne Extra-Login.
+- **PC:** Anmeldung je Sitzung mit USBNK + Passwort. Stufe 2 reitet auf dieser Sitzung mit.
+- **Ziel:** KEIN separater ARGUS-Login — ARGUS nutzt die vorhandene Polizei-Sitzung.
 
 ---
 
-## Entscheidung 4 — Scope-Mechanik (Bau-Skizze, Planer verfeinert)
-- Neue Token-Art in `access_tokens`: **boolean `is_admin`** (Muster wie
-  `is_master`/`is_observer`/`gast`) + nutzt das vorhandene `praesidium_id`.
-  *(Alternative: `role`-Text-Spalte — Discretion des Planers; boolean ist
-  konsistenter zum Bestand.)*
-- Neuer Claim `admin_praesidium_id` + Helper `argus_admin_praesidium_id()`
-  (analog `argus_observer_praesidium_id()` aus 0005).
-- Exchange: `argus_exchange_code` erweitern ODER eigener RPC (wie observer) →
-  JWT trägt `is_admin` + `admin_praesidium_id`, **NICHT** `is_master`.
-- `jti`-Sofortsperre (`argus_token_active`) gilt automatisch mit.
-- Code-Ausgabe/-Sperre als **`security definer`-RPCs**, die intern hart prüfen:
-  Ziel-Präsidium == `argus_admin_praesidium_id()` UND die erzeugte/zu sperrende
-  Token-Art ist **nicht privilegiert** (nur Gast/Einmal; nie master/admin/observer).
+## Rollen
+| Rolle | Zugriff | Identität (Stufe) |
+|---|---|---|
+| **Normaler User** | Echtbetrieb-Präsidium **+** zugehöriges Schulungs-Präsidium (Feld-Erfassung/Verwaltung) | geteilt (S0) → pro-Person (S1/S2) |
+| **FLZ-User** | FLZ-/Lageansicht **+** alles vom normalen User; präsidienübergreifend (durch Protokoll gedeckt) | dito |
+| **Master-User** | alles **+** Governance-Panel **+** USBNK-/Namenssuche → Rollen erteilen/widerrufen + Protokoll-Einsicht | pro-Person (privilegiert) |
+| **Präsidiums-Admin** *(= „Kurs-Host", schmal)* | NUR eigenes Präsidium: 24h-Gast-Code (+QR) ausgeben/sperren **+** eigene anonyme Lage | S0/S1, präsidiumsbegrenzt |
+| **Beobachter (FLZ extern)** | read-only Lage, ein Präsidium | existiert (`is_observer`) |
+
+**Präsidienübergreifend (Echtfall/Amtshilfe):** breiter Zugriff akzeptiert, weil
+**personenscharf protokolliert** (Punkt-1-Argumentation). Präsidiums-Picker mit
+zwei Reitern **„Echtbetrieb-Auswahl" / „Schulungs-Auswahl"** (harte Echt/Übung-
+Trennung; in der Feld-App bereits angelegt). Im MANV muss die Auswahl **schnell**
+gehen — Tempo vor Antragsweg.
 
 ---
 
-## Erstes Inkrement (Kurs-Host, sofort für PPF)
-Minimaler Satz: `is_admin`-Token + `admin_praesidium_id` + Exchange + RLS/RPC-Guards,
-sodass der Token **nur Gast-Code (24 h) fürs eigene Präsidium** ausgeben/sperren
-kann. Dazu **QR-Ausgabe (Deep-Link)** und eine abgespeckte Admin-Ansicht (eigene
-Mini-Seite ODER reduzierte Leitungs-Seite — Discretion).
+## Was JETZT baubar ist (vor der Übergabe)
+1. **Identitäts-Schicht:** Sitzung trägt `(USBNK, Rolle, Präsidiums-Scope)`.
+2. **Stufe 1:** Pro-Person-USBNK-Token — **batch aus dem Personalbestand**
+   provisionierbar (kein Hand-Provisioning bei 30.000+). Pro-Person-Widerruf,
+   Pro-Person-Audit. **Nutzt die vorhandene Infrastruktur:** `access_tokens` +
+   `jti`-**Sofortsperre** sind bereits ein Pro-Token-Register mit Echtzeit-
+   Widerruf → nur `usbnk` + `role` + `scope` ergänzen.
+3. **T4-Audit** (personenscharfes, append-only Protokoll) — durch POLAS-
+   Argumentation freigegeben.
+4. **Schema-Link Präsidium ↔ Schulungs-Zwilling** (normaler Token = beide).
+5. **Übungspräsidium:** Demo-Befüllung **opt-in** + Master-Aktion „leeren" (Q2).
+6. **Admin-Surface:** **rollen-adaptive Leitungs-Seite** (Weg B) statt neuer Seite
+   je Rolle — eine Governance-Oberfläche, die je angemeldeter Rolle nur das Erlaubte
+   zeigt. RLS bleibt die echte Grenze; UI ist Komfort.
+
+## Erst zur Deployment-Zeit (Echtbetrieb, PTLS/BITBW)
+- **Stufe-2-SSO-Connector** gegen die echte Polizei-IdP. In der Dev-Supabase nicht
+  testbar → gegen eine **klare Schnittstelle** bauen, beim Aufschalten verdrahten.
+  Auto-Widerruf via IdP (Polizei-Konto deaktiviert → ARGUS-Zugriff weg).
 
 ---
 
-## Sicherheits-Leitplanken (NICHT verhandelbar)
-- **Privilege-Escalation-Schutz:** Ein Admin darf NIE master/admin/observer-Tokens
-  erzeugen oder sperren — ausschließlich nicht-privilegierte Codes des eigenen
-  Präsidiums. RLS **und** RPC-Guards müssen das hart erzwingen.
-- **REST-Negativtests Pflicht** (Muster wie Observer 4.12): Admin-JWT →
-  Fremd-Präsidium = verweigert; Admin-JWT → Protokolle/Fotos = verweigert;
-  Admin-JWT → master/admin-Token erzeugen = verweigert.
-- Admin sieht **keine** Patientendaten/Protokolle/Fotos (bleibt MasterUser).
+## Technik-Skizze: Präsidiums-Admin-Inkrement (erstes baubares Stück, PPF)
+- Token-Art `is_admin` + Claim `admin_praesidium_id` + Helper
+  `argus_admin_praesidium_id()` (Muster wie `is_observer`/0005).
+- Exchange (erweitern oder eigener RPC) → JWT trägt `is_admin` + `admin_praesidium_id`, **nie** `is_master`.
+- `jti`-Sofortsperre gilt automatisch.
+- Code-Ausgabe/-Sperre als `security definer`-RPCs mit harter Prüfung:
+  Ziel-Präsidium == `argus_admin_praesidium_id()` **und** Token-Art nicht privilegiert
+  (nur Gast/24h; nie master/admin/observer).
+
+## Sicherheits-Leitplanken (nicht verhandelbar)
+- **Privilege-Escalation-Schutz:** Admin erzeugt/sperrt NIE master/admin/observer-Tokens.
+- **REST-Negativtests Pflicht** (Muster Observer 4.12): Fremd-Präsidium, Protokolle/Fotos, Token-Eskalation = jeweils verweigert.
+- Admin sieht keine Patientendaten/Protokolle/Fotos (bleibt MasterUser).
 
 ---
 
-## Explizit NICHT in Phase 7
-- **Audit-Log / T4** — DSB-gated (JI-Regime-Votum offen).
-- **Echte Konten / Supabase Auth** — separate spätere Phase (Echtbetrieb).
-- **Landes-Observer, FLZ Stufe b** — Phase 8.
+## OFFEN / später entscheiden
+- **⏳ Stufe-1-Token ist passwort-artig** (bei Weitergabe/Diebstahl als diese USBNK
+  missbrauchbar). **Lösung bewusst vertagt — „wenn die Zeit kommt" (Owner 2026-06-22).**
+  Kandidaten fürs spätere Denken: kurze Gültigkeit/Rotation, Geräte-Bindung,
+  zweiter Faktor, oder direkt Stufe 2 (SSO) als Ablösung.
+- **Pro-Person-Widerruf:** durch Stufe 1 gelöst (einzelnen USBNK-Token sperren statt Code rotieren).
+- **FLZ-Rotation:** durch geteilte/Pro-Person-Tokens + jti-Sofortsperre abgedeckt; Detailmechanik bei Bedarf.
+- **Admin-Surface-UI-Details** (rollen-adaptive Leitungs-Seite) — beim Bau ausgestalten.
+- **T4-Rechtsgrundlage** schriftlich (POLAS-Analogie / JI-Regime) — Prudenz.
+
+## DSB / PTLS — Status
+- **DSB:** personenscharfes Protokoll polizei-intern Normalfall (POLAS) → grundsätzlich ok (Owner-Read). T4 baubar.
+- **PTLS:** offizieller Echtbetrieb (und damit Stufe-2-Aufschaltung) bleibt **extern blockiert** bis zur KI-App-Richtlinie. Stufen 0/1 + Architektur sind davon unberührt baubar.
 
 ---
 
-## Ratifizierte Entscheidungen (Owner, 2026-06-22)
-- **Rollenname: „Präsidiums-Admin"** (allgemein, auch über Kurse hinaus tauglich).
-- **Code-Umfang: NUR Gast-Code (24 h)** fürs eigene Präsidium (+ QR). Keine Einmal-/Dauerhaft-Codes.
-- **Lage-Zugriff: JA** — der Präsidiums-Admin darf die **anonyme Lage seines eigenen Präsidiums** sehen (wie ein Beobachter, auf sein Präsidium begrenzt).
-- Token-Art: boolean `is_admin` + `admin_praesidium_id` (Claude's Discretion, bestätigt durch Muster).
-- MasterUser gibt die Admin-Tokens aus (über die Leitungs-Seite).
-
-## OFFEN & GRÖSSER ALS GEDACHT → Admin-Surface-Architektur (Owner-Hinweis 2026-06-22)
-Die Frage „wo bedient der Admin das?" ist **nicht** eine UI-Detailfrage, sondern die
-Spitze der **Admin-Oberflächen-Architektur**, die uns vor dem Echtbetrieb ohnehin
-erwartet (mehr Rollen: Master, Präsidiums-Admin, Beobachter, später FLZ-operativ,
-Landes-Observer, echte Konten). Owner will das **im großen Ganzen** entscheiden,
-nicht ad hoc. → Eigener Diskussionspunkt, siehe Chat 2026-06-22. Backend der Rolle
-ist UI-unabhängig und kann unabhängig gebaut werden.
+## PPF-Kurs-Host
+Schlicht ein **Stufe-0/1-Stück für ein Präsidium** (Präsidiums-Admin, nur Gast-Code
++ eigene Lage). Wird **nach** Finalisierung dieses Gesamtbilds als kleines erstes
+Inkrement herausgezogen (Owner: „darum kümmern wir uns danach").
 
 ---
 
-*Referenzen: `.planning/ROADMAP.md` Phase 7 · `docs/KONZEPT-POLIZEIBETRIEB.md` ·
-Migrationen 0001 (Claims), 0003 (revoked), 0005 (observer-Claim-Muster),
+*Referenzen: `.planning/ROADMAP.md` (Phasen 7/8) · `docs/KONZEPT-POLIZEIBETRIEB.md`
+(Stufenmodell MDM/SSO/USBNK) · Migrationen 0001 (Claims), 0005 (observer-Muster),
 0007 (jti-Sofortsperre), 0009 (gast) · Memories: dsb-gespraech-outcome,
-ptls-vibecoding-block, mdr-tacstart-accepted, ppf-kurse-evaluation.*
+ptls-vibecoding-block, mdr-tacstart-accepted, ppf-kurse-evaluation, supabase-admin-workflow.*
