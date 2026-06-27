@@ -86,6 +86,7 @@ supabase/migrations/0012_kurs_evaluation.sql           Anonymer Kurs-Evaluations
 supabase/migrations/0013_phase414_admin_rolle.sql      Präsidiums-Admin-Rolle (is_admin-Token, Admin-Exchange, scoped Gast-Code-RPCs, argus_lage-Admin)
 supabase/migrations/0014_phase414_admin_exchange_hardening.sql  Härtung: argus_exchange_code weist is_admin-Codes ab (CR-02); argus_exchange_admin_code erzwingt expires_at (CR-01)
 supabase/migrations/0015_phase5_identitaeten.sql               Stufe-1-Identität (is_person/usbnk/role auf access_tokens, schulungs_zwilling_id auf praesidien, Claim-Helfer argus_is_flz/argus_usbnk/argus_argus_role, Person-Exchange argus_exchange_person_code, Master-Issue/Revoke/Search-RPCs, audit_log append-only, CR-02-Härtung is_person, argus_lage-FLZ-Zweig)
+supabase/migrations/0016_phase5_t4_audit.sql                   T4-Audit-Retention (argus_run_purge Schritt (e): audit_log > 12 Monate löschen)
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -101,7 +102,11 @@ ebenfalls KEINE neuen Server-Abhängigkeiten; 0015 nutzt dieselben Abhängigkeit
 wie 0013/0014: pgjwt + Vault-Secret `argus_jwt_secret` für den Person-Exchange-RPC
 `argus_exchange_person_code`, jti-Sofortsperre über `argus_token_active` für die
 neuen Claim-Helfer argus_is_flz/argus_usbnk/argus_argus_role — KEINE neuen
-Server-Abhängigkeiten):
+Server-Abhängigkeiten; 0016 fasst ausschließlich argus_run_purge neu (additiver
+Retention-Schritt (e): audit_log-Einträge älter als 12 Monate löschen, D-07,
+§ 73 PolG BW) — KEINE neuen Server-Abhängigkeiten und KEIN zweiter Cron-Job;
+der bestehende stündliche Job `argus_purge` (0002) ruft die erweiterte Funktion
+automatisch auf):
 
 | Abhängigkeit | Vorkommen | Wofür | Einstufung | Prüfung |
 |---|---|---|---|---|
@@ -150,7 +155,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
@@ -374,7 +379,7 @@ Benötigt: zwei Geräte/Browser, ein Einsatz-Code, der MasterToken, SQL-Zugang.
    anschließend im Bereich „Protokoll" (jeder Abruf wird festgehalten).
 7. **Purge-Lauf prüfen:** Per SQL `select public.argus_run_purge();`
    ausführen. → *Erwartung:* JSON mit Zählern (`foto`, `frist`, `inaktiv`,
-   `log_retention`) — bei frischer Instanz überall 0. Zusätzlich
+   `log_retention`, `audit_log_retention`) — bei frischer Instanz überall 0. Zusätzlich
    `select jobname, schedule from cron.job;` → Eintrag `argus_purge`
    (`17 * * * *`); fehlt er, Ersatzweg aus Abschnitt 3 dokumentiert betreiben.
 8. **Negativ-Prüfungen (Pflicht):** REST-Abfragen mit dem anon-Key **ohne**
