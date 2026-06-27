@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Executing Phase 05
-last_updated: "2026-06-27T22:20:00Z"
+status: Phase 05 abgeschlossen (3/3 Pläne) — Identitäten & Audit-Protokoll Stufe 1
+last_updated: "2026-06-27T20:38:58.738Z"
 progress:
   total_phases: 10
-  completed_phases: 7
+  completed_phases: 8
   total_plans: 31
-  completed_plans: 24
-  percent: 77
+  completed_plans: 25
+  percent: 80
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -178,7 +178,10 @@ Offener Owner-Punkt: ephemeren PAT widerrufen (Supabase Dashboard → Account �
 SUMMARY: `.planning/phases/05-identitaeten-audit-stufe1/05-02-SUMMARY.md`.
 Offener Owner-Punkt: ephemeren PAT widerrufen (Supabase Dashboard → Account → Access Tokens), sofern nach Plan 05-01 noch nicht erledigt.
 
-**Plan 05-03:** offen (Leitungs-Seite UI — Audit-Ansicht)
+**Plan 05-03 ✅ (2026-06-27):** Leitungs-Seite — zwei entsperrte Master-Sektionen „Identitäten“ (Einzel-Ausgabe Pro-Person-Token via argus_master_issue_person, USBNK-Suche via argus_master_search_usbnk ohne Token-Secret, Rollenwechsel = revoke+issue, Sperre via argus_master_revoke_person/jti-Sofortsperre) + „Audit-Log“ (T4-Anzeige cl.from('audit_log') mit USBNK-Spalte/Filter, deutsche Aktions-Labels); Phase-7-Sperrzone entfernt. Gap-Fix (vom Orchestrator gefunden): doLogin um dritten Versuch argus_exchange_person_code + Rollen-Mapping (master/admin/flz-normal) erweitert — macht Leitungs-Seiten-Sessions personenscharf (D-08); flz/normal → graceful secNoView() statt kaputter Master-Ansicht. Browser-Roundtrip gegen Live-Backend bestanden (person_login/issue/revoke alle mit Actor-USBNK; keine Token-Secrets; noview-Pfad ok; Testdaten bereinigt). Nur In-App-Modals; D-02/D-06 gewahrt; index.html/sw.js unverändert (kein App-Release). Commits d163ae6 (Sektionen), 598e208 (Person-Login), 7670c52 (SUMMARY).
+SUMMARY: `.planning/phases/05-identitaeten-audit-stufe1/05-03-SUMMARY.md`.
+
+**Phase 05 abgeschlossen** (3/3 Pläne): serverseitige Identitäts-/Audit-Schicht (Stufe 1) + Audit-Retention + Leitungs-Seiten-Bedienung end-to-end personenscharf.
 
 ---
 
@@ -901,6 +904,7 @@ bereits existiert).
 | Phase 04.14 P02 | 90min | 3 tasks | 1 file |
 | Phase 05-01 | multi-session | 3 tasks | 2 files |
 | Phase 05-02 | 5min | 2 tasks | 2 files |
+| Phase 05-03 | ~35min | 2 tasks + checkpoint | 1 file |
 
 ## Decisions
 
@@ -909,3 +913,5 @@ bereits existiert).
 - [Phase 04.14]: 04.14-01: Admin-JWT traegt bewusst KEIN praesidium_id/is_master — alle bestehenden RLS-Policies liefern [] ohne Extra-Policies; argus_is_admin() gated auf argus_token_active() fuer jti-Sofortsperre; Gast-Code-Ausgabe/-Sperre als security-definer-RPCs (direkte Writes master-only per RLS 0001); 0013 nutzt dieselben Server-Abhaengigkeiten wie 0005/0007
 - [Phase 04.14]: 04.14-02: Admin-JWT kein access_tokens-Select (kein praesidium_id-Claim) → sitzungsbasierte Gast-Code-Liste als Architektur-Loesung; dual-exchange doLogin (Master-RPC zuerst, Admin-Fallback) vermeidet Doppel-Log; kein App-Release (Leitungs-Seite Desktop-Begleitseite)
 - [Phase 05-02]: 05-02-01: audit_log-Retention als Schritt (e) in argus_run_purge (create or replace) — kein zweiter Cron-Job; bigint-ms-Cutoff analog governance_log; Return-JSON additiv (audit_log_retention-Schluessel); 0016 live angewendet + idempotent + Funktionstest bestanden
+- [Phase 05-03]: 05-03: Rollenwechsel = revoke(alt)+issue(neu, gleiche USBNK) statt direktem access_tokens-Update (Plan 01 hat keinen dedizierten Rollen-Change-RPC; RLS master-only + serverseitiges Logging); kein "Entsperren" (Widerruf = Kill-Switch, D-11); flz/normal-Person-Login akzeptiert aber ansichtslos (secNoView statt kaputter Master-Ansicht)
+- [Phase 05-03]: 05-03 Gap-Fix: doLogin um dritten Versuch argus_exchange_person_code NACH Master/Admin erweitert (CR-02-Haertung laesst Person-Codes am Master-Exchange korrekt scheitern); USBNK→argusl_kuerzel als Actor → personenscharfe Leitungs-Seiten-Sessions (D-08, sonst usbnk=null)
