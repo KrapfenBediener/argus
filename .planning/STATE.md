@@ -24,7 +24,18 @@ progress:
 > - **PPF-Kurs:** Präsidium 'PPF-Kurse' (Rename von 'PP Karlsruhe — Schulung'), anonymer Evaluationsbogen `docs/evaluation.html` + Migration 0012 live; frische Daten-Sicherung gezogen.
 >
 > **Roadmap-Neuordnung (Owner-Entscheid 2026-06-21):** Übergabe-Paket (Phase 5/6) ans **Ende**; **Phase 7 (Identitäten & Rollen) vorgezogen**, um die PTLS-Wartezeit produktiv zu nutzen. Audit-Log/T4 bleibt in Phase 7 ausgeklammert (DSB-gated). Erstes Inkrement: präsidiums-begrenzte **„Kurs-Host"-Rolle**.
-> **Nächster Schritt:** Phase 7 **Kontext + Rollenmodell klären via `/gsd-discuss-phase 7`**, dann `/gsd-plan-phase 7`. (Phase 7 in GSD noch nicht registriert: phase_found=false, kein CONTEXT.md.)
+> **Nächster Schritt (GSD-sauber, FRISCH machen — nicht ermüdet):**
+> Phasen 5–8 sind in GSD **nicht registriert** (nur ROADMAP-Skizze; `phase_found=false`).
+> Korrekte Reihenfolge: **`/gsd-complete-milestone`** (Closed Beta V1 formell abschließen)
+> → **`/gsd-new-milestone`** (Milestone „Governance & Übergabe", neu sortiert: Rollen
+> zuerst, Übergabe ans Ende, T4/FLZ-b DSB-gated) → **`/gsd-discuss-phase`** (Rollen)
+> → **`/gsd-plan-phase`**.
+> **Rollenmodell ist bereits vorgedacht:** Entscheidungsvorlage in
+> `.planning/PHASE7-ROLLENMODELL-DRAFT.md` (Empfehlung: Token-Rollen statt Konten;
+> neue Rolle „Präsidiums-Admin/Kurs-Host" präsidiums-begrenzt; Capability-Matrix +
+> Sicherheits-Leitplanken + offene Owner-Fragen). In die `discuss-phase` einspeisen.
+> **Sofort-nützliche Einzel-Builds (unabhängig, ohne Phase-7-Ceremony):**
+> QR-Ausgabe für Gast-Codes (Deep-Link) · In-App-©/„proprietär"-Hinweis · Repo privat schalten.
 
 - **Milestone:** Closed Beta V1 — läuft
 - **Aktuelle Phase:** 4.12 FLZ-Lageansicht Stufe a — **ABGESCHLOSSEN
