@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.32.3 — 2026-06-28
+**Training-Fix: Highlighting Lektion „Patienten öffnen"**
+- **Spotlight-Fehler behoben** (gemeldet vom Owner): In der Lektion „Patienten öffnen" (angezeigt als Lektion 20) wurde die obere Zähl-Reihe abgedunkelt statt hervorgehoben. Ursache: der in v0.32.1 erweiterte Selektor `.countbar,[data-action="opencat"]` matchte zusätzlich die einzelnen Zähl-Kacheln (`<div class="cnt">`) *innerhalb* der `.countbar` → überlappende/horizontale Spotlight-Löcher, die der Abdunkel-Algorithmus (`trainDim`, Annahme: vertikal gestapelte, nicht überlappende Löcher) falsch berechnete. Fix: `.countbar,button[data-action="opencat"]` — die `.countbar` als *ein* Loch plus nur die Buttons (Farb-Buttons + „Alle Patienten"). Im Preview verifiziert: 6 sauber gestapelte Löcher, 0 Abdunkelung über der oberen Reihe.
+- SW-Cache v62.
+
 ## v0.32.2 — 2026-06-28
 **Sicherheit: Stored-XSS in der Foto-Anzeige behoben**
 - **Foto-Anzeige gehärtet (Feld-App + Leitungs-Seite):** Der von Feldgeräten geschriebene `patients.photo`-Wert wurde an drei Stellen ungeprüft per `innerHTML` als `<img src>` gesetzt (Patientendetail, Foto-Zoom, Leitungs-Protokoll-Foto). Ein manipulierter Wert hätte über einen Attribut-Breakout Script-Code im Kontext der jeweiligen Seite ausführen können (in der Leitungs-Seite mit Master-Sitzung → JWT-Diebstahl). Fix: strenge `data:image`-Base64-Validierung (`safePhoto`) + DOM-Aufbau mit `src` als Property bzw. nur validierte Interpolation; Captions via `textContent`.

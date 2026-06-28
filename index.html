@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.32.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.32.3';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.32.3': [
+    'Geführtes Training: In der Lektion „Patienten öffnen" wurde die obere Zähl-Reihe fälschlich abgedunkelt statt hervorgehoben. Das Highlighting markiert jetzt wieder sauber alle drei Wege (Zähl-Kacheln, Farb-Buttons, „Alle Patienten").'
+  ],
   '0.32.2': [
     'Sicherheits-Härtung der Foto-Anzeige: Patientenfotos werden vor der Anzeige streng als Bildformat geprüft. Funktional ändert sich nichts — gültige Fotos werden wie gewohnt angezeigt.'
   ],
@@ -2719,7 +2722,7 @@ var TRAIN_LESSONS=[
    * (Normalfall — der Eröffner wird automatisch MasterMedic). Fehlt das Element,
    * zeigt der Coach die Lektion ohne Spotlight — kein Blocker. */
   {t:'Patientenfotos', mode:'explain', x:'Patientenfotos sind verfügbar — der Kamera-Button erscheint auf allen Geräten. Fotos dienen nur der Wiedererkennung (statt Name) und werden nach dem Einsatz automatisch gelöscht (72 Std nach Abschluss). Ein Foto machst du gleich direkt am Patienten.', sel:function(){return null;}},
-  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Drei Wege (alle markiert): oben die Zähl-Kacheln, in der Mitte die großen Farb-Buttons (je nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,[data-action="opencat"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel, einen Farb-Button oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
+  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Drei Wege (alle markiert): oben die Zähl-Kacheln, in der Mitte die großen Farb-Buttons (je nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,button[data-action="opencat"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel, einen Farb-Button oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
   {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Der Kamera-Button ist immer verfügbar. Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
