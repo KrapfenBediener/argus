@@ -14,7 +14,27 @@ progress:
 
 # Projekt-Status — Argus (CCP-App)
 
-> ## Stand 2026-06-27 (Roadmap-Neuordnung + Sicherheits-Nachzug, aktuell)
+> ## Stand 2026-06-28 (Phase 5 & 5.1 abgeschlossen + Security-Nachzug, aktuell)
+> **Phase 5 (Identitäten & Audit Stufe 1) und Phase 5.1 (Feld-App Pro-Person-Login
+> & Echt/Schulung-Picker) abgeschlossen, verifiziert und live** (ROADMAP: beide ✅).
+> Migrationen 0015–0020 live. App-Releases seither: **v0.32.0** (Login/Picker),
+> **v0.32.1** (Training: Lektion „Standort wird erfasst" + Lektion-19-Fix),
+> **v0.32.2** (Security: Stored-XSS in der Foto-Anzeige an 3 Stellen behoben —
+> Feld-App + Leitungs-Seite, `safePhoto`-Härtung). Alles gepusht, Pages live.
+> **Projektweite Vollprüfung (2026-06-28):** RLS live bestätigt (anon ⇒ 0 Zeilen
+> auf patients/audit_log/access_tokens), Purge per pg_cron, keine nativen Dialoge,
+> Storage-Naht intakt, Migrationen 0000–0020 ↔ SELF-HOSTING deckungsgleich.
+> Offene Härtung (Low): 9 `SECURITY DEFINER`-Claim-Reader ohne `set search_path`
+> (Anwendung in ruhigem Fenster mit Master-Login-Test einplanen).
+> Geführtes Training nach v0.32.1 vollständig durchgewalkt (41/41, 0 Fehler) —
+> Engine gesund; gemeldete „Macken" brauchen konkrete Symptom-Angabe zur gezielten Behebung.
+> **Hinweis:** Frontmatter-Zähler oben (milestone v0.19.5, 9/11) sind veraltet —
+> per GSD-State-Sync nachziehen.
+>
+> **Nächster Schritt (Owner-Wunsch):** einsatzbereite Beta bis **2026-07-03** —
+> Zwischenstand Feld/Leitung/FLZ prüfen, nächsten sinnvollen Schritt festlegen.
+
+> ## Stand 2026-06-27 (Roadmap-Neuordnung + Sicherheits-Nachzug)
 > **Phase 04.14 abgeschlossen & gepusht** (origin/main, GitHub Pages live).
 > Beim Phasen-Code-Review + projektweitem Review zwei echte Funde behoben:
 > (1) **CR-02 Privilege-Escalation** — `argus_exchange_code` akzeptierte
