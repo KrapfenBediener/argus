@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.2': [
+    'Geführtes Training: „Zurück zur Startseite" am Ende (nach der Übergabe-Karte) funktioniert jetzt zuverlässig — der ‹-Knopf war markiert, ließ sich aber nicht antippen. Und die Lektion „Patienten öffnen" markiert auf dem Handy die immer sichtbare obere Kachel-Reihe, statt dass untere Schaltflächen hinter dem Hinweisfenster verschwinden.'
+  ],
   '0.33.1': [
     'Geführtes Training — Feinschliff: Auf schmalen Displays werden jetzt auch mehrere markierte Schaltflächen sauber ins Bild gescrollt (vorher konnten untere Buttons hinter dem Hinweisfenster verschwinden). Die Foto-Erklärung sitzt jetzt direkt in der Patientenmaske, und der Schritt „CCP abschließen" zeigt den passenden Knopf.'
   ],
@@ -2738,7 +2741,7 @@ var TRAIN_LESSONS=[
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
   /* Foto wird im Patienten-Detail erklärt (Lektion „Detail: Foto"), wo der Kamera-
    * Button real sichtbar ist — keine separate, kontextlose Foto-Lektion in der Übersicht. */
-  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Drei Wege (alle markiert): oben die Zähl-Kacheln, in der Mitte die großen Farb-Buttons (je nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,button[data-action="opencat"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel, einen Farb-Button oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
+  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Tippe oben eine Sichtungs-Kachel (öffnet diese Kategorie) — genauso gehen die großen Farb-Buttons in der Mitte oder unten „Alle Patienten" für die Gesamtliste. Dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe oben eine Sichtungs-Kachel':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
   {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Der Kamera-Button ist auf allen Geräten verfügbar. Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
@@ -2904,7 +2907,10 @@ function renderCoach(){
   }
   var target=nodes?nodes[0]:null;
   var spotKey=target?((backRedirect?'B':'S')+_trainStep+'|'+(doitTxt||'')):'';
-  var spotMode=(L&&L.mode)||'explain';
+  /* Bei der Rückkehr-Umleitung (home:true, Ziel = ‹-Button) darf der Spotlight NICHT
+   * blockieren — sonst legt der Explain-Modus einen transparenten Blocker über ‹ und
+   * „Zurück" funktioniert nicht. 'choice' = kein Blocker, Ring bleibt. */
+  var spotMode=backRedirect?'choice':((L&&L.mode)||'explain');
   var el=document.getElementById('train-coach');
   if(!el){ el=document.createElement('div'); el.id='train-coach'; el.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:8002'; document.body.appendChild(el); }
   var pct=Math.round((Math.min(_trainStep,n)/n)*100);

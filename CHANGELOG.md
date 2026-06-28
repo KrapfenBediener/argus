@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.33.2 — 2026-06-28
+**Training-Fix: „Zurück" am Ende + „Patienten öffnen" mobil**
+- **„Zurück zur Startseite" funktioniert wieder** (Owner-Report): Die in v0.33.1 `home:true` gemachte Schluss-Lektion „CCP abschließen" ist `mode:'explain'` — im Explain-Modus legt der Spotlight einen transparenten Blocker übers Ziel, hier über den ‹-Button → markiert, aber nicht antippbar. Fix in `renderCoach`: bei aktiver Rückkehr-Umleitung (`backRedirect`) wird der Spotlight-Modus auf `'choice'` gezwungen (kein Blocker, Ring bleibt) → ‹ ist tappbar. Betrifft generell jede `explain`+`home:true`-Lektion.
+- **„Patienten öffnen" hakt nicht mehr mobil** (Owner-Report): Der Multi-Ziel-Spotlight (Zähl-Reihe + Farb-Buttons + „Alle Patienten") war auf schmalen Displays höher als der freie Bereich → untere Ringe hinterm Coach-Panel. Auf der Übersicht wird jetzt nur noch die **kompakte, stets sichtbare Zähl-Reihe** (`.countbar`) gespotlightet; der Lektionstext nennt die Farb-Buttons und „Alle Patienten" weiterhin als gleichwertige Wege. catlist-Zweig (Patient antippen) unverändert.
+- Mobil verifiziert (375×812). SW-Cache v66.
+
 ## v0.33.1 — 2026-06-28
 **Training-Feinschliff: Multi-Ziel-Spotlight (mobil), Foto-Lektion in der Maske, Abschließen-Button**
 - **Spotlight-Scroll bei mehreren Zielen** (Owner-Report „Lektion 15 Highlighting off"): Lektionen mit mehreren markierten Elementen (z. B. „Direkt anlegen" mit 4 Kategorie-Buttons, „Patienten öffnen") scrollten auf schmalen Displays NICHT — untere Ziele verschwanden hinter dem Coach-Panel. Fix: `trainSpotlight` scrollt jetzt auch bei Multi-Ziel; `trainScrollToRect` richtet bei zu hohen Ziel-Unions die Oberkante an `safeTop` aus (statt zu zentrieren), sodass möglichst viele Ziele oberhalb des Panels sichtbar bleiben. Mobil verifiziert.
