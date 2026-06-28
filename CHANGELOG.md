@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.32.1 — 2026-06-28
+**Geführtes Training: Standort-Erfassung + Drehbuch-Korrektur**
+- **Neue Trainingslektion „Standort wird erfasst"** (nach „CCP eröffnen"): erklärt, dass ARGUS beim Eröffnen automatisch den CCP-Standort per GPS erfasst (best-effort, nur bei Geräte-Freigabe; keine Personendaten) und dass die Leitung/FLZ den CCP dadurch mit 📍 in der Lage-Ansicht sieht und die WGS84-Koordinate per Tipp kopieren kann.
+- **Drehbuch-Korrektur Lektion „Patienten öffnen":** Es sind jetzt alle drei Wege in die Patientenliste markiert (Zähl-Kacheln oben, die großen Farb-Buttons in der Mitte, „Alle Patienten" unten) — zuvor fehlten die Farb-Buttons in der Markierung. Der `ctxBack`-Rücksprung wurde auf den verschobenen Lektions-Index nachgezogen.
+- Reine Schulungs-/Drehbuch-Änderung — keine Funktions- oder Backend-Änderung. SW-Cache v60.
+
 ## v0.32.0 — 2026-06-28
 **Pro-Person-Login + Echt/Schulung-Picker**
 - **Pro-Person-Login mit Auto-Erkennung:** Ein Freischalt-Feld für alle Code-Typen — ARGUS erkennt automatisch, ob ein persönlicher Code oder ein Sammelcode eingegeben wurde, und stellt eine personenscharfe Sitzung aus (USBNK-tragendes JWT → Feld-Aktionen werden personenscharf ins Audit-Log geschrieben).

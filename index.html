@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.32.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.32.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.32.1': [
+    'Geführtes Training erweitert: eine neue Lektion erklärt die automatische Standort-Erfassung des CCP (per GPS beim Eröffnen) und wie die Leitung/FLZ den CCP dadurch als Koordinate in der Lage sieht.',
+    'Kleine Drehbuch-Korrektur: In der Patientenübersicht sind jetzt alle drei Wege zur Patientenliste markiert (Zähl-Kacheln, Farb-Buttons, „Alle Patienten").'
+  ],
   '0.32.0': [
     'Persönliche Anmeldung: Ein Freischalt-Feld genügt — ARGUS erkennt automatisch, ob es ein persönlicher oder ein Gruppen-Code ist. Nach dem Login erscheint dein Präsidium direkt.',
     'Echtbetrieb oder Schulung: Beim Anmelden wählst du mit zwei großen Reitern, in welchem Modus du arbeitest. Standard ist Echtbetrieb; der Schulungsreiter zeigt einen unübersehbaren gelben Banner — damit ist klar, dass keine echten Patientendaten eingegeben werden.',
@@ -2679,6 +2683,7 @@ var TRAIN_LESSONS=[
   {t:'Willkommen', mode:'explain', x:'Du befindest dich in der Schulungsumgebung — der gelbe Banner oben bestätigt das. Dieses Training läuft nur auf DEINEM Gerät (nichts wird synchronisiert). Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
   {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du alle offenen CCPs in deinem Präsidium und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Im Training ist Beitreten gesperrt — gleich eröffnest du selbst einen.', sel:'[data-action="joinccp"]'},
   {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
+  {t:'Standort wird erfasst', mode:'explain', x:'Beim Eröffnen merkt sich ARGUS automatisch den Standort dieses CCP — einmalig per GPS, nur wenn dein Gerät es erlaubt; schlägt es fehl, passiert nichts. Gespeichert wird ausschließlich die Koordinate des CCP, KEINE Personendaten. In der Lage-Ansicht der Leitung/FLZ erscheint der CCP dadurch mit 📍 — ein Tipp kopiert die WGS84-Koordinate in deren eigene Lagekarte. So weiß die Leitstelle, wo deine Sammelstelle steht, ohne dass du etwas tun musst.'},
 
   {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
   {t:'Status & Bediener', mode:'explain', x:'Darunter der Status: 🟢 Echtzeit-Modus (mit Verbindung) oder 🔴 Lokaler Modus (offline — funktioniert trotzdem voll). Hier stehen auch dein Bediener-Kürzel und ob noch etwas nicht synchronisiert ist.', sel:'.banner'},
@@ -2691,9 +2696,9 @@ var TRAIN_LESSONS=[
   {t:'Jetzt: Checkliste öffnen', mode:'do', home:true, x:'Probieren wir es aus: Öffne die Checkliste CCP.', sel:'[data-action="nav"][data-view="checklist"]', doit:'Öffne „Checkliste CCP"', adv:function(){return state.view==='checklist';}},
   /* ctx/ctxBack (Fix 2026-06-13, Lektion 12): verlässt der Übende die
    * Checkliste vorzeitig über „zurück", springt das Training automatisch auf
-   * die Einstiegs-Lektion (Index 10, „Checkliste öffnen") zurück, statt auf
+   * die Einstiegs-Lektion (Index 11, „Checkliste öffnen") zurück, statt auf
    * der Startseite kontextlos die Checkliste zu erklären. */
-  {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:10},
+  {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:11},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
   {t:'Direkt anlegen (Ausnahme)', mode:'do', x:'Steht die Kategorie zweifelsfrei fest, geht es direkt — das ist die AUSNAHME hinter dem Aufklapper „Direkt kategorisieren", der Standardweg ist tacSTART (kommt gleich). Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:function(){return state.capDirect?'[data-action="addcat"]':'[data-action="capdirecttoggle"]';}, doit:function(){return state.capDirect?'Tippe die markierte Kategorie':'Öffne „Direkt kategorisieren"';}, adv:function(){return trainCount()>=1;}},
   {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen, den „TQ"-Timer starten, ein „Foto" aufnehmen (wenn erlaubt), „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg, der nächste Patient ist nur einen Tipp entfernt.', sel:'#cap-last'},
@@ -2704,7 +2709,7 @@ var TRAIN_LESSONS=[
    * (Normalfall — der Eröffner wird automatisch MasterMedic). Fehlt das Element,
    * zeigt der Coach die Lektion ohne Spotlight — kein Blocker. */
   {t:'Patientenfotos', mode:'explain', x:'Patientenfotos sind verfügbar — der Kamera-Button erscheint auf allen Geräten. Fotos dienen nur der Wiedererkennung (statt Name) und werden nach dem Einsatz automatisch gelöscht (72 Std nach Abschluss). Ein Foto machst du gleich direkt am Patienten.', sel:function(){return null;}},
-  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Zwei Wege (beide markiert): oben eine Sichtungs-Kachel (nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,[data-action="opencat"][data-cat="all"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
+  {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Drei Wege (alle markiert): oben die Zähl-Kacheln, in der Mitte die großen Farb-Buttons (je nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,[data-action="opencat"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel, einen Farb-Button oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
   {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Der Kamera-Button ist immer verfügbar. Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
