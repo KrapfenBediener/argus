@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.32.4';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.0': [
+    'Schulungsumgebung steuern mit einem klaren Schalter: Ist die Umgebung leer, legt „Schulungsumgebung befüllen" ein Demo-Szenario an (6 CCPs mit Beispiel-Patienten); ist sie gefüllt, entfernt „Schulungsumgebung leeren" alle Übungsdaten. Ersetzt das frühere „Schulung zurücksetzen".',
+    'Die Schulungs-Steuerung steht jetzt auch der Admin-Rolle zur Verfügung — nicht mehr nur dem MasterUser; eine Anmeldung auf der Leitungs-Seite ist dafür nicht nötig.'
+  ],
   '0.32.4': [
     'Geführtes Training robuster: Wenn man während einer Lektion unerwartet „zurück" tippt, verhakt sich das Intro nicht mehr. Statt blind weiterzulaufen, zeigt der Coach einen Rückkehr-Hinweis — sobald man wieder in der passenden Ansicht ist, geht es am selben Schritt weiter.'
   ],
@@ -2611,10 +2615,18 @@ function vStart(){
   if(_praesidiumSchulung){
     h += '<button class="prim" data-action="starttraining" style="margin-top:10px;background:var(--acc);border-color:var(--acc)">🎓 Geführtes Training '+(_training?'fortsetzen':'starten')+'</button>';
   }
-  /* Reset-Button nur, wenn die Schulungsumgebung verändert wurde (oder Zustand
-   * unbekannt/offline) — im Originalzustand ausgeblendet. */
-  if(_praesidiumSchulung && _isMaster && _schulDirty!==0){
-    h += '<button class="ghost" data-action="schulreset" style="margin-top:10px;border-color:var(--t1)"><span style="color:var(--t1)">🎓 Schulung zurücksetzen</span></button>';
+  /* Schulungs-Steuerung (Master ODER Admin, T-052): EIN zustandsabhängiger Button
+   * statt des alten „Zurücksetzen" (das wipe+refill in einem tat) —
+   *   leere Umgebung (_openCcpCount===0) → „Befüllen" (Demo-Szenario anlegen)
+   *   gefüllte Umgebung (_openCcpCount>0) → „Leeren" (Übungsdaten entfernen)
+   *   unbekannt/offline (-1) → kein Button (transient). Spart Interface, immer die
+   * passende Aktion. Admin-Person-JWT trägt praesidium_id (0019) → RLS/RPC greifen im Twin. */
+  if(_praesidiumSchulung && (_isMaster || _argusRole==='admin')){
+    if(_openCcpCount===0){
+      h += '<button class="ghost" data-action="schulfill" style="margin-top:10px;border-color:var(--acc)"><span style="color:var(--acc)">🎓 Schulungsumgebung befüllen</span></button>';
+    } else if(_openCcpCount>0){
+      h += '<button class="ghost" data-action="schulreset" style="margin-top:10px;border-color:var(--t1)"><span style="color:var(--t1)">🎓 Schulungsumgebung leeren</span></button>';
+    }
   }
   h += '<button class="ghost" data-action="nav" data-view="help" style="margin-top:8px;font-size:13px">❓ Hilfestellungen & Kurzanleitung</button>';
   h += '<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">';
@@ -3462,43 +3474,61 @@ document.addEventListener("click",async function(e){
     try{ await gdx.from('ccps').delete().eq('merge_group_id',grp); }catch(e){} /* CASCADE löscht alle zugehörigen Patienten */
     await leaveCurrentCcp();await loadOpenCcpCount();toast("Verbund gelöscht ("+members.length+" CCPs)");go("start");return;
   }
-  if(a==="schulreset"){
+  if(a==="schulreset"){   /* „Leeren": nur wipen (kein Refill) — Gegenstück zu „schulfill" (T-052) */
     if(!_praesidiumSchulung)return;
-    /* Seit dem Flag-Umbau (0009/0011) gilt der Reset für JEDES Schulungs-
-     * Präsidium — Text daher mit Präsidiumsnamen statt fest „der Schulungsumgebung". */
-    var oks2=await confirmModal("Schulung komplett zurücksetzen?\n\nALLE CCPs und Patienten "+(_praesidiumName?"von „"+_praesidiumName+"“":"dieser Schulungsumgebung")+" werden zurückgesetzt und ein frisches Demo-Szenario (6 CCPs mit zufälligen Patienten) neu angelegt.","Zurücksetzen");
+    var oks2=await confirmModal("Schulungsumgebung leeren?\n\nALLE Übungs-CCPs und Patienten "+(_praesidiumName?"von „"+_praesidiumName+"“":"dieser Schulungsumgebung")+" werden entfernt. Danach ist die Umgebung leer — über „Befüllen“ legst du wieder ein Demo-Szenario an.","Leeren");
     if(!oks2)return;
     var scx=sb(); if(!scx||!_praesidiumId){toast("Keine Backend-Verbindung");return;}
-    toast("Setze zurück…");
-    /* 1) Schulungsumgebung serverseitig zurücksetzen (Tombstone-RPC, Migration 0011):
-     *    CCPs werden NICHT hart gelöscht, sondern wie beim Einsatz-Abschluss tombstoned —
-     *    Offline-Geräte bereinigen sich beim Reconnect über checkClosedEinsatz/handleRemoteClose. */
+    toast("Leere…");
+    /* Serverseitiges Tombstone-Reset (Migration 0011): CCPs werden NICHT hart
+     * gelöscht, sondern wie beim Einsatz-Abschluss tombstoned — Offline-Geräte
+     * bereinigen sich beim Reconnect über checkClosedEinsatz/handleRemoteClose. */
     var rr; try{ rr=await scx.rpc('argus_schulung_reset',{p_praesidium_id:_praesidiumId}); }
     catch(e){ rr={error:{message:'keine Verbindung'}}; }
-    if(rr && rr.error){ toast('Reset fehlgeschlagen: '+(rr.error.message||'unbekannt')); return; }
-    if(rr && rr.data && rr.data.error){ toast('Reset fehlgeschlagen: '+rr.data.error); return; }
+    if(rr && rr.error){ toast('Leeren fehlgeschlagen: '+(rr.error.message||'unbekannt')); return; }
+    if(rr && rr.data && rr.data.error){ toast('Leeren fehlgeschlagen: '+rr.data.error); return; }
     _demoMerged=false; await sSet("ccp_merged",false);
     var slk=await sList("ccp_pat_"); for(var si=0;si<slk.length;si++){await sDel(slk[si]);}
-    /* 2) frisches Demo-Szenario: 6 CCPs, ALLE mit erfundenen MasterMedics
-     *    (kein vom Nutzer geführter CCP), je mit zufälligen Patienten. */
-    var bnames=DEMO_MEDICS;
-    var borte=['CCP Marktplatz','CCP Bahnhof','CCP Schulhof','CCP Stadthalle','CCP Sportplatz','CCP Parkhaus'];
-    var bkenn=['A','B','C','D','E','F'];
-    for(var bi=0;bi<6;bi++){
-      var ta=new Uint8Array(16);crypto.getRandomValues(ta);
-      var jt=Array.from(ta,function(x){return x.toString(16).padStart(2,'0');}).join('');
-      var ins=await scx.from('ccps').insert({kennung:bkenn[bi],ort:borte[bi],master_medic:bnames[bi],merged:false,join_token:jt,praesidium_id:_praesidiumId,closed_at:null}).select().single();
-      if(!ins.data)continue;
-      var rows=genDemoRows(ins.data.id,bkenn[bi],bnames[bi]);
-      if(rows.length){ try{await scx.from('patients').insert(rows);}catch(e){} }
-    }
-    /* 3) Trainer NICHT in einen CCP setzen — er findet die Demo-CCPs auf der
-     *    Landingpage vor und kann beitreten/übernehmen. */
     if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
     _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[];
     localStorage.removeItem('argus_ccp_id');
     await loadOpenCcpCount();
-    go("start");toast("Schulung zurückgesetzt — 6 Demo-CCPs angelegt");
+    go("start");toast("Schulungsumgebung geleert");
+    return;
+  }
+  if(a==="schulfill"){   /* „Befüllen": frisches Demo-Szenario anlegen (nur in leere Umgebung) */
+    if(!_praesidiumSchulung)return;
+    var scxF=sb(); if(!scxF||!_praesidiumId){toast("Keine Backend-Verbindung");return;}
+    if(_openCcpCount>0){ toast("Umgebung ist nicht leer — erst leeren"); return; }
+    var okf=await confirmModal("Schulungsumgebung befüllen?\n\nEs wird ein frisches Demo-Szenario angelegt: 6 CCPs mit Beispiel-Patienten über alle Kategorien — gut zum Vorführen und freien Üben.","Befüllen");
+    if(!okf)return;
+    toast("Befülle…");
+    /* Demo-Szenario: 6 CCPs A–F, ALLE mit erfundenen MasterMedics (kein vom Nutzer
+     * geführter CCP), je mit zufälligen Patienten (genDemoRows). Identisch zur früheren
+     * Refill-Hälfte des alten „Zurücksetzen". */
+    var bnames=DEMO_MEDICS;
+    var borte=['CCP Marktplatz','CCP Bahnhof','CCP Schulhof','CCP Stadthalle','CCP Sportplatz','CCP Parkhaus'];
+    var bkenn=['A','B','C','D','E','F'];
+    var made=0;
+    for(var bi=0;bi<6;bi++){
+      var ta=new Uint8Array(16);crypto.getRandomValues(ta);
+      var jt=Array.from(ta,function(x){return x.toString(16).padStart(2,'0');}).join('');
+      var ins;
+      try{ ins=await scxF.from('ccps').insert({kennung:bkenn[bi],ort:borte[bi],master_medic:bnames[bi],merged:false,join_token:jt,praesidium_id:_praesidiumId,closed_at:null}).select().single(); }
+      catch(e){ ins=null; }
+      if(!ins||!ins.data)continue;
+      made++;
+      var rows=genDemoRows(ins.data.id,bkenn[bi],bnames[bi]);
+      if(rows.length){ try{await scxF.from('patients').insert(rows);}catch(e){} }
+    }
+    /* Trainer NICHT in einen CCP setzen — er findet die Demo-CCPs auf der
+     * Landingpage vor und kann beitreten/übernehmen. */
+    if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
+    _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[];
+    localStorage.removeItem('argus_ccp_id');
+    await loadOpenCcpCount();
+    go("start");
+    toast(made>0?("Schulungsumgebung befüllt — "+made+" Demo-CCPs angelegt"):"Befüllen fehlgeschlagen — keine Verbindung?");
     return;
   }
   if(a==="tacstart"){state.capMode="tac";state.tacNode="walk";state.tacResult=null;render();return;}

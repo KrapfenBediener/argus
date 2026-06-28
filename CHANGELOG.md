@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.33.0 — 2026-06-28
+**UX-Konsolidierung: Schulungs-Steuerung als Befüllen/Leeren-Toggle + Admin-Zugang**
+- **Ein zustandsabhängiger Schalter** ersetzt „Schulung zurücksetzen": leere Umgebung (`_openCcpCount===0`) → **„Schulungsumgebung befüllen"** (legt das Demo-Szenario an — 6 CCPs A–F mit Beispiel-Patienten, `genDemoRows`); gefüllte Umgebung → **„Schulungsumgebung leeren"** (`argus_schulung_reset`, nur wipen, kein automatisches Refill mehr). Das alte „Zurücksetzen" tat beides in einem; jetzt explizit getrennt und immer die passende Aktion sichtbar (spart Interface).
+- **Auch für die Admin-Rolle** (`_argusRole==='admin'`), nicht nur MasterUser — ohne Leitungs-Seiten-Anmeldung. Greift, weil das Admin-**Person**-JWT (0019) den Standard-`praesidium_id`-Claim trägt (anders als der Leitungs-Admin via `admin_praesidium_id`), sodass RLS (CCP-/Patienten-Insert) und das Reset-RPC im echten Schulungs-Präsidium **und** im Schulungs-Twin greifen. Normal-Rolle: kein Button. Offline/unbekannt: kein Button.
+- Preview-verifiziert: Toggle kippt korrekt mit `_openCcpCount` für Master & Admin; Normal/Offline ausgeblendet. SW-Cache v64.
+
 ## v0.32.4 — 2026-06-28
 **Training-Fix: „Zurück" verhakt das Intro nicht mehr**
 - **Robuste Zurück-Wiederaufnahme** (Owner-Report): Tippt man während einer ansichtsgebundenen Lektion unerwartet „zurück", verschwand der Spotlight und „Weiter" ließ einen blind durch nicht-sichtbare Lektionen laufen → das Intro „verhakte" sich an mehreren Stellen. Fix (Engine, `renderCoach`): Hat eine Lektion einen Spotlight-Selektor, findet ihn aber nicht (Ansicht verlassen), wird „Weiter" gesperrt und ein Rückkehr-Hinweis + „Überspringen" gezeigt; kehrt man in die passende Ansicht zurück, geht es am **selben Schritt** weiter (kein Fortschrittsverlust, kein blindes Durchlaufen). Selektorlose Lektionen (Willkommen, Standort, Patientenfotos) und die Home-Umleitung bleiben unverändert. Im Preview verifiziert (Patientendetail-, Checklisten-, Home-Szenarien).
