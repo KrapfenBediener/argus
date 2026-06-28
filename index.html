@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.32.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.32.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.32.2': [
+    'Sicherheits-Härtung der Foto-Anzeige: Patientenfotos werden vor der Anzeige streng als Bildformat geprüft. Funktional ändert sich nichts — gültige Fotos werden wie gewohnt angezeigt.'
+  ],
   '0.32.1': [
     'Geführtes Training erweitert: eine neue Lektion erklärt die automatische Standort-Erfassung des CCP (per GPS beim Eröffnen) und wie die Leitung/FLZ den CCP dadurch als Koordinate in der Lage sieht.',
     'Kleine Drehbuch-Korrektur: In der Patientenübersicht sind jetzt alle drei Wege zur Patientenliste markiert (Zähl-Kacheln, Farb-Buttons, „Alle Patienten").'
@@ -1185,6 +1188,10 @@ var ccpMerged = false;
 
 function $(id){return document.getElementById(id);}
 function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");}
+/* Stored-XSS-Härtung: photo ist ein von Feldgeräten geschriebener DB-Wert.
+ * Nur strikte data:image-Base64-URIs durchlassen (enthalten keine "/</> →
+ * nach dieser Prüfung ist Interpolation/Property-Zuweisung sicher), sonst ''. */
+function safePhoto(v){ return (typeof v==='string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(v)) ? v : ''; }
 function nowMs(){return Date.now();}
 function two(n){return (n<10?"0":"")+n;}
 /* Patienten-Nummer IMMER mit CCP-Kennung (Owner 2026-06-13): „A-12" wird so
@@ -2190,8 +2197,11 @@ function vPatient(){
   var fotoHint='<div class="hint" style="margin-top:6px">Nur zur Wiedererkennung (statt Name). Wird mit den Geräten dieses Einsatzes geteilt. Nach dem Einsatz 72 Std nur für die Leitung einsehbar, danach automatisch gelöscht.</div>';
   h+='<div class="sech" id="ph-foto">Foto zur Identifikation</div><div class="card">';
   if(photoVisible(p)){
-    h+='<img src="'+p.photo+'" alt="Patientenfoto" data-action="photozoom" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;cursor:pointer">';
-    h+='<div class="hint" style="text-align:center;margin-top:4px;font-size:11px">Antippen zum Vergrößern</div>';
+    var _psafe=safePhoto(p.photo);
+    if(_psafe){
+      h+='<img src="'+_psafe+'" alt="Patientenfoto" data-action="photozoom" style="width:100%;max-height:280px;object-fit:cover;border-radius:10px;border:1px solid var(--line);display:block;cursor:pointer">';
+      h+='<div class="hint" style="text-align:center;margin-top:4px;font-size:11px">Antippen zum Vergrößern</div>';
+    }
     h+='<div class="row" style="margin-top:9px">'+
       '<label class="txbtn" style="flex:1;cursor:pointer;line-height:1.3">Neues Foto<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>'+
       '<button class="txbtn" data-action="delphoto" data-id="'+p.id+'" style="flex:1">Foto entfernen</button></div>';
@@ -3484,11 +3494,19 @@ document.addEventListener("click",async function(e){
   if(a==="photozoom"){
     /* T1: ab Auscheckung (gpa) kein Zoom mehr — photoVisible deckt auch fehlendes Foto ab. */
     if(!photoVisible(state.edit)) return;
-    var pzsrc=state.edit.photo;
+    var pzsrc=safePhoto(state.edit.photo);
+    if(!pzsrc) return;
     var ovz=document.createElement('div');
     ovz.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.93);display:flex;align-items:center;justify-content:center;padding:12px';
-    ovz.innerHTML='<img src="'+pzsrc+'" alt="Patientenfoto" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px">'+
-      '<div style="position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300">✕</div>';
+    var zimg=document.createElement('img');
+    zimg.alt='Patientenfoto';
+    zimg.style.cssText='max-width:100%;max-height:100%;object-fit:contain;border-radius:8px';
+    zimg.src=pzsrc;   /* validiert; als Property gesetzt → kein HTML-Parsing */
+    ovz.appendChild(zimg);
+    var zx=document.createElement('div');
+    zx.style.cssText='position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300';
+    zx.textContent='✕';
+    ovz.appendChild(zx);
     document.body.appendChild(ovz);
     ovz.addEventListener('click',function(){ if(ovz.parentNode)ovz.parentNode.removeChild(ovz); });
     return;

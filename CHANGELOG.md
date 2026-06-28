@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.32.2 — 2026-06-28
+**Sicherheit: Stored-XSS in der Foto-Anzeige behoben**
+- **Foto-Anzeige gehärtet (Feld-App + Leitungs-Seite):** Der von Feldgeräten geschriebene `patients.photo`-Wert wurde an drei Stellen ungeprüft per `innerHTML` als `<img src>` gesetzt (Patientendetail, Foto-Zoom, Leitungs-Protokoll-Foto). Ein manipulierter Wert hätte über einen Attribut-Breakout Script-Code im Kontext der jeweiligen Seite ausführen können (in der Leitungs-Seite mit Master-Sitzung → JWT-Diebstahl). Fix: strenge `data:image`-Base64-Validierung (`safePhoto`) + DOM-Aufbau mit `src` als Property bzw. nur validierte Interpolation; Captions via `textContent`.
+- Rein defensive Härtung — für gültige Fotos ändert sich nichts. SW-Cache v61.
+
 ## v0.32.1 — 2026-06-28
 **Geführtes Training: Standort-Erfassung + Drehbuch-Korrektur**
 - **Neue Trainingslektion „Standort wird erfasst"** (nach „CCP eröffnen"): erklärt, dass ARGUS beim Eröffnen automatisch den CCP-Standort per GPS erfasst (best-effort, nur bei Geräte-Freigabe; keine Personendaten) und dass die Leitung/FLZ den CCP dadurch mit 📍 in der Lage-Ansicht sieht und die WGS84-Koordinate per Tipp kopieren kann.
