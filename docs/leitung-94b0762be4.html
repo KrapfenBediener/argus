@@ -1706,12 +1706,28 @@ async function showFoto(pid, num){
   if(r.error){ toast('Foto-Abruf fehlgeschlagen: '+(r.error.message||'keine Verbindung')); return; }
   var photo=r.data && r.data.photo;
   if(!photo){ toast('Kein Foto vorhanden — bereits endgültig gelöscht?'); return; }
+  /* Sicherheit (Stored-XSS-Härtung): photo ist ein von Feldgeräten geschriebener
+   * DB-Wert. Nur strikte data:image-Base64-URIs zulassen und NIE per innerHTML
+   * einsetzen (Attribut-Breakout) — Element per DOM bauen, src als Property. */
+  if(typeof photo!=='string' || !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(photo)){
+    toast('Ungültiges Bildformat — Anzeige abgebrochen.'); return;
+  }
   var ts=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
   var ov=document.createElement('div');
   ov.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:12px;cursor:pointer';
-  ov.innerHTML='<img src="'+photo+'" alt="Patientenfoto" style="max-width:100%;max-height:78%;object-fit:contain;border-radius:8px">'+
-    '<div style="color:#cfd6df;font-size:12.5px;text-align:center;max-width:480px">Patient Nr. '+esc(num||'?')+' · Dieser Abruf wurde protokolliert ('+esc(k)+', '+esc(ts)+' Uhr).</div>'+
-    '<div style="position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300">✕</div>';
+  var img=document.createElement('img');
+  img.alt='Patientenfoto';
+  img.style.cssText='max-width:100%;max-height:78%;object-fit:contain;border-radius:8px';
+  img.src=photo;   /* validiert; als Property gesetzt → kein HTML-Parsing */
+  ov.appendChild(img);
+  var cap=document.createElement('div');
+  cap.style.cssText='color:#cfd6df;font-size:12.5px;text-align:center;max-width:480px';
+  cap.textContent='Patient Nr. '+(num||'?')+' · Dieser Abruf wurde protokolliert ('+k+', '+ts+' Uhr).';
+  ov.appendChild(cap);
+  var xbtn=document.createElement('div');
+  xbtn.style.cssText='position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300';
+  xbtn.textContent='✕';
+  ov.appendChild(xbtn);
   document.body.appendChild(ov);
   ov.addEventListener('click',function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); });
 }
