@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.32.3';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.32.4';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.32.4': [
+    'Geführtes Training robuster: Wenn man während einer Lektion unerwartet „zurück" tippt, verhakt sich das Intro nicht mehr. Statt blind weiterzulaufen, zeigt der Coach einen Rückkehr-Hinweis — sobald man wieder in der passenden Ansicht ist, geht es am selben Schritt weiter.'
+  ],
   '0.32.3': [
     'Geführtes Training: In der Lektion „Patienten öffnen" wurde die obere Zähl-Reihe fälschlich abgedunkelt statt hervorgehoben. Das Highlighting markiert jetzt wieder sauber alle drei Wege (Zähl-Kacheln, Farb-Buttons, „Alle Patienten").'
   ],
@@ -2897,9 +2900,17 @@ function renderCoach(){
         '<button data-tc="skip" style="flex:1;border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px;font-weight:600;color:var(--mut)">Überspringen ›</button>'+
         '</div></div>';
     }else{
+      /* „Zurück verhakt"-Fix: Hat die Lektion einen Spotlight-Selektor, findet ihn aber
+       * nicht (Nutzer hat die passende Ansicht unerwartet verlassen), dann KEIN „Weiter"
+       * anbieten — stattdessen Rückkehr-Hinweis + „Überspringen". So läuft man nicht
+       * blind durch ansichtsgebundene Lektionen ohne Spotlight; kehrt man in die Ansicht
+       * zurück, geht es am SELBEN Schritt weiter (kein Fortschrittsverlust). Lektionen
+       * ganz ohne Selektor (sel===null: Willkommen, Standort, Patientenfotos …) sind
+       * nicht betroffen, ihr „Weiter" bleibt frei. */
+      var expectedButMissing = !!sel && !target && !backRedirect;
       var doit=(doitTxt&&target)?'<div style="margin-top:11px;background:var(--surf2);border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:var(--acc)">👆 '+esc(doitTxt)+'</div>'
-              :((L.adv&&(L.sel||L.home)&&!target)?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Wechsle zur passenden Ansicht — der Hinweis erscheint dann von selbst.</div>':'');
-      var canNext=!(L.adv&&_trainStep>=_trainMax);   /* „Weiter" erst frei, wenn Aufgabe erledigt (sonst übernimmt Auto-Weiter) */
+              :(expectedButMissing?'<div style="margin-top:11px;background:var(--surf2);border-radius:10px;padding:9px 12px;font-size:12.5px;color:var(--mut)">Du hast die passende Ansicht verlassen — geh dorthin zurück, dann geht es hier weiter.</div>':'');
+      var canNext=!(L.adv&&_trainStep>=_trainMax) && !expectedButMissing;   /* „Weiter" erst frei, wenn Aufgabe erledigt UND das Spotlight-Ziel sichtbar ist */
       el.innerHTML='<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:16px 16px 0 0;box-shadow:0 -2px 30px rgba(0,0,0,.30);overflow:hidden">'+head+
         '<div style="padding:15px 17px 0">'+
         '<div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--acc)">🎓 Lektion '+(_trainStep+1)+' / '+n+'<span style="margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0;font-size:10.5px">nur dieses Gerät</span></div>'+

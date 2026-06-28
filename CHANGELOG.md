@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.32.4 — 2026-06-28
+**Training-Fix: „Zurück" verhakt das Intro nicht mehr**
+- **Robuste Zurück-Wiederaufnahme** (Owner-Report): Tippt man während einer ansichtsgebundenen Lektion unerwartet „zurück", verschwand der Spotlight und „Weiter" ließ einen blind durch nicht-sichtbare Lektionen laufen → das Intro „verhakte" sich an mehreren Stellen. Fix (Engine, `renderCoach`): Hat eine Lektion einen Spotlight-Selektor, findet ihn aber nicht (Ansicht verlassen), wird „Weiter" gesperrt und ein Rückkehr-Hinweis + „Überspringen" gezeigt; kehrt man in die passende Ansicht zurück, geht es am **selben Schritt** weiter (kein Fortschrittsverlust, kein blindes Durchlaufen). Selektorlose Lektionen (Willkommen, Standort, Patientenfotos) und die Home-Umleitung bleiben unverändert. Im Preview verifiziert (Patientendetail-, Checklisten-, Home-Szenarien).
+- SW-Cache v63.
+
 ## v0.32.3 — 2026-06-28
 **Training-Fix: Highlighting Lektion „Patienten öffnen"**
 - **Spotlight-Fehler behoben** (gemeldet vom Owner): In der Lektion „Patienten öffnen" (angezeigt als Lektion 20) wurde die obere Zähl-Reihe abgedunkelt statt hervorgehoben. Ursache: der in v0.32.1 erweiterte Selektor `.countbar,[data-action="opencat"]` matchte zusätzlich die einzelnen Zähl-Kacheln (`<div class="cnt">`) *innerhalb* der `.countbar` → überlappende/horizontale Spotlight-Löcher, die der Abdunkel-Algorithmus (`trainDim`, Annahme: vertikal gestapelte, nicht überlappende Löcher) falsch berechnete. Fix: `.countbar,button[data-action="opencat"]` — die `.countbar` als *ein* Loch plus nur die Buttons (Farb-Buttons + „Alle Patienten"). Im Preview verifiziert: 6 sauber gestapelte Löcher, 0 Abdunkelung über der oberen Reihe.
