@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.0';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.1';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.1': [
+    'Geführtes Training — Feinschliff: Auf schmalen Displays werden jetzt auch mehrere markierte Schaltflächen sauber ins Bild gescrollt (vorher konnten untere Buttons hinter dem Hinweisfenster verschwinden). Die Foto-Erklärung sitzt jetzt direkt in der Patientenmaske, und der Schritt „CCP abschließen" zeigt den passenden Knopf.'
+  ],
   '0.33.0': [
     'Schulungsumgebung steuern mit einem klaren Schalter: Ist die Umgebung leer, legt „Schulungsumgebung befüllen" ein Demo-Szenario an (6 CCPs mit Beispiel-Patienten); ist sie gefüllt, entfernt „Schulungsumgebung leeren" alle Übungsdaten. Ersetzt das frühere „Schulung zurücksetzen".',
     'Die Schulungs-Steuerung steht jetzt auch der Admin-Rolle zur Verfügung — nicht mehr nur dem MasterUser; eine Anmeldung auf der Leitungs-Seite ist dafür nicht nötig.'
@@ -2733,14 +2736,12 @@ var TRAIN_LESSONS=[
   {t:'Sichten mit tacSTART (Standard)', mode:'do', x:'Der STANDARDWEG: tacSTART führt Schritt für Schritt durch die Vorsichtung — beginnend bei „gehfähig?" — und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen". (Kritische Blutungen sind zu diesem Zeitpunkt bereits versorgt — dafür gibt es keinen eigenen Abfrage-Schritt mehr.)', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
-  /* Foto-Schalter: nur sichtbar, wenn der Übende MasterMedic seines Übungs-CCP ist
-   * (Normalfall — der Eröffner wird automatisch MasterMedic). Fehlt das Element,
-   * zeigt der Coach die Lektion ohne Spotlight — kein Blocker. */
-  {t:'Patientenfotos', mode:'explain', x:'Patientenfotos sind verfügbar — der Kamera-Button erscheint auf allen Geräten. Fotos dienen nur der Wiedererkennung (statt Name) und werden nach dem Einsatz automatisch gelöscht (72 Std nach Abschluss). Ein Foto machst du gleich direkt am Patienten.', sel:function(){return null;}},
+  /* Foto wird im Patienten-Detail erklärt (Lektion „Detail: Foto"), wo der Kamera-
+   * Button real sichtbar ist — keine separate, kontextlose Foto-Lektion in der Übersicht. */
   {t:'Patienten öffnen', mode:'choice', x:'Öffne einen Patienten. Drei Wege (alle markiert): oben die Zähl-Kacheln, in der Mitte die großen Farb-Buttons (je nur diese Kategorie) ODER unten „Alle Patienten" für die Gesamtliste — dann den Patienten antippen.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'.countbar,button[data-action="opencat"]':null);}, doit:function(){return state.view==='catlist'?'Tippe einen Patienten':(state.view==='overview'?'Tippe eine Kachel, einen Farb-Button oder „Alle Patienten"':null);}, adv:function(){return state.view==='patient';}},
 
   {t:'Detail: Prio-Transport', mode:'explain', x:'Jetzt das Patienten-Detail, von oben nach unten. Ganz oben „Prio-Transport": markiert besonders dringliche Abtransporte.', sel:'[data-action="prio"]'},
-  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Der Kamera-Button ist immer verfügbar. Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
+  {t:'Detail: Foto', mode:'explain', x:'Optional ein Foto zur Wiedererkennung — statt Name (pseudonym). Der Kamera-Button ist auf allen Geräten verfügbar. Ab dem Abtransport (gPA) ist das Foto nicht mehr sichtbar; nach dem Einsatz wird es automatisch gelöscht — 72 Std nach Abschluss.', sel:'#ph-foto'},
   {t:'Detail: Kategorie wechseln', mode:'explain', x:'Ändert sich der Zustand — verschlechtert ODER verbessert — verschiebst du den Patienten hier in eine andere Sichtungs-Kategorie (Re-Triage, in beide Richtungen).', sel:'#ph-cat'},
   {t:'Stammdaten: pseudonym', mode:'explain', x:'ARGUS arbeitet pseudonym: Die NUMMER identifiziert den Patienten, nicht der Name. Den Namen nur erfassen, wenn er für Versorgung oder Übergabe wirklich nötig ist — die Patientenliste zeigt bewusst nur Nummern. Und in Freitexte (Hergang, Verletzung, Notizen) gehören keine Namen Dritter — nur versorgungsrelevante Fakten.', sel:'#ph-stamm'},
   {t:'Tourniquet-Timer', mode:'do', x:'Bei kritischer Blutung zählt die Zeit. Starte jetzt den Tourniquet-Timer — ARGUS fragt, WO das TQ sitzt und WANN es angelegt wurde (oft schon vor Ankunft am CCP — dann die Uhrzeit eintragen). Der Timer läuft auch im gesperrten Zustand weiter.', sel:'[data-action="tq"]', doit:'Starte den „TQ-Timer"', adv:function(){return trainSome(function(p){return p.tqStart;});}},
@@ -2764,7 +2765,7 @@ var TRAIN_LESSONS=[
   /* Einsatz-Lebenszyklus: nur erklären — der echte Abschluss läuft nie im
    * Trainings-Sandbox; der Knopf ist im Training ausgeblendet (kein Selektor,
    * keine do-Pflicht — sonst Kollision mit dem Spotlight). */
-  {t:'CCP abschließen', mode:'explain', x:'Nach dem Einsatz: In der Patientenübersicht (oder auf der Startseite) schließt der MasterMedic den CCP ab (im Verbund den ganzen Verbund). Ob Übung oder Einsatz, erkennt ARGUS automatisch am Präsidium. Der Übergabe-Export — der EINZIGE dauerhafte Weg in die Einsatzdokumentation — läuft danach über die Leitungs-Seite (innerhalb 72 Std). Nach dem Abschluss ist der Einsatz für alle Geräte gesperrt; die Daten löschen sich 72 Std nach Abschluss automatisch, Fotos ebenso — endgültig. Hier im Training nur zur Info — es gibt nichts abzuschließen.'},
+  {t:'CCP abschließen', mode:'explain', home:true, x:'Das ist der Knopf „CCP abschließen" — du bist MasterMedic, deshalb siehst du ihn (im Verbund: „CCP-Verbund abschließen"). Nach dem Einsatz beendet er den CCP für ALLE Geräte; der Übergabe-Export — der EINZIGE dauerhafte Weg in die Einsatzdokumentation — läuft danach über die Leitungs-Seite (innerhalb 72 Std). Danach ist der Einsatz gesperrt, Daten und Fotos löschen sich 72 Std nach Abschluss automatisch — endgültig. Im Training nur zum Zeigen — nicht antippen.', sel:'[data-action="ccpclose"]'},
   {t:'Geschafft! 🎉', mode:'explain', x:'Du hast den kompletten Ablauf einmal selbst gemacht: Aufbau, Erfassen, Sichten, Verwalten, Übergeben. „Beenden" räumt die Übungsdaten ab — danach kannst du es jederzeit wiederholen.'}
 ];
 function trainCount(){ return patients.filter(function(p){return p.training;}).length; }
@@ -2817,8 +2818,19 @@ function trainScrollToRect(rect){
     var safeTop=54, safeBottom=window.innerHeight-ph-14;       /* unter sticky-Topbar / über dem Coach-Panel */
     if(safeBottom-safeTop<70) safeBottom=safeTop+70;
     if(rect.top>=safeTop && rect.bottom<=safeBottom) return;   /* schon frei sichtbar → NICHT scrollen (Top-Elemente bleiben unangetastet) */
-    var center=(safeTop+safeBottom)/2;
-    sc.scrollTop=Math.max(0, sc.scrollTop + (rect.top + rect.height/2 - center));
+    var delta;
+    if(rect.height > (safeBottom-safeTop)){
+      /* Ziel(e) höher als der freie Bereich — z. B. mehrere gestapelte Buttons auf
+       * schmalem Display (Lektion „Direkt anlegen" / „Patienten öffnen"). Zentrieren
+       * würde die Oberkante über safeTop schieben; stattdessen Oberkante an safeTop
+       * ausrichten, damit möglichst viele Ziele OBERHALB des Coach-Panels sichtbar
+       * sind (sonst verschwinden untere Buttons hinter dem Panel = „Highlighting off"). */
+      delta = rect.top - safeTop;
+    } else {
+      var center=(safeTop+safeBottom)/2;
+      delta = rect.top + rect.height/2 - center;
+    }
+    sc.scrollTop=Math.max(0, sc.scrollTop + delta);
   }catch(e){}
 }
 /* Dim-Overlay mit EINEM Loch pro Ziel (mehrere Ziele → mehrere Löcher; alles dazwischen bleibt dunkel).
@@ -2849,7 +2861,10 @@ function trainSpotlight(nodes, spotKey, mode, forceScroll){
   var u=trainUnionRect(nodes); if(!u){ trainClearSpot(); return; }
   /* NUR bei neuem Ziel zentrieren — und NUR bei einem einzelnen Ziel. Bei mehreren Zielen ist die
    * Union breit; zentrieren würde beide an den Rand drücken → dann gar nicht scrollen. */
-  if((changed||forceScroll) && nodes.length<=1){ trainScrollToRect(u); var u2=trainUnionRect(nodes); if(u2) u=u2; }
+  /* Auch bei MEHREREN Zielen scrollen (vorher nur bei <=1): sonst bleiben auf
+   * schmalem Display untere gestapelte Ziele hinter dem Coach-Panel. trainScrollToRect
+   * richtet bei zu hohen Ziel-Unions die Oberkante aus statt zu zentrieren. */
+  if(changed||forceScroll){ trainScrollToRect(u); var u2=trainUnionRect(nodes); if(u2) u=u2; }
   var pad=6, vw=window.innerWidth, vh=window.innerHeight, i;
   var holes=[];
   for(i=0;i<nodes.length;i++){ var el=nodes[i]; if(!el||!el.getBoundingClientRect)continue; var rr=el.getBoundingClientRect(); if(!(rr.width||rr.height))continue; holes.push({x:Math.max(0,rr.left-pad),y:Math.max(0,rr.top-pad),w:rr.width+2*pad,h:rr.height+2*pad}); }

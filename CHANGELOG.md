@@ -6,6 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.33.1 — 2026-06-28
+**Training-Feinschliff: Multi-Ziel-Spotlight (mobil), Foto-Lektion in der Maske, Abschließen-Button**
+- **Spotlight-Scroll bei mehreren Zielen** (Owner-Report „Lektion 15 Highlighting off"): Lektionen mit mehreren markierten Elementen (z. B. „Direkt anlegen" mit 4 Kategorie-Buttons, „Patienten öffnen") scrollten auf schmalen Displays NICHT — untere Ziele verschwanden hinter dem Coach-Panel. Fix: `trainSpotlight` scrollt jetzt auch bei Multi-Ziel; `trainScrollToRect` richtet bei zu hohen Ziel-Unions die Oberkante an `safeTop` aus (statt zu zentrieren), sodass möglichst viele Ziele oberhalb des Panels sichtbar bleiben. Mobil verifiziert.
+- **Foto-Erklärung in der Patientenmaske** (Owner-Report „Lektion 19"): die kontextlose Übersichts-Lektion „Patientenfotos" (ohne Spotlight) entfernt; die Erklärung sitzt jetzt nur noch in „Detail: Foto" (mit Spotlight auf den Kamera-Button), angereichert um „auf allen Geräten". Lektionszahl 41 → 40.
+- **„CCP abschließen" zeigt den Knopf** (Owner-Report „Lektion 40"): der Abschluss-Schritt am Ende ist jetzt `home:true` + spotlightet `[data-action="ccpclose"]` (Trainings-User ist MasterMedic → Button sichtbar; Explain-Modus blockt das Antippen). Vorher kein Spotlight.
+- SW-Cache v65.
+
 ## v0.33.0 — 2026-06-28
 **UX-Konsolidierung: Schulungs-Steuerung als Befüllen/Leeren-Toggle + Admin-Zugang**
 - **Ein zustandsabhängiger Schalter** ersetzt „Schulung zurücksetzen": leere Umgebung (`_openCcpCount===0`) → **„Schulungsumgebung befüllen"** (legt das Demo-Szenario an — 6 CCPs A–F mit Beispiel-Patienten, `genDemoRows`); gefüllte Umgebung → **„Schulungsumgebung leeren"** (`argus_schulung_reset`, nur wipen, kein automatisches Refill mehr). Das alte „Zurücksetzen" tat beides in einem; jetzt explizit getrennt und immer die passende Aktion sichtbar (spart Interface).
