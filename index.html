@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.2';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.3';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.3': [
+    'Aufräum- und Qualitätssicherungs-Release: die Schulungs-Startseite lädt etwas schneller, und im Hintergrund sichern jetzt automatisierte Prüfungen die App gegen Rückschritte ab. An der Bedienung ändert sich nichts.'
+  ],
   '0.33.2': [
     'Geführtes Training: „Zurück zur Startseite" am Ende (nach der Übergabe-Karte) funktioniert jetzt zuverlässig — der ‹-Knopf war markiert, ließ sich aber nicht antippen. Und die Lektion „Patienten öffnen" markiert auf dem Handy die immer sichtbare obere Kachel-Reihe, statt dass untere Schaltflächen hinter dem Hinweisfenster verschwinden.'
   ],
@@ -352,7 +355,6 @@ var _mergeReqHandling = false;/* Re-Entrancy-Schutz für Bestätigungsdialog */
 var _prevGroupSize  = 1;      /* zur Erkennung, dass ein CCP der Gruppe beigetreten ist */
 var _lastView       = null;   /* für Scroll-Reset nur bei View-Wechsel */
 var _openCcpCount   = -1;     /* offene (nicht abgeschlossene) CCPs im Präsidium; -1 = unbekannt */
-var _schulDirty     = -1;     /* Schulungsumgebung verändert? -1 unbekannt · 0 sauber · 1 verändert */
 var DEMO_MEDICS = ['Dr. Berg','San. Klein','Dr. Faber','San. Roth','Dr. Walter','San. Vogt']; /* Master-Medics der Demo-CCPs (Schulungs-Reset) */
 var _training=false, _trainStep=0, _trainMax=0, _trainCelebrate=false;   /* Geführtes Training (geräte-lokaler Übungs-Sandbox) */
 var _closeTyp=null;                     /* Einsatz-Abschluss: gewählter Typ während des Workflows (Frist ist serverseitig fest: 72 Std) */
@@ -1514,36 +1516,16 @@ function ccpAdminUI(){
 }
 async function loadOpenCcpCount(){
   var c=sb();
-  if(!c||!_praesidiumId){ _openCcpCount=0; _schulDirty=-1; return; }
+  if(!c||!_praesidiumId){ _openCcpCount=0; return; }
   try{
     var r=await c.from('ccps').select('id',{count:'exact',head:true}).eq('praesidium_id',_praesidiumId).is('closed_at',null);
     _openCcpCount=(typeof r.count==='number')?r.count:-1;
   }catch(e){ _openCcpCount=-1; }
-  await loadSchulDirty();
 }
-/* Schulungsumgebung: erkennt, ob seit dem letzten „Zurücksetzen" etwas verändert wurde.
- * Originalzustand = genau 6 CCPs A–F (unmerged/offen, Demo-Master-Medics), nur Demo-
- * Patienten (id-Präfix "seed", aktiv, ohne Name). _schulDirty: -1 unbekannt, 0 sauber, 1 verändert. */
-async function loadSchulDirty(){
-  _schulDirty=-1;
-  if(!_praesidiumSchulung || !_isMaster) return;
-  var c=sb(); if(!(c && _praesidiumId)) return;
-  try{
-    var cr=await c.from('ccps').select('id,kennung,merged,merge_group_id,closed_at,master_medic').eq('praesidium_id',_praesidiumId);
-    var ccps=cr.data||[];
-    var open=ccps.filter(function(x){return !x.closed_at;});
-    var kenn=open.map(function(x){return x.kennung;}).sort().join('');
-    /* Nur OFFENE CCPs zählen: Seit dem Tombstone-Reset (0011) bleiben geschlossene
-     * Rows bis zu 7 Tage stehen — sie dürfen den „sauber"-Zustand nicht verhindern. */
-    var structPristine = open.length===6 && kenn==='ABCDEF'
-      && open.every(function(x){ return !x.merged && !x.merge_group_id && DEMO_MEDICS.indexOf(x.master_medic)>=0; });
-    if(!structPristine){ _schulDirty=1; return; }
-    var pr=await c.from('patients').select('id,status,name').in('ccp_id',open.map(function(x){return x.id;}));
-    var pats=pr.data||[];
-    var patPristine = pats.every(function(p){ return String(p.id||'').indexOf('seed')===0 && p.status==='active' && !p.name; });
-    _schulDirty = patPristine ? 0 : 1;
-  }catch(e){ _schulDirty=-1; }
-}
+/* loadSchulDirty/_schulDirty entfernt (v0.33.3): die „Originalzustand"-Erkennung
+ * steuerte den alten „Schulung zurücksetzen"-Button; seit dem Befüllen/Leeren-
+ * Toggle (v0.33.0, Gate über _openCcpCount) war sie toter Code und kostete
+ * zwei DB-Abfragen bei jedem Landing-Load. */
 async function leaveCurrentCcp(){
   if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
   _ccpId=null; localStorage.removeItem('argus_ccp_id');

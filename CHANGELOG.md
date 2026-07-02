@@ -6,6 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.33.3 — 2026-06-28
+**Qualitätsmantel: Test-Suite + CI + toter Code entfernt**
+- **`_schulDirty`/`loadSchulDirty` entfernt** (toter Code seit dem Befüllen/Leeren-Toggle v0.33.0): die „Originalzustand"-Erkennung steuerte den alten „Schulung zurücksetzen"-Button und wurde seither nur noch geschrieben, nie gelesen — kostete zwei DB-Abfragen bei jedem Landing-Load (jetzt weg → schnelleres Laden der Schulungs-Startseite).
+- **Automatisierte Test-Suite** (`tests/`, zero-dependency `node --test`): Logik (`safePhoto`/`revokedDecision`/`esc`/`cmpVer`), tacSTART-Baum (Übergänge/Erreichbarkeit), Drehbuch-Integrität (Lektionszahl/`ctxBack`/**Selektor-Existenz**), Release-Konsistenz (Version↔version.json↔CHANGELOG↔sw-Cache↔Update-Sheets), Security-Regressionen (native Dialoge, Foto-innerHTML, D-06, Secrets, Migration-`search_path`). 27 Tests. `_extract.cjs` macht die Single-File-App testbar, ohne sie umzubauen.
+- **CI-Pipeline** (`.github/workflows/ci.yml`): Syntax-Gate + Test-Suite + D-06-Leak-Gate bei jedem Push/PR auf `main` — blockiert kaputte Stände vor dem Pages-Deploy. Zusätzlich `scripts/live-rls-check.mjs` (anon ⇒ 0 Zeilen gegen das echte Backend, lokal vor Releases).
+- App bleibt buildfrei. SW-Cache v67.
+
 ## v0.33.2 — 2026-06-28
 **Training-Fix: „Zurück" am Ende + „Patienten öffnen" mobil**
 - **„Zurück zur Startseite" funktioniert wieder** (Owner-Report): Die in v0.33.1 `home:true` gemachte Schluss-Lektion „CCP abschließen" ist `mode:'explain'` — im Explain-Modus legt der Spotlight einen transparenten Blocker übers Ziel, hier über den ‹-Button → markiert, aber nicht antippbar. Fix in `renderCoach`: bei aktiver Rückkehr-Umleitung (`backRedirect`) wird der Spotlight-Modus auf `'choice'` gezwungen (kein Blocker, Ring bleibt) → ‹ ist tappbar. Betrifft generell jede `explain`+`home:true`-Lektion.

@@ -1,0 +1,14 @@
+{
+  "name": "argus-ccp",
+  "version": "0.33.3",
+  "private": true,
+  "description": "ARGUS — CCP-/Verwundetensammelstellen-App (Single-File-PWA + Supabase). Tests & CI-Gates; die App selbst bleibt buildfrei.",
+  "type": "module",
+  "scripts": {
+    "check:syntax": "node scripts/check-syntax.mjs",
+    "test": "node --test tests/*.test.cjs",
+    "check:rls": "node scripts/live-rls-check.mjs",
+    "ci": "npm run check:syntax && npm test"
+  },
+  "engines": { "node": ">=20" }
+}
