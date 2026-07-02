@@ -1650,7 +1650,7 @@ function vAtmistPrint(){
         return '<br>'+tm+': '+(parts.join(' · ')||'—');
       }).join('')+'</div>';
     }
-    var tl=[]; if(p.tq_start)tl.push('Tourniquet · angelegt '+ageStr(p.tq_start));
+    var tl=[]; if(p.tq_start)tl.push('Tourniquet'+(p.tq_site?' ('+esc(String(p.tq_site))+')':'')+' · angelegt '+ageStr(p.tq_start));
     if(p.tx&&typeof p.tx==='object'){
       Object.keys(TXL).forEach(function(k){ if(p.tx[k])tl.push(esc(TXL[k])); });
     }

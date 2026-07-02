@@ -7,7 +7,7 @@
  *   3. Alles andere           → Network-first (aktuelle Daten bevorzugen)
  */
 
-const CACHE_NAME = 'ccp-shell-v67';
+const CACHE_NAME = 'ccp-shell-v68';
 
 const PRECACHE_URLS = [
   './',

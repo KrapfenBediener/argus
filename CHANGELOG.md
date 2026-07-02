@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.33.4 — 2026-07-02
+**AT-MIST-Karte: Tourniquet mit Anlageort — Redundanz differenziert**
+- **Owner-Review-Fund:** Das TQ stand unter „T — Zeiten" UND „T — Maßnahmen" jeweils mit derselben Dauer (echte Redundanz), während der beim TQ-Start abgefragte **Anlageort (`tqSite`) nirgends in der Übergabe auftauchte** — obwohl er genau dafür erhoben wird (übersehene TQs unter Kleidung/Decken sind der reale Fehlermodus).
+- **Fix — differenzieren statt duplizieren:** „T — Zeiten" behält die rote Ischämie-Dauer („Tourniquet liegt seit …"); „T — Maßnahmen" zeigt jetzt **„Tourniquet (Bein li) · angelegt 14:32 Uhr"** (Ort + absolute Anlagezeit). Umgesetzt in Übergabekarte (`vHandover`), Kompakt-/Druckansicht und **Leitungs-Protokoll-Druck** (`tq_site` kommt dort via `to_jsonb` bereits mit; `esc()`-escaped).
+- Trainings-Lektion „Karte: T — Maßnahmen" entsprechend nachgezogen (DAUERREGEL). SW-Cache v68.
+
 ## v0.33.3 — 2026-06-28
 **Qualitätsmantel: Test-Suite + CI + toter Code entfernt**
 - **`_schulDirty`/`loadSchulDirty` entfernt** (toter Code seit dem Befüllen/Leeren-Toggle v0.33.0): die „Originalzustand"-Erkennung steuerte den alten „Schulung zurücksetzen"-Button und wurde seither nur noch geschrieben, nie gelesen — kostete zwei DB-Abfragen bei jedem Landing-Load (jetzt weg → schnelleres Laden der Schulungs-Startseite).
