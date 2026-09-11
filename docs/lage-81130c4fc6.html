@@ -177,6 +177,8 @@ async function doLogin(raw){
     sessionStorage.setItem('arguslg_jwt', data.jwt);
     sessionStorage.setItem('arguslg_jwt_exp', String(data.exp*1000));
     sessionStorage.setItem('arguslg_pname', data.praesidium_name||'');
+    /* Master-Login (0021): flz=true → präsidienübergreifender Global-Modus. */
+    sessionStorage.setItem('arguslg_global', data.flz ? '1' : '');
     render();
     startPolling();
   }catch(e){
@@ -245,18 +247,23 @@ function totBar(list){
 function ccpCard(c, vlabel){
   var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
   var hasGeo=(typeof c.lat==='number' && typeof c.lng==='number');
+  /* Global-Modus (Master, 0021): Präsidiumsname voranstellen — Kennungen sind
+   * über Präsidien hinweg nicht eindeutig. */
+  var pfx=c.praesidium_name ? esc(c.praesidium_name)+' — ' : '';
   var h='<div class="ccpcard">';
   h+='<div class="ct">';
   /* Koordinaten-Klick (Paket 2): Name antippen kopiert „lat, lng" (WGS84
    * dezimal) — Brücke zur manuellen Übernahme ins Geosystem (VIADUX). */
   if(hasGeo){
-    h+='<span class="nm" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" title="Koordinaten kopieren">📍 CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+    h+='<span class="nm" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" title="Koordinaten kopieren">📍 '+pfx+'CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
   }else{
-    h+='<span class="nm">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+    h+='<span class="nm">'+pfx+'CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
   }
-  /* FLZ darf die Ortsbezeichnung nachtragen/korrigieren (Migration 0010,
-   * protokolliert) — z. B. wenn die Eröffnungs-Abfrage übersprungen wurde. */
-  h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;font-size:13px;align-self:center;opacity:.7">✏️</span>';
+  /* FLZ/Observer darf die Ortsbezeichnung nachtragen/korrigieren (Migration 0010,
+   * protokolliert). Im Global-Modus (Master) ausgeblendet: argus_lage_set_ort
+   * greift per Kennung im EIGENEN Präsidium — bei einem präsidiumslosen Master
+   * wäre das mehrdeutig. Ort-Korrektur läuft dort über Leitung/Feld-App. */
+  if(!isGlobal()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;font-size:13px;align-self:center;opacity:.7">✏️</span>';
   if(vlabel) h+='<span style="flex:0 0 auto;background:var(--acc);color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;align-self:center">'+vlabel+'</span>';
   h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
   h+='<div class="mini">';
@@ -282,8 +289,9 @@ function verbundCard(g, vnTotal){
   });
   var total=s.t1+s.t2+s.t3+s.t5+s.gpa;
   var kenns=g.members.map(function(c){return esc(c.kennung);}).join('+');
+  var vpfx=g.members[0].praesidium_name ? esc(g.members[0].praesidium_name)+' — ' : '';
   var h='<div class="ccpcard vb">';
-  h+='<div class="ct"><span class="nm">⛓ VERBUND'+(vnTotal>1?' '+g.n:'')+' · CCP '+kenns+'</span>';
+  h+='<div class="ct"><span class="nm">⛓ '+vpfx+'VERBUND'+(vnTotal>1?' '+g.n:'')+' · CCP '+kenns+'</span>';
   h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
   h+='<div class="mini">';
   h+='<div class="m" style="background:var(--t1)"><span class="n">'+s.t1+'</span><span class="l">T1</span></div>';
@@ -303,7 +311,7 @@ function verbundCard(g, vnTotal){
     }else{
       h+='<span class="nm2">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+'</span>';
     }
-    h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;margin-left:auto;opacity:.7">✏️</span>';
+    if(!isGlobal()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;margin-left:auto;opacity:.7">✏️</span>';
     h+='</div>';
   });
   h+='</div>';
@@ -340,7 +348,9 @@ function viewLage(){
        * die Nummerierung unterscheidbar. Einzel-CCPs bleiben normale Karten. */
       var groups={}, order=[];
       _data.ccps.forEach(function(c){
-        var k=c.verbund_gruppe || ('solo-'+c.kennung);
+        /* Solo-Schlüssel im Global-Modus mit praesidium_id qualifizieren, sonst
+         * würden „CCP A" aus zwei Präsidien in einer Gruppe zusammenfallen. */
+        var k=c.verbund_gruppe || ('solo-'+(c.praesidium_id||'')+'-'+c.kennung);
         if(!groups[k]){ groups[k]={verbund:!!c.verbund_gruppe, members:[]}; order.push(k); }
         groups[k].members.push(c);
       });
@@ -354,7 +364,7 @@ function viewLage(){
       });
       h+='</div>';
     }else{
-      h+='<div class="empty">Keine aktiven CCPs in diesem Präsidium.</div>';
+      h+='<div class="empty">'+(isGlobal()?'Aktuell keine offenen CCPs in irgendeinem Präsidium.':'Keine aktiven CCPs in diesem Präsidium.')+'</div>';
     }
     h+='<div class="note">Anonyme Übersichtszahlen — keine Personendaten. Keine Patientendetails, keine Namen/Fotos, nur Zahlen je Kategorie. Aktualisiert sich automatisch.</div>';
   }else if(!_offline){
@@ -363,6 +373,9 @@ function viewLage(){
   h+='</div>';
   return h;
 }
+/* Global-Modus = MasterToken-Login (0021): alle Präsidien, read-only, Kennungen
+ * NICHT präsidiumseindeutig → Präsidiums-Label je Karte, kein Ort-Editieren. */
+function isGlobal(){ try{ return sessionStorage.getItem('arguslg_global')==='1'; }catch(e){ return false; } }
 function render(){
   var loggedIn=!!sessionJwt();
   var lb=$('logoutbtn'); if(lb) lb.style.display=loggedIn?'':'none';
@@ -370,7 +383,7 @@ function render(){
   var tt=$('toptitle');
   if(tt){
     var pn=loggedIn ? (sessionStorage.getItem('arguslg_pname')||'') : '';
-    tt.textContent='ARGUS · Lageübersicht'+(loggedIn?' · Beobachter'+(pn?' · '+pn:''):'');
+    tt.textContent='ARGUS · Lageübersicht'+(loggedIn?(isGlobal()?' · Master · alle Präsidien':' · Beobachter'+(pn?' · '+pn:'')):'');
   }
   var dot=$('statdot'), txt=$('stattxt');
   if(dot && txt){

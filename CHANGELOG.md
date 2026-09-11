@@ -6,6 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## Backend/Lage — 2026-09-11 · MasterToken sieht die Lage präsidienübergreifend
+_(Keine Feld-App-Änderung → `APP_VERSION` bleibt 0.33.4; betrifft Backend-Migration 0021 + Lage-Seite.)_
+- **Owner-Report:** Der MasterToken wurde von der FLZ-/Lage-Ansicht mit „Kein Beobachter-Code" abgewiesen (Beobachter-Rolle ≠ Master, by design) — den global „alles sehenden" Master aber aus der reinen Lese-Ansicht auszusperren war unnötig.
+- **Migration 0021:** `argus_exchange_observer_code` akzeptiert zusätzlich den MasterToken und stellt statt Ablehnung ein **read-only `is_flz`-JWT** aus (präsidienübergreifend). **Bewusst KEIN `is_master`-Claim** → die Lage-Seite bekommt keinerlei Schreibrechte (live gegengeprüft: Schreibversuch → HTTP 401). `argus_lage` unverändert — sein bestehender FLZ-Zweig aggregiert alle offenen CCPs aller Präsidien. `jti` = MasterToken-Kürzel → Sofortsperre-fähig.
+- **Lage-Seite:** Global-Modus erkannt (Login-Signal `flz`); je CCP-Karte ein **Präsidiums-Label** (Kennungen sind über Präsidien nicht eindeutig — Gruppierungsschlüssel jetzt mit `praesidium_id`, sonst kollidierten zwei „CCP A"); Kopf zeigt „Master · alle Präsidien"; das Ort-Editieren (Kennungs-basiert) ist im Global-Modus ausgeblendet.
+- **Verifiziert:** End-to-End mit zwei Präsidien mit gleicher Kennung „A" → beide korrekt getrennt dargestellt, keine Kollision; Testdaten rückstandslos entfernt; Syntax-Gate + 27/27 Tests grün.
+
 ## v0.33.4 — 2026-07-02
 **AT-MIST-Karte: Tourniquet mit Anlageort — Redundanz differenziert**
 - **Owner-Review-Fund:** Das TQ stand unter „T — Zeiten" UND „T — Maßnahmen" jeweils mit derselben Dauer (echte Redundanz), während der beim TQ-Start abgefragte **Anlageort (`tqSite`) nirgends in der Übergabe auftauchte** — obwohl er genau dafür erhoben wird (übersehene TQs unter Kleidung/Decken sind der reale Fehlermodus).
