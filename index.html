@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.13';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.14';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.14': [
+    'Nach der Rückkehr ins Netz bekommen neu angelegte Patienten wieder die normale fortlaufende Nummer („A-7") statt der Gerätenummer — ein hängender Hintergrund-Aufruf konnte die Nummern-Reservierung dauerhaft blockieren.'
+  ],
   '0.33.13': [
     'Statusanzeige ehrlich: „🟢 Echtzeit-Modus" erscheint nur noch bei echter Verbindung — offline steht sofort „🔴 Lokaler Modus".',
     '„Neue CCP eröffnen" lässt sich jetzt wirklich abbrechen: „Abbrechen" bei der Ort-Abfrage legt KEINEN CCP mehr an, der bisherige CCP bleibt erhalten (auch im Training).'
@@ -1893,19 +1896,26 @@ function nextNum(){ var m=0; patients.forEach(function(p){ if(ccpBase(p.ccp)===_
  * sie sofort verwendet und die nächste nachgeladen. Ungenutzt (Gerät verlässt
  * den CCP) bleibt höchstens eine einzelne Lücke. */
 var _nextReserved = null;     /* {ccp, num} — vorab reservierte Server-Nummer */
-var _prefetching = false;
-function prefetchNum(){
-  if(_training || !_ccpId || _prefetching) return;
+var _prefetching = false, _prefetchingSince = 0;
+function prefetchNum(force){
+  if(_training || !_ccpId) return;
   if(_nextReserved && _nextReserved.ccp===_ccpId) return;
-  var client=sb(); if(!client || !netLikelyUp()) return;
-  _prefetching=true;
-  var ccpAt=_ccpId;
+  /* Hänger-Schutz (Bugfix 2026-10-14): Geht das Gerät offline, WÄHREND ein
+   * Reservierungs-RPC läuft, hängt der Aufruf (iOS) — ohne diesen Schutz bliebe
+   * _prefetching dauerhaft gesetzt und ALLE späteren Online-Patienten bekämen
+   * fälschlich das Offline-Suffix. Daher: RPC mit 2,5-s-Abbruch (qt) und ein
+   * laufender Versuch gilt nach 6 s als tot. */
+  if(_prefetching && (nowMs()-_prefetchingSince)<6000) return;
+  var client=sb(); if(!client) return;
+  if(!force && !netLikelyUp()) return;   /* force: 'online'-Event darf sofort versuchen */
+  _prefetching=true; _prefetchingSince=nowMs();
+  var ccpAt=_ccpId, mySince=_prefetchingSince;
   try{
-    client.rpc('argus_claim_nums',{p_ccp_id:ccpAt,p_count:1}).then(function(r){
-      _prefetching=false;
+    qt(client.rpc('argus_claim_nums',{p_ccp_id:ccpAt,p_count:1})).then(function(r){
+      if(_prefetchingSince===mySince) _prefetching=false;
       var d=r?r.data:null;
       if(d && !d.error && d.start && _ccpId===ccpAt && !_nextReserved){ _nextReserved={ccp:ccpAt,num:d.start}; try{ render(); }catch(e){} }
-    }, function(){ _prefetching=false; });
+    }, function(){ if(_prefetchingSince===mySince) _prefetching=false; });
   }catch(e){ _prefetching=false; }
 }
 /* ── Nummernvergabe: fortlaufend online, Gerätenummer NUR offline (2026-10-14, Rev. 3) ──
@@ -4129,7 +4139,7 @@ window.addEventListener('online', function(){
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
   try{ ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer nach Reconnect sichern */
-  try{ prefetchNum(); }catch(e){}          /* nächste Online-Nummer wieder vorab holen */
+  try{ prefetchNum(true); }catch(e){}      /* nächste Online-Nummer sofort vorab holen (nicht auf Wächter-Bestätigung warten) */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
   /* Channel nach Netz-Rückkehr IMMER neu aufbauen (toter Socket, s. o.) —
    * healRealtime übernimmt Abschluss-Check + Nachladen. */
