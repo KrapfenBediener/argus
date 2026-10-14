@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.4';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.5';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.5': [
+    'Doppelte laufende Nummern im Offline-Betrieb behoben: Jedes Gerät reserviert jetzt vorab einen eigenen Nummernblock und vergibt laufende Nummern daraus. Dadurch können zwei Geräte im selben CCP auch ohne Verbindung keine Nummer mehr doppelt vergeben. (Nebeneffekt: Bei mehreren Geräten können die Nummern Sprünge haben — das ist gewollt und verhindert Dubletten.)'
+  ],
   '0.33.4': [
     'Übergabe-Karte präziser: Unter „T — Maßnahmen" steht das Tourniquet jetzt mit Anlageort (z. B. „Bein li") und Anlagezeit — statt der doppelten Dauer-Angabe. Die laufende TQ-Dauer bleibt rot unter „T — Zeiten". Gilt auch für den Protokoll-Druck der Leitung.'
   ],
@@ -1756,6 +1759,7 @@ async function flushPendingPatients(arr, client, ccpIds){
 async function loadPatients(){
   var client=sb();
   if(client && _ccpId && !_training){   /* Training: rein lokal — nie Cloud (Isolation + kein Netz-Hänger mitten im Ablauf) */
+    try{ await ensurePool(client); }catch(e){}   /* eigenen Nummernblock füllen, SOLANGE online (bevor es offline geht) */
     try{
       var ccpIds=[_ccpId];
       if(_mergeGroupId){
@@ -1810,26 +1814,59 @@ async function loadChecklist(){
 }
 async function saveChecklist(){await sSet("ccp_checklist",checklist);}
 function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")===_ccpKennung&&p.num>m)m=p.num;});return m+1;}
-/* Nummernvergabe (Bugfix 2026-06-13): primär SERVERSEITIG-atomar über
- * argus_claim_nums (Migration 0008) — kollisionssicher bei mehreren Geräten
- * und nach Verlassen/Wiederbetreten des CCP (der alte rein lokale Weg begann
- * nach leaveCurrentCcp wieder bei 1 → doppelte Nummern auf der Haut).
- * Offline-Fallback: lokales Maximum UND die je CCP persistierte zuletzt
- * vergebene Nummer (Schlüssel ccp_lastnum_<id>, übersteht das Leeren des
- * Patientenbestands). Training bleibt rein lokal (Sandbox, kein Netz). */
-async function claimNum(client){
-  if(client && _ccpId && !_training){
-    try{
-      var r=await client.rpc('argus_claim_nums',{p_ccp_id:_ccpId,p_count:1});
-      var d=r?r.data:null;
-      if(d && !d.error && d.start) return d.start;
-    }catch(e){}
-  }
+var _numPool = null;   /* In-Memory-Spiegel des reservierten Nummernblocks des aktuellen CCP */
+/* Nummernvergabe (Offline-sicher, 2026-10-14): Jedes Gerät reserviert ONLINE
+ * einen EIGENEN Nummernblock über argus_claim_nums(…, p_count) und vergibt
+ * laufende Nummern offline nur noch aus diesem Block. Dadurch können zwei
+ * Geräte im selben CCP auch komplett ohne Verbindung keine Nummer doppelt
+ * vergeben (der alte Offline-Weg zählte je Gerät aus dem lokalen Maximum und
+ * kollidierte deshalb → doppelte Nummern auf der Haut). Der Server bleibt die
+ * einzige Quelle der Blöcke (atomar, self-healing über next_num + max(num)).
+ * Training bleibt rein lokal (isolierte Sandbox, kein Netz). */
+var POOL_BLOCK = 20;   /* Nummern je Reservierung */
+var POOL_MIN   = 6;    /* unter so vielen freien Nummern wird online nachgeladen */
+async function _loadPool(){
+  _numPool = {ccp:_ccpId, avail:[]};
+  if(_training || !_ccpId) return;
+  try{ var p=await sGet("ccp_numpool_"+_ccpId); if(p && Array.isArray(p.avail)) _numPool={ccp:_ccpId, avail:p.avail.slice()}; }catch(e){}
+}
+async function _poolReady(){ if(!_numPool || _numPool.ccp!==_ccpId) await _loadPool(); return _numPool; }
+async function _savePool(){ if(_numPool && _numPool.ccp===_ccpId && _ccpId){ try{ await sSet("ccp_numpool_"+_ccpId,{avail:_numPool.avail}); }catch(e){} } }
+/* Block nachladen — NUR online, NUR echter CCP, solange der Vorrat knapp ist. */
+async function ensurePool(client){
+  if(_training || !_ccpId || !client || navigator.onLine===false) return;
+  var pl=await _poolReady();
+  if(pl.avail.length >= POOL_MIN) return;
+  try{
+    var r=await client.rpc('argus_claim_nums',{p_ccp_id:_ccpId,p_count:POOL_BLOCK});
+    var d=r?r.data:null;
+    if(d && !d.error && d.start){
+      for(var k=0;k<(d.count||POOL_BLOCK);k++) pl.avail.push(d.start+k);
+      await _savePool();
+    }
+  }catch(e){}
+}
+/* Vorschau „A-12": zeigt die Nummer, die als Nächstes WIRKLICH vergeben wird. */
+function previewNum(){
+  if(!_training && _numPool && _numPool.ccp===_ccpId && _numPool.avail.length) return _numPool.avail[0];
+  return nextNum();
+}
+/* Letzter Ausweg (Pool offline erschöpft / Training): lokales Maximum UND die
+ * je CCP gemerkte zuletzt vergebene Nummer (ccp_lastnum_<id>, übersteht das
+ * Leeren des Patientenbestands). */
+async function localNextNum(){
   var m=nextNum();
   if(!_training && _ccpId){
     try{ var last=await sGet("ccp_lastnum_"+_ccpId); if(typeof last==="number" && last>=m) m=last+1; }catch(e){}
   }
   return m;
+}
+async function claimNum(client){
+  if(_training || !_ccpId) return await localNextNum();
+  var pl=await _poolReady();
+  await ensurePool(client);                 /* online ggf. Block nachladen */
+  if(pl.avail.length){ var n=pl.avail.shift(); await _savePool(); return n; }
+  return await localNextNum();              /* Pool offline leer → bestmöglicher lokaler Fallback */
 }
 async function rememberNum(num){
   if(_training || !_ccpId) return;
@@ -2018,7 +2055,7 @@ function vCapture(){
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
    * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
   h+='<div class="card" id="cap-last" style="margin-top:12px;padding:12px">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer (voraussichtl.)</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+_ccpKennung+'-'+nextNum()+'</span></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer (voraussichtl.)</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+_ccpKennung+'-'+previewNum()+'</span></div>';
   var lc=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
   if(lc){
     var cc=CATS[lc.cat]||CATS.T3;
@@ -2075,7 +2112,7 @@ function vTac(){
     var c=CATS[rc];
     return '<div class="card" style="text-align:center;padding:26px 16px"><div class="hint">Ergebnis tacSTART</div>'+
       '<div style="display:inline-block;margin:14px auto;border-radius:14px;padding:18px 30px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="mono" style="font-size:34px;font-weight:600">'+c.label+'</span><br><span style="font-size:13px">'+c.nm+'</span></div></div>'+
-      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient '+_ccpKennung+'-'+nextNum()+' anlegen</button>'+
+      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient '+_ccpKennung+'-'+previewNum()+' anlegen</button>'+
       '<button class="ghost" data-action="tacstart">nochmal</button>'+
       '<p class="hint" style="text-align:center;margin-top:10px;font-size:11px">tacSTART ist eine Entscheidungsunterstützung – kein Ersatz für die ärztliche/fachliche Beurteilung.</p>';
   }
@@ -3973,6 +4010,7 @@ window.addEventListener('online', function(){
   checkRevokedCode();    /* Reconnect: Code-Sperre nachprüfen (fire-and-forget, offline-Guard intern) */
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
+  try{ ensurePool(sb()); }catch(e){}   /* Nummernblock nach Reconnect wieder auffüllen */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
   /* Channel nach Netz-Rückkehr IMMER neu aufbauen (toter Socket, s. o.) —
    * healRealtime übernimmt Abschluss-Check + Nachladen. */
