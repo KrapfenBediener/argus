@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.8';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.9';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.9': [
+    'Checkliste jetzt pro CCP getrennt: Einträge aus einem CCP erscheinen nicht mehr fälschlich in anderen CCPs (vorher lag die Checkliste unter einem gemeinsamen Speicher).',
+    '„CCP zusammenführen" liegt jetzt auf der CCP-Hauptseite — direkt bei „CCP abschließen" (nicht mehr versteckt in der Übersicht).'
+  ],
   '0.33.8': [
     'Schnellere Rückkehr aus dem Offline-Modus: Die App wartet nicht mehr nur auf das (auf iPhones oft träge) „online"-Signal, sondern prüft die Verbindung aktiv und synchronisiert bei Rückkehr sofort.'
   ],
@@ -1519,6 +1523,13 @@ function ccpAdminUI(){
   var h='';
   var isMM=operator&&masterMedic&&operator===masterMedic;
   if(isMM){
+    /* CCP zusammenlegen gehört auf die Hauptseite (Feedback 2026-10-14) — direkt
+     * neben „abschließen", beides sind die CCP-weiten MasterMedic-Entscheidungen.
+     * Nicht im Training (dort ist der CCP ein rein lokaler train-ccp). */
+    if(!_training){
+      h+='<div class="sech">CCP-Verbund &amp; Abschluss</div>';
+      h+=realMergeUI();
+    }
     h+='<button class="navbtn" data-action="ccpclose" style="margin-top:10px"><span class="ic">🏁</span><span><span class="t">'+(_mergeGroupId?'CCP-Verbund':'CCP')+' abschließen</span><br><span class="s">sperrt alle Geräte · Export über die Leitung · Löschung nach Frist</span></span></button>';
   }
   if(_isMaster){
@@ -1573,7 +1584,7 @@ async function cleanupClosedEinsatz(){
       if(p && !p.demo && !p.training) await sDel(keys[i]);
     }
   }catch(e){}
-  await sDel("ccp_checklist");
+  await sDel(checklistKey()); await sDel("ccp_checklist");   /* aktuelle CCP-Checkliste + evtl. Alt-Schlüssel */
   await sDel("ccp_mastermedic");
   await sDel("ccp_merged");
   try{ localStorage.removeItem('argus_ccp_id'); }catch(e){}
@@ -1813,8 +1824,15 @@ function normalize(p){
   if(!p.ccp)p.ccp="A";
   return p;
 }
+/* Checkliste PRO CCP (Bugfix 2026-10-14): früher lag sie unter EINEM globalen
+ * Schlüssel „ccp_checklist" → Einträge aus CCP A erschienen in allen anderen
+ * CCPs. Jetzt je CCP ein eigener Schlüssel. */
+function checklistKey(){ return "ccp_checklist_"+(_ccpId||'none'); }
 async function loadChecklist(){
-  var c=await sGet("ccp_checklist");if(c&&typeof c==="object"){checklist=c;}
+  checklist={hdr:{},items:{}};   /* frisch — nie den Stand eines anderen CCP stehen lassen */
+  var c=await sGet(checklistKey());
+  if(!c){ try{ var legacy=await sGet("ccp_checklist"); if(legacy && typeof legacy==='object'){ c=legacy; await sSet(checklistKey(),legacy); await sDel("ccp_checklist"); } }catch(e){} }   /* Einmalige Migration des alten globalen Stands auf den aktuellen CCP */
+  if(c&&typeof c==="object"){checklist=c;}
   if(!checklist.hdr)checklist.hdr={};if(!checklist.items)checklist.items={};
   /* Einsatzort-Abgleich nach dem Laden: applyMeta lief ggf. vor loadChecklist
    * (App-Start) — Ort aus der CCP-Row übernehmen, wenn das Feld leer ist. */
@@ -1823,7 +1841,7 @@ async function loadChecklist(){
     try{ await saveChecklist(); }catch(e){}
   }
 }
-async function saveChecklist(){await sSet("ccp_checklist",checklist);}
+async function saveChecklist(){await sSet(checklistKey(),checklist);}
 function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")===_ccpKennung&&p.num>m)m=p.num;});return m+1;}
 var _numPool = null;   /* In-Memory-Spiegel des reservierten Nummernblocks des aktuellen CCP */
 /* Nummernvergabe (Offline-sicher, 2026-10-14): Jedes Gerät reserviert ONLINE
@@ -2155,14 +2173,8 @@ function vOverview(){
    * 2026-06-13; der Button war für andere ohnehin unsichtbar, stand aber
    * irreführend ÜBER der Überschrift). */
   if(isMasterMedic() && !_training){
-    h+='<div class="sech">Nur MasterMedic</div>';
-    if(operator&&masterMedic&&operator===masterMedic){
-      /* Einheitlich echtes geräteübergreifendes Zusammenführen — auch in der
-       * Schulungsumgebung (deren CCPs sind echte CCPs, keine Demo-Simulation). */
-      h+=realMergeUI();
-    }
-    h+='<button class="ghost" data-action="closeeinsatz" style="margin-top:14px">🏁 '+(_mergeGroupId?'CCP-Verbund':'CCP')+' abschließen</button>';
-    h+='<p class="hint" style="text-align:center;margin-top:5px">sperrt alle Geräte · Export über die Leitung · Löschung nach Frist</p>';
+    /* Zusammenführen + Abschließen liegen jetzt auf der CCP-Hauptseite
+     * (ccpAdminUI); hier in der Übersicht nicht mehr doppelt. */
   }else if(operator&&masterMedic&&operator===masterMedic){
     h+='<div class="sech">Nur MasterMedic</div>';
     h+=realMergeUI();
@@ -3379,7 +3391,7 @@ document.addEventListener("click",async function(e){
     }else{toast(_lastExchangeError||"Ungültiger Code");}   /* Server-Klartext (z. B. „Code wurde gesperrt") nicht schlucken */
     return;
   }
-  if(a==="nav"){go(el.getAttribute("data-view"));return;}
+  if(a==="nav"){ var _tv=el.getAttribute("data-view"); if(_tv==="checklist"){ try{ await loadChecklist(); }catch(e){} } go(_tv); return; }
   if(a==="whatsnew"){whatsNewModal(null,3);return;}
   if(a==="starttraining"){ startTraining(); return; }
   if(a==="showintro"){introOverlay();return;}
