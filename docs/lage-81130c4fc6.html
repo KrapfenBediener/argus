@@ -540,7 +540,7 @@ document.addEventListener('click', function(e){
   if(!b) return;
   var a=b.getAttribute('data-action');
   if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
-  if(a==='pselect'){ pselSet(el.getAttribute('data-pid')||''); render(); return; }
+  if(a==='pselect'){ pselSet(b.getAttribute('data-pid')||''); render(); return; }
   if(a==='logout'){ doLogout(); }
   if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
   if(a==='copygeo'){
