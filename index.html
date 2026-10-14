@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.5';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.6';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.6': [
+    'CCP-Auswahl klarer: Die Örtlichkeit steht jetzt als gut lesbare Hauptzeile, die Kennung (CCP A/B/…) als kompaktes Badge daneben.',
+    '„CCPs zusammenführen" ist nicht mehr versteckt: prominenter Knopf (statt blassem Link) in der Patientenübersicht beim MasterMedic.'
+  ],
   '0.33.5': [
     'Doppelte laufende Nummern im Offline-Betrieb behoben: Jedes Gerät reserviert jetzt vorab einen eigenen Nummernblock und vergibt laufende Nummern daraus. Dadurch können zwei Geräte im selben CCP auch ohne Verbindung keine Nummer mehr doppelt vergeben. (Nebeneffekt: Bei mehreren Geräten können die Nummern Sprünge haben — das ist gewollt und verhindert Dubletten.)'
   ],
@@ -1114,12 +1118,14 @@ function ccpJoinModal(list){
       var isVerbund=members.length>1;
       var kenns=members.map(function(m){return m.kennung;}).sort().join('+');
       inner+='<button class="mc-ccpjoin card" data-id="'+ccp.id+'" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px">';
-      inner+='<div style="display:flex;align-items:center;gap:10px;margin-bottom:5px">';
-      inner+='<span class="mono" style="font-size:18px;font-weight:600">'+(isVerbund?('Verbund '+esc(kenns)):('CCP '+esc(ccp.kennung)))+'</span>';
-      if(isVerbund) inner+='<span class="pill" style="background:var(--acc);color:#fff">'+members.length+' CCPs</span>';
-      else if(ccp.ort) inner+='<span class="hint">'+esc(ccp.ort)+'</span>';
+      /* Kennung als kompaktes Badge, Örtlichkeit als gut lesbare Hauptzeile
+       * (vorher war der Ort nur ein blasser hint neben der großen Kennung). */
+      inner+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">';
+      inner+='<span class="pill mono" style="background:var(--acc);color:#fff;font-size:13px;font-weight:700;letter-spacing:.3px;padding:3px 10px">'+(isVerbund?('Verbund '+esc(kenns)):('CCP '+esc(ccp.kennung)))+'</span>';
+      if(isVerbund) inner+='<span class="pill" style="background:var(--surf2);color:var(--mut)">'+members.length+' CCPs</span>';
       inner+='</div>';
-      inner+='<div class="hint">'+(isVerbund?('Zusammengeführt — gemeinsame Patientenliste'):('MasterMedic: '+(ccp.master_medic||'keine')))+'</div>';
+      inner+='<div style="font-size:18px;font-weight:700;color:var(--tx);line-height:1.2;margin-bottom:3px">'+(isVerbund?'Zusammengeführter Verbund':(ccp.ort?esc(ccp.ort):'<span style="color:var(--hint);font-weight:400;font-style:italic">Ort nicht angegeben</span>'))+'</div>';
+      inner+='<div class="hint">'+(isVerbund?('Gemeinsame Patientenliste'):('MasterMedic: '+(ccp.master_medic||'keine')))+'</div>';
       inner+='</button>';
     });
     inner+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
@@ -1477,14 +1483,13 @@ function realMergeUI(){
     h+='<span style="font-weight:600">Zusammengeführt (CCP '+esc(_ccpKennung)+' + weitere)</span><br>';
     h+='<span class="hint">Nummern mit Buchstaben-Präfix (z. B. A-01, B-01)</span>';
     h+='</div></div>';
-    h+='<button class="ghost" data-action="rmergestart" style="margin-top:0;margin-bottom:8px">⇄ Weitere CCP hinzufügen</button>';
+    h+='<button class="navbtn" data-action="rmergestart" style="margin-top:0;margin-bottom:8px"><span class="ic">⇄</span><span><span class="t">Weitere CCP hinzufügen</span><br><span class="s">einen weiteren CCP in den Verbund holen</span></span></button>';
     h+='<button class="ghost" data-action="rmergeleave" style="margin-top:0;margin-bottom:8px">Zusammenführung auflösen</button>';
   }else if(_mergeGroupId){
     h+='<p class="hint" style="text-align:center">Warte auf weiteren CCP der Gruppe…</p>';
     h+='<button class="ghost" data-action="rmergeleave" style="margin-top:0">Zusammenführung auflösen</button>';
   }else{
-    h+='<button class="ghost" data-action="rmergestart" style="margin-top:0">⇄ CCPs zusammenführen</button>';
-    h+='<p class="hint" style="text-align:center;margin-top:5px">Anderen CCP im Präsidium anfragen</p>';
+    h+='<button class="navbtn" data-action="rmergestart" style="margin-top:0"><span class="ic">⇄</span><span><span class="t">CCPs zusammenführen</span><br><span class="s">anderen CCP im Präsidium anfragen — gemeinsame Patientenliste</span></span></button>';
   }
   return h;
 }
