@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.6';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.7';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.7': [
+    'Geführtes Training verbessert: CCP-Eröffnung spielt jetzt Benennung und (simulierte) Standorterfassung mit durch; ein „‹ vorherige Lektion"-Knopf erlaubt den Rücksprung; und die Sofort-Optionen (Prio, TQ, Foto, öffnen, Verwerfen) werden einzeln gezeigt.'
+  ],
   '0.33.6': [
     'CCP-Auswahl klarer: Die Örtlichkeit steht jetzt als gut lesbare Hauptzeile, die Kennung (CCP A/B/…) als kompaktes Badge daneben.',
     '„CCPs zusammenführen" ist nicht mehr versteckt: prominenter Knopf (statt blassem Link) in der Patientenübersicht beim MasterMedic.'
@@ -2075,7 +2078,7 @@ function vCapture(){
     h+='<div style="display:flex;gap:6px;margin-top:10px">';
     h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="flex:1;padding:8px 4px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
     h+='<button class="txbtn'+(lc.tqStart?' on':'')+'" data-action="captq" style="flex:1;padding:8px 4px;'+(lc.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(lc.tqStart?'TQ stop':'TQ')+'</button>';
-    if(_photosAllowed) h+='<label class="txbtn'+(lc.photo?' on':'')+'" style="flex:1;padding:8px 4px;cursor:pointer;text-align:center;'+(lc.photo?'background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(lc.photo?'Foto ✓':'Foto')+'<input type="file" accept="image/*" capture="environment" data-kind="capphoto" style="display:none"></label>';
+    if(_photosAllowed) h+='<label id="cap-foto" class="txbtn'+(lc.photo?' on':'')+'" style="flex:1;padding:8px 4px;cursor:pointer;text-align:center;'+(lc.photo?'background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(lc.photo?'Foto ✓':'Foto')+'<input type="file" accept="image/*" capture="environment" data-kind="capphoto" style="display:none"></label>';
     h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="flex:1;padding:8px 4px">öffnen</button>';
     h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:8px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
     h+='</div>';
@@ -2764,7 +2767,12 @@ var TRAIN_LESSONS=[
   {t:'In der Checkliste', mode:'explain', x:'Das ist die Checkliste — hier hakst du Aufbau & Leitung Punkt für Punkt ab; scrolle ruhig durch und sieh dich um. Wenn du fertig bist: „Weiter" — dann geht es zurück zur Startseite.', ctx:function(){return state.view==='checklist';}, ctxBack:11},
   {t:'Patient erfassen öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne jetzt „Patient erfassen", um einen Verletzten anzulegen.', sel:'[data-action="nav"][data-view="capture"]', doit:'Öffne „Patient erfassen"', adv:function(){return state.view==='capture';}},
   {t:'Direkt anlegen (Ausnahme)', mode:'do', x:'Steht die Kategorie zweifelsfrei fest, geht es direkt — das ist die AUSNAHME hinter dem Aufklapper „Direkt kategorisieren", der Standardweg ist tacSTART (kommt gleich). Die Nummer vergibt ARGUS automatisch — mit CCP-Kennung, z. B. „A-12". Genau so wird sie dem Patienten auf die Haut geschrieben (wichtig, falls später CCPs zusammengeführt werden).', sel:function(){return state.capDirect?'[data-action="addcat"]':'[data-action="capdirecttoggle"]';}, doit:function(){return state.capDirect?'Tippe die markierte Kategorie':'Öffne „Direkt kategorisieren"';}, adv:function(){return trainCount()>=1;}},
-  {t:'Zuletzt angelegt — Sofort-Maßnahmen', mode:'explain', x:'Praktisch: Der zuletzt angelegte Patient wird hier unten gezeigt — samt nächster Nummer. Du kannst direkt „Prio" setzen, den „TQ"-Timer starten, ein „Foto" aufnehmen (wenn erlaubt), „öffnen" für alle Details oder bei Fehltipp „Verwerfen" — alles ohne Umweg, der nächste Patient ist nur einen Tipp entfernt.', sel:'#cap-last'},
+  {t:'Zuletzt angelegt — Sofort-Optionen', mode:'explain', x:'Nach jeder Erfassung erscheint der zuletzt angelegte Patient hier unten — samt nächster Nummer. Von hier aus erreichst du FÜNF Sofort-Optionen ohne Umweg. Wir gehen sie jetzt einzeln durch.', sel:'#cap-last'},
+  {t:'Sofort-Option: Prio', mode:'explain', x:'„Prio" markiert den Patienten sofort als prioritären Transport — ein Tipp genügt, ohne ihn zu öffnen. (Nur zeigen — du musst jetzt nicht tippen.)', sel:'#cap-last [data-action="capprio"]'},
+  {t:'Sofort-Option: TQ', mode:'explain', x:'„TQ" startet direkt den Tourniquet-Timer für diesen Patienten (mit Abfrage von Anlageort und -zeit) — ohne Umweg über die Detailansicht. Den vollständigen TQ-Dialog üben wir gleich noch im Detail.', sel:'#cap-last [data-action="captq"]'},
+  {t:'Sofort-Option: Foto', mode:'explain', x:'„Foto" nimmt ein Wiedererkennungs-Foto auf (statt Name — pseudonym), direkt aus der Erfassung heraus. Es dient nur der Wiedererkennung und wird nach dem Einsatz automatisch gelöscht.', sel:'#cap-foto'},
+  {t:'Sofort-Option: öffnen', mode:'explain', x:'„öffnen" springt in die vollständige Patienten-Detailansicht — für alle weiteren Angaben (Vitalwerte, Maßnahmen, Verletzungen …). Gleich öffnen wir einen Patienten ohnehin. (Nur zeigen — jetzt nicht tippen.)', sel:'#cap-last [data-action="openpat"]'},
+  {t:'Sofort-Option: Verwerfen', mode:'explain', x:'Vertippt? „Verwerfen" löscht den zuletzt angelegten Patienten wieder — nur für den Fehlerfall gedacht. (Nur zeigen — bitte NICHT tippen, sonst ist dein Übungspatient weg.)', sel:'#cap-last [data-action="capdiscard"]'},
   {t:'Sichten mit tacSTART (Standard)', mode:'do', x:'Der STANDARDWEG: tacSTART führt Schritt für Schritt durch die Vorsichtung — beginnend bei „gehfähig?" — und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen". (Kritische Blutungen sind zu diesem Zeitpunkt bereits versorgt — dafür gibt es keinen eigenen Abfrage-Schritt mehr.)', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
@@ -2979,6 +2987,7 @@ function renderCoach(){
         '<div style="font-size:20px;font-weight:700;letter-spacing:-.01em;margin-top:9px">'+esc(L.t)+'</div>'+
         '<div style="font-size:14.5px;color:#33373b;margin-top:6px;line-height:1.45">'+esc(L.x)+'</div>'+doit+'</div>'+
         '<div style="display:flex;gap:9px;padding:14px 17px 16px">'+
+        (_trainStep>0?'<button data-tc="back" aria-label="Vorherige Lektion" title="Vorherige Lektion" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 14px;font-weight:700;color:var(--mut)">‹</button>':'')+
         '<button data-tc="end" style="border:1px solid var(--line);background:#fff;border-radius:11px;padding:13px 15px;font-weight:600;color:var(--mut)">Beenden</button>'+
         (canNext?'<button data-tc="next" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--acc);color:#fff">'+(_trainStep===n-1?'Abschließen ✓':'Weiter ›')+'</button>':'<button data-tc="nextoff" style="flex:1;border:0;border-radius:11px;padding:13px;font-weight:700;font-size:15px;background:var(--surf2);color:#9aa0a6">Aufgabe erledigen …</button>')+
         '</div>'+
@@ -2989,6 +2998,7 @@ function renderCoach(){
   var b;
   if((b=el.querySelector('[data-tc=next]')))b.onclick=function(){trainStep(1);};
   if((b=el.querySelector('[data-tc=skip]')))b.onclick=function(e){if(e&&e.preventDefault)e.preventDefault();trainStep(1);};
+  if((b=el.querySelector('[data-tc=back]')))b.onclick=function(){trainStep(-1);};   /* 1.2: explizit eine Lektion zurück */
   if((b=el.querySelector('[data-tc=end]')))b.onclick=function(){endTraining();};
   /* Spotlight ZULETZT — das Panel (samt Höhe) steht jetzt, damit der Scroll die echte Panelhöhe kennt
    * und das Ziel nicht hinter dem Panel landet. NUR bei neuem Ziel zentrieren → freies Scrollen bleibt möglich. */
@@ -3388,6 +3398,17 @@ document.addEventListener("click",async function(e){
     if(_training){   /* Übung: lokaler Ephemer-CCP — NIE Cloud, daher kein manuelles Zurücksetzen der Schulungsumgebung nötig. */
       if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
       _ccpId='train-ccp'; _mergeGroupId=null; _ccpKennung='A'; patients=[];
+      /* 1.3: Benennung + Standorterfassung simuliert mitlaufen lassen — lokal,
+       * ohne Server und ohne echtes GPS. So erlebt der Übende die Eröffnung
+       * genau wie im Ernstfall. */
+      try{
+        if(!checklist.hdr)checklist.hdr={};
+        var ortT=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)","");
+        if(ortT && ortT.trim()){ checklist.hdr.ort=ortT.trim(); _ccpOrt=ortT.trim(); }
+        if(!checklist.hdr.mm && (masterMedic||operator)) checklist.hdr.mm=masterMedic||operator;
+        try{ await saveChecklist(); }catch(e){}
+      }catch(e){}
+      try{ await confirmModal("📍 Standort wird erfasst … (in der Übung simuliert — es wird KEIN echter Standort ermittelt).\n\nIm Ernstfall merkt sich ARGUS hier einmalig die GPS-Koordinate des CCP; in der FLZ-Lageansicht erscheint der CCP dann mit 📍.","Verstanden"); }catch(e){}
       try{await loadPatients();}catch(e){} go("home"); return;
     }
     /* "Neue CCP eröffnen" legt IMMER einen neuen CCP an (nächste freie Kennung),
