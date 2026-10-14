@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.15';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.16';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.16': [
+    'AT-MIST-Übergabekarte fachlich korrigiert: Das Tourniquet steht jetzt vollständig unter „T — Maßnahmen" (Anlageort, Anlagezeit und laufende Dauer in Rot). „T — Zeiten" zeigt nur noch den Zeitpunkt der Erfassung. Gilt für Karte, Übergabe-Export und Protokolldruck der Leitung.'
+  ],
   '0.33.15': [
     '„Neue CCP eröffnen" abbrechen führt jetzt immer zurück auf den Startbildschirm des Präsidiums (statt in eine zufällige offene CCP). Der bisherige CCP bleibt über „Aktive CCP fortsetzen" erreichbar.'
   ],
@@ -2448,7 +2451,9 @@ function vHandover(p,c){
   var aVal=ap.length?ap.join(' · '):dim;
   /* T — Zeiten (automatisch) */
   var tp=[];
-  if(p.tqStart)tp.push('<span style="color:var(--t1);font-weight:700">Tourniquet liegt seit '+fmtDur(nowMs()-p.tqStart)+'</span>');
+  /* AT-MIST (Owner 2026-10-14): Das erste T ist „Time" = Zeitpunkt. Das Tourniquet
+   * ist eine Maßnahme und steht VOLLSTÄNDIG unter „T — Maßnahmen" (Ort, Anlagezeit,
+   * laufende Dauer) — hier bewusst nicht mehr doppelt. */
   if(p.created)tp.push('<span style="font-size:13px;color:var(--mut);font-weight:400">erfasst '+ageStr(p.created)+'</span>');
   var tVal=tp.length?tp.join('<br>'):dim;
   /* M — Mechanismus (aus MOI/Unfallhergang) */
@@ -2480,11 +2485,11 @@ function vHandover(p,c){
     });
     sVal+='</div></details>';
   }
-  /* T — Maßnahmen (Treatment): Ort + Anlagezeit — bewusst NICHT nochmal die
-   * Dauer (die steht rot unter „Zeiten"). Jede Nennung trägt eigene Info;
-   * der Anlageort verhindert übersehene TQs unter Kleidung/Decken. */
+  /* T — Maßnahmen (Treatment): Das Tourniquet gehört nach AT-MIST hierher — mit
+   * Anlageort (verhindert übersehene TQs unter Kleidung/Decken), Anlagezeit und
+   * der laufenden Dauer in Rot (zeitkritisch, 2-Stunden-Grenze). */
   var tl=[];
-  if(p.tqStart)tl.push('Tourniquet'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' · angelegt '+new Date(p.tqStart).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr');
+  if(p.tqStart)tl.push('<span style="color:var(--t1);font-weight:700">Tourniquet'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' · angelegt '+new Date(p.tqStart).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr · liegt seit '+fmtDur(nowMs()-p.tqStart)+'</span>');
   TXG.forEach(function(grp){grp[1].forEach(function(f){ if(p.tx&&p.tx[f[0]]) tl.push(esc(f[1])); });});
   var ttVal=tl.length?tl.map(function(x){return '▸ '+x;}).join('<br>'):dim;
 
@@ -2594,7 +2599,7 @@ function exportPrintCard(p){
   var ap=[]; if(p.age)ap.push(esc(p.age)+' J');
   var g=p.gender==='m'?'männl.':(p.gender==='w'?'weibl.':''); if(g)ap.push(g);
   var tp=[];
-  if(p.tqStart)tp.push('<b style="color:var(--t1)">TQ seit '+fmtDur(nowMs()-p.tqStart)+'</b>');
+  /* TQ nicht mehr unter „Zeiten" (AT-MIST: Maßnahme) — siehe tl unten. */
   if(p.created)tp.push('erfasst '+ageStr(p.created));
   var il=[]; (p.inj||[]).forEach(function(it){il.push(esc(it.r)+' – '+esc(it.a));}); if(p.injury)il.push(esc(p.injury));
   var v=p.vit||{};
@@ -2611,7 +2616,7 @@ function exportPrintCard(p){
       return '<br>'+tm+': '+(parts.join(' · ')||'—');
     }).join('')+'</div>';
   }
-  var tl=[]; if(p.tqStart)tl.push('Tourniquet'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' · angelegt '+new Date(p.tqStart).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr');
+  var tl=[]; if(p.tqStart)tl.push('<b style="color:var(--t1)">Tourniquet'+(p.tqSite?' ('+esc(p.tqSite)+')':'')+' · angelegt '+new Date(p.tqStart).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr · liegt seit '+fmtDur(nowMs()-p.tqStart)+'</b>');
   TXG.forEach(function(grp){grp[1].forEach(function(f){ if(p.tx&&p.tx[f[0]]) tl.push(esc(f[1])); });});
   var h='<div class="card" style="padding:10px 13px;margin-bottom:10px">';
   h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
@@ -2886,11 +2891,11 @@ var TRAIN_LESSONS=[
   {t:'Übergabekarte öffnen', mode:'choice', x:'Öffne den ausgecheckten Patienten erneut — es erscheint die AT-MIST-Übergabekarte zum Vorlesen an die gPA. Über die „gPA"-Kachel und dann den Patienten.', sel:function(){return state.view==='catlist'?'[data-action="openpat"]':(state.view==='overview'?'[data-action="opencat"][data-cat="gpa"]':null);}, doit:function(){return state.view==='catlist'?'Tippe den Patienten':'Tippe die „gPA"-Kachel';}, adv:function(){return state.view==='patient'&&state.edit&&state.edit.status==='gpa';}},
   {t:'Karte: Kopf', mode:'explain', x:'Ganz oben der Kopf: laufende Nummer, Sichtungs-Kategorie und ggf. PRIO — wer ist der Patient und wie dringlich.', sel:'[data-am="hdr"]'},
   {t:'Karte: A — Alter', mode:'explain', x:'A wie Alter: Alter und Geschlecht, soweit bekannt — pseudonym, kein Name nötig.', sel:'[data-am="A"]'},
-  {t:'Karte: T — Zeiten', mode:'explain', x:'T wie Zeiten: automatisch festgehalten — vor allem, wie lange ein Tourniquet schon liegt (kritisch für die Weiterversorgung).', sel:'[data-am="T1"]'},
+  {t:'Karte: T — Zeiten', mode:'explain', x:'T wie Time — der Zeitpunkt: wann der Patient erfasst wurde, automatisch festgehalten. (Das Tourniquet ist eine Maßnahme und steht deshalb weiter unten unter „T — Maßnahmen".)', sel:'[data-am="T1"]'},
   {t:'Karte: M — Mechanismus', mode:'explain', x:'M wie Mechanismus: was ist passiert — der Unfall- bzw. Verletzungshergang.', sel:'[data-am="M"]'},
   {t:'Karte: I — Verletzungen', mode:'explain', x:'I wie Injuries: die festgehaltenen Verletzungen nach Region und Art.', sel:'[data-am="I"]'},
   {t:'Karte: S — Befund', mode:'explain', x:'S wie Signs: Befund und Vitalwerte (WASB, AF, SpO₂, HF, RR, Schmerz) — soweit erhoben.', sel:'[data-am="S"]'},
-  {t:'Karte: T — Maßnahmen', mode:'explain', x:'T wie Treatment: die durchgeführten Maßnahmen — ein Tourniquet steht hier mit Anlageort und Anlagezeit (wie lange es schon liegt, stand oben unter „Zeiten"). Alles in fester Reihenfolge zum flüssigen Vorlesen — und die Karte ist gesperrt (eingefrorener Stand), damit sich beim Vorlesen nichts mehr ändert.', sel:'[data-am="TT"]'},
+  {t:'Karte: T — Maßnahmen', mode:'explain', x:'T wie Treatment: die durchgeführten Maßnahmen — ein Tourniquet steht hier vollständig: Anlageort, Anlagezeit und wie lange es schon liegt (rot, weil zeitkritisch). Alles in fester Reihenfolge zum flüssigen Vorlesen — und die Karte ist gesperrt (eingefrorener Stand), damit sich beim Vorlesen nichts mehr ändert.', sel:'[data-am="TT"]'},
   {t:'Korrigieren: „Zurückholen"', mode:'explain', x:'Stimmt doch etwas nicht? Mit „↩ Zurückholen → aktiv" holst du den Patienten kurz in den aktiven Bestand zurück, korrigierst und checkst erneut aus. So bleibt die Übergabe immer korrekt — nichts geht verloren.', sel:'[data-action="reactivate"]'},
 
   /* Einsatz-Lebenszyklus: nur erklären — der echte Abschluss läuft nie im

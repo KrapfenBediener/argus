@@ -1631,7 +1631,7 @@ function vAtmistPrint(){
      * NICHT aus dem normalisierten Feld-App-Modell (dort hieße es tqStart).
      * Dauer bis Einsatzende (closed_at), plus absolute Anlagezeit. */
     var tqRef=ccpClose[p.ccp_id]||now;
-    if(p.tq_start)tp.push('<b style="color:var(--t1)">TQ angelegt '+ageStr(p.tq_start)+' · '+fmtDur(tqRef-p.tq_start)+' bis Einsatzende</b>');
+    /* TQ nicht mehr unter „Zeiten" (AT-MIST: das Tourniquet ist eine Maßnahme → tl unten). */
     if(p.created)tp.push('erfasst '+ageStr(p.created));
     var il=[];
     if(Array.isArray(p.inj))p.inj.forEach(function(it){ if(it)il.push(esc(String(it.r||'?'))+' – '+esc(String(it.a||'?'))); });
@@ -1653,7 +1653,7 @@ function vAtmistPrint(){
         return '<br>'+tm+': '+(parts.join(' · ')||'—');
       }).join('')+'</div>';
     }
-    var tl=[]; if(p.tq_start)tl.push('Tourniquet'+(p.tq_site?' ('+esc(String(p.tq_site))+')':'')+' · angelegt '+ageStr(p.tq_start));
+    var tl=[]; if(p.tq_start)tl.push('<b style="color:var(--t1)">Tourniquet'+(p.tq_site?' ('+esc(String(p.tq_site))+')':'')+' · angelegt '+ageStr(p.tq_start)+' · '+fmtDur(tqRef-p.tq_start)+' bis Einsatzende</b>');
     if(p.tx&&typeof p.tx==='object'){
       Object.keys(TXL).forEach(function(k){ if(p.tx[k])tl.push(esc(TXL[k])); });
     }
