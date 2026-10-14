@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.7';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.8';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.8': [
+    'Schnellere Rückkehr aus dem Offline-Modus: Die App wartet nicht mehr nur auf das (auf iPhones oft träge) „online"-Signal, sondern prüft die Verbindung aktiv und synchronisiert bei Rückkehr sofort.'
+  ],
   '0.33.7': [
     'Geführtes Training verbessert: CCP-Eröffnung spielt jetzt Benennung und (simulierte) Standorterfassung mit durch; ein „‹ vorherige Lektion"-Knopf erlaubt den Rücksprung; und die Sofort-Optionen (Prio, TQ, Foto, öffnen, Verwerfen) werden einzeln gezeigt.'
   ],
@@ -4042,4 +4045,41 @@ window.addEventListener('online', function(){
    * healRealtime übernimmt Abschluss-Check + Nachladen. */
   healRealtime();
 });
+
+/* #4 — Aktiver Verbindungs-Wächter (2026-10-14): iOS-PWAs feuern 'online' nach
+ * dem Flugmodus oft spät oder gar nicht → die App hing gefühlt zu lange im
+ * „lokalen Modus". Statt auf das Event zu warten, pingen wir aktiv (kurzer
+ * version.json-Fetch mit hartem 3-s-Timeout) und reparieren bei der RÜCKKEHR
+ * sofort (Heal + Flush). Gepingt wird NUR, wenn Erholung plausibel nötig ist
+ * (offline geglaubt oder noch nicht synchronisierte Daten) → keine Dauerlast im
+ * Normalbetrieb. */
+var _netUp = (typeof navigator==='undefined') || navigator.onLine!==false;
+var _netProbing=false;
+function netProbe(){
+  return new Promise(function(resolve){
+    var done=false, ctrl=(typeof AbortController!=='undefined')?new AbortController():null;
+    var to=setTimeout(function(){ if(!done){ done=true; try{ctrl&&ctrl.abort();}catch(e){} resolve(false); } },3000);
+    fetch('./version.json?ping='+Date.now(),{cache:'no-store',signal:ctrl?ctrl.signal:undefined})
+      .then(function(r){ if(!done){ done=true; clearTimeout(to); resolve(!!(r&&r.ok)); } })
+      .catch(function(){ if(!done){ done=true; clearTimeout(to); resolve(false); } });
+  });
+}
+setInterval(function(){
+  if(_training || !_ccpId || _netProbing) return;
+  var pending=false; try{ pending=patients.some(function(p){return p._dirty;}); }catch(e){}
+  if(_netUp && !pending && navigator.onLine!==false) return;   /* alles gut → kein Ping nötig */
+  _netProbing=true;
+  netProbe().then(function(up){
+    _netProbing=false;
+    if(up && !_netUp){
+      _netUp=true;                 /* Verbindung zurück → sofort reparieren, nicht aufs 'online'-Event warten */
+      try{ refreshJwtIfNeeded(); }catch(e){}
+      try{ if(_sb && _sb.realtime && _sb.realtime.setAuth && currentJwt) _sb.realtime.setAuth(currentJwt); }catch(e){}
+      try{ healRealtime(); }catch(e){}
+      try{ flushPendingClose(); }catch(e){}
+      try{ loadMeta().then(function(){ return loadPatients(); }).then(function(){ try{render();}catch(e){} }); }catch(e){}
+      try{ checkForUpdate(); }catch(e){}
+    } else { _netUp = up; }
+  });
+},4000);
 </script>
