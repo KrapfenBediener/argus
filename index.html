@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.16';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.17';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.17': [
+    'Android-Fehler behoben: „OK" in Eingabe-Dialogen (z. B. CCP-Name bei der Eröffnung) wurde beim Zuklappen der Tastatur als „Abbrechen" gewertet. Der erste Tipp auf OK zählt jetzt zuverlässig; Enter bestätigt ebenfalls.'
+  ],
   '0.33.16': [
     'AT-MIST-Übergabekarte fachlich korrigiert: Das Tourniquet steht jetzt vollständig unter „T — Maßnahmen" (Anlageort, Anlagezeit und laufende Dauer in Rot). „T — Zeiten" zeigt nur noch den Zeitpunkt der Erfassung. Gilt für Karte, Übergabe-Export und Protokolldruck der Leitung.'
   ],
@@ -1702,8 +1705,7 @@ function tqStartModal(){
         b.classList.add('on');
       });
     });
-    ov.querySelector('.mc-now').addEventListener('click',function(){done({start:nowMs(),site:site});});
-    ov.querySelector('.mc-timeok').addEventListener('click',function(){
+    function applyTime(){
       var v=ov.querySelector('.mc-time').value;
       if(!v){ toast("Bitte Uhrzeit wählen"); return; }
       var hm=v.split(':'), d=new Date();
@@ -1711,9 +1713,21 @@ function tqStartModal(){
       var ts=d.getTime();
       if(ts>nowMs()) ts-=86400000;   /* 23:50 eingegeben, jetzt 00:10 → gestern */
       done({start:ts,site:site});
-    });
+    }
+    /* Android-Fix (2026-10-15): Absicht beim Antippen merken, beim Loslassen
+     * ausführen; Hintergrund bricht nur ab, wenn der Tipp dort auch begann
+     * (Tastatur-/Picker-Zuklappen verschiebt den Dialog, s. promptModal). */
+    var pressed=null, downOnOv=false;
+    ov.addEventListener('pointerdown',function(e){ pressed=null; downOnOv=(e.target===ov); },true);
+    ov.querySelector('.mc-now').addEventListener('pointerdown',function(){pressed='now';});
+    ov.querySelector('.mc-timeok').addEventListener('pointerdown',function(){pressed='time';});
+    ov.querySelector('.mc-cancel').addEventListener('pointerdown',function(){pressed='cancel';});
+    ov.addEventListener('pointercancel',function(){ pressed=null; });
+    ov.addEventListener('pointerup',function(){ if(pressed==='now')done({start:nowMs(),site:site}); else if(pressed==='time')applyTime(); else if(pressed==='cancel')done(null); pressed=null; });
+    ov.querySelector('.mc-now').addEventListener('click',function(){done({start:nowMs(),site:site});});
+    ov.querySelector('.mc-timeok').addEventListener('click',applyTime);
     ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
-    ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
+    ov.addEventListener('click',function(e){if(e.target===ov && downOnOv)done(null);});
   });
 }
 /* closeTypModal + exportChoiceModal wurden in Paket 2 (2026-06-13) entfernt:
@@ -2807,9 +2821,16 @@ function confirmModal(msg,okLabel){
       '<button class="prim mc-ok" style="flex:1;margin:0;background:var(--ready)">'+esc(okLabel||"OK")+'</button></div></div>';
     document.body.appendChild(ov);
     function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    /* Android-Fix (2026-10-15): Absicht beim Antippen merken (s. promptModal). */
+    var pressed=null, downOnOv=false;
+    ov.querySelector(".mc-ok").addEventListener("pointerdown",function(){pressed="ok";});
+    ov.querySelector(".mc-cancel").addEventListener("pointerdown",function(){pressed="cancel";});
+    ov.addEventListener("pointerdown",function(e){ pressed=null; downOnOv=(e.target===ov); },true);   /* Capture: Absicht bei jedem neuen Antippen zurücksetzen */
+    ov.addEventListener("pointercancel",function(){ pressed=null; });
+    ov.addEventListener("pointerup",function(){ if(pressed==="ok")done(true); else if(pressed==="cancel")done(false); pressed=null; });
     ov.querySelector(".mc-cancel").addEventListener("click",function(){done(false);});
     ov.querySelector(".mc-ok").addEventListener("click",function(){done(true);});
-    ov.addEventListener("click",function(e){if(e.target===ov)done(false);});
+    ov.addEventListener("click",function(e){if(e.target===ov && downOnOv)done(false);});
   });
 }
 function cmpVer(a,b){
@@ -3229,9 +3250,21 @@ function promptModal(msg,def){
     document.body.appendChild(ov);
     var inp=ov.querySelector(".mc-inp");
     function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    /* Android-Fix (2026-10-15): Der Tipp auf OK blendet die Tastatur aus, der
+     * Dialog rutscht nach, und das click-Ereignis trifft den Hintergrund → wurde
+     * als Abbrechen gewertet. Daher: beim ANTIPPEN merken, was gedrückt wurde,
+     * und beim Loslassen diese Absicht ausführen; Hintergrund bricht nur ab,
+     * wenn der Tipp auch auf dem Hintergrund BEGANN. click bleibt als Fallback. */
+    var pressed=null, downOnOv=false;
+    ov.querySelector(".mc-ok").addEventListener("pointerdown",function(){pressed="ok";});
+    ov.querySelector(".mc-cancel").addEventListener("pointerdown",function(){pressed="cancel";});
+    ov.addEventListener("pointerdown",function(e){ pressed=null; downOnOv=(e.target===ov); },true);   /* Capture: Absicht bei jedem neuen Antippen zurücksetzen */
+    ov.addEventListener("pointercancel",function(){ pressed=null; });
+    ov.addEventListener("pointerup",function(){ if(pressed==="ok")done(inp.value); else if(pressed==="cancel")done(null); pressed=null; });
     ov.querySelector(".mc-cancel").addEventListener("click",function(){done(null);});
     ov.querySelector(".mc-ok").addEventListener("click",function(){done(inp.value);});
-    ov.addEventListener("click",function(e){if(e.target===ov)done(null);});
+    ov.addEventListener("click",function(e){if(e.target===ov && downOnOv)done(null);});
+    inp.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); done(inp.value); } });
     setTimeout(function(){try{inp.focus();}catch(e){}},50);
   });
 }
