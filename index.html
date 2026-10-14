@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.19';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.20';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.20': [
+    'Schulungsumgebung: „Neue CCP eröffnen" scheiterte auf Geräten, die Echtbetrieb und Schulung mit zwei Codes freigeschaltet hatten — die App schrieb mit dem Zugang des zuletzt eingegebenen Codes, der Server lehnte ab, die App sagte nur „Abgebrochen". ARGUS merkt sich jetzt je Präsidium den passenden Zugang und schaltet beim Wechsel um. Fehlt er, wird einmalig der Code abgefragt.',
+    'Server-Fehler beim CCP-Anlegen werden jetzt im Klartext angezeigt statt als „Abgebrochen".'
+  ],
   '0.33.19': [
     'Schulung auf Android: Nach „OK" im Ort-Dialog erschien derselbe Dialog erneut (ein Geister-Tipp traf den darunterliegenden Knopf „Neue CCP eröffnen"). Dialoge fangen diesen Nach-Tipp jetzt ab — gilt für alle Eingabe- und Auswahl-Dialoge.'
   ],
@@ -533,8 +537,11 @@ async function refreshSchulungFlag(){
     }
   }catch(e){}
 }
+var _ccpCreateErr=null;   /* Klartext, wenn das Anlegen am SERVER scheiterte (≠ Abbruch durch Nutzer) */
 async function openOrCreateCCP(){
-  var client=sb(); if(!client) return false;
+  _ccpCreateErr=null;
+  var client=sb(); if(!client){ _ccpCreateErr='Keine Backend-Verbindung'; return false; }
+  if(!ensureJwtFor(_praesidiumId)){ _ccpCreateErr='Auf diesem Gerät liegt kein passender Zugang für dieses Präsidium vor — bitte den Code einmal neu eingeben.'; return false; }
   if(_ccpId){
     var r=await client.from('ccps').select('*').eq('id',_ccpId).single();
     if(r.data){applyMeta(r.data);return true;}
@@ -598,6 +605,7 @@ async function openOrCreateCCP(){
     toast("Tipp: Checkliste CCP durchgehen (Aufbau & Leitung)");
     return true;
   }
+  _ccpCreateErr=(ins.error&&(ins.error.message||ins.error.details))||'Server hat den CCP nicht angelegt';
   return false;
 }
 function subscribeRealtime(){
@@ -654,6 +662,40 @@ function getUnlocked(){
   return live;
 }
 function isUnlocked(pid){ if(_isMaster) return true; return getUnlocked().some(function(u){return u.p===pid;}); }
+function removeUnlock(pid){ var arr=getUnlocked().filter(function(u){return u.p!==pid;}); try{localStorage.setItem('argus_unlocked',JSON.stringify(arr));}catch(e){} }
+/* ── JWT je Präsidium (Schulungs-Fix 2026-10-15) ─────────────────────────────
+ * Die App hielt nur EIN JWT (argus_jwt) — das des zuletzt eingegebenen Codes.
+ * Wer Echtbetrieb UND Schulung mit zwei Codes freigeschaltet hatte und dann im
+ * Picker das andere Präsidium wählte, schrieb mit einem JWT, dessen
+ * praesidium_id nicht passte → RLS lehnte jeden CCP-Insert ab, die App zeigte
+ * nur „Abgebrochen". Jetzt: pro Präsidium das JWT merken und beim Wechsel das
+ * passende aktivieren; fehlt es, einmal den Code neu eingeben lassen. */
+function pidJwtMap(){ try{ var m=JSON.parse(localStorage.getItem('argus_jwt_by_pid')||'{}'); return (m&&typeof m==='object')?m:{}; }catch(e){ return {}; } }
+function storePidJwt(pid,jwt,expMs,code){ if(!pid||!jwt) return; var m=pidJwtMap(); m[pid]={jwt:jwt,exp:expMs||0,code:code||''}; try{ localStorage.setItem('argus_jwt_by_pid',JSON.stringify(m)); }catch(e){} }
+function jwtClaims(jwt){
+  try{
+    var p=(jwt||localStorage.getItem('argus_jwt')||'').split('.')[1]; if(!p) return null;
+    p=p.replace(/-/g,'+').replace(/_/g,'/'); while(p.length%4) p+='=';
+    var bin=atob(p), s=''; for(var i=0;i<bin.length;i++) s+='%'+('00'+bin.charCodeAt(i).toString(16)).slice(-2);
+    return JSON.parse(decodeURIComponent(s));
+  }catch(e){ return null; }
+}
+/* true = aktives JWT passt zu pid (oder wurde passend umgeschaltet); false = Code neu nötig */
+function ensureJwtFor(pid){
+  if(!pid || _isMaster) return true;
+  if(_argusRole && _usbnk) return true;             /* Person-Sitzung: Scope-Wechsel läuft über Re-Exchange (pickertab) */
+  var c=jwtClaims(); if(c && c.praesidium_id===pid) return true;
+  if(c && c.is_master) return true;
+  var e=pidJwtMap()[pid];
+  if(e && e.jwt && (!e.exp || e.exp>nowMs())){
+    try{
+      localStorage.setItem('argus_jwt',e.jwt); localStorage.setItem('argus_jwt_exp',String(e.exp||0));
+      if(e.code) localStorage.setItem('argus_code',e.code);
+    }catch(x){}
+    return true;
+  }
+  return false;
+}
 async function consumeSingleUse(td){
   /* Einmal-Code nach erfolgreicher Einlösung als verbraucht markieren */
   if(td && td.single_use && !td.used_at && td.short_code){
@@ -728,6 +770,7 @@ async function exchangeCode(code){
     localStorage.setItem('argus_jwt', data.jwt);
     localStorage.setItem('argus_jwt_exp', String(data.exp*1000)); /* ms */
     localStorage.setItem('argus_code', clean);                    /* für stille Verlängerung */
+    storePidJwt(data.praesidium_id, data.jwt, data.exp*1000, clean);   /* je Präsidium merken (Picker-Wechsel) */
     return {
       praesidium_id: data.praesidium_id,
       is_master: !!data.is_master,
@@ -3474,6 +3517,13 @@ document.addEventListener("click",async function(e){
       );
       if(!mok) return;
     }
+    /* Sammelcode-Sitzung: passendes JWT für dieses Präsidium aktivieren — sonst
+     * lehnt die RLS jeden Schreibzugriff ab (sah bisher aus wie „Abgebrochen"). */
+    if(!isPersonSession2 && !ensureJwtFor(selPid)){
+      removeUnlock(selPid);
+      await confirmModal('Für „'+selPname+'" liegt auf diesem Gerät kein passender Zugang mehr vor.\n\nBitte den Code dieses Präsidiums einmal neu eingeben — danach merkt sich ARGUS beide Zugänge getrennt.','OK');
+      go("praesidium"); return;
+    }
     /* Picker-Reiter an das gewählte Präsidium anpassen (offline persistiert) */
     setPickerMode(selIsSchul?'schulung':'echt');
     _praesidiumId=selPid;
@@ -3585,7 +3635,13 @@ document.addEventListener("click",async function(e){
     else{
       _ccpId=prevCcp.id; _mergeGroupId=prevCcp.grp; _ccpKennung=prevCcp.k; patients=prevCcp.pats;
       if(_ccpId && sb()) subscribeRealtime();
-      toast("Abgebrochen — kein neuer CCP angelegt");
+      if(_ccpCreateErr){
+        /* Server-Fehler (z. B. RLS „row-level security") NICHT als „Abgebrochen" tarnen */
+        var _rls=/row-level security|RLS|42501|Zugang/i.test(_ccpCreateErr);
+        await confirmModal("CCP konnte nicht angelegt werden.\n\n"+_ccpCreateErr+(_rls?"\n\nMeist passt der gespeicherte Zugang nicht zu diesem Präsidium — bitte den Code einmal neu eingeben.":""),"OK");
+      }else{
+        toast("Abgebrochen — kein neuer CCP angelegt");
+      }
       go("start"); return;   /* Abbruch → immer zurück auf den Präsidiums-Startbildschirm (nicht in irgendeine Home); der bisherige CCP bleibt über „Aktive CCP fortsetzen" erreichbar */
     }
     go("home");return;
@@ -4139,6 +4195,14 @@ setInterval(async function(){
 
   /* Ab hier: Nutzer ist freigeschaltet — JWT ggf. still verlängern, dann
    * letzten CCP wiederherstellen */
+  /* JWT muss zum aktiven Präsidium passen (Sammelcode mit zwei Präsidien) —
+   * sonst scheitert jeder Schreibzugriff still an der RLS. */
+  if(!ensureJwtFor(_praesidiumId)){
+    removeUnlock(_praesidiumId);
+    toast("Zugang für „"+(_praesidiumName||'dieses Präsidium')+"“ passt nicht zum gespeicherten Code — bitte Code einmal neu eingeben");
+    $("clock").textContent=new Date().toLocaleTimeString("de-DE");
+    state.view='praesidium'; render(); return;
+  }
   await refreshJwtIfNeeded();
   if(_revokedLocked) return;   /* Re-Exchange hat die Code-Sperre erkannt → init hier beenden */
   checkRevokedCode();          /* fire-and-forget (KEIN await) — der Start wartet nie auf den Re-Check */
