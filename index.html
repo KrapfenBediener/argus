@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.12';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.13';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.13': [
+    'Statusanzeige ehrlich: „🟢 Echtzeit-Modus" erscheint nur noch bei echter Verbindung — offline steht sofort „🔴 Lokaler Modus".',
+    '„Neue CCP eröffnen" lässt sich jetzt wirklich abbrechen: „Abbrechen" bei der Ort-Abfrage legt KEINEN CCP mehr an, der bisherige CCP bleibt erhalten (auch im Training).'
+  ],
   '0.33.12': [
     'Offline-Freeze behoben: Keine Aktion wartet mehr auf das Netz. Speichern, Prio, TQ, Kategorie, Abtransport, Patient öffnen — alles sofort, auch offline. Der Abgleich mit der Cloud läuft im Hintergrund.',
     'Nummern wie vorgesehen: online fortlaufend „A-7" (die nächste Nummer wird im Hintergrund vorab bereitgehalten — kein Warten, keine Sprünge). Nur offline erfasste Patienten tragen die Gerätenummer, z. B. „A-8-2".'
@@ -529,8 +533,21 @@ async function openOrCreateCCP(){
     if(ex.data) ex.data.forEach(function(c){if(c.kennung)usedK.push(c.kennung);});
   }catch(e){}
   var myK=nextFreeKennung(usedK);
+  /* Eröffnungs-Abfragen (Paket 2, 2026-06-13 / Fix 2026-10-14):
+   * (a) Ort — VOR dem Anlegen abfragen: „Abbrechen" (null) bricht die Eröffnung
+   *     komplett ab (es entsteht KEIN CCP); leer/OK = überspringen (Eröffnung darf
+   *     unter Stress nie blockieren). Der Ort wandert direkt in die CCP-Row
+   *     (Lageansicht!) und in die Checklisten-Kopfdaten.
+   * (b) GPS-Koordinaten — still im Hintergrund (mit Berechtigungsabfrage des
+   *     Systems); erscheinen in der Lageansicht (Koordinaten-Kopier-Klick).
+   * (c) Hinweis auf die Checkliste (dezent, kein Pflicht-Gate). */
+  var ortV=null;
+  try{ ortV=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)",""); }catch(e){ ortV=''; }
+  if(ortV===null) return false;   /* Abbrechen → nichts anlegen */
+  var ortT=(ortV||'').trim();
+  toast("Eröffne neuen CCP…");
   var ins=await client.from('ccps').insert({
-    kennung:myK, ort:'', master_medic:operator||'', merged:false,
+    kennung:myK, ort:ortT, master_medic:operator||'', merged:false,
     join_token:joinToken, praesidium_id:_praesidiumId||null
   }).select().single();
   if(ins.data){
@@ -539,17 +556,8 @@ async function openOrCreateCCP(){
     _deviceNo=1; _deviceNoCcp=_ccpId; try{ await sSet('ccp_devno_'+_ccpId,1); }catch(e){}
     localStorage.setItem('argus_ccp_id',_ccpId);
     localStorage.setItem('argus_invite',joinToken);
-    /* Eröffnungs-Abfragen (Paket 2, 2026-06-13):
-     * (a) Ort — überspringbar (Eröffnung darf unter Stress nie blockieren);
-     *     wandert in die CCP-Row (Lageansicht!) und in die Checklisten-Kopfdaten.
-     * (b) GPS-Koordinaten — still im Hintergrund (mit Berechtigungsabfrage des
-     *     Systems); erscheinen in der Lageansicht (Koordinaten-Kopier-Klick).
-     * (c) Hinweis auf die Checkliste (dezent, kein Pflicht-Gate). */
     try{
-      var ortV=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)","");
-      if(ortV && ortV.trim()){
-        var ortT=ortV.trim();
-        try{ await client.from('ccps').update({ort:ortT}).eq('id',_ccpId); }catch(e){}
+      if(ortT){
         if(!checklist.hdr)checklist.hdr={};
         if(!checklist.hdr.ort){ checklist.hdr.ort=ortT; await saveChecklist(); }
       }
@@ -2093,7 +2101,7 @@ function vHome(){
     '<div style="background:#F2B600;color:#1b1d20;padding:12px 14px;margin-bottom:8px;border-radius:10px;text-align:center;font-weight:700;font-size:16px;border:2px solid #c9960a;letter-spacing:.3px">🎓 SCHULUNGSUMGEBUNG — keine echten Patientendaten</div>':
     '';
   return countbar()+schulBanner+
-  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()&&netLikelyUp()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
@@ -3466,15 +3474,17 @@ document.addEventListener("click",async function(e){
     /* Zugang dauerhaft freischalten (auch wenn vom gesperrten Bildschirm aus) */
     if(!localStorage.getItem('argus_verified')) localStorage.setItem('argus_verified','true');
     if(_training){   /* Übung: lokaler Ephemer-CCP — NIE Cloud, daher kein manuelles Zurücksetzen der Schulungsumgebung nötig. */
+      /* 1.3: Benennung + Standorterfassung simuliert mitlaufen lassen — lokal,
+       * ohne Server und ohne echtes GPS. Ort-Abfrage VOR dem Anlegen: „Abbrechen"
+       * bricht die Eröffnung ab (genau wie im Ernstfall). */
+      var ortTr=null;
+      try{ ortTr=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)",""); }catch(e){ ortTr=''; }
+      if(ortTr===null){ toast("Abgebrochen — kein CCP angelegt"); render(); return; }   /* Ansicht bleibt, Lektion bleibt stehen */
       if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
       _ccpId='train-ccp'; _mergeGroupId=null; _ccpKennung='A'; patients=[];
-      /* 1.3: Benennung + Standorterfassung simuliert mitlaufen lassen — lokal,
-       * ohne Server und ohne echtes GPS. So erlebt der Übende die Eröffnung
-       * genau wie im Ernstfall. */
       try{
         if(!checklist.hdr)checklist.hdr={};
-        var ortT=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)","");
-        if(ortT && ortT.trim()){ checklist.hdr.ort=ortT.trim(); _ccpOrt=ortT.trim(); }
+        if(ortTr && ortTr.trim()){ checklist.hdr.ort=ortTr.trim(); _ccpOrt=ortTr.trim(); }
         if(!checklist.hdr.mm && (masterMedic||operator)) checklist.hdr.mm=masterMedic||operator;
         try{ await saveChecklist(); }catch(e){}
       }catch(e){}
@@ -3484,10 +3494,19 @@ document.addEventListener("click",async function(e){
     /* "Neue CCP eröffnen" legt IMMER einen neuen CCP an (nächste freie Kennung),
      * auch wenn schon einer aktiv ist. Den bestehenden führt "Aktive CCP
      * fortsetzen" (resumeccp) weiter. */
-    toast("Eröffne neuen CCP…");
+    /* Bisherigen Zustand sichern: Bricht der Nutzer die Ort-Abfrage ab (oder
+     * scheitert das Anlegen), bleibt er in seinem alten CCP statt CCP-los. */
+    var prevCcp={id:_ccpId, grp:_mergeGroupId, k:_ccpKennung, pats:patients};
     if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
     _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[];
-    var ok2=await openOrCreateCCP(); if(ok2){subscribeRealtime(); await loadPatients();}
+    var ok2=await openOrCreateCCP();
+    if(ok2){ subscribeRealtime(); await loadPatients(); }
+    else{
+      _ccpId=prevCcp.id; _mergeGroupId=prevCcp.grp; _ccpKennung=prevCcp.k; patients=prevCcp.pats;
+      if(_ccpId && sb()) subscribeRealtime();
+      toast("Abgebrochen — kein neuer CCP angelegt");
+      go(_ccpId?"home":"start"); return;   /* ohne vorherigen CCP zurück zum Start, nicht auf eine leere Home */
+    }
     go("home");return;
   }
   if(a==="joinccp"){
@@ -4151,7 +4170,10 @@ setInterval(function(){
       try{ loadMeta().then(function(){ return loadPatients(); }).then(function(){ try{render();}catch(e){} }); }catch(e){}
       try{ checkForUpdate(); }catch(e){}
       try{ prefetchNum(); }catch(e){}
-    } else { _netUp = up; }
+    } else {
+      var was=_netUp; _netUp=up;
+      if(was!==up){ try{ render(); }catch(e){} }   /* Banner sofort auf 🔴/🟢 umstellen */
+    }
   });
 },4000);
 </script>
