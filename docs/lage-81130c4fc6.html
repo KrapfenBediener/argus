@@ -45,6 +45,12 @@
   .psec{margin:20px 0 4px}
   .psec-h{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;padding:0 0 6px;border-bottom:2px solid var(--acc);font-weight:700;font-size:15px}
   .psec-h .cnt{margin-left:auto;font-weight:600;color:var(--mut);font-size:12px;white-space:nowrap}
+  /* Präsidien-Auswahl im Global-Modus (Chips) */
+  .pchips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}
+  .pchip{border:1px solid var(--line);background:var(--surf,#fff);color:var(--mut);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;min-height:36px}
+  .pchip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .keeprow{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)}
+  .keeprow input{width:18px;height:18px;margin:0}
   /* Summen-Leiste — Mockup .totbar/.tot */
   .totbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
   .tot{flex:1;min-width:96px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center}
@@ -140,18 +146,41 @@ function fmtHM(ms){
   return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
 }
 
-/* ── Sitzung: sessionStorage, bewusst flüchtig ──────────────────
- * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname.
- * Tab zu = Sitzung weg; abgelaufen = zurück zum Login. */
+/* ── Sitzung: sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
+ * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname / arguslg_global / arguslg_admin.
+ * Standard: Tab zu = Sitzung weg. Opt-in (Owner 2026-10-14): mit gesetztem
+ * arguslg_keep werden die Sitzungsschlüssel zusätzlich in localStorage gespiegelt
+ * und beim nächsten Öffnen wiederhergestellt — bis zum Ablauf des JWT (Master:
+ * 30 Tage), bis „Abmelden" oder bis der Server mit 401 ablehnt (Sofortsperre).
+ * Explizite Schlüsselliste statt Präfix-Scan: Leitungs- und Lage-Seite teilen
+ * sich denselben Origin (localStorage), argusl_ ist Präfix von arguslg_. */
+var SESS_KEYS=['arguslg_jwt','arguslg_jwt_exp','arguslg_pname','arguslg_global','arguslg_admin','arguslg_keep'];
+function sessWipeLocal(){ try{ SESS_KEYS.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){} }
+function sessRestore(){   /* Tab frisch, aber persistierte Sitzung vorhanden → übernehmen */
+  try{
+    if(sessionStorage.getItem('arguslg_jwt')) return;
+    if(localStorage.getItem('arguslg_keep')!=='1' || !localStorage.getItem('arguslg_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=localStorage.getItem(k); if(v!=null) sessionStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessMirror(){    /* Opt-in aktiv → Sitzung nach localStorage spiegeln (nur bei Änderung) */
+  try{
+    if(sessionStorage.getItem('arguslg_keep')!=='1') return;
+    if(localStorage.getItem('arguslg_jwt')===sessionStorage.getItem('arguslg_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=sessionStorage.getItem(k); if(v!=null) localStorage.setItem(k,v); });
+  }catch(e){}
+}
 function sessionJwt(){
+  sessRestore();
   var jwt=sessionStorage.getItem('arguslg_jwt');
   var exp=parseInt(sessionStorage.getItem('arguslg_jwt_exp')||'0',10);
   if(!jwt||!exp) return null;
-  if(exp<=nowMs()){ sessionStorage.clear(); return null; }
+  if(exp<=nowMs()){ sessionStorage.clear(); sessWipeLocal(); return null; }
+  sessMirror();
   return jwt;
 }
 function doLogout(msg){
-  sessionStorage.clear();
+  sessionStorage.clear(); sessWipeLocal();
   if(_timer){ clearInterval(_timer); _timer=null; }
   _data=null; _lastOkAt=null; _offline=false;
   render();
@@ -166,6 +195,11 @@ async function doLogin(raw){
   var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
   if(clean.length<8){ setLoginError('Bitte vollständigen Beobachter-Code eingeben.'); return; }
   setLoginError('');
+  /* Opt-in „Angemeldet bleiben": Flag in der Sitzung; sessionJwt() spiegelt dann
+   * nach localStorage. Ohne Häkchen: evtl. alte persistierte Sitzung löschen. */
+  var keep=!!($('keepme') && $('keepme').checked);
+  try{ sessionStorage.setItem('arguslg_keep', keep?'1':''); }catch(e){}
+  if(!keep) sessWipeLocal();
   var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
   try{
     var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_observer_code',{
@@ -345,6 +379,7 @@ function viewLogin(){
   if(_configError) h+='<div class="lerr">Konfiguration fehlt (config.js) — kein Backend verbunden.</div>';
   h+='<label class="fieldlab" for="logininp">Zugangscode</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
+  h+='<label class="keeprow"><input type="checkbox" id="keepme"> Angemeldet bleiben — nur auf diesem Gerät (bis zum Ablauf des Zugangs, max. 30 Tage; „Abmelden" beendet es)</label>';
   h+='<div style="display:flex;gap:8px;margin-top:14px">';
   h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
   h+='</div>';
@@ -361,7 +396,7 @@ function viewLage(){
   }
   if(_data){
     if(_data.ccps.length){
-      h+=totBar(_data.ccps);
+      h+=totBar(isGlobal()?lageShown(_data.ccps):_data.ccps);   /* Summen folgen der Präsidiums-Auswahl */
       /* Verbünde OPTISCH zusammenführen (Feedback 2026-06-13): Mitglieder
        * einer merge_group landen gemeinsam in einem Rahmen mit Kopfzeile
        * „VERBUND n — CCP A + CCP E"; mehrere getrennte Verbünde sind über
@@ -387,8 +422,17 @@ function viewLage(){
           byP[pid].keys.push(k); byP[pid].ccps+=groups[k].members.length;
         });
         porder.sort(function(a,b){ return byP[a].name.localeCompare(byP[b].name,'de'); });
+        /* Manuelle Präsidiums-Auswahl (Owner 2026-10-14): Chips „Alle" + je
+         * Präsidium; Auswahl bleibt in der Sitzung. Zeigt die Auswahl auf ein
+         * Präsidium ohne offene CCPs, fällt sie auf „Alle" zurück. */
+        var sel=pselGet(); if(sel && !byP[sel]){ sel=''; pselSet(''); }
+        h+='<div class="pchips">';
+        h+='<button class="pchip'+(sel?'':' on')+'" data-action="pselect" data-pid="">Alle Präsidien</button>';
+        porder.forEach(function(pid){ h+='<button class="pchip'+(sel===pid?' on':'')+'" data-action="pselect" data-pid="'+esc(pid)+'">'+esc(byP[pid].name)+'</button>'; });
+        h+='</div>';
+        var shownP = sel ? porder.filter(function(pid){ return pid===sel; }) : porder;
         _grouped=true;
-        porder.forEach(function(pid){
+        shownP.forEach(function(pid){
           var P=byP[pid];
           h+='<div class="psec"><div class="psec-h"><span>'+esc(P.name)+'</span><span class="cnt">'+P.ccps+' CCP'+(P.ccps!==1?'s':'')+'</span></div>';
           h+='<div class="lgrid">';
@@ -420,6 +464,10 @@ function viewLage(){
 function isGlobal(){ try{ return sessionStorage.getItem('arguslg_global')==='1'; }catch(e){ return false; } }
 /* FLZ-Zugang-Sitzung (0023): eigenes Präsidium, read-only — kein argus_lage_set_ort (observer-only). */
 function isAdminSess(){ try{ return sessionStorage.getItem('arguslg_admin')==='1'; }catch(e){ return false; } }
+/* Präsidiums-Auswahl im Global-Modus ('' = alle) — Sitzungsmerker, nicht persistiert. */
+function pselGet(){ try{ return sessionStorage.getItem('arguslg_psel')||''; }catch(e){ return ''; } }
+function pselSet(pid){ try{ sessionStorage.setItem('arguslg_psel', pid||''); }catch(e){} }
+function lageShown(ccps){ var sel=pselGet(); return sel ? ccps.filter(function(c){ return (c.praesidium_id||'')===sel; }) : ccps; }
 function render(){
   var loggedIn=!!sessionJwt();
   var lb=$('logoutbtn'); if(lb) lb.style.display=loggedIn?'':'none';
@@ -492,6 +540,7 @@ document.addEventListener('click', function(e){
   if(!b) return;
   var a=b.getAttribute('data-action');
   if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
+  if(a==='pselect'){ pselSet(el.getAttribute('data-pid')||''); render(); return; }
   if(a==='logout'){ doLogout(); }
   if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
   if(a==='copygeo'){

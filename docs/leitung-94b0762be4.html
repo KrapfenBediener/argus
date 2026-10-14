@@ -600,14 +600,37 @@ function promptModal(msg, def){
   });
 }
 
-/* ── Sitzung (D-07): sessionStorage, bewusst flüchtig ───────────
- * Schlüssel argusl_jwt / argusl_jwt_exp. Tab zu = Sitzung weg.
- * Abgelaufene Sitzung führt zurück zum Login. */
+/* ── Sitzung (D-07): sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
+ * Schlüssel argusl_jwt / argusl_jwt_exp / argusl_role / argusl_padmin /
+ * argusl_padmin_name / argusl_kuerzel. Standard: Tab zu = Sitzung weg.
+ * Opt-in (Owner 2026-10-14): mit gesetztem argusl_keep werden die Schlüssel
+ * zusätzlich in localStorage gespiegelt und beim nächsten Öffnen wiederhergestellt
+ * — bis zum Ablauf des JWT (Master: 30 Tage), bis „Abmelden" oder bis der Server
+ * mit 401 ablehnt (Sofortsperre greift also weiterhin). Explizite Schlüsselliste
+ * statt Präfix-Scan: gleicher Origin wie die Lage-Seite (argusl_ ⊂ arguslg_). */
+var SESS_KEYS=['argusl_jwt','argusl_jwt_exp','argusl_role','argusl_padmin','argusl_padmin_name','argusl_kuerzel','argusl_keep'];
+function sessWipeLocal(){ try{ SESS_KEYS.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){} }
+function sessRestore(){
+  try{
+    if(sessionStorage.getItem('argusl_jwt')) return;
+    if(localStorage.getItem('argusl_keep')!=='1' || !localStorage.getItem('argusl_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=localStorage.getItem(k); if(v!=null) sessionStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessMirror(){
+  try{
+    if(sessionStorage.getItem('argusl_keep')!=='1') return;
+    if(localStorage.getItem('argusl_jwt')===sessionStorage.getItem('argusl_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=sessionStorage.getItem(k); if(v!=null) localStorage.setItem(k,v); });
+  }catch(e){}
+}
 function sessionJwt(){
+  sessRestore();
   var jwt=sessionStorage.getItem('argusl_jwt');
   var exp=parseInt(sessionStorage.getItem('argusl_jwt_exp')||'0',10);
   if(!jwt||!exp) return null;
-  if(exp<=nowMs()){ sessionStorage.clear(); return null; }
+  if(exp<=nowMs()){ sessionStorage.clear(); sessWipeLocal(); return null; }
+  sessMirror();
   return jwt;
 }
 function sb(){
@@ -639,6 +662,12 @@ async function doLogin(raw){
   var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
   if(clean.length<8){ setLoginError('Bitte vollständigen Zugangs-Token eingeben.'); return; }
   setLoginError('');
+  /* Opt-in „Angemeldet bleiben": Flag in der Sitzung; sessionJwt() spiegelt dann
+   * nach localStorage (gilt für alle drei Login-Pfade). Ohne Häkchen: evtl. alte
+   * persistierte Sitzung löschen. */
+  var keep=!!($('keepme') && $('keepme').checked);
+  try{ sessionStorage.setItem('argusl_keep', keep?'1':''); }catch(e){}
+  if(!keep) sessWipeLocal();
   var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
   try{
     /* ── 1. Master-Versuch (argus_exchange_code) ── */
@@ -731,7 +760,7 @@ async function doLogin(raw){
   }
 }
 function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
-function doLogout(){ sessionStorage.clear(); location.reload(); }
+function doLogout(){ sessionStorage.clear(); sessWipeLocal(); location.reload(); }
 
 /* ── Navigation / Router ───────────────────────────────────────── */
 /* Master-Bereiche (volle Governance) */
@@ -812,10 +841,11 @@ function vLogin(){
   var h='<div class="loginwrap"><div class="loginbox">';
   h+='<div class="arg-logo">ARGUS</div>';
   h+='<h1 style="text-align:center">Leitung</h1>';
-  h+='<div class="hint" style="text-align:center">Anmeldung mit MasterToken oder FLZ-Zugang.<br>Die Sitzung endet mit dem Schließen des Tabs.</div>';
+  h+='<div class="hint" style="text-align:center">Anmeldung mit MasterToken oder FLZ-Zugang.<br>Die Sitzung endet mit dem Schließen des Tabs — außer du wählst „Angemeldet bleiben".</div>';
   if(_configError){ h+='<div class="lerr" style="text-align:center">⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden.</div>'; }
   h+='<label class="fieldlab" for="logininp">Zugangs-Token</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
+  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)"><input type="checkbox" id="keepme" style="width:18px;height:18px;margin:0"> Angemeldet bleiben — nur auf diesem Gerät (bis zum Ablauf des Zugangs, max. 30 Tage; „Abmelden" beendet es)</label>';
   h+='<div class="modalrow" style="justify-content:stretch;gap:8px">';
   h+='<button class="btn ghost" data-action="pastetoken" style="flex:1">📋 Einfügen</button>';
   h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
