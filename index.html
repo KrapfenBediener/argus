@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.18';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.19';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.19': [
+    'Schulung auf Android: Nach „OK" im Ort-Dialog erschien derselbe Dialog erneut (ein Geister-Tipp traf den darunterliegenden Knopf „Neue CCP eröffnen"). Dialoge fangen diesen Nach-Tipp jetzt ab — gilt für alle Eingabe- und Auswahl-Dialoge.'
+  ],
   '0.33.18': [
     'Android, zweiter Schritt: Eingabe-Dialoge (CCP-Name, Tourniquet-Uhrzeit) sitzen jetzt oben und springen beim Auf-/Zuklappen der Tastatur nicht mehr; ein Tipp daneben bricht nicht mehr ab — Abbrechen nur noch über den Knopf.'
   ],
@@ -1177,7 +1180,7 @@ function ccpJoinModal(list){
     inner+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
     inner+='</div>';
     ov.innerHTML=inner; document.body.appendChild(ov);
-    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    function done(v){ modalDismiss(ov, function(){ resolve(v); }); }
     ov.querySelectorAll('.mc-ccpjoin').forEach(function(btn){
       btn.addEventListener('click',function(){done(btn.getAttribute('data-id'));});
     });
@@ -1701,7 +1704,7 @@ function tqStartModal(){
     document.body.appendChild(ov);
     ov.style.alignItems='flex-start'; ov.style.paddingTop='max(6vh,32px)';   /* Android-Fix II: oben verankern (Uhrzeit-Feld) */
     var site=null;
-    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    function done(v){ modalDismiss(ov, function(){ resolve(v); }); }
     Array.prototype.forEach.call(ov.querySelectorAll('.tq-site'),function(b){
       b.addEventListener('click',function(){
         site=b.getAttribute('data-site');
@@ -2824,7 +2827,7 @@ function confirmModal(msg,okLabel){
       '<button class="ghost mc-cancel" style="flex:1;margin:0">Abbrechen</button>'+
       '<button class="prim mc-ok" style="flex:1;margin:0;background:var(--ready)">'+esc(okLabel||"OK")+'</button></div></div>';
     document.body.appendChild(ov);
-    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    function done(v){ modalDismiss(ov, function(){ resolve(v); }); }
     /* Android-Fix (2026-10-15): Absicht beim Antippen merken (s. promptModal). */
     var pressed=null, downOnOv=false;
     ov.querySelector(".mc-ok").addEventListener("pointerdown",function(){pressed="ok";});
@@ -3243,6 +3246,23 @@ async function checkForUpdate(){
     if(d && d.version && d.version!==APP_VERSION) showUpdateBanner(d.version);
   }catch(e){}
 }
+/* Geister-Klick-Schutz (Android-Fix III, 2026-10-15): Auf Touch-Geräten feuert
+ * der Browser NACH pointerup/touchend noch ein synthetisches „click" — und zwar
+ * auf das Element, das in diesem Moment unter dem Finger liegt. Wird der Dialog
+ * schon beim Loslassen entfernt, trifft dieser Klick die Seite DARUNTER. In der
+ * Schulung liegt dort exakt der vom Coach-Spotlight zentrierte Knopf „Neue CCP
+ * eröffnen" → der Handler lief erneut, die Ort-Abfrage erschien wieder, „OK" wirkte
+ * wie „Abbrechen". Daher: Dialog erst unsichtbar + über alles legen (fängt den
+ * Geister-Klick ab), die Antwort sofort liefern, DOM-Entfernung kurz verzögern. */
+function modalDismiss(ov, cb){
+  if(ov._dismissed) return; ov._dismissed=true;
+  try{ if(document.activeElement && ov.contains(document.activeElement)) document.activeElement.blur(); }catch(e){}
+  var kill=function(e){ e.stopPropagation(); e.preventDefault(); };
+  ['click','pointerdown','pointerup','touchstart','touchend','mousedown','mouseup'].forEach(function(t){ ov.addEventListener(t,kill,true); });
+  ov.style.opacity='0'; ov.style.zIndex='8600'; ov.style.transition='none';
+  setTimeout(function(){ if(ov.parentNode)ov.parentNode.removeChild(ov); },450);
+  if(cb) cb();
+}
 function promptModal(msg,def){
   return new Promise(function(resolve){
     var ov=document.createElement("div");ov.className="modalov";
@@ -3258,7 +3278,7 @@ function promptModal(msg,def){
      * Tastatur; der zweite landete dann dort, wo „OK" vorher war (Hintergrund). */
     ov.style.alignItems='flex-start'; ov.style.paddingTop='max(10vh,48px)';
     var inp=ov.querySelector(".mc-inp");
-    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    function done(v){ modalDismiss(ov, function(){ resolve(v); }); }
     /* Android-Fix (2026-10-15): Der Tipp auf OK blendet die Tastatur aus, der
      * Dialog rutscht nach, und das click-Ereignis trifft den Hintergrund → wurde
      * als Abbrechen gewertet. Daher: beim ANTIPPEN merken, was gedrückt wurde,
@@ -3307,7 +3327,7 @@ function mergeCcpSelectModal(){
     inner+='</div>';
     ov.innerHTML=inner;
     document.body.appendChild(ov);
-    function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
+    function done(v){ modalDismiss(ov, function(){ resolve(v); }); }
     ov.querySelectorAll(".mc-ccpsel").forEach(function(btn){
       btn.addEventListener("click",function(){done(btn.getAttribute("data-ccp"));});
     });
