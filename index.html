@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.17';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.18';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.18': [
+    'Android, zweiter Schritt: Eingabe-Dialoge (CCP-Name, Tourniquet-Uhrzeit) sitzen jetzt oben und springen beim Auf-/Zuklappen der Tastatur nicht mehr; ein Tipp daneben bricht nicht mehr ab — Abbrechen nur noch über den Knopf.'
+  ],
   '0.33.17': [
     'Android-Fehler behoben: „OK" in Eingabe-Dialogen (z. B. CCP-Name bei der Eröffnung) wurde beim Zuklappen der Tastatur als „Abbrechen" gewertet. Der erste Tipp auf OK zählt jetzt zuverlässig; Enter bestätigt ebenfalls.'
   ],
@@ -1696,6 +1699,7 @@ function tqStartModal(){
       '<p class="hint" style="margin:8px 0 0">Uhrzeit von Anlage/Ersthelfer — der Timer rechnet ab dort.</p></div>'+
       '<button class="ghost mc-cancel" style="margin:0">Abbrechen</button></div>';
     document.body.appendChild(ov);
+    ov.style.alignItems='flex-start'; ov.style.paddingTop='max(6vh,32px)';   /* Android-Fix II: oben verankern (Uhrzeit-Feld) */
     var site=null;
     function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
     Array.prototype.forEach.call(ov.querySelectorAll('.tq-site'),function(b){
@@ -1727,7 +1731,7 @@ function tqStartModal(){
     ov.querySelector('.mc-now').addEventListener('click',function(){done({start:nowMs(),site:site});});
     ov.querySelector('.mc-timeok').addEventListener('click',applyTime);
     ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
-    ov.addEventListener('click',function(e){if(e.target===ov && downOnOv)done(null);});
+    /* kein Abbruch per Hintergrund-Tipp (Eingabe-Dialog) — nur über „Abbrechen" */
   });
 }
 /* closeTypModal + exportChoiceModal wurden in Paket 2 (2026-06-13) entfernt:
@@ -3248,6 +3252,11 @@ function promptModal(msg,def){
       '<button class="ghost mc-cancel" style="flex:1;margin:0">Abbrechen</button>'+
       '<button class="prim mc-ok" style="flex:1;margin:0">OK</button></div></div>';
     document.body.appendChild(ov);
+    /* Android-Fix II (2026-10-15): Dialog mit Eingabefeld OBEN verankern statt
+     * zentrieren — die Tastatur verkleinert den Viewport, ein zentrierter Dialog
+     * springt beim Auf-/Zuklappen. Auf Android schluckt der erste Tipp oft nur die
+     * Tastatur; der zweite landete dann dort, wo „OK" vorher war (Hintergrund). */
+    ov.style.alignItems='flex-start'; ov.style.paddingTop='max(10vh,48px)';
     var inp=ov.querySelector(".mc-inp");
     function done(v){if(ov.parentNode)ov.parentNode.removeChild(ov);resolve(v);}
     /* Android-Fix (2026-10-15): Der Tipp auf OK blendet die Tastatur aus, der
@@ -3263,7 +3272,8 @@ function promptModal(msg,def){
     ov.addEventListener("pointerup",function(){ if(pressed==="ok")done(inp.value); else if(pressed==="cancel")done(null); pressed=null; });
     ov.querySelector(".mc-cancel").addEventListener("click",function(){done(null);});
     ov.querySelector(".mc-ok").addEventListener("click",function(){done(inp.value);});
-    ov.addEventListener("click",function(e){if(e.target===ov && downOnOv)done(null);});
+    /* KEIN Abbruch per Hintergrund-Tipp bei Eingabe-Dialogen — Abbrechen nur über
+     * den Knopf (verhindert jeden Tastatur-Verrutsch-Fehlalarm). */
     inp.addEventListener("keydown",function(e){ if(e.key==="Enter"){ e.preventDefault(); done(inp.value); } });
     setTimeout(function(){try{inp.focus();}catch(e){}},50);
   });
