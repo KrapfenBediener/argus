@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.11';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.12';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.12': [
+    'Offline-Freeze behoben: Keine Aktion wartet mehr auf das Netz. Speichern, Prio, TQ, Kategorie, Abtransport, Patient öffnen — alles sofort, auch offline. Der Abgleich mit der Cloud läuft im Hintergrund.',
+    'Nummern wie vorgesehen: online fortlaufend „A-7" (die nächste Nummer wird im Hintergrund vorab bereitgehalten — kein Warten, keine Sprünge). Nur offline erfasste Patienten tragen die Gerätenummer, z. B. „A-8-2".'
+  ],
   '0.33.11': [
     'Patienten anlegen ist jetzt sofort — auch offline. Die App wartet beim Sichten nie mehr auf das Netz (local-first): Nummer und Speichern passieren lokal, der Abgleich läuft im Hintergrund.',
     'Nummern eindeutig ohne Warten: Jedes Gerät zählt lokal. Einzelgerät bleibt „A-7"; ein zweites Gerät im selben CCP zeigt „A-7-2" (Gerätenummer). So nie doppelte Nummern, online wie offline.'
@@ -1243,6 +1247,15 @@ function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g
 function safePhoto(v){ return (typeof v==='string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(v)) ? v : ''; }
 function nowMs(){return Date.now();}
 function two(n){return (n<10?"0":"")+n;}
+/* ── Local-First-Netzhelfer (2026-10-14) ──
+ * Offline fror jede Aktion ~5 s ein, weil Cloud-Aufrufe im Aktionspfad awaited
+ * wurden (iOS lässt fetch erst nach Sekunden scheitern). Regel ab jetzt:
+ * Schreiben = lokal sofort, Cloud im Hintergrund. Lesen = bei bekanntem Offline
+ * sofort lokal, sonst mit hartem Timeout (nie länger als ~2,5 s warten). */
+function netLikelyUp(){ try{ return navigator.onLine!==false && _netUp!==false; }catch(e){ return true; } }
+function netSignal(ms){ try{ var c=new AbortController(); setTimeout(function(){ try{c.abort();}catch(e){} }, ms||2500); return c.signal; }catch(e){ return undefined; } }
+/* Query-Builder mit Abbruch-Timeout versehen (no-op, falls die Lib das nicht kann). */
+function qt(b){ try{ var s=netSignal(); return (b && s && typeof b.abortSignal==='function') ? b.abortSignal(s) : b; }catch(e){ return b; } }
 /* Patienten-Nummer IMMER mit CCP-Kennung (Owner 2026-06-13): „A-12" wird so
  * auch auf die Haut geschrieben — beim späteren Zusammenführen muss niemand
  * nachträglich Buchstaben ergänzen (Arbeitsaufwand + Fehlerquelle). */
@@ -1306,9 +1319,9 @@ async function setOperatorStore(v){
 }
 async function loadMeta(){
   var client=sb();
-  if(client && _ccpId){
+  if(client && _ccpId && netLikelyUp()){   /* bekannt offline → sofort lokal, kein Netz-Hänger */
     try{
-      var r=await client.from('ccps').select('*').eq('id',_ccpId).single();
+      var r=await qt(client.from('ccps').select('*').eq('id',_ccpId)).single();
       if(r.data){applyMeta(r.data);return;}
     }catch(e){}
   }
@@ -1795,12 +1808,12 @@ async function flushPendingPatients(arr, client, ccpIds){
 }
 async function loadPatients(){
   var client=sb();
-  if(client && _ccpId && !_training){   /* Training: rein lokal — nie Cloud (Isolation + kein Netz-Hänger mitten im Ablauf) */
+  if(client && _ccpId && !_training && netLikelyUp()){   /* Training: rein lokal. Bekannt offline → sofort lokal (kein Netz-Hänger). */
     try{ await ensureDeviceNo(client); }catch(e){}   /* eigene Gerätenummer sichern, SOLANGE online (für offline danach) */
     try{
       var ccpIds=[_ccpId];
       if(_mergeGroupId){
-        var g=await client.from('ccps').select('id').eq('merge_group_id',_mergeGroupId);
+        var g=await qt(client.from('ccps').select('id').eq('merge_group_id',_mergeGroupId));
         if(g.data && g.data.length>1){ ccpIds=g.data.map(function(c){return c.id;}); }
         else { /* allein in der Gruppe → Gruppe selbstheilend verlassen */
           _mergeGroupId=null;
@@ -1809,8 +1822,8 @@ async function loadPatients(){
       }
       var realMerged = ccpIds.length>1;
       var q = realMerged
-        ? await client.from('patients').select('*').in('ccp_id',ccpIds)
-        : await client.from('patients').select('*').eq('ccp_id',_ccpId);
+        ? await qt(client.from('patients').select('*').in('ccp_id',ccpIds))
+        : await qt(client.from('patients').select('*').eq('ccp_id',_ccpId));
       if(!q.error && q.data){
         var arr=q.data.map(patFromRow);
         await flushPendingPatients(arr, client, ccpIds);
@@ -1861,22 +1874,44 @@ async function saveChecklist(){await sSet(checklistKey(),checklist);}
  * Aus dem Cache bzw. Ersteller=1; sonst 0 (= vorerst kein Suffix). Der echte Claim
  * beim Beitritt läuft async über ensureDeviceNo() und füllt _deviceNo. */
 function deviceNoSync(){ return (_deviceNo!=null && _deviceNoCcp===_ccpId) ? _deviceNo : (isCcpCreator(_ccpId)?1:0); }
-function myCcpLabel(){ var d=deviceNoSync(); return (d>=2)?(_ccpKennung+"~"+d):_ccpKennung; }
-/* Nächste laufende Nummer: rein LOKAL, über die EIGENEN Patienten dieses Geräts
- * (eigenes Label). Ersteller zählt „A-1,2,3…", ein Zweitgerät „A-1-2,2-2…".
- * Eindeutig über die Gerätenummer, ohne Server, ohne Warten — offline wie online. */
-function nextNum(){ var mine=myCcpLabel(); var m=0; patients.forEach(function(p){ if((p.ccp||"A")===mine && p.num>m) m=p.num; }); return m+1; }
-/* ── Nummernvergabe: LOCAL-FIRST, Gerätenummer je CCP (2026-10-14, Rev. 2) ──
- * Grundprinzip der App: ZUERST lokal, dann online. Das Anlegen darf NIE auf das
- * Netz warten. Daher kommt die laufende Nummer NICHT mehr zentral vom Server
- * (das blockierte und ließ bei langsamem Netz fälschlich den Offline-Suffix
- * erscheinen), sondern jedes Gerät zählt seine EIGENEN Patienten lokal und sofort.
- * Eindeutigkeit über die Gerätenummer je CCP: Ersteller = 1 → Label bleibt „A-7"
- * (kein Suffix). Jedes weitere Gerät holt seine Nummer EINMAL beim Beitritt atomar
- * über argus_claim_device (Migration 0021, immer online) und zeigt „A-7-2". So
- * können zwei Geräte nie dieselbe Nummer vergeben — offline wie online, instant,
- * ohne Sprünge, ohne Umschreiben. Einzelgerät-Alltag bleibt reines „A-7".
- * Der Cloud-Upload der Patienten läuft rein im HINTERGRUND. Training bleibt lokal. */
+/* Nächste lokale Nummer: setzt die gemeinsame Reihe fort (Maximum über ALLE
+ * Patienten der eigenen CCP-Kennung, egal ob „A" oder „A~2"). Wird nur OFFLINE
+ * gebraucht (dann mit Gerätenummer eindeutig) und als Vorschau. */
+function nextNum(){ var m=0; patients.forEach(function(p){ if(ccpBase(p.ccp)===_ccpKennung && p.num>m) m=p.num; }); return m+1; }
+/* ── Online-Nummer VORAB reservieren (einzeln, im Hintergrund) ──
+ * Damit das Anlegen online die fortlaufende Server-Nummer bekommt, OHNE beim
+ * Tippen zu warten: Solange online, hält die App genau EINE nächste Nummer bereit
+ * (argus_claim_nums, p_count=1 → keine Blöcke, keine Sprünge). Beim Anlegen wird
+ * sie sofort verwendet und die nächste nachgeladen. Ungenutzt (Gerät verlässt
+ * den CCP) bleibt höchstens eine einzelne Lücke. */
+var _nextReserved = null;     /* {ccp, num} — vorab reservierte Server-Nummer */
+var _prefetching = false;
+function prefetchNum(){
+  if(_training || !_ccpId || _prefetching) return;
+  if(_nextReserved && _nextReserved.ccp===_ccpId) return;
+  var client=sb(); if(!client || !netLikelyUp()) return;
+  _prefetching=true;
+  var ccpAt=_ccpId;
+  try{
+    client.rpc('argus_claim_nums',{p_ccp_id:ccpAt,p_count:1}).then(function(r){
+      _prefetching=false;
+      var d=r?r.data:null;
+      if(d && !d.error && d.start && _ccpId===ccpAt && !_nextReserved){ _nextReserved={ccp:ccpAt,num:d.start}; try{ render(); }catch(e){} }
+    }, function(){ _prefetching=false; });
+  }catch(e){ _prefetching=false; }
+}
+/* ── Nummernvergabe: fortlaufend online, Gerätenummer NUR offline (2026-10-14, Rev. 3) ──
+ * Spec (Owner): Die Nummer läuft regulär fortlaufend über alle Geräte („A-7");
+ * NUR wenn ein Gerät offline ist, wird die Gerätenummer angehängt und so erfasst
+ * („A-7-2"). Und: Anlegen darf NIE auf das Netz warten (Local-First).
+ * Umsetzung: Solange online, reserviert die App IM HINTERGRUND genau eine nächste
+ * Server-Nummer vorab (prefetchNum → argus_claim_nums, p_count=1: keine Blöcke,
+ * keine Sprünge). Beim Anlegen liegt sie bereit → sofort, fortlaufend, kein Suffix.
+ * Ist keine reserviert (offline), zählt das Gerät lokal weiter und hängt seine
+ * Gerätenummer an. Die ist je CCP eindeutig: Ersteller = 1, jeder Beitritt holt sie
+ * EINMAL beim (online stattfindenden) Beitritt atomar über argus_claim_device
+ * (Migration 0021). Zwei Geräte vergeben offline so nie dasselbe Label, nichts wird
+ * umgeschrieben. Cloud-Upload immer im Hintergrund. Training bleibt rein lokal. */
 var _deviceNo = null;         /* Gerätenummer im aktuellen CCP (1=Ersteller, >=2 Beitritt) */
 var _deviceNoCcp = null;      /* zu welchem _ccpId _deviceNo gehört */
 var _deviceNoClaiming = false;/* Guard: nie zwei Claims parallel (sonst Nummer verschwendet) */
@@ -1899,17 +1934,28 @@ async function ensureDeviceNo(client){
   }
   return (_deviceNo!=null && _deviceNoCcp===_ccpId) ? _deviceNo : null;   /* noch unbekannt (z. B. offline vor erstem Claim) → vorerst kein Suffix */
 }
-/* Vorschau: nächstes Label dieses Geräts (Ersteller „A-7", Zweitgerät „A-7-2"). */
-function previewNum(){ return nextNum(); }
-function previewLabel(){ var d=deviceNoSync(); var n=nextNum(); return (d>=2)?(_ccpKennung+"-"+n+"-"+d):(_ccpKennung+"-"+n); }
+/* Vorschau: online die reservierte Server-Nummer („A-7"), offline lokal mit
+ * Gerätenummer („A-7-2"). */
+function previewNum(){ return (_nextReserved && _nextReserved.ccp===_ccpId) ? _nextReserved.num : nextNum(); }
+function previewLabel(){
+  if(_training) return _ccpKennung+"-"+nextNum();
+  if(_nextReserved && _nextReserved.ccp===_ccpId) return _ccpKennung+"-"+_nextReserved.num;
+  var d=deviceNoSync();
+  return netLikelyUp() ? (_ccpKennung+"-"+nextNum()) : (_ccpKennung+"-"+nextNum()+(d>=1?("-"+d):""));
+}
 async function addPatient(cat){
-  /* LOCAL-FIRST: sofort lokal anlegen — NIE auf Netz/Server warten. Nummer rein
-   * lokal (nextNum), Gerätenummer aus dem Cache (beim Beitritt einmalig geholt).
-   * Der Cloud-Upload läuft danach im HINTERGRUND (optimistisch, _dirty bis bestätigt);
-   * der 3,5-s-Abgleich bzw. der Reconnect-Pfad schiebt alles Offene ohnehin nach. */
-  var dev=deviceNoSync();
-  var ccpLabel=(dev>=2) ? (_ccpKennung+"~"+dev) : _ccpKennung;
-  var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:nextNum(),cat:cat,ccp:ccpLabel,prio:false,ready:false,
+  /* LOCAL-FIRST: sofort anlegen — NIE auf Netz warten.
+   *  • Online: vorab reservierte Server-Nummer verwenden → fortlaufend, „A-7".
+   *  • Offline/keine reserviert: lokal weiterzählen + Gerätenummer → „A-7-2".
+   * Cloud-Upload läuft im HINTERGRUND (optimistisch, _dirty bis bestätigt). */
+  var num, ccpLabel;
+  if(!_training && _nextReserved && _nextReserved.ccp===_ccpId){
+    num=_nextReserved.num; _nextReserved=null; ccpLabel=_ccpKennung;          /* fortlaufende Online-Nummer, kein Suffix */
+  }else{
+    var dev=_training?0:deviceNoSync();
+    num=nextNum(); ccpLabel=(dev>=1) ? (_ccpKennung+"~"+dev) : _ccpKennung;  /* offline: Gerätenummer anhängen */
+  }
+  var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:num,cat:cat,ccp:ccpLabel,prio:false,ready:false,
     status:"active",created:nowMs(),lastTriage:nowMs(),tqStart:null,
     name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",
     vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
@@ -1922,6 +1968,7 @@ async function addPatient(cat){
     var cl=sb();
     if(cl){ try{ cl.from('patients').insert(patToRow(p)).then(function(r){ if(r && !r.error){ delete p._dirty; try{ sSet("ccp_pat_"+p.id,p); }catch(e){} } }, function(){}); }catch(e){} }
   }
+  try{ prefetchNum(); }catch(e){}      /* nächste Online-Nummer gleich wieder vorab holen */
   return p;
 }
 async function savePatient(p){
@@ -1936,13 +1983,15 @@ async function savePatient(p){
   if(p.demo || p.training) return;
   var client=sb();
   if(client && _ccpId){
+    /* Cloud-Schreiben im HINTERGRUND — bewusst NICHT awaiten (Local-First: die
+     * Aktion darf offline nie auf den Netz-Timeout warten). _dirty bleibt, bis
+     * der Server bestätigt; flushPendingPatients schiebt Offenes beim Reconnect nach.
+     * Sperr-Spalten NICHT mitschreiben (Sperren laufen ausschließlich über pushLock). */
     try{
-      /* Sperr-Spalten NICHT über die Datenspeicherung schreiben — sonst könnte
-       * ein Bearbeiter eine vom MasterMedic übernommene Sperre durch bloßes
-       * Weitertippen zurückerobern. Sperren laufen ausschließlich über pushLock. */
       var row=patToRow(p); delete row.locked_by; delete row.locked_at;
-      var r=await client.from('patients').upsert(row);
-      if(!r.error){ delete p._dirty; await sSet("ccp_pat_"+p.id,p); }
+      client.from('patients').upsert(row).then(function(r){
+        if(r && !r.error){ delete p._dirty; try{ sSet("ccp_pat_"+p.id,p); }catch(e){} }
+      }, function(){});
     }catch(e){}
   }
 }
@@ -1970,7 +2019,8 @@ function lockInfo(p){
 async function pushLock(p){
   var client=sb();
   if(client && _ccpId && p && !p.demo && !p.training){   /* Übungsdaten nie an die Cloud — sonst Leck + möglicher Netz-Hänger */
-    try{ await client.from('patients').update({locked_by:p.lockedBy||null, locked_at:p.lockedAt||null}).eq('id',p.id); }catch(e){}
+    /* Hintergrund (nicht awaiten): das Öffnen/Schließen eines Patienten darf offline nicht einfrieren. */
+    try{ client.from('patients').update({locked_by:p.lockedBy||null, locked_at:p.lockedAt||null}).eq('id',p.id).then(function(){},function(){}); }catch(e){}
   }
 }
 async function acquirePatientLock(p){
@@ -3825,6 +3875,7 @@ setInterval(async function(){
   if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
   await loadMeta();await loadPatients();await loadChecklist();
   await checkIncomingMergeRequest();
+  try{ prefetchNum(); }catch(e){}   /* Online-Nummer bereithalten (no-op, wenn schon reserviert/offline) */
   render();
 },3500);
 /* Sperr-Heartbeat (alle 5 s, nur im Patienten-View). Behandelt beide Rollen:
@@ -4008,6 +4059,7 @@ setInterval(async function(){
   await checkClosedEinsatz();
   await loadPatients();
   try{ await ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer früh aus Speicher/Server holen → instantes Anlegen hat sie parat */
+  try{ prefetchNum(); }catch(e){}                /* erste Online-Nummer vorab reservieren */
   await loadChecklist();
   await loadOpenCcpCount();
   if(_ccpId && sb()) subscribeRealtime();
@@ -4058,6 +4110,7 @@ window.addEventListener('online', function(){
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
   try{ ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer nach Reconnect sichern */
+  try{ prefetchNum(); }catch(e){}          /* nächste Online-Nummer wieder vorab holen */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
   /* Channel nach Netz-Rückkehr IMMER neu aufbauen (toter Socket, s. o.) —
    * healRealtime übernimmt Abschluss-Check + Nachladen. */
@@ -4097,6 +4150,7 @@ setInterval(function(){
       try{ flushPendingClose(); }catch(e){}
       try{ loadMeta().then(function(){ return loadPatients(); }).then(function(){ try{render();}catch(e){} }); }catch(e){}
       try{ checkForUpdate(); }catch(e){}
+      try{ prefetchNum(); }catch(e){}
     } else { _netUp = up; }
   });
 },4000);
