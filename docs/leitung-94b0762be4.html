@@ -544,6 +544,9 @@ function esc(s){
   if(s==null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+/* Kennung-Anzeige: offline erfasste Patienten tragen die Gerätenummer kodiert als
+ * „A~2" (Feld-App 2026-10-14) → hier als „A · Gerät 2" lesbar machen. */
+function ccpDisp(c){ c=(c==null?'':String(c)); var i=c.indexOf('~'); if(i<0) return esc(c); var base=c.slice(0,i), dev=parseInt(c.slice(i+1),10)||0; return esc(base)+(dev?(' · Gerät '+dev):''); }
 /* de-DE-Datumsformat für bigint-Millisekunden (Muster govFmt der Feld-App) */
 function fmtMs(ms){
   if(ms==null) return '—';
@@ -1536,7 +1539,7 @@ function vProtokollDetail(){
     pats.sort(function(a,b){ return (+a.num||0)-(+b.num||0); }).forEach(function(p){
       var c=CATS[p.cat]||null;
       h+='<tr>';
-      h+='<td class="mono" style="font-weight:600">'+esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span class="hint">('+esc(String(p.ccp))+')</span>':'')+'</td>';
+      h+='<td class="mono" style="font-weight:600">'+esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span class="hint">('+ccpDisp(p.ccp)+')</span>':'')+'</td>';
       h+='<td>'+(c?'<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+c.label+'</span>':esc(String(p.cat||'—')))+'</td>';
       h+='<td>'+patStatusLabel(p.status)+(p.prio?' <span class="pill" style="background:var(--prio)">PRIO</span>':'')+'</td>';
       if(anyName) h+='<td>'+(p.name&&String(p.name).trim()!==''?esc(String(p.name)):'—')+'</td>';
@@ -1595,7 +1598,7 @@ function vAtmistPrint(){
       '<div style="font-size:13.5px;line-height:1.4">'+val+'</div></div></div>';
   }
   /* Inline-Helper (in der Leitungs-Seite nicht vorhanden — bewusst lokal) */
-  function pno(p){ return esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span style="font-size:13px;color:var(--mut)">('+esc(String(p.ccp))+')</span>':''); }
+  function pno(p){ return esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span style="font-size:13px;color:var(--mut)">('+ccpDisp(p.ccp)+')</span>':''); }
   function fmtDur(ms){
     if(ms==null||ms<0) return '—';
     var m=Math.floor(ms/60000);

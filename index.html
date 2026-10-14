@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.9';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.10';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.10': [
+    'Keine doppelten Nummern mehr bei mehreren Geräten im Offline-Betrieb: Online vergibt der Server die Nummer wie bisher („A-7"). Offline erfasste Patienten tragen zusätzlich die Gerätenummer („A-7-2") — so können zwei Geräte nie dieselbe Nummer vergeben, und man erkennt offline erfasste Patienten. Ersteller = Gerät 1, Beitritte 2, 3 …'
+  ],
   '0.33.9': [
     'Checkliste jetzt pro CCP getrennt: Einträge aus einem CCP erscheinen nicht mehr fälschlich in anderen CCPs (vorher lag die Checkliste unter einem gemeinsamen Speicher).',
     '„CCP zusammenführen" liegt jetzt auf der CCP-Hauptseite — direkt bei „CCP abschließen" (nicht mehr versteckt in der Übersicht).'
@@ -524,6 +527,8 @@ async function openOrCreateCCP(){
   }).select().single();
   if(ins.data){
     _ccpId=ins.data.id; _ccpKennung=myK;
+    markCcpCreator(_ccpId);   /* dieses Gerät ist der Ersteller → Gerätenummer 1 (kein Offline-Suffix nötig als Erster) */
+    _deviceNo=1; _deviceNoCcp=_ccpId; try{ await sSet('ccp_devno_'+_ccpId,1); }catch(e){}
     localStorage.setItem('argus_ccp_id',_ccpId);
     localStorage.setItem('argus_invite',joinToken);
     /* Eröffnungs-Abfragen (Paket 2, 2026-06-13):
@@ -1237,7 +1242,13 @@ function two(n){return (n<10?"0":"")+n;}
 /* Patienten-Nummer IMMER mit CCP-Kennung (Owner 2026-06-13): „A-12" wird so
  * auch auf die Haut geschrieben — beim späteren Zusammenführen muss niemand
  * nachträglich Buchstaben ergänzen (Arbeitsaufwand + Fehlerquelle). */
-function pno(p){return (p.ccp||"A")+"-"+p.num;}
+/* Label-Encoding (2026-10-14): Online erfasste Patienten tragen die Kennung pur
+ * (ccp="A" → „A-7", Nummer zentral vom Server). OFFLINE erfasste tragen zusätzlich
+ * die Gerätenummer, kodiert als "A~2" → „A-7-2" (Ersteller=1, Beitritte=2,3…).
+ * So kollidieren Offline-Nummern zweier Geräte nie und man erkennt Offline-Einträge. */
+function ccpBase(ccp){ var c=ccp||"A"; var i=c.indexOf("~"); return i<0?c:c.slice(0,i); }
+function ccpDev(ccp){ var c=ccp||""; var i=c.indexOf("~"); return i<0?0:(parseInt(c.slice(i+1),10)||0); }
+function pno(p){ var c=p.ccp||"A"; var i=c.indexOf("~"); return i<0?(c+"-"+p.num):(c.slice(0,i)+"-"+p.num+"-"+c.slice(i+1)); }
 /* TQ-Knopf-Beschriftung (Feedback 2026-06-13: „läuft · 12:34 — stoppen" war
  * missverständlich): „TQ (Bein re) läuft seit 12:34 min — tippen zum Stoppen" */
 function tqLabel(p){
@@ -1255,13 +1266,13 @@ function dupNumKeys(){
   var cnt={}, dup={};
   patients.forEach(function(p){
     if(p.status!=='active') return;
-    var k=(p.ccp||'A')+'|'+p.num;
+    var k=pno(p);   /* volles Label inkl. evtl. Gerätenummer → verschiedene Geräte kollidieren nicht fälschlich */
     cnt[k]=(cnt[k]||0)+1;
     if(cnt[k]>1) dup[k]=true;
   });
   return dup;
 }
-function isDupNum(p){ return !!(p && p.status==='active' && dupNumKeys()[(p.ccp||'A')+'|'+p.num]); }
+function isDupNum(p){ return !!(p && p.status==='active' && dupNumKeys()[pno(p)]); }
 function fmtDur(ms){var s=Math.max(0,Math.floor(ms/1000));var h=Math.floor(s/3600),m=Math.floor((s%3600)/60);return (h>0?(h+":"+two(m)):two(m))+":"+two(s%60);}
 function ageStr(ms){var s=Math.floor((nowMs()-ms)/1000);if(s<60)return "vor "+s+" s";var m=Math.floor(s/60);if(m<60)return "vor "+m+" min";var h=Math.floor(m/60),mm=m%60;return "vor "+h+" Std"+(mm?" "+mm+" min":"");}
 
@@ -1781,7 +1792,7 @@ async function flushPendingPatients(arr, client, ccpIds){
 async function loadPatients(){
   var client=sb();
   if(client && _ccpId && !_training){   /* Training: rein lokal — nie Cloud (Isolation + kein Netz-Hänger mitten im Ablauf) */
-    try{ await ensurePool(client); }catch(e){}   /* eigenen Nummernblock füllen, SOLANGE online (bevor es offline geht) */
+    try{ await ensureDeviceNo(client); }catch(e){}   /* eigene Gerätenummer sichern, SOLANGE online (für offline danach) */
     try{
       var ccpIds=[_ccpId];
       if(_mergeGroupId){
@@ -1808,14 +1819,14 @@ async function loadPatients(){
           var keysT=await sList("ccp_pat_");
           for(var iT=0;iT<keysT.length;iT++){var pt=await sGet(keysT[iT]);if(pt&&pt.training)arr.push(normalize(pt));}
         }
-        arr.sort(function(a,b){var ca=a.ccp||"A",cb=b.ccp||"A";if(ca!==cb)return ca<cb?-1:1;return a.num-b.num;});
+        arr.sort(function(a,b){var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);if(ca!==cb)return ca<cb?-1:1;if(a.num!==b.num)return a.num-b.num;return ccpDev(a.ccp)-ccpDev(b.ccp);});
         patients=arr; return;
       }
     }catch(e){}
   }
   var keys=await sList("ccp_pat_");var arr=[];
   for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!_demoMerged)continue;if(p.training&&!_training)continue;if(_training&&!p.training)continue;arr.push(normalize(p));}}
-  arr.sort(function(a,b){var ca=a.ccp||"A",cb=b.ccp||"A";if(ca!==cb)return ca<cb?-1:1;return a.num-b.num;});
+  arr.sort(function(a,b){var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);if(ca!==cb)return ca<cb?-1:1;if(a.num!==b.num)return a.num-b.num;return ccpDev(a.ccp)-ccpDev(b.ccp);});
   patients=arr;
 }
 function normalize(p){
@@ -1842,70 +1853,72 @@ async function loadChecklist(){
   }
 }
 async function saveChecklist(){await sSet(checklistKey(),checklist);}
-function nextNum(){var m=0;patients.forEach(function(p){if((p.ccp||"A")===_ccpKennung&&p.num>m)m=p.num;});return m+1;}
-var _numPool = null;   /* In-Memory-Spiegel des reservierten Nummernblocks des aktuellen CCP */
-/* Nummernvergabe (Offline-sicher, 2026-10-14): Jedes Gerät reserviert ONLINE
- * einen EIGENEN Nummernblock über argus_claim_nums(…, p_count) und vergibt
- * laufende Nummern offline nur noch aus diesem Block. Dadurch können zwei
- * Geräte im selben CCP auch komplett ohne Verbindung keine Nummer doppelt
- * vergeben (der alte Offline-Weg zählte je Gerät aus dem lokalen Maximum und
- * kollidierte deshalb → doppelte Nummern auf der Haut). Der Server bleibt die
- * einzige Quelle der Blöcke (atomar, self-healing über next_num + max(num)).
- * Training bleibt rein lokal (isolierte Sandbox, kein Netz). */
-var POOL_BLOCK = 20;   /* Nummern je Reservierung */
-var POOL_MIN   = 6;    /* unter so vielen freien Nummern wird online nachgeladen */
-async function _loadPool(){
-  _numPool = {ccp:_ccpId, avail:[]};
-  if(_training || !_ccpId) return;
-  try{ var p=await sGet("ccp_numpool_"+_ccpId); if(p && Array.isArray(p.avail)) _numPool={ccp:_ccpId, avail:p.avail.slice()}; }catch(e){}
-}
-async function _poolReady(){ if(!_numPool || _numPool.ccp!==_ccpId) await _loadPool(); return _numPool; }
-async function _savePool(){ if(_numPool && _numPool.ccp===_ccpId && _ccpId){ try{ await sSet("ccp_numpool_"+_ccpId,{avail:_numPool.avail}); }catch(e){} } }
-/* Block nachladen — NUR online, NUR echter CCP, solange der Vorrat knapp ist. */
-async function ensurePool(client){
-  if(_training || !_ccpId || !client || navigator.onLine===false) return;
-  var pl=await _poolReady();
-  if(pl.avail.length >= POOL_MIN) return;
-  try{
-    var r=await client.rpc('argus_claim_nums',{p_ccp_id:_ccpId,p_count:POOL_BLOCK});
-    var d=r?r.data:null;
-    if(d && !d.error && d.start){
-      for(var k=0;k<(d.count||POOL_BLOCK);k++) pl.avail.push(d.start+k);
-      await _savePool();
-    }
-  }catch(e){}
-}
-/* Vorschau „A-12": zeigt die Nummer, die als Nächstes WIRKLICH vergeben wird. */
-function previewNum(){
-  if(!_training && _numPool && _numPool.ccp===_ccpId && _numPool.avail.length) return _numPool.avail[0];
-  return nextNum();
-}
-/* Letzter Ausweg (Pool offline erschöpft / Training): lokales Maximum UND die
- * je CCP gemerkte zuletzt vergebene Nummer (ccp_lastnum_<id>, übersteht das
- * Leeren des Patientenbestands). */
-async function localNextNum(){
-  var m=nextNum();
-  if(!_training && _ccpId){
-    try{ var last=await sGet("ccp_lastnum_"+_ccpId); if(typeof last==="number" && last>=m) m=last+1; }catch(e){}
+/* Nächste laufende Nummer: über ALLE Patienten der eigenen CCP-Kennung (egal ob
+ * online „A" oder offline „A~2") → die Offline-Nummerierung setzt die Reihe fort
+ * (kein Reset, keine optische Dublette), eindeutig bleibt es über die Gerätenummer. */
+function nextNum(){var m=0;patients.forEach(function(p){if(ccpBase(p.ccp)===_ccpKennung&&p.num>m)m=p.num;});return m+1;}
+/* ── Nummernvergabe: online zentral „A-7", offline „A-7-2" (2026-10-14) ──
+ * Online kommt die laufende Nummer atomar vom Server (argus_claim_nums) → alle
+ * Geräte teilen EINE lückenlose Reihe, Label ohne Zusatz („A-7"). OFFLINE kann
+ * kein gemeinsamer Zähler greifen; dann zählt das Gerät lokal weiter und hängt
+ * seine GERÄTENUMMER an („A-7-2"). Die Gerätenummer ist je CCP eindeutig:
+ * Ersteller = 1 (lokal bekannt), jeder Beitritt holt sie atomar über
+ * argus_claim_device (Migration 0021) — und das passiert beim Beitreten, also
+ * immer online. So vergeben zwei Geräte offline nie dieselbe Nummer, ohne
+ * Sprünge und ohne nachträgliches Umschreiben. Training bleibt rein lokal. */
+var _deviceNo = null;         /* Gerätenummer im aktuellen CCP (1=Ersteller, >=2 Beitritt) */
+var _deviceNoCcp = null;      /* zu welchem _ccpId _deviceNo gehört */
+var _deviceNoClaiming = false;/* Guard: nie zwei Claims parallel (sonst Nummer verschwendet) */
+function markCcpCreator(ccpId){ try{ if(ccpId) localStorage.setItem('argus_ccpcreator_'+ccpId,'1'); }catch(e){} }
+function isCcpCreator(ccpId){ try{ return !!(ccpId && localStorage.getItem('argus_ccpcreator_'+ccpId)==='1'); }catch(e){ return false; } }
+async function ensureDeviceNo(client){
+  if(_training || !_ccpId){ _deviceNo=null; _deviceNoCcp=_ccpId; return null; }
+  if(_deviceNo!=null && _deviceNoCcp===_ccpId) return _deviceNo;
+  try{ var st=await sGet('ccp_devno_'+_ccpId); if(typeof st==='number' && st>=1){ _deviceNo=st; _deviceNoCcp=_ccpId; return _deviceNo; } }catch(e){}
+  if(isCcpCreator(_ccpId)){ _deviceNo=1; _deviceNoCcp=_ccpId; try{ await sSet('ccp_devno_'+_ccpId,1); }catch(e){} return 1; }
+  /* Beitritt → Gerätenummer atomar vom Server (Beitreten ist online). */
+  if(client && navigator.onLine!==false && !_deviceNoClaiming){
+    _deviceNoClaiming=true;
+    try{
+      var r=await client.rpc('argus_claim_device',{p_ccp_id:_ccpId});
+      var d=r?r.data:null;
+      if(d && !d.error && d.device){ _deviceNo=d.device; _deviceNoCcp=_ccpId; try{ await sSet('ccp_devno_'+_ccpId,d.device); }catch(e){} return _deviceNo; }
+    }catch(e){}
+    finally{ _deviceNoClaiming=false; }
   }
-  return m;
+  return (_deviceNo!=null && _deviceNoCcp===_ccpId) ? _deviceNo : null;   /* noch unbekannt (z. B. offline vor erstem Claim) → vorerst kein Suffix */
+}
+/* Vorschau: voraussichtliches nächstes Label — offline mit Gerätenummer. */
+function previewNum(){ return nextNum(); }
+function previewLabel(){
+  var n=nextNum();
+  var offline = !_training && _ccpId && !(sb() && navigator.onLine!==false);
+  if(offline && _deviceNo && _deviceNoCcp===_ccpId) return _ccpKennung+"-"+n+"-"+_deviceNo;
+  return _ccpKennung+"-"+n;
 }
 async function claimNum(client){
-  if(_training || !_ccpId) return await localNextNum();
-  var pl=await _poolReady();
-  await ensurePool(client);                 /* online ggf. Block nachladen */
-  if(pl.avail.length){ var n=pl.avail.shift(); await _savePool(); return n; }
-  return await localNextNum();              /* Pool offline leer → bestmöglicher lokaler Fallback */
-}
-async function rememberNum(num){
-  if(_training || !_ccpId) return;
-  try{ var last=await sGet("ccp_lastnum_"+_ccpId); if(typeof last!=="number" || num>last) await sSet("ccp_lastnum_"+_ccpId,num); }catch(e){}
+  /* Rückgabe {num, dev}: dev=0 → kein Suffix (online/Training), dev>=1 → Offline-Suffix. */
+  if(_training || !_ccpId) return {num: nextNum(), dev: 0};
+  if(client && navigator.onLine!==false){
+    try{
+      var r=await client.rpc('argus_claim_nums',{p_ccp_id:_ccpId,p_count:1});
+      var d=r?r.data:null;
+      if(d && !d.error && d.start) return {num: d.start, dev: 0};   /* online: zentrale, lückenlose Nummer */
+    }catch(e){}
+  }
+  /* offline: lokal weiterzählen + eigene Gerätenummer anhängen */
+  var dev=null; try{ dev=await ensureDeviceNo(client); }catch(e){}
+  if(dev==null) dev = isCcpCreator(_ccpId) ? 1 : 0;   /* Notnagel: Ersteller=1; unbekannter Beitritt → vorerst ohne Suffix */
+  return {num: nextNum(), dev: dev||0};
 }
 async function addPatient(cat){
   await loadPatients();
   var client=sb();
-  var num=await claimNum(client);
-  var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:num,cat:cat,ccp:_ccpKennung,prio:false,ready:false,
+  var cn=await claimNum(client);
+  /* Offline-Patienten tragen die Gerätenummer im Label (ccp="A~2" → „A-7-2"),
+   * online bleibt es die pure Kennung (ccp="A" → „A-7"). */
+  var ccpLabel=(cn.dev && cn.dev>=1) ? (_ccpKennung+"~"+cn.dev) : _ccpKennung;
+  var p={id:"p"+nowMs()+Math.floor(Math.random()*1000),num:cn.num,cat:cat,ccp:ccpLabel,prio:false,ready:false,
     status:"active",created:nowMs(),lastTriage:nowMs(),tqStart:null,
     name:"",age:"",gender:"",allergies:"",pupRe:"",pupLi:"",
     vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
@@ -1913,7 +1926,6 @@ async function addPatient(cat){
     ccpId:_ccpId||null, _dirty:true};
   if(_training){ p.training=true; delete p._dirty; }   /* Übungsdaten: lokal-only, nie Cloud */
   await sSet("ccp_pat_"+p.id,p);
-  await rememberNum(num);
   if(client && _ccpId && !p.training){
     try{ var r=await client.from('patients').insert(patToRow(p)); if(!r.error){ delete p._dirty; await sSet("ccp_pat_"+p.id,p); } }catch(e){}
   }
@@ -2084,7 +2096,7 @@ function vCapture(){
    * Schnellaktionen am zuletzt angelegten: Prio setzen oder Details öffnen —
    * der schnelle Standardfall (Kategorie antippen = fertig) bleibt unberührt. */
   h+='<div class="card" id="cap-last" style="margin-top:12px;padding:12px">';
-  h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer (voraussichtl.)</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+_ccpKennung+'-'+previewNum()+'</span></div>';
+  h+='<div style="display:flex;justify-content:space-between;align-items:center"><span class="hint">Nächste Nummer (voraussichtl.)</span><span class="mono" style="font-size:22px;font-weight:700;color:var(--acc)">'+previewLabel()+'</span></div>';
   var lc=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
   if(lc){
     var cc=CATS[lc.cat]||CATS.T3;
@@ -2141,7 +2153,7 @@ function vTac(){
     var c=CATS[rc];
     return '<div class="card" style="text-align:center;padding:26px 16px"><div class="hint">Ergebnis tacSTART</div>'+
       '<div style="display:inline-block;margin:14px auto;border-radius:14px;padding:18px 30px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'"><span class="mono" style="font-size:34px;font-weight:600">'+c.label+'</span><br><span style="font-size:13px">'+c.nm+'</span></div></div>'+
-      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient '+_ccpKennung+'-'+previewNum()+' anlegen</button>'+
+      '<button class="prim" data-action="tacconfirm" data-cat="'+rc+'">Patient '+previewLabel()+' anlegen</button>'+
       '<button class="ghost" data-action="tacstart">nochmal</button>'+
       '<p class="hint" style="text-align:center;margin-top:10px;font-size:11px">tacSTART ist eine Entscheidungsunterstützung – kein Ersatz für die ärztliche/fachliche Beurteilung.</p>';
   }
@@ -2158,7 +2170,7 @@ function vOverview(){
   var h=countbar();
   var dupO=dupNumKeys();
   if(Object.keys(dupO).length){
-    var labels=Object.keys(dupO).map(function(k){var pp=k.split('|');return ccpMerged?(pp[0]+'-'+pp[1]):pp[1];});
+    var labels=Object.keys(dupO);   /* Keys sind bereits fertige Labels (pno), z. B. „A-7" / „A-7-2" */
     h+='<div class="banner" style="margin-bottom:12px;background:var(--surf2);border:1px solid var(--prio)"><span>⚠</span><div><b style="color:var(--prio)">Doppelte Nummer'+(labels.length>1?'n':'')+': '+esc(labels.join(', '))+'</b><br><span class="hint">Im selben CCP doppelt vergeben (z. B. durch parallele Erfassung). Bitte prüfen und einen Patienten neu kennzeichnen.</span></div></div>';
   }
   /* Foto-Schalter entfernt (v0.31.0): Fotos sind dauerhaft an (DSB-Freigabe).
@@ -2188,9 +2200,10 @@ function vCatlist(){
    * bewusst NICHT vorgesehen (T3 Namensfeld-Härtung, DATENSCHUTZ-SPEC) —
    * Patienten werden über die Nummer identifiziert, nicht über den Namen. */
   var list=bucketPatients(cat).sort(function(a,b){
-    var ca=a.ccp||"A",cb=b.ccp||"A";
+    var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);
     if(ca!==cb)return ca<cb?-1:1;
-    return a.num-b.num;
+    if(a.num!==b.num)return a.num-b.num;
+    return ccpDev(a.ccp)-ccpDev(b.ccp);
   });
   /* Chronologie-Umschalter (Feedback 2026-06-13): Standard neueste zuerst,
    * auf Wunsch älteste zuerst. Nummer = Chronologie-Proxy je CCP. */
@@ -4051,7 +4064,7 @@ window.addEventListener('online', function(){
   checkRevokedCode();    /* Reconnect: Code-Sperre nachprüfen (fire-and-forget, offline-Guard intern) */
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
-  try{ ensurePool(sb()); }catch(e){}   /* Nummernblock nach Reconnect wieder auffüllen */
+  try{ ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer nach Reconnect sichern */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
   /* Channel nach Netz-Rückkehr IMMER neu aufbauen (toter Socket, s. o.) —
    * healRealtime übernimmt Abschluss-Check + Nachladen. */
