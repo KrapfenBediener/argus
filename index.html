@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.14';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.15';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.15': [
+    '„Neue CCP eröffnen" abbrechen führt jetzt immer zurück auf den Startbildschirm des Präsidiums (statt in eine zufällige offene CCP). Der bisherige CCP bleibt über „Aktive CCP fortsetzen" erreichbar.'
+  ],
   '0.33.14': [
     'Nach der Rückkehr ins Netz bekommen neu angelegte Patienten wieder die normale fortlaufende Nummer („A-7") statt der Gerätenummer — ein hängender Hintergrund-Aufruf konnte die Nummern-Reservierung dauerhaft blockieren.'
   ],
@@ -3515,7 +3518,7 @@ document.addEventListener("click",async function(e){
       _ccpId=prevCcp.id; _mergeGroupId=prevCcp.grp; _ccpKennung=prevCcp.k; patients=prevCcp.pats;
       if(_ccpId && sb()) subscribeRealtime();
       toast("Abgebrochen — kein neuer CCP angelegt");
-      go(_ccpId?"home":"start"); return;   /* ohne vorherigen CCP zurück zum Start, nicht auf eine leere Home */
+      go("start"); return;   /* Abbruch → immer zurück auf den Präsidiums-Startbildschirm (nicht in irgendeine Home); der bisherige CCP bleibt über „Aktive CCP fortsetzen" erreichbar */
     }
     go("home");return;
   }
