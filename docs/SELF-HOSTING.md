@@ -92,6 +92,7 @@ supabase/migrations/0018_phase51_feld_audit_normal.sql         Feld-Audit-Trigge
 supabase/migrations/0019_phase51_twin_scope.sql                 Schulungs-Twin-Scope: argus_exchange_person_code erhält optionalen p_scope-Parameter (Default 'echt'); bei p_scope='schulung' wird server-seitig die schulungs_zwilling_id des Token-Präsidiums aufgelöst und ein twin-scoped JWT ausgestellt (praesidium_id = Twin; usbnk/role/jti unverändert). Rückwärtskompatibel (kein p_scope → 'echt'). Keine RLS-Änderung, keine neuen Server-Abhängigkeiten. Idempotent.
 supabase/migrations/0020_phase51_review_fixes.sql               Code-Review-Härtung Phase 5.1: p_scope-Whitelist in argus_exchange_person_code (nur 'echt'/'schulung'); argus_master_role_change_person verlangt Präsidium für Rolle 'normal'; argus_audit_patients loggt patient_photo auch bei Foto-Ersetzung. Keine neuen Server-Abhängigkeiten. Idempotent.
 supabase/migrations/0021_master_lage_global.sql                 MasterToken darf die Lage präsidienübergreifend sehen: argus_exchange_observer_code akzeptiert zusätzlich den MasterToken und stellt ein read-only is_flz-JWT (global, KEIN is_master-Claim) aus statt Ablehnung; argus_lage unverändert (bestehender FLZ-Zweig aggregiert alle Präsidien). Keine RLS-Änderung, keine neuen Abhängigkeiten. Idempotent.
+supabase/migrations/0022_geraetenummer.sql                      Offline-sichere Patientennummern: Spalte ccps.next_device + RPC argus_claim_device (vergibt beim CCP-Beitritt atomar eine Gerätenummer >=2; Ersteller = 1). Offline erfasste Patienten tragen sie im Label („A-7-2"). Keine RLS-Änderung, keine Änderung an patients. Idempotent.
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -171,7 +172,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).

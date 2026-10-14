@@ -1934,7 +1934,7 @@ function prefetchNum(force){
  * Ist keine reserviert (offline), zählt das Gerät lokal weiter und hängt seine
  * Gerätenummer an. Die ist je CCP eindeutig: Ersteller = 1, jeder Beitritt holt sie
  * EINMAL beim (online stattfindenden) Beitritt atomar über argus_claim_device
- * (Migration 0021). Zwei Geräte vergeben offline so nie dasselbe Label, nichts wird
+ * (Migration 0022). Zwei Geräte vergeben offline so nie dasselbe Label, nichts wird
  * umgeschrieben. Cloud-Upload immer im Hintergrund. Training bleibt rein lokal. */
 var _deviceNo = null;         /* Gerätenummer im aktuellen CCP (1=Ersteller, >=2 Beitritt) */
 var _deviceNoCcp = null;      /* zu welchem _ccpId _deviceNo gehört */

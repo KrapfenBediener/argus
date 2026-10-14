@@ -1,4 +1,7 @@
--- 0021_geraetenummer.sql
+-- 0022_geraetenummer.sql
+-- (ursprünglich als 0021 angelegt und am 2026-10-14 so live eingespielt; wegen
+--  Nummernkollision mit 0021_master_lage_global umbenannt — Inhalt unverändert,
+--  idempotent, erneutes Einspielen ist unschädlich.)
 -- Offline-sichere Patientennummern über eine Gerätenummer je CCP.
 --
 -- Hintergrund: Online kommt die laufende Nummer zentral-atomar vom Server
