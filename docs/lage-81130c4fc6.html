@@ -41,6 +41,10 @@
   .topbar button:hover{background:#ffffff30}
   /* Hauptfläche — Mockup .main */
   .main{padding:14px;max-width:920px;margin:0 auto;width:100%}
+  /* Global-Modus: je Präsidium ein eigener Block (sauber getrennt statt alles in einem Raster) */
+  .psec{margin:20px 0 4px}
+  .psec-h{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;padding:0 0 6px;border-bottom:2px solid var(--acc);font-weight:700;font-size:15px}
+  .psec-h .cnt{margin-left:auto;font-weight:600;color:var(--mut);font-size:12px;white-space:nowrap}
   /* Summen-Leiste — Mockup .totbar/.tot */
   .totbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
   .tot{flex:1;min-width:96px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center}
@@ -170,15 +174,29 @@ async function doLogin(raw){
       body:JSON.stringify({ code:clean })
     });
     var data=await resp.json();   /* ungültiger Code = HTTP 200 + {error:…} */
+    var isAdm=false;
     if(!data || !data.jwt){
-      setLoginError(data && data.error ? data.error : 'Ungültiger oder verbrauchter Code.');
-      return;
+      /* FLZ-Zugang (0023, = Admin-Rolle): denselben Code gegen
+       * argus_exchange_admin_code versuchen → Lage des eigenen Präsidiums
+       * (argus_lage hat seit 0013 einen Admin-Zweig). Erst wenn auch das
+       * scheitert, den ursprünglichen Fehler zeigen. */
+      var firstErr=(data && data.error) ? data.error : 'Ungültiger oder verbrauchter Code.';
+      var resp2=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_admin_code',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+        body:JSON.stringify({ code:clean })
+      });
+      var data2=null; try{ data2=await resp2.json(); }catch(e){}
+      if(!data2 || !data2.jwt){ setLoginError(firstErr); return; }
+      data=data2; isAdm=true;
     }
     sessionStorage.setItem('arguslg_jwt', data.jwt);
     sessionStorage.setItem('arguslg_jwt_exp', String(data.exp*1000));
     sessionStorage.setItem('arguslg_pname', data.praesidium_name||'');
     /* Master-Login (0021): flz=true → präsidienübergreifender Global-Modus. */
     sessionStorage.setItem('arguslg_global', data.flz ? '1' : '');
+    /* FLZ-Zugang: eigenes Präsidium, read-only; Ort-Korrektur (observer-only RPC) aus. */
+    sessionStorage.setItem('arguslg_admin', isAdm ? '1' : '');
     render();
     startPolling();
   }catch(e){
@@ -244,12 +262,14 @@ function totBar(list){
   h+='</div>';
   return h;
 }
+var _grouped=false;   /* true, während die Karten innerhalb eines Präsidiums-Blocks gerendert werden (Präfix dann redundant) */
 function ccpCard(c, vlabel){
   var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
   var hasGeo=(typeof c.lat==='number' && typeof c.lng==='number');
   /* Global-Modus (Master, 0021): Präsidiumsname voranstellen — Kennungen sind
-   * über Präsidien hinweg nicht eindeutig. */
-  var pfx=c.praesidium_name ? esc(c.praesidium_name)+' — ' : '';
+   * über Präsidien hinweg nicht eindeutig. Entfällt, wenn ohnehin je Präsidium
+   * gruppiert wird (Blocküberschrift trägt den Namen). */
+  var pfx=(c.praesidium_name && !_grouped) ? esc(c.praesidium_name)+' — ' : '';
   var h='<div class="ccpcard">';
   h+='<div class="ct">';
   /* Koordinaten-Klick (Paket 2): Name antippen kopiert „lat, lng" (WGS84
@@ -263,7 +283,7 @@ function ccpCard(c, vlabel){
    * protokolliert). Im Global-Modus (Master) ausgeblendet: argus_lage_set_ort
    * greift per Kennung im EIGENEN Präsidium — bei einem präsidiumslosen Master
    * wäre das mehrdeutig. Ort-Korrektur läuft dort über Leitung/Feld-App. */
-  if(!isGlobal()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;font-size:13px;align-self:center;opacity:.7">✏️</span>';
+  if(!isGlobal() && !isAdminSess()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;font-size:13px;align-self:center;opacity:.7">✏️</span>';
   if(vlabel) h+='<span style="flex:0 0 auto;background:var(--acc);color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;align-self:center">'+vlabel+'</span>';
   h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
   h+='<div class="mini">';
@@ -289,7 +309,7 @@ function verbundCard(g, vnTotal){
   });
   var total=s.t1+s.t2+s.t3+s.t5+s.gpa;
   var kenns=g.members.map(function(c){return esc(c.kennung);}).join('+');
-  var vpfx=g.members[0].praesidium_name ? esc(g.members[0].praesidium_name)+' — ' : '';
+  var vpfx=(g.members[0].praesidium_name && !_grouped) ? esc(g.members[0].praesidium_name)+' — ' : '';
   var h='<div class="ccpcard vb">';
   h+='<div class="ct"><span class="nm">⛓ '+vpfx+'VERBUND'+(vnTotal>1?' '+g.n:'')+' · CCP '+kenns+'</span>';
   h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
@@ -311,7 +331,7 @@ function verbundCard(g, vnTotal){
     }else{
       h+='<span class="nm2">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+'</span>';
     }
-    if(!isGlobal()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;margin-left:auto;opacity:.7">✏️</span>';
+    if(!isGlobal() && !isAdminSess()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;margin-left:auto;opacity:.7">✏️</span>';
     h+='</div>';
   });
   h+='</div>';
@@ -321,9 +341,9 @@ function viewLogin(){
   var h='<div class="loginwrap"><div class="loginbox">';
   h+='<div class="arg-logo">ARGUS</div>';
   h+='<h1>Lageübersicht</h1>';
-  h+='<div class="hint">Read-only Ansicht für FLZ/ILS — anonyme Zahlen je CCP. Zugang nur mit Beobachter-Code.</div>';
+  h+='<div class="hint">Read-only Ansicht für FLZ/ILS — anonyme Zahlen je CCP. Zugang mit FLZ-Zugang (eigenes Präsidium) oder MasterToken (alle Präsidien).</div>';
   if(_configError) h+='<div class="lerr">Konfiguration fehlt (config.js) — kein Backend verbunden.</div>';
-  h+='<label class="fieldlab" for="logininp">Beobachter-Code</label>';
+  h+='<label class="fieldlab" for="logininp">Zugangscode</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
   h+='<div style="display:flex;gap:8px;margin-top:14px">';
   h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
@@ -356,13 +376,35 @@ function viewLage(){
       });
       var vn=0;
       order.forEach(function(k){ if(groups[k].verbund) groups[k].n=++vn; });
-      h+='<div class="lgrid">';
-      order.forEach(function(k){
-        var g=groups[k];
-        if(!g.verbund){ h+=ccpCard(g.members[0], ''); return; }
-        h+=verbundCard(g, vn);
-      });
-      h+='</div>';
+      if(isGlobal()){
+        /* Global-Modus (Owner 2026-10-14): je Präsidium ein eigener, sauber
+         * getrennter Block (Überschrift + eigenes Raster) statt aller Karten in
+         * einem gemeinsamen Raster. Reihenfolge: Präsidiumsname. */
+        var byP={}, porder=[];
+        order.forEach(function(k){
+          var m=groups[k].members[0], pid=m.praesidium_id||'', pn=m.praesidium_name||'(ohne Präsidium)';
+          if(!byP[pid]){ byP[pid]={name:pn, keys:[], ccps:0}; porder.push(pid); }
+          byP[pid].keys.push(k); byP[pid].ccps+=groups[k].members.length;
+        });
+        porder.sort(function(a,b){ return byP[a].name.localeCompare(byP[b].name,'de'); });
+        _grouped=true;
+        porder.forEach(function(pid){
+          var P=byP[pid];
+          h+='<div class="psec"><div class="psec-h"><span>'+esc(P.name)+'</span><span class="cnt">'+P.ccps+' CCP'+(P.ccps!==1?'s':'')+'</span></div>';
+          h+='<div class="lgrid">';
+          P.keys.forEach(function(k){ var g=groups[k]; h+= g.verbund ? verbundCard(g, vn) : ccpCard(g.members[0], ''); });
+          h+='</div></div>';
+        });
+        _grouped=false;
+      }else{
+        h+='<div class="lgrid">';
+        order.forEach(function(k){
+          var g=groups[k];
+          if(!g.verbund){ h+=ccpCard(g.members[0], ''); return; }
+          h+=verbundCard(g, vn);
+        });
+        h+='</div>';
+      }
     }else{
       h+='<div class="empty">'+(isGlobal()?'Aktuell keine offenen CCPs in irgendeinem Präsidium.':'Keine aktiven CCPs in diesem Präsidium.')+'</div>';
     }
@@ -376,6 +418,8 @@ function viewLage(){
 /* Global-Modus = MasterToken-Login (0021): alle Präsidien, read-only, Kennungen
  * NICHT präsidiumseindeutig → Präsidiums-Label je Karte, kein Ort-Editieren. */
 function isGlobal(){ try{ return sessionStorage.getItem('arguslg_global')==='1'; }catch(e){ return false; } }
+/* FLZ-Zugang-Sitzung (0023): eigenes Präsidium, read-only — kein argus_lage_set_ort (observer-only). */
+function isAdminSess(){ try{ return sessionStorage.getItem('arguslg_admin')==='1'; }catch(e){ return false; } }
 function render(){
   var loggedIn=!!sessionJwt();
   var lb=$('logoutbtn'); if(lb) lb.style.display=loggedIn?'':'none';
@@ -383,7 +427,7 @@ function render(){
   var tt=$('toptitle');
   if(tt){
     var pn=loggedIn ? (sessionStorage.getItem('arguslg_pname')||'') : '';
-    tt.textContent='ARGUS · Lageübersicht'+(loggedIn?(isGlobal()?' · Master · alle Präsidien':' · Beobachter'+(pn?' · '+pn:'')):'');
+    tt.textContent='ARGUS · Lageübersicht'+(loggedIn?(isGlobal()?' · Master · alle Präsidien':(isAdminSess()?' · FLZ':' · Beobachter')+(pn?' · '+pn:'')):'');
   }
   var dot=$('statdot'), txt=$('stattxt');
   if(dot && txt){
