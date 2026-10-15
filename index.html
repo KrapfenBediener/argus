@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.21';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.22';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.22': [
+    'Sofort-Optionen nach dem Anlegen (Prio, TQ, Foto): Änderungen in schneller Folge gingen verloren, und ein Foto über die Sofort-Option wurde nicht gespeichert, weil die Ansicht im Hintergrund neu aufgebaut wurde, während die Kamera offen war. Beides behoben (Feedback Einsatztrainer PP Einsatz).'
+  ],
   '0.33.21': [
     'Ein Dauercode schaltet jetzt Echtbetrieb UND Schulungsumgebung des Präsidiums frei (kein zweiter Code mehr nötig). Beim Freischalten holt ARGUS beide Zugänge, beim Wechsel im Präsidium-Picker wird automatisch umgeschaltet. Geräte, die vorher freigeschaltet wurden, holen den fehlenden Zugang beim nächsten Start online nach.'
   ],
@@ -2078,10 +2081,24 @@ async function addPatient(cat){
   patients.push(normalize(p));          /* sofort im Bestand sichtbar, ohne Netz */
   if(!p.training && _ccpId){            /* Hintergrund-Upload — bewusst NICHT awaiten */
     var cl=sb();
-    if(cl){ try{ cl.from('patients').insert(patToRow(p)).then(function(r){ if(r && !r.error){ delete p._dirty; try{ sSet("ccp_pat_"+p.id,p); }catch(e){} } }, function(){}); }catch(e){} }
+    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error) confirmUpload(p.id, irow.updated); }, function(){}); }catch(e){} }
   }
   try{ prefetchNum(); }catch(e){}      /* nächste Online-Nummer gleich wieder vorab holen */
   return p;
+}
+/* Upload-Bestätigung (Bugfix 2026-10-16, Feedback PP Einsatz „Sofort-Optionen
+ * greifen nicht"): Der Hintergrund-Upload hielt das ALTE Objekt und schrieb es
+ * nach Bestätigung zurück in den lokalen Speicher — hatte der Nutzer inzwischen
+ * (Prio → TQ → Foto in schneller Folge) weitergetippt, wurde die neuere lokale
+ * Änderung überschrieben. Jetzt: nur die _dirty-Markierung löschen, und nur,
+ * wenn seitdem keine neuere Änderung (updated) gespeichert wurde. */
+async function confirmUpload(id, updatedAtUpload){
+  try{
+    var cur=await sGet("ccp_pat_"+id);
+    if(cur && cur._dirty && (cur.updated||0)<=(updatedAtUpload||0)){ delete cur._dirty; await sSet("ccp_pat_"+id,cur); }
+    var mem=patients.find(function(x){return x.id===id;});
+    if(mem && (mem.updated||0)<=(updatedAtUpload||0)) delete mem._dirty;
+  }catch(e){}
 }
 async function savePatient(p){
   p.updated=nowMs();
@@ -2101,9 +2118,7 @@ async function savePatient(p){
      * Sperr-Spalten NICHT mitschreiben (Sperren laufen ausschließlich über pushLock). */
     try{
       var row=patToRow(p); delete row.locked_by; delete row.locked_at;
-      client.from('patients').upsert(row).then(function(r){
-        if(r && !r.error){ delete p._dirty; try{ sSet("ccp_pat_"+p.id,p); }catch(e){} }
-      }, function(){});
+      client.from('patients').upsert(row).then(function(r){ if(r && !r.error) confirmUpload(p.id, row.updated); }, function(){});
     }catch(e){}
   }
 }
@@ -4062,8 +4077,18 @@ setInterval(function(){
   /* WR-02: kein Zwischenelement mehr — tqLabel gibt Klartext zurück (kein esc()); direkte textContent-Zuweisung. */
   if(tb&&state.edit&&state.edit.tqStart){ tb.textContent=tqLabel(state.edit); }
 },1000);
+var _filePickerOpen=0;   /* Zeitstempel: Kamera/Dateiauswahl geöffnet → kein Re-Render, sonst stirbt das <input type=file> und das Foto geht verloren */
+document.addEventListener("click",function(e){ var t=e.target; if(t && t.tagName==="INPUT" && t.type==="file") _filePickerOpen=nowMs(); },true);
+document.addEventListener("change",function(e){ var t=e.target; if(t && t.tagName==="INPUT" && t.type==="file") _filePickerOpen=0; },true);
 setInterval(async function(){
   if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
+  /* Bugfix 2026-10-16 (Feedback PP Einsatz „Foto über Sofort-Option wird nicht
+   * gespeichert"): Dieses Intervall rendert die Erfassungsansicht neu, während
+   * die Kamera offen ist → das <input type=file> wird zerstört, das change-
+   * Ereignis landet im Leeren. Solange das Sofort-Pop-up offen ist oder eine
+   * Dateiauswahl läuft (max. 3 min), wird NICHT neu gerendert. */
+  if(state.capPopup) return;
+  if(_filePickerOpen && nowMs()-_filePickerOpen<180000) return;
   await loadMeta();await loadPatients();await loadChecklist();
   await checkIncomingMergeRequest();
   try{ prefetchNum(); }catch(e){}   /* Online-Nummer bereithalten (no-op, wenn schon reserviert/offline) */
