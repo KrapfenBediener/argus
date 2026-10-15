@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.20';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.33.21';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.33.21': [
+    'Ein Dauercode schaltet jetzt Echtbetrieb UND Schulungsumgebung des Präsidiums frei (kein zweiter Code mehr nötig). Beim Freischalten holt ARGUS beide Zugänge, beim Wechsel im Präsidium-Picker wird automatisch umgeschaltet. Geräte, die vorher freigeschaltet wurden, holen den fehlenden Zugang beim nächsten Start online nach.'
+  ],
   '0.33.20': [
     'Schulungsumgebung: „Neue CCP eröffnen" scheiterte auf Geräten, die Echtbetrieb und Schulung mit zwei Codes freigeschaltet hatten — die App schrieb mit dem Zugang des zuletzt eingegebenen Codes, der Server lehnte ab, die App sagte nur „Abgebrochen". ARGUS merkt sich jetzt je Präsidium den passenden Zugang und schaltet beim Wechsel um. Fehlt er, wird einmalig der Code abgefragt.',
     'Server-Fehler beim CCP-Anlegen werden jetzt im Klartext angezeigt statt als „Abgebrochen".'
@@ -680,6 +683,19 @@ function jwtClaims(jwt){
     return JSON.parse(decodeURIComponent(s));
   }catch(e){ return null; }
 }
+/* Sammelcode (0024): nach dem Echt-Exchange zusätzlich den Schulungs-Zwilling
+ * freischalten. Stiller Best-Effort — ohne Twin/offline passiert nichts. Danach
+ * das aktive JWT wieder auf das Echt-Präsidium zurückstellen. */
+async function unlockTwinFor(code, uv){
+  if(!uv || uv.is_master || !uv.praesidium_id) return null;
+  var tw=null;
+  try{ tw=await exchangeCode(code,'schulung'); }catch(e){ tw=null; }
+  if(tw && tw.praesidium_id && tw.praesidium_id!==uv.praesidium_id){
+    addUnlock(tw.praesidium_id, uv.temporary?(uv.ttl_hours||24):null);
+  }
+  ensureJwtFor(uv.praesidium_id);   /* aktives JWT = Echt-Präsidium (Twin liegt im Map) */
+  return tw;
+}
 /* true = aktives JWT passt zu pid (oder wurde passend umgeschaltet); false = Code neu nötig */
 function ensureJwtFor(pid){
   if(!pid || _isMaster) return true;
@@ -751,7 +767,10 @@ async function validateInviteToken(token){
  * is_master / exp und markiert Einmal-Codes serverseitig als verbraucht.
  * Pseudonymität bleibt gewahrt — kein Name, keine E-Mail, keine UID im JWT. */
 var _lastExchangeError=null;   /* Klartext-Fehler des letzten exchangeCode-Aufrufs (z. B. „Code wurde gesperrt") — für die Fehleranzeige statt generischem Text */
-async function exchangeCode(code){
+/* scope (0024): 'echt' (Default) oder 'schulung' — bei 'schulung' löst der Server den
+ * Schulungs-Zwilling des Code-Präsidiums auf und stellt dafür ein eigenes JWT aus.
+ * Ein Dauercode schaltet damit Echtbetrieb UND Schulungsumgebung frei. */
+async function exchangeCode(code, scope){
   _lastExchangeError=null;
   /* Ohne Config liefe der fetch relativ gegen den eigenen Origin (kryptischer
    * 404) — daher hier hart abfangen mit Klartext-Fehler für die Anzeige. */
@@ -759,10 +778,11 @@ async function exchangeCode(code){
   var clean=code.replace(/[\s\-]/g,'').toUpperCase();
   if(clean.length<8) return null;
   try{
+    var body={ code:clean }; if(scope==='schulung') body.p_scope='schulung';
     var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_code',{
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
-      body:JSON.stringify({ code:clean })
+      body:JSON.stringify(body)
     });
     var data=await resp.json();            /* ungültiger Code = HTTP 200 + {error:…} */
     if(data && data.error) _lastExchangeError=String(data.error);   /* Server-Klartext nicht schlucken */
@@ -771,6 +791,7 @@ async function exchangeCode(code){
     localStorage.setItem('argus_jwt_exp', String(data.exp*1000)); /* ms */
     localStorage.setItem('argus_code', clean);                    /* für stille Verlängerung */
     storePidJwt(data.praesidium_id, data.jwt, data.exp*1000, clean);   /* je Präsidium merken (Picker-Wechsel) */
+    if(data.scope==='schulung') localStorage.setItem('argus_twin_of_'+data.praesidium_id, '1');   /* Merker: Twin-JWT stammt aus Scope-Exchange → Verlängerung mit p_scope */
     return {
       praesidium_id: data.praesidium_id,
       is_master: !!data.is_master,
@@ -852,7 +873,9 @@ async function refreshJwtIfNeeded(){
    * Scope: aktiven Picker-Modus übergeben, damit das frische JWT dasselbe
    * Präsidium (Echt oder Schulungs-Twin) enthält wie das ablaufende (0019). */
   var isPersonSession=!!(localStorage.getItem('argus_role'));
-  var result=isPersonSession ? await exchangePersonCode(storedCode, pickerMode()) : await exchangeCode(storedCode);
+  /* Sammelcode (0024): Twin-JWT mit p_scope='schulung' verlängern, sonst Echt. */
+  var twinScope=(!isPersonSession && _praesidiumId && localStorage.getItem('argus_twin_of_'+_praesidiumId)==='1') ? 'schulung' : undefined;
+  var result=isPersonSession ? await exchangePersonCode(storedCode, pickerMode()) : await exchangeCode(storedCode, twinScope);
   if(!result && _lastExchangeError && _lastExchangeError.indexOf('gesperrt')>=0){
     /* Der gespeicherte Code wurde von der Leitung gesperrt → nicht still
      * ignorieren, sondern dieselbe Lock-Wirkung wie der Re-Check (D-20). */
@@ -1007,7 +1030,8 @@ async function doUnlock(rawCode){
   } else if(uv.praesidium_id){
     addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null);
     await consumeSingleUse(uv);
-    toast(uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet");
+    var twU=await unlockTwinFor(uc2, uv);   /* 0024: Schulungs-Zwilling gleich mit freischalten */
+    toast((uv.temporary?"Freigeschaltet (24 h)":"Dauerhaft freigeschaltet")+(twU?" — Echtbetrieb + Schulung":""));
   } else {
     toast("Code ohne Präsidium"); return;
   }
@@ -3518,7 +3542,17 @@ document.addEventListener("click",async function(e){
       if(!mok) return;
     }
     /* Sammelcode-Sitzung: passendes JWT für dieses Präsidium aktivieren — sonst
-     * lehnt die RLS jeden Schreibzugriff ab (sah bisher aus wie „Abgebrochen"). */
+     * lehnt die RLS jeden Schreibzugriff ab (sah bisher aus wie „Abgebrochen").
+     * Fehlt es (Gerät vor 0024 freigeschaltet): online mit dem gespeicherten Code
+     * und passendem Scope nachholen (Twin → p_scope='schulung'). */
+    if(!isPersonSession2 && !ensureJwtFor(selPid) && navigator.onLine && localStorage.getItem('argus_code')){
+      var curJwt=localStorage.getItem('argus_jwt'), curExp=localStorage.getItem('argus_jwt_exp'), curCode=localStorage.getItem('argus_code');
+      var reex=null; try{ reex=await exchangeCode(curCode, selIsSchul?'schulung':'echt'); }catch(e){}
+      if(!(reex && reex.praesidium_id===selPid)){
+        /* nicht passend → vorherigen Zustand wiederherstellen (exchangeCode hat argus_jwt überschrieben) */
+        try{ if(curJwt){ localStorage.setItem('argus_jwt',curJwt); localStorage.setItem('argus_jwt_exp',curExp||'0'); localStorage.setItem('argus_code',curCode||''); } }catch(e){}
+      }
+    }
     if(!isPersonSession2 && !ensureJwtFor(selPid)){
       removeUnlock(selPid);
       await confirmModal('Für „'+selPname+'" liegt auf diesem Gerät kein passender Zugang mehr vor.\n\nBitte den Code dieses Präsidiums einmal neu eingeben — danach merkt sich ARGUS beide Zugänge getrennt.','OK');
@@ -3568,6 +3602,7 @@ document.addEventListener("click",async function(e){
         if(valid.praesidium_id){
           addUnlock(valid.praesidium_id, valid.temporary?(valid.ttl_hours||24):null);
           await consumeSingleUse(valid);
+          try{ await unlockTwinFor(code, valid); }catch(e){}   /* 0024: Schulungs-Zwilling mit freischalten */
           _praesidiumId=valid.praesidium_id;
           _praesidiumName=(valid.praesidien&&valid.praesidien.name)||'';
           localStorage.setItem('argus_praesidium_id',_praesidiumId);
@@ -4127,6 +4162,7 @@ setInterval(async function(){
         if(cdata.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
         else if(cdata.praesidium_id){
           addUnlock(cdata.praesidium_id, cdata.temporary?(cdata.ttl_hours||24):null);
+          try{ await unlockTwinFor(urlCode, cdata); }catch(e){}   /* 0024: Schulungs-Zwilling mit freischalten */
           _praesidiumId=cdata.praesidium_id;
           _praesidiumName=(cdata.praesidien&&cdata.praesidien.name)||'';
           localStorage.setItem('argus_praesidium_id',_praesidiumId);
@@ -4197,6 +4233,12 @@ setInterval(async function(){
    * letzten CCP wiederherstellen */
   /* JWT muss zum aktiven Präsidium passen (Sammelcode mit zwei Präsidien) —
    * sonst scheitert jeder Schreibzugriff still an der RLS. */
+  if(!ensureJwtFor(_praesidiumId) && navigator.onLine && localStorage.getItem('argus_code') && !(_argusRole&&_usbnk)){
+    /* 0024: fehlendes JWT online nachholen — Twin mit p_scope='schulung' */
+    var _sjwt=localStorage.getItem('argus_jwt'), _sexp=localStorage.getItem('argus_jwt_exp'), _scode=localStorage.getItem('argus_code');
+    var _re=null; try{ _re=await exchangeCode(_scode, _praesidiumSchulung?'schulung':'echt'); }catch(e){}
+    if(!(_re && _re.praesidium_id===_praesidiumId)){ try{ if(_sjwt){ localStorage.setItem('argus_jwt',_sjwt); localStorage.setItem('argus_jwt_exp',_sexp||'0'); localStorage.setItem('argus_code',_scode||''); } }catch(e){} }
+  }
   if(!ensureJwtFor(_praesidiumId)){
     removeUnlock(_praesidiumId);
     toast("Zugang für „"+(_praesidiumName||'dieses Präsidium')+"“ passt nicht zum gespeicherten Code — bitte Code einmal neu eingeben");
