@@ -22,7 +22,8 @@ const TABLES = [
   ['access_tokens', 'short_code'],   // Codes: das Kronjuwel
   ['audit_log',     'id'],           // personenscharfes Audit: master-only
   ['governance_log','id'],
-  ['purge_log',     'id']
+  ['purge_log',     'id'],
+  ['ccp_devices',   'ccp_id']        // Phase 6.5: Gerätestatus (vor Migration 0026 → WARN, kein FAIL)
 ];
 
 let failed = false;

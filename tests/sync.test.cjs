@@ -5,7 +5,10 @@
  *   06.5-06 (Abschluss/Fristen).
  * Die Tests stehen VOR der Implementierung (Wave 0): fehlt eine Vertragsfunktion,
  * wird der Test mit Begründung übersprungen (nicht rot). Sobald die Funktion
- * existiert, ist der Test scharf — Plan 08 verlangt 0 Skips beim Release. */
+ * existiert, ist der Test scharf — Plan 08 verlangt 0 Skips beim Release.
+ * Vertrag: Hilfsfunktionen liegen INNERHALB der Vertragsfunktion (oder werden hier
+ * ausdrücklich in die Namensliste von evalFunctions aufgenommen) — extrahiert wird
+ * nur, was die Tests benennen. */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -177,4 +180,109 @@ test('clockHint: Schwelle 5 s, Richtung, Einheit s/min', { skip: skipUnless('06.
   assert.equal(f.clockHint(-119000), 'Geräteuhr geht 119 s vor — wird herausgerechnet');
   assert.equal(f.clockHint(-120000), 'Geräteuhr geht 2 min vor — wird herausgerechnet');
   assert.equal(f.clockHint(-180000), 'Geräteuhr geht 3 min vor — wird herausgerechnet');
+});
+
+/* ---------- Gerätestatus (Plan 06.5-05) ---------- */
+
+const NOW = 1000000;
+const HHMM = function(){ return '14:20'; };   // Stub: keine Zeitzonenabhängigkeit
+
+test('devStatus: Grenzen verbunden (< 30 s) / außer Reichweite / abgemeldet / verlassen', { skip: skipUnless('06.5-05', 'devStatus') }, () => {
+  const f = load(['devStatus']);
+  assert.equal(f.devStatus({last_seen: NOW - 29000}, NOW), 'verbunden');
+  assert.equal(f.devStatus({last_seen: NOW - 30000}, NOW), 'ausser_reichweite');
+  assert.equal(f.devStatus({last_seen: NOW - 31000}, NOW), 'ausser_reichweite');
+  assert.equal(f.devStatus({last_seen: NOW - 1000, left_at: NOW - 500}, NOW), 'verlassen');   // verlassen schlägt frisch
+  assert.equal(f.devStatus({last_seen: NOW - 31000, lost_at: NOW - 20000}, NOW), 'abgemeldet');
+  assert.equal(f.devStatus({last_seen: NOW - 10000, lost_at: NOW - 20000}, NOW), 'verbunden'); // Gerät meldet sich wieder
+});
+
+test('devLabel: Gerätezeile nach ROADMAP-Beispiel (Stern, außer Reichweite, verlassen, abgemeldet, Verbund)', { skip: skipUnless('06.5-05', 'devStatus', 'devLabel') }, () => {
+  const f = load(['devStatus', 'devLabel']);
+  const o = {mm: 'MUE', merged: false, hhmm: HHMM};
+  const l1 = f.devLabel({device_no: 1, operator: 'MUE', last_seen: NOW - 1000, open_n: 0}, NOW, o);
+  const l4 = f.devLabel({device_no: 4, operator: '', last_seen: NOW - 185000, open_n: 1}, NOW, o);
+  const l5 = f.devLabel({device_no: 5, operator: '', last_seen: NOW - 1000, left_at: NOW - 500, open_n: 0}, NOW, o);
+  assert.equal(l1, '1 ★ MUE');
+  assert.equal(l4, '4 — außer Reichweite seit 3 min (1 Patient offen)');
+  assert.equal(l5, '5 — verlassen 14:20');
+  assert.equal([l1, l4, l5].join(' · '), '1 ★ MUE · 4 — außer Reichweite seit 3 min (1 Patient offen) · 5 — verlassen 14:20');
+  assert.equal(f.devLabel({device_no: 6, operator: 'KLA', last_seen: NOW - 100000, lost_at: NOW - 60000, open_n: 2}, NOW, o),
+    '6 KLA — abgemeldet (2 Patienten möglicherweise verloren)');
+  assert.equal(f.devLabel({device_no: 3, kennung: 'B', operator: '', last_seen: NOW - 1000, open_n: 0}, NOW,
+    {mm: 'MUE', merged: true, hhmm: HHMM}), 'B·3');
+  assert.equal(f.devLabel({device_no: 7, operator: '', last_seen: NOW - 100000, open_n: 2}, NOW, o),
+    '7 — außer Reichweite seit 1 min (2 Patienten offen)');
+});
+
+test('leaveText: Dialogtext mit Gerätenummer, offenen Patienten und MasterMedic-Hinweis', { skip: skipUnless('06.5-05', 'leaveText') }, () => {
+  const f = load(['leaveText']);
+  assert.equal(f.leaveText('A', 3, 2, false), 'CCP A verlassen?\n\nDu bist Gerät 3 · 2 Patienten noch nicht synchronisiert');
+  assert.ok(f.leaveText('A', 3, 1, false).endsWith('· 1 Patient noch nicht synchronisiert'));
+  assert.equal(f.leaveText('B', 2, 0, false), 'CCP B verlassen?\n\nDu bist Gerät 2 · alles synchronisiert');
+  assert.equal(f.leaveText('A', 0, 0, false), 'CCP A verlassen?\n\nAlles synchronisiert');
+  assert.equal(f.leaveText('A', 1, 0, true),
+    'CCP A verlassen?\n\nDu bist Gerät 1 · alles synchronisiert\n\nDu bist MasterMedic — die Rolle bleibt bei dir, bis jemand sie übernimmt.');
+});
+
+/* ---------- Abschluss-Vollständigkeit + Fristen (Plan 06.5-06) ---------- */
+
+function fiveDevices(){
+  return [
+    {device_no: 1, kennung: 'A', last_seen: NOW - 500000, open_n: 5},   // eigenes Gerät: own überschreibt
+    {device_no: 2, kennung: 'A', last_seen: NOW - 1000, open_n: 0},
+    {device_no: 3, kennung: 'B', last_seen: NOW - 100000, open_n: 2},   // außer Reichweite
+    {device_no: 4, kennung: 'A', last_seen: NOW - 5000, left_at: NOW - 4000, open_n: 0},   // verlassen
+    {device_no: 5, kennung: 'A', last_seen: NOW - 2000, open_n: 0}
+  ];
+}
+
+test('closeCompleteness: Zählung, Problemtext, eigenes Gerät, Verbund-Label, unbekannter Stand', { skip: skipUnless('06.5-06', 'devStatus', 'closeCompleteness') }, () => {
+  const f = load(['devStatus', 'closeCompleteness']);
+  assert.deepEqual(f.closeCompleteness(fiveDevices(), NOW, {dev: 1, dirty: 0}, false), {
+    total: 5, ok: 4, text: '4 von 5 Geräten haben alles bestätigt — Gerät 3 außer Reichweite, 2 Patienten offen'
+  });
+  const allOk = fiveDevices(); allOk[2].last_seen = NOW - 1000; allOk[2].open_n = 0;
+  assert.deepEqual(f.closeCompleteness(allOk, NOW, {dev: 1, dirty: 0}, false), {total: 5, ok: 5, text: ''});
+  assert.equal(f.closeCompleteness(allOk, NOW, {dev: 1, dirty: 1}, false).text,
+    '4 von 5 Geräten haben alles bestätigt — Gerät 1, 1 Patient offen');
+  assert.equal(f.closeCompleteness(fiveDevices(), NOW, {dev: 1, dirty: 0}, true).text,
+    '4 von 5 Geräten haben alles bestätigt — Gerät B·3 außer Reichweite, 2 Patienten offen');
+  const lost = fiveDevices(); lost[1].last_seen = NOW - 100000; lost[1].lost_at = NOW - 60000; lost[1].open_n = 1;
+  assert.equal(f.closeCompleteness(lost, NOW, {dev: 1, dirty: 0}, false).text,
+    '3 von 5 Geräten haben alles bestätigt — Gerät 2 abgemeldet, 1 Patient offen; Gerät 3 außer Reichweite, 2 Patienten offen');
+  assert.deepEqual(f.closeCompleteness(null, NOW, {dev: 1, dirty: 0}, false),
+    {total: 0, ok: 0, text: 'Gerätestand unbekannt (keine Verbindung)'});
+  assert.deepEqual(f.closeCompleteness([], NOW, {dev: 1, dirty: 0}, false),
+    {total: 0, ok: 0, text: 'Gerätestand unbekannt (keine Verbindung)'});
+});
+
+test('nachfristOk: 24-h-Nachfrist, durch purge_after begrenzt', { skip: skipUnless('06.5-06', 'nachfristOk') }, () => {
+  const f = load(['nachfristOk']);
+  assert.equal(f.nachfristOk(1000, 1000 + 86340000, null), true);
+  assert.equal(f.nachfristOk(1000, 1000 + 86400000, null), false);
+  assert.equal(f.nachfristOk(1000, 1000 + 86460000, null), false);
+  assert.equal(f.nachfristOk(1000, 1000 + 3600000, 1000 + 1800000), false);
+  assert.equal(f.nachfristOk(null, 5, null), false);
+});
+
+test('localPurgeDecision: Matrix aus Abschluss-/Kontaktzeit, Foto und ausstehenden Änderungen', { skip: skipUnless('06.5-06', 'localPurgeDecision') }, () => {
+  const f = load(['localPurgeDecision']);
+  const H = 3600000, c = 1000000000, D = 24 * H;
+  const d = function(ctx, dt){ return f.localPurgeDecision(ctx, c + dt); };
+  const R = function(dropPhoto, dropRecord, dropLate){ return {dropPhoto, dropRecord, dropLate}; };
+  // Einsatz abgeschlossen, alles synchronisiert
+  assert.deepEqual(d({closedAt: c, dirty: false, hasPhoto: true}, 1 * H), R(false, true, false));
+  assert.deepEqual(d({closedAt: c, dirty: false, hasPhoto: true}, 73 * H), R(true, true, false));
+  // Einsatz abgeschlossen, Änderungen noch nicht hochgeladen (Nachzügler)
+  assert.deepEqual(d({closedAt: c, dirty: true, hasPhoto: true}, 23 * H), R(false, false, false));
+  assert.deepEqual(d({closedAt: c, dirty: true, hasPhoto: false}, 25 * H), R(false, false, true));
+  assert.deepEqual(d({closedAt: c, dirty: true, hasPhoto: true}, 73 * H), R(true, false, true));
+  // Einsatz nie abgeschlossen gemeldet: Frist ab letztem Serverkontakt
+  assert.deepEqual(d({closedAt: null, dirty: false, hasPhoto: true, lastContact: c}, 71 * H), R(false, false, false));
+  assert.deepEqual(d({closedAt: null, dirty: false, hasPhoto: true, lastContact: c}, 73 * H), R(false, true, false));
+  assert.deepEqual(d({closedAt: null, dirty: true, hasPhoto: true, lastContact: c}, 59 * D), R(false, false, false));
+  assert.deepEqual(d({closedAt: null, dirty: true, hasPhoto: true, lastContact: c}, 61 * D), R(false, false, true));
+  // weder Abschluss noch Kontakt bekannt: nichts löschen
+  assert.deepEqual(d({closedAt: null, dirty: true, hasPhoto: true, lastContact: null}, 1000 * D), R(false, false, false));
 });

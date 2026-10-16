@@ -99,3 +99,62 @@ test('Migrationen: jede SECURITY-DEFINER-Tabellenfunktion neueren Datums setzt s
     }
   }
 });
+
+/* ---------- Phase 6.5: Gates für Migrationen ab 0025 (Plan 06.5-00) ---------- */
+
+function migrationsFrom(n){
+  const dir = path.join(ROOT, 'supabase/migrations');
+  return fs.readdirSync(dir).filter(x => x.endsWith('.sql')).sort()
+    .filter(x => parseInt(x.slice(0, 4), 10) >= n)
+    .map(x => ({ file: x, sql: fs.readFileSync(path.join(dir, x), 'utf8') }));
+}
+function stripSqlComments(sql){
+  return sql.replace(/\/\*[\s\S]*?\*\//g, '').replace(/--[^\n]*/g, '');
+}
+
+test('Migrationen ab 0025: JEDE Funktion setzt search_path (auch Trigger-Funktionen)', () => {
+  /* Vakuum-wahr, solange keine Migration >= 0025 existiert. */
+  for (const { file, sql } of migrationsFrom(25)){
+    const clean = stripSqlComments(sql);
+    const re = /create\s+(?:or\s+replace\s+)?function\s+([a-z0-9_."]+)\s*\(/gi;
+    let m;
+    while ((m = re.exec(clean))){
+      const next = clean.slice(m.index + 10).search(/create\s+(?:or\s+replace\s+)?function\s/i);
+      const body = clean.slice(m.index, next === -1 ? clean.length : m.index + 10 + next);
+      assert.ok(/set\s+search_path/i.test(body), file + ': Funktion ohne set search_path: ' + m[1]);
+    }
+  }
+});
+
+test('Migrationen ab 0025: Patienten-Policies unverändert, kein Schreib-Grant auf ccp_devices (D6.5-13, Pitfall 1)', () => {
+  /* argus_patients_write ist FOR ALL: eine Erweiterung würde auch SELECT öffnen.
+   * Nachfrist läuft deshalb über die SECURITY-DEFINER-RPC argus_late_push. */
+  for (const { file, sql } of migrationsFrom(25)){
+    const clean = stripSqlComments(sql);
+    assert.ok(!/(create|alter|drop)\s+policy\b[^;]*argus_patients_/i.test(clean),
+      file + ': ändert eine argus_patients_*-Policy (D6.5-13)');
+    assert.ok(!/grant\s+(insert|update|delete|all)\b[^;]*\bccp_devices\b[^;]*\bto\b[^;]*\banon\b/i.test(clean),
+      file + ': Schreib-Grant auf ccp_devices an anon — Schreiben nur über RPCs');
+  }
+});
+
+test('Jüngste argus_run_purge-Fassung ist vollständig (Pitfall 3)', (t) => {
+  /* 0016 baute auf 0004 statt 0006 auf und verlor den Token-Hygiene-Schritt.
+   * Jede neue Fassung muss ALLE Schritte der Vorgänger enthalten. */
+  const dir = path.join(ROOT, 'supabase/migrations');
+  let latest = null;
+  for (const f of fs.readdirSync(dir).filter(x => x.endsWith('.sql')).sort()){
+    const sql = fs.readFileSync(path.join(dir, f), 'utf8');
+    const m = /create\s+or\s+replace\s+function\s+public\.argus_run_purge\s*\(/i.exec(sql);
+    if (m) latest = { file: f, n: parseInt(f.slice(0, 4), 10), sql, idx: m.index };
+  }
+  if (!latest || latest.n < 26){
+    return t.skip('aktiv ab Migration 0026 (Plan 06.5-02)');
+  }
+  const rest = latest.sql.slice(latest.idx + 10);
+  const next = rest.search(/create\s+(?:or\s+replace\s+)?function\s/i);
+  const body = stripSqlComments(next === -1 ? latest.sql.slice(latest.idx) : latest.sql.slice(latest.idx, latest.idx + 10 + next));
+  for (const kw of ['single_use', 'audit_log', 'governance_log', 'ccp_devices', 'photo_purge_after']){
+    assert.ok(body.includes(kw), latest.file + ': argus_run_purge ohne Schritt "' + kw + '"');
+  }
+});
