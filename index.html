@@ -2055,6 +2055,7 @@ function ccpAdminUI(){
   var h='';
   var isMM=operator&&masterMedic&&operator===masterMedic;
   if(isMM){
+    h+='<button class="navbtn" data-action="funk" style="margin-top:10px"><span class="ic">📻</span><span><span class="t">Funkspruch</span><br><span class="s">Lagemeldung zum Vorlesen</span></span></button>';
     /* CCP zusammenlegen gehört auf die Hauptseite (Feedback 2026-10-14) — direkt
      * neben „abschließen", beides sind die CCP-weiten MasterMedic-Entscheidungen.
      * Nicht im Training (dort ist der CCP ein rein lokaler train-ccp). */
@@ -2985,10 +2986,64 @@ function activeByCat(cat){return patients.filter(function(p){return p.status==="
 function countCat(cat){return activeByCat(cat).length;}
 function countGpa(){return patients.filter(function(p){return p.status==="gpa";}).length;}
 function countPrio(){return patients.filter(function(p){return p.status==="active"&&p.prio;}).length;}
+function countTq(){ return patients.filter(function(p){return p.status==="active"&&p.tqStart;}).length; }
+
+/* ── Funkspruch-Modus (S8, D6.5-10) ───────────────────────────────────────────
+ * Reine Funktionen: lesen NUR die Felder von c (Kennung, Ort, Uhrzeit, Zähler) —
+ * niemals Patientendaten. Alle Tabellen liegen innerhalb der Funktionen, damit
+ * sie einzeln testbar bleiben (tests/funk.test.cjs). */
+function funkText(c){
+  var NATO={A:'Alpha',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',G:'Golf',H:'Hotel',I:'India',J:'Juliett',K:'Kilo',L:'Lima',M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',R:'Romeo',S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',X:'X-Ray',Y:'Yankee',Z:'Zulu'};
+  var ZAHL=['null','ein','zwei','drei','vier','fünf','sechs','sieben','acht','neun','zehn','elf','zwölf'];
+  /* Trainer-Abstimmung offen: Farbwörter vs. T-Kategorien — nur diese Zeile ändern */
+  var FARBE={T1:'Rot',T2:'Gelb',T3:'Grün',T5:'Schwarz'};
+  function z(n){ n=+n||0; return (n>=0&&n<=12)?ZAHL[n]:String(n); }
+  var ken=String(c.kennung||'A').split('/').map(function(k){
+    var u=k.trim().toUpperCase();
+    return NATO[u]||k.trim();
+  }).join('/');
+  var tq=+c.tq||0;
+  var tqTeil=(tq===0)?'kein Tourniquet läuft':(tq===1?'ein Tourniquet läuft':z(tq)+' Tourniquets laufen');
+  var teile=[z(c.t1)+' '+FARBE.T1, z(c.t2)+' '+FARBE.T2, z(c.t3)+' '+FARBE.T3, z(c.t5)+' '+FARBE.T5,
+    z(c.prio)+' Prio', z(c.gpa)+' abtransportiert', tqTeil];
+  return 'CCP '+ken+(c.ort?', '+c.ort:'')+', '+c.hhmm+' — '+teile.join(', ')+'.';
+}
+function funkSds(c){
+  var hm=String(c.hhmm||'').replace(/:/g,'');
+  return 'ARG1|'+String(c.kennung||'A').replace(/\//g,'+')+'|'+hm+'|'+c.nr+'|T1='+c.t1+',T2='+c.t2+',T3='+c.t3+',T5='+c.t5+',P='+c.prio+',G='+c.gpa+',TQ='+c.tq;
+}
+/* Eingaben für den Funkspruch: nur Zähler, Kennung, Ort, korrigierte Uhrzeit, nächste Meldungsnummer. */
+function funkCtx(){
+  var ken=_ccpKennung||'A';
+  if((_ccpIdsKnown||[]).length>1){
+    var seen={}; seen[ken]=true;
+    patients.forEach(function(p){ var b=ccpBase(p.ccp); if(b) seen[b]=true; });
+    ken=Object.keys(seen).sort().join('/');
+  }
+  var d=new Date(nowMs());
+  var hhmm=('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+  var last=0; try{ last=parseInt(localStorage.getItem('argus_funk_n_'+_ccpId),10)||0; }catch(e){}
+  return {kennung:ken, ort:_ccpOrt||'', hhmm:hhmm,
+    t1:countCat('T1'), t2:countCat('T2'), t3:countCat('T3'), t5:countCat('T5'),
+    prio:countPrio(), gpa:countGpa(), tq:countTq(), nr:last+1};
+}
+function vFunk(){
+  var c=funkCtx();
+  var defs=[['T1',CATS.T1,c.t1],['T2',CATS.T2,c.t2],['T3',CATS.T3,c.t3],['T5',CATS.T5,c.t5]];
+  var h='<div class="sech" style="margin-top:0">Meldung Nr. '+c.nr+' · '+esc(c.hhmm)+'</div>';
+  h+='<div style="background:#fff;color:#000;border:3px solid #000;border-radius:12px;padding:16px;font-size:26px;line-height:1.4;font-weight:600;margin-bottom:14px">'+esc(funkText(c))+'</div>';
+  h+='<div class="countbar">';
+  defs.forEach(function(d){ var k=d[1]; h+='<div class="cnt" style="background:'+k.bg+';color:'+k.fg+(k.bd?';border:1px solid '+k.bd:'')+';padding:14px 4px"><span class="n" style="font-size:34px">'+d[2]+'</span><span class="l">'+k.label+'</span></div>'; });
+  h+='</div>';
+  h+='<div class="hint" style="margin-bottom:4px">Kurzform (später TETRA-SDS)</div>';
+  h+='<div style="font-family:var(--mono);font-size:12px;word-break:break-all;background:var(--surf2);border-radius:8px;padding:8px;margin-bottom:14px">'+esc(funkSds(c))+'</div>';
+  h+='<button class="prim" data-action="funksent">✓ Meldung Nr. '+c.nr+' abgesetzt</button>';
+  return h;
+}
 
 function render(){
   $("backbtn").style.display = (state.view==="start"||state.view==="locked"||state.view==="install"||state.view==="praesidium") ? "none" : "flex";
-  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",datenschutz:"Datenschutz",admin:"Administration",einsatzexport:"Übergabe-Export"};
+  var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",datenschutz:"Datenschutz",admin:"Administration",einsatzexport:"Übergabe-Export",funk:"Funkspruch"};
   $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
   if(v!=="capture") state.lastDiscardedId=null;   /* Rückholen-Zeile nur direkt in der Erfassung */
@@ -3004,6 +3059,7 @@ function render(){
   else if(v==="catlist")h=vCatlist();
   else if(v==="patient")h=vPatient();
   else if(v==="einsatzexport")h=vExportPrint();
+  else if(v==="funk")h=vFunk();
   else if(v==="help")h=vHelp();
   else if(v==="datenschutz")h=vDatenschutz();
   $("app").innerHTML=h;
@@ -4723,6 +4779,12 @@ document.addEventListener("click",async function(e){
   if(a==="exportjson"){ await exportEinsatzJson(); return; }
   if(a==="exportback"){ _closeTyp=null; go("overview"); return; }
   if(a==="closeeinsatznow"){ await finalizeCloseEinsatz(); return; }
+  if(a==="funk"){ go("funk"); return; }
+  if(a==="funksent"){
+    var fc=funkCtx();
+    try{ localStorage.setItem('argus_funk_n_'+_ccpId,String(fc.nr)); }catch(e){}
+    toast("Meldung "+fc.nr+" vermerkt"); render(); return;
+  }
   if(a==="ccpclose"){
     /* Früher: nur ausblenden („Daten bleiben"). Jetzt einheitlich der
      * Einsatz-Lebenszyklus: Abschluss mit Lösch-Frist + Bereinigung. */
@@ -5075,6 +5137,7 @@ async function back(){
       go("start");
     }
   }
+  else if(state.view==="funk"){go("home");}
   else if(state.view==="admin"){go("praesidium");}
   else if(state.view==="help"){ go(_ccpId?"home":"start"); }
   else if(state.view==="datenschutz"){ go("help"); }   /* einziger Einstieg: Hilfestellungen */
