@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
 status: Executing Phase 06.5
-last_updated: "2026-10-16T22:05:59.973Z"
+last_updated: "2026-10-16T22:13:01.076Z"
 progress:
   total_phases: 13
   completed_phases: 9
   total_plans: 44
-  completed_plans: 32
+  completed_plans: 33
   percent: 69
 ---
 
