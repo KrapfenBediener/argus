@@ -1648,6 +1648,24 @@ function closeCompleteness(devs, now, own, merged){
 function nachfristOk(closedAt, now, purgeAfter){
   return !!closedAt && now < closedAt+86400000 && (!purgeAfter || now < purgeAfter);
 }
+/* Lokale Löschfristen (Phase 6.5, S6, D6.5-14): reine Entscheidung je lokalem Patienten.
+ * ctx = {closedAt, dirty, hasPhoto, lastContact}. Mit Abschluss: Foto 72 h danach, synchronisierte
+ * Datensätze sofort, Nachzügler (dirty) nach der 24-h-Nachfrist. Ohne Abschluss (Auffangnetz,
+ * wenn die Abschlussmeldung nie ankam): synchronisierte Daten 72 h, nicht synchronisierte 60 Tage
+ * nach dem letzten Serverkontakt. Ohne beides: nichts löschen. */
+function localPurgeDecision(ctx, now){
+  /* Werte = DATENSCHUTZ-SPEC 72 h; Auffangnetz-Schwellen (72 h / 60 Tage ohne Kontakt) = Annahme A4 — Owner/DSB bestätigen */
+  var H=3600000, r={dropPhoto:false, dropRecord:false, dropLate:false};
+  if(ctx.closedAt){
+    r.dropPhoto = !!ctx.hasPhoto && now>=ctx.closedAt+72*H;
+    r.dropRecord = !ctx.dirty;
+    r.dropLate = !!ctx.dirty && now>=ctx.closedAt+24*H;
+  }else if(ctx.lastContact){
+    r.dropRecord = !ctx.dirty && now>=ctx.lastContact+72*H;
+    r.dropLate = !!ctx.dirty && now>=ctx.lastContact+60*24*H;
+  }
+  return r;
+}
 /* Capability-Probe + Uhr-Probe über die RPC argus_server_time (Migration 0025).
  * Fire-and-forget: wirft nie, blockiert die UI nie. Netzfehler/Timeouts lassen
  * _schemaV unverändert; nur eine eindeutig fehlende Funktion setzt es auf 0. */
@@ -2108,6 +2126,7 @@ async function leaveCcpState(){
     if(sb() && netLikelyUp()) flushPendingLeave();   /* Hintergrund — fire-and-forget */
     else toast("Abmeldung wird nachgereicht");
   }
+  try{ flushHerkunft(); }catch(e){}   /* Herkunftsprotokoll noch absenden (Hintergrund) */
   try{ localStorage.removeItem('argus_ccp_id'); }catch(e){}
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
   _ccpId=null; _mergeGroupId=null; _devices=null; patients=[];
@@ -2508,6 +2527,114 @@ async function flushLatePatients(){
   finally{ _lateBusy=false; }
   try{ await showLateLostNotice(); }catch(e){}
 }
+/* ── Lokale Löschfristen ohne Server (Phase 6.5, S6, T-06.5-60/-66/-67) ────
+ * Läuft beim Start, beim Sichtbarwerden und alle 5 min. Nie werfen. Das Foto wird bewusst NICHT
+ * über savePatient entfernt (würde hochladen, _dirty setzen und stempeln) — direkt per sSet.
+ * Fehlt für einen CCP jede Zeitangabe (z. B. direkt nach dem Update), wird argus_last_contact_<id>
+ * = jetzt gesetzt und in diesem Lauf nichts gelöscht (kein Massenverlust). */
+var _purgeBusy=false;
+async function runLocalPurge(){
+  if(_purgeBusy) return;
+  _purgeBusy=true;
+  try{
+    var now=nowMs(), H72=72*3600000, keys=await sList("ccp_pat_"), changed=false, remaining={}, lost=0;
+    for(var i=0;i<keys.length;i++){
+      var p=await sGet(keys[i]);
+      if(!p || p.demo || p.training || !p.ccpId) continue;
+      if(state.edit && state.edit.id===p.id){ remaining[p.ccpId]=true; continue; }   /* gerade geöffnet → später */
+      var mk=readCcpClosed(p.ccpId), lc=null;
+      try{ lc=parseInt(localStorage.getItem('argus_last_contact_'+p.ccpId)||'',10)||null; }catch(e){}
+      if(!mk && !lc){   /* Erstlauf / nie Kontakt gemessen → Uhr starten, nichts löschen */
+        try{ localStorage.setItem('argus_last_contact_'+p.ccpId, String(now)); }catch(e){}
+        remaining[p.ccpId]=true; continue;
+      }
+      var dec=localPurgeDecision({closedAt: mk?mk.closedAt:null, dirty:!!p._dirty, hasPhoto:!!p.photo, lastContact:lc}, now);
+      if(dec.dropRecord || dec.dropLate){
+        await sDel(keys[i]); changed=true;
+        if(dec.dropLate){ lost++; _lateLostKen.push(ccpBase(p.ccp)); }
+      }else if(dec.dropPhoto){
+        p.photo=null; await sSet(keys[i], p); changed=true; remaining[p.ccpId]=true;
+      }else remaining[p.ccpId]=true;
+    }
+    if(lost>0){ try{ localStorage.setItem('argus_late_lost_n', String((parseInt(localStorage.getItem('argus_late_lost_n')||'0',10)||0)+lost)); }catch(e){} }
+    /* Hilfsschlüssel aufräumen, sobald keine lokalen Patienten mehr daran hängen */
+    try{
+      var keep={}; if(_ccpId) keep[_ccpId]=true;
+      (_ccpIdsKnown||[]).forEach(function(x){ keep[x]=true; });
+      var sc=localStorage.getItem('argus_ccp_id'); if(sc) keep[sc]=true;
+      var lm=readLeftMarker(); if(lm && lm.id) keep[lm.id]=true;
+      var lsk=[]; for(var k=0;k<localStorage.length;k++) lsk.push(localStorage.key(k));
+      lsk.forEach(function(key){
+        if(!key) return;
+        var id=null;
+        if(key.indexOf('argus_ccp_closed_')===0) id=key.slice(17);
+        else if(key.indexOf('argus_last_contact_')===0) id=key.slice(19);
+        if(!id || remaining[id] || keep[id]) return;
+        if(key.indexOf('argus_ccp_closed_')===0){ var cm=readCcpClosed(id); if(cm && now<cm.closedAt+H72) return; }
+        localStorage.removeItem(key);
+      });
+    }catch(e){}
+    if(changed){
+      try{ await loadPatients(); }catch(e){}
+      if(!_ccpId && !_training) patients=patients.filter(function(q){return q.demo||q.training;});   /* ohne CCP lädt der Offline-Pfad alles Lokale */
+    }
+  }catch(e){}
+  _purgeBusy=false;
+  try{ await showLateLostNotice(); }catch(e){}
+}
+/* ── Herkunftsprotokoll (Phase 6.5, S7, D6.5-09) ───────────────────────────
+ * Jeder erfolgreiche Upload wird automatisch notiert (Gerät, Weg direkt|nachgereicht, Patienten-ID —
+ * kein Inhalt) und höchstens minütlich gebündelt per argus_log_herkunft gemeldet. Nur ab Schema >= 26.
+ * Queue argus_herkunft_q = {"<ccpId>|<weg>": {dev, ids:[…]}}, je Schlüssel max. 500 IDs. */
+var _herkBusy=false, _herkSeen={};
+function readHerkQ(){
+  try{ var q=JSON.parse(localStorage.getItem('argus_herkunft_q')||'null'); return (q && typeof q==='object') ? q : {}; }catch(e){ return {}; }
+}
+function queueHerkunft(ccpId, weg, ids){
+  try{
+    if(_schemaV<26 || _training || !ccpId || !ids || !ids.length) return;
+    var q=readHerkQ(), k=ccpId+'|'+weg, e=q[k]||(q[k]={dev:0, ids:[]});
+    var d=(ccpId===_ccpId) ? deviceNoSync() : 0; if(d>=1) e.dev=d;
+    ids.forEach(function(id){
+      if(typeof id!=='string' || !id) return;
+      var sk=k+'|'+id; if(_herkSeen[sk]) return;   /* je Sitzung und Weg einmal je Patient */
+      _herkSeen[sk]=true;
+      if(e.ids.indexOf(id)<0) e.ids.push(id);
+    });
+    if(e.ids.length>500) e.ids=e.ids.slice(-500);
+    if(Object.keys(_herkSeen).length>5000) _herkSeen={};
+    localStorage.setItem('argus_herkunft_q', JSON.stringify(q));
+  }catch(e){}
+}
+/* Weg eines Uploads im Hintergrund-Flush: war die Änderung schon länger offen → nachgereicht, sonst direkt. */
+function herkWeg(p){ return (nowMs()-((p && p.updated)||0) > 30000) ? 'nachgereicht' : 'direkt'; }
+async function flushHerkunft(){
+  if(_herkBusy || _schemaV<26 || !sb() || !netLikelyUp()) return;
+  _herkBusy=true;
+  try{
+    var keys=Object.keys(readHerkQ());
+    for(var i=0;i<keys.length;i++){
+      var k=keys[i], q0=readHerkQ(), e0=q0[k];
+      if(!e0 || !e0.ids || !e0.ids.length){ if(e0){ delete q0[k]; try{ localStorage.setItem('argus_herkunft_q', JSON.stringify(q0)); }catch(e){} } continue; }
+      var parts=k.split('|'), ccpId=parts[0], weg=parts[1];
+      var dev=(e0.dev>=1) ? e0.dev : await devForCcp(ccpId);
+      if(dev<1) continue;   /* Gerätenummer noch unbekannt → später */
+      var batch=e0.ids.slice(0,200), res=null;
+      try{ res=await qt(sb().rpc('argus_log_herkunft',{p_ccp_id:ccpId, p_dev:dev, p_weg:weg, p_ids:batch, p_kuerzel:operator||''})); }catch(e){ res=null; }
+      var d=res?res.data:null;
+      if(!d || res.error) continue;   /* Netzfehler → behalten */
+      var q1=readHerkQ();   /* neu lesen: während des Aufrufs können IDs dazugekommen sein */
+      if(d.error){   /* endgültige Server-Antwort (Nachfrist abgelaufen / CCP nicht gefunden / …) → Schlüssel verwerfen */
+        delete q1[k];
+      }else if(q1[k]){
+        q1[k].ids=q1[k].ids.filter(function(x){ return batch.indexOf(x)<0; });
+        if(!q1[k].ids.length) delete q1[k];
+      }
+      try{ localStorage.setItem('argus_herkunft_q', JSON.stringify(q1)); }catch(e){}
+    }
+  }catch(e){}
+  _herkBusy=false;
+}
 /* Offline-Robustheit: lokal noch nicht synchronisierte Patienten in die
  * Cloud-Liste einmischen und — wenn online — nachschieben. Konfliktlösung per
  * 'updated'-Zeitstempel (jüngere Version gewinnt). So überschreibt ein Reconnect
@@ -2537,14 +2664,14 @@ async function flushPendingPatients(arr, client, ccpIds){
         if(!mr.error) mpushed=true; else noteSchemaError(mr.error);
       }catch(e){}
       m._sig=groupSigs(m, FGROUPS);
-      if(mpushed){ delete m._dirty; if(mrow.fts) clearPending(m.fts, mrow.updated); } else { m._dirty=true; }
+      if(mpushed){ queueHerkunft(m.ccpId, herkWeg(lp), [m.id]); delete m._dirty; if(mrow.fts) clearPending(m.fts, mrow.updated); } else { m._dirty=true; }
       await sSet("ccp_pat_"+m.id, m);
       byId[m.id]=normalize(m);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
       continue;
     }
     var pushed=false, lrow=null;
     try{ lrow=patToRow(lp); delete lrow.locked_by; delete lrow.locked_at; var r=await client.from('patients').upsert(lrow); if(!r.error) pushed=true; else noteSchemaError(r.error); }catch(e){}
-    if(pushed){ delete lp._dirty; if(lrow.fts) clearPending(lp.fts||{}, lrow.updated); await sSet("ccp_pat_"+lp.id, lp); }
+    if(pushed){ queueHerkunft(lp.ccpId||_ccpId, herkWeg(lp), [lp.id]); delete lp._dirty; if(lrow.fts) clearPending(lp.fts||{}, lrow.updated); await sSet("ccp_pat_"+lp.id, lp); }
     byId[lp.id]=normalize(lp);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
   }
   arr.length=0;
@@ -2588,6 +2715,7 @@ async function loadPatients(){
           }catch(e4){}
         }
         _ccpIdsKnown=ccpIds;
+        try{ var lcn=String(nowMs()); ccpIds.forEach(function(cid){ localStorage.setItem('argus_last_contact_'+cid, lcn); }); }catch(elc){}   /* Serverkontakt für die lokale Auffangfrist */
         try{ localStorage.setItem('argus_ccp_ids_'+_ccpId, JSON.stringify(ccpIds)); }catch(e3){}
         ccpMerged = realMerged || _demoMerged;
         if(_demoMerged){
@@ -2767,6 +2895,7 @@ async function addPatient(cat){
 async function confirmUpload(id, updatedAtUpload, withFts, weg){
   try{
     var cur=await sGet("ccp_pat_"+id);
+    if(cur && !cur.demo && !cur.training && (cur.ccpId||_ccpId)) queueHerkunft(cur.ccpId||_ccpId, weg||'direkt', [id]);   /* Herkunft (S7): automatisch, ohne Inhalt */
     /* Phase 6.5: Stempel-Bestätigung (p-Flags) nur, wenn die Zeile fts wirklich mitgeführt hat */
     if(cur && withFts) clearPending(cur.fts||{}, updatedAtUpload);
     if(cur && cur._dirty && (cur.updated||0)<=(updatedAtUpload||0)){ delete cur._dirty; await sSet("ccp_pat_"+id,cur); }
@@ -5181,6 +5310,7 @@ setInterval(async function(){
   if(_ccpId && sb()) subscribeRealtime();
   $("clock").textContent=new Date().toLocaleTimeString("de-DE");
   render();
+  try{ runLocalPurge(); }catch(e){}   /* lokale Löschfristen nach dem Start (Hintergrund) */
   maybeShowIntro();
 })();
 
@@ -5216,6 +5346,7 @@ document.addEventListener('visibilitychange', function(){
   checkForUpdate();
   healRealtime();
   try{ deviceHeartbeat(); }catch(e){}   /* Lebenszeichen sofort nach Rückkehr in den Vordergrund */
+  try{ runLocalPurge(); }catch(e){}   /* Fristen prüfen, wenn die App wieder sichtbar wird */
 });
 
 /* Wiederverbindung: offline erfasste/bearbeitete Patienten nachschieben und
@@ -5227,6 +5358,7 @@ window.addEventListener('online', function(){
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
   try{ flushLatePatients(); }catch(e){}   /* Nachzügler nachreichen */
+  try{ flushHerkunft(); }catch(e){}   /* Herkunftsprotokoll nachreichen */
   try{ probeSchema(1); }catch(e){}   /* Schema-/Uhr-Probe nach Reconnect */
   try{ deviceHeartbeat(); }catch(e){}   /* Lebenszeichen nach Reconnect */
   try{ flushPendingLeave(); }catch(e){}   /* vorgemerkte Abmeldung nachreichen */
@@ -5289,4 +5421,8 @@ setInterval(function(){ try{ deviceHeartbeat(); }catch(e){} }, HB_INTERVAL_MS);
 setInterval(function(){ try{ pollDevices(); }catch(e){} }, 10000);
 /* Nachzügler (Phase 6.5): nur solange fremde/abgeschlossene _dirty-Patienten lokal liegen (_lateN). */
 setInterval(function(){ try{ if(_lateN>0) flushLatePatients(); }catch(e){} }, 60000);
+/* Lokale Löschfristen (alle 5 min) + gebündeltes Herkunftsprotokoll (höchstens 1/min). */
+setInterval(runLocalPurge, 300000);
+setInterval(flushHerkunft, 60000);
+setTimeout(runLocalPurge, 4000);   /* auch wenn der Start früh endet (Präsidium/Sperre) */
 </script>
