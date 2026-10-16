@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## Backend — 2026-10-16 · Migration 0025 Sync-Fundament (Patienten)
+**Mehrere Geräte überschreiben sich nicht mehr gegenseitig (Datenbank-Seite von Phase 6.5)**
+- **Warum:** Bisher gewann beim Upload der zuletzt eintreffende Datensatz komplett. Setzt Gerät 5 die Priorität und Gerät 2 offline die Vitalwerte, ging eine der beiden Änderungen still verloren.
+- **Neu:** Die Datenbank führt die Änderungen je Feldgruppe zusammen (Kategorie, Status/Prio, Vitalwerte, Maßnahmen, Tourniquet, Stammdaten, Foto): je Gruppe gewinnt der jüngere Stand. Verworfene Patienten bleiben als leerer „Grabstein" erhalten und lassen sich nicht von alten Ständen wiederbeleben. Ändern zwei Geräte dieselbe Gruppe, wird der unterlegene Wert als Konflikt-Hinweis festgehalten (nie ein Foto). Uhrzeiten aus der Zukunft werden auf Serverzeit + 60 s begrenzt.
+- **Auswertung:** Lage, Einsatzliste und Protokoll zählen keine verworfenen Patienten; Verwerfen und Rückholen stehen im Audit-Protokoll. Neue Abfrage `argus_server_time` meldet Serverzeit und Schema-Stand 25.
+- **Abwärtskompatibel:** Alte App-Versionen funktionieren unverändert (Abgleich über den bisherigen Änderungszeitpunkt je Gruppe). Keine Änderung an den Zugriffsregeln (RLS).
+- **Einspielen:** Vom Owner im Supabase-SQL-Editor (`supabase/migrations/0025_sync_patienten.sql`), danach Prüfskript `supabase/probes/0025_sync_probe.sql`. Unabhängig von 0024.
+
 ## v0.33.22 — 2026-10-15
 **Sofort-Optionen nach dem Anlegen: Datenverlust und Foto-Verlust behoben**
 - **Feedback Einsatztrainer PP Einsatz (15.10.2026):** „Schnell-Optionen für neu angelegte Patienten funktionieren nicht, Fotos darüber werden nicht gespeichert."
