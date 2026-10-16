@@ -528,6 +528,44 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
   Patientendaten/Protokolle/Fotos, jede Aktion protokolliert — damit ist
   die Leitstelle nachts handlungsfähig (einzige 24/7 besetzte Stelle).
 
+## Phase 6.5 — Gerätestatus im CCP & Sync-Fundament (Mesh-Vorstufe) ⬜
+
+**Ziel:** Vor der Übungs-Einführung beim PP Einsatz (Anfrage 2026-10-15) wird die
+Synchronisation so gehärtet, dass jedes Gerät seinen Zustand im CCP kennt und
+Datenverluste/Auferstehungen beim Abgleich ausgeschlossen sind. Alle Bausteine sind
+heute (Server-Transport) nützlich und werden später vom Mesh (Phase 9) 1:1 übernommen.
+
+- **Gerätestatus im CCP:** Heartbeat je Gerät; Zustände *verbunden / außer Reichweite /
+  verlassen*; Gerätezeile für den MasterMedic („1 ★ MUE · 4 — außer Reichweite seit 3 min
+  (1 Patient offen) · 5 — verlassen 14:20"); MasterMedic kann stumme Geräte als abgemeldet
+  markieren / Abmeldung aufheben.
+- **CCP verlassen als bewusster Zustandswechsel:** ‹ aus dem CCP-Hauptmenü zum
+  Präsidiums-Start fragt „CCP A verlassen? Gerät 3 · 2 Patienten noch nicht synchronisiert"
+  (Abbrechen / CCP verlassen). Danach „CCP A wieder beitreten" (gleiche Gerätenummer, kein
+  Code). Kein Dialog bei App-Neustart; MasterToken ausgenommen. Navigation INNERHALB des CCP
+  bleibt dialogfrei (Einfachheits-Prinzip).
+- **Grabsteine für Patienten:** „Verwerfen" löscht nie, sondern markiert (Zeit, Gerät,
+  Bediener); Marker wandert über Server (und später Mesh) → keine Auferstehung durch
+  Geräte mit altem Stand; rückholbar; verschwindet mit der Löschfrist.
+- **Feldweise Zeitstempel + Uhrabgleich:** Abgleich pro Feld statt pro Datensatz (Prio von
+  Gerät 5 und Vitalwerte von Gerät 2 bleiben beide erhalten); Server-Zeit als Referenz,
+  erkannter Uhrversatz wird angezeigt und herausgerechnet; Konflikt im selben Feld →
+  sichtbarer Hinweis an den MasterMedic statt stillem Überschreiben.
+- **Vollständigkeit beim Einsatz-Abschluss:** „4 von 5 Geräten haben alles bestätigt —
+  Gerät 3 außer Reichweite, 2 Patienten offen" + bewusstes „trotzdem abschließen";
+  Nachzügler-Daten werden nach dem Abschluss noch angenommen (Tombstone-/RLS-Regel aus 0011
+  anpassen).
+- **Lokale Löschfristen:** Fristen (Durchgangsspeicher, 72 h Fotos) greifen zeitgesteuert
+  auch ohne Server auf dem Gerät.
+- **Herkunftsprotokoll:** jeder Upload (Gerät, Zeit, Patienten, Weg: direkt / für Gerät X)
+  ins Governance-Log; Abschnitt „Datenherkunft" im Abschlussprotokoll.
+- **Funkspruch-Modus:** standardisierte, vorlesbare CCP-Lagemeldung für den MasterMedic
+  (groß, mit Uhrzeit und Meldungsnummer) — der TETRA-Sprechfunk-Weg, der heute funktioniert.
+- Trainings-Drehbuch nachziehen (Lektion „CCP verlassen / wieder beitreten", „Funkspruch").
+
+**Nicht in dieser Phase:** Peer-to-Peer-Mesh (native App, Phase 9), TETRA-SDS-Kopplung
+(organisatorisch, Spur F), Fotos in der FLZ-Ansicht (Zweckänderung, DSB).
+
 ## Phase 7 — Betriebsbereitschaft & Open Beta ⬜
 
 **Ziel:** Die App ist legal, organisatorisch und dokumentarisch bereit für
@@ -595,6 +633,19 @@ App-zu-App-Schnittstelle) und Fragenkatalog an PTLS Pol/BITBW.
 > Diese Phase ist kein regulärer Entwicklungs-Meilenstein, sondern an eine
 > organisatorisch-politische Entscheidung gebunden. Keine Planung vor
 > Bedingungserfüllung.
+
+**Mesh-Konzept (Owner-Diskussion 2026-10-16, Feedback Einsatztrainer PP Einsatz):**
+Peer-to-Peer-Abgleich im CCP ohne Netz über Multipeer Connectivity (nur nativ/iOS,
+Dienst-iPhones via MDM). Entwurf: Stern-Topologie je ≤ 8 Geräte (Apple-Limit je Sitzung),
+Nabe deterministisch (niedrigste Gerätenummer), Nabenwechsel per Handshake/Timeout,
+Brücken zwischen Sternen (jedes Gerät kann Brücke sein; zwei Brücken je Sternpaar;
+Schleifenschutz per Nachrichtenkennung), wandernde Geräte als Kuriere (Inventarabgleich
+beim Wiederfinden, Hysterese gegen Pendeln), Gateway-Upload (jedes Gerät mit Netz lädt
+alles hoch, was es kennt; Bestätigungen zurück ins Mesh), Fotos nur auf Anforderung,
+Sperr-Ereignisse werden im Mesh verteilt, Vordergrund-Pflicht (iOS) und Akku in die
+Einweisung. Praktische Grenze: zwei Sterne (14 Geräte) je CCP, darüber Hinweis „zweiten
+CCP eröffnen". Fundament (Grabsteine, feldweise Zeitstempel, Uhrabgleich, Gerätestatus,
+Herkunftsprotokoll) wird in **Phase 6.5** vorgezogen gebaut.
 ---
 
 ## Technische Schuld (geparkt, kein aktiver Meilenstein)
