@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
 status: Executing Phase 06.5
-last_updated: "2026-10-16T21:30:35.961Z"
+last_updated: "2026-10-16T21:50:53.868Z"
 progress:
   total_phases: 13
   completed_phases: 9
   total_plans: 44
-  completed_plans: 30
-  percent: 68
+  completed_plans: 31
+  percent: 69
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -940,6 +940,7 @@ bereits existiert).
 | Phase 05-02 | 5min | 2 tasks | 2 files |
 | Phase 05-03 | ~35min | 2 tasks + checkpoint | 1 file |
 | Phase 06.5 P00 | 55min | 3 tasks | 9 files |
+| Phase 06.5 P01 | 11min | 4 tasks | 4 files |
 
 ## Decisions
 
@@ -951,3 +952,4 @@ bereits existiert).
 - [Phase 05-03]: 05-03: Rollenwechsel = revoke(alt)+issue(neu, gleiche USBNK) statt direktem access_tokens-Update (Plan 01 hat keinen dedizierten Rollen-Change-RPC; RLS master-only + serverseitiges Logging); kein "Entsperren" (Widerruf = Kill-Switch, D-11); flz/normal-Person-Login akzeptiert aber ansichtslos (secNoView statt kaputter Master-Ansicht)
 - [Phase 05-03]: 05-03 Gap-Fix: doLogin um dritten Versuch argus_exchange_person_code NACH Master/Admin erweitert (CR-02-Haertung laesst Person-Codes am Master-Exchange korrekt scheitern); USBNK→argusl_kuerzel als Actor → personenscharfe Leitungs-Seiten-Sessions (D-08, sonst usbnk=null)
 - [Phase 06.5-00]: Vertragsfunktionen tragen Hilfsfunktionen innen; Tests extrahieren nur benannte Funktionen
+- [Phase 06.5-01]: Migration 0025 live; Merge-Trigger argus_patients_merge_biu ohne RLS-Aenderung, unabhaengig von 0024; Probe 20/20 ok
