@@ -6,6 +6,14 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## Backend — 2026-10-16 · Migration 0026 Gerätestatus, Nachfrist, Herkunft
+**Datenbank-Seite für Gerätestatus, Nachzügler und Herkunftsnachweis (Phase 6.5)**
+- **Gerätestatus:** Neues Geräteregister je CCP (Gerätenummer, Kürzel, Zeitpunkt des letzten Lebenszeichens, Zahl offener Patienten). Die Zeit stempelt der Server. Geräte melden sich, verlassen den CCP oder werden vom MasterMedic abgemeldet — nur über geprüfte Datenbank-Funktionen, nie per direktem Schreibzugriff; lesen darf nur das eigene Präsidium.
+- **Nachzügler:** Wer beim Einsatz-Abschluss offline war, kann bis 24 Stunden danach seine Patienten nachreichen (`argus_late_push`). Voraussetzung: passendes Präsidium, Gerät im Register, Löschfrist noch nicht erreicht; Fotos nur, solange die Foto-Frist läuft. Die Zugriffsregeln (RLS) bleiben unverändert — geschlossene Einsätze sind weiterhin nicht lesbar, verworfene Patienten bleiben verworfen.
+- **Herkunft:** Wie Patienten ankamen (direkt, nachgereicht, nachfrist) sowie Verlassen, Abmelden und Wiederbeitritt landen pseudonym im Governance-Protokoll (nur Gerätenummer, Weg, zufällige Patienten-IDs, Zähler). Das Einsatzprotokoll liefert dafür zusätzlich `devices` und `herkunft`.
+- **Aufräumen:** Der Purge enthält wieder die Token-Hygiene (seit 0016 verloren) und löscht das Geräteregister mit dem Einsatz. `argus_server_time` meldet jetzt Schema-Stand 26.
+- **Einspielen:** Vom Owner im Supabase-SQL-Editor (`supabase/migrations/0026_geraete_nachfrist_herkunft.sql`), danach Prüfskript `supabase/probes/0026_geraete_probe.sql`. Benötigt 0025.
+
 ## Backend — 2026-10-16 · Migration 0025 Sync-Fundament (Patienten)
 **Mehrere Geräte überschreiben sich nicht mehr gegenseitig (Datenbank-Seite von Phase 6.5)**
 - **Warum:** Bisher gewann beim Upload der zuletzt eintreffende Datensatz komplett. Setzt Gerät 5 die Priorität und Gerät 2 offline die Vitalwerte, ging eine der beiden Änderungen still verloren.
