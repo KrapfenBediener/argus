@@ -1340,7 +1340,7 @@ var FLOW={
   cmd:{q:"Folgt einfachen Befehlen?",ans:[["Ja","R:T2"],["Nein","R:T1"]]}
 };
 
-var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"walk", tacResult:null, edit:null, readonly:false, lastCreatedId:null, capDirect:false, capPopup:false};
+var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"walk", tacResult:null, edit:null, readonly:false, lastCreatedId:null, lastDiscardedId:null, confShow:null, capDirect:false, capPopup:false};
 var patients = [];
 var _tombs = [];           /* Grabsteine (verworfene Patienten) — nicht in patients, nur für Rückholen/Zähler (Plan 04) */
 var _ccpIdsKnown = null;   /* CCP-IDs des aktuellen Verbunds (zuletzt online ermittelt) */
@@ -1482,6 +1482,22 @@ function mergeGroups(local, cloud, groups){
   });
   m.updated=Math.max(local.updated||0, cloud.updated||0);
   return m;
+}
+/* Grabstein (D6.5-05): Inhalt und Foto leeren, Hülle (Nummer, Kategorie, Zeiten) bleibt.
+ * Werte identisch zum Grabstein-Inhalt des Server-Triggers. Verändert p, gibt p zurück. */
+function tombstoneHull(p, by, dev, t){
+  ['name','age','gender','allergies','moi','injury','fr','notes','pupRe','pupLi'].forEach(function(k){ p[k]=''; });
+  p.vit={af:'',spo2:'',hf:'',rr:'',avpu:'',pain:''}; p.tx={}; p.inj=[];
+  p.tqStart=null; p.tqSite=null; p.photo=null;
+  p.status='verworfen'; p.prio=false; p.ready=false;
+  p.deletedAt=t; p.deletedBy=by; p.deletedDev=dev;
+  return p;
+}
+/* Rückholen (D6.5-12): nur die Hülle kommt zurück, keine Eingaben. Stempel "del" neuer als der Grabstein. */
+function restoreTombstone(p, t, dev){
+  p.deletedAt=null; p.deletedBy=''; p.deletedDev=null; p.status='active';
+  stampGroups(p, ['del'], t, dev);
+  return p;
 }
 /* Uhrversatz (D6.5-07): eine Probe = Hin-und-Rück-Zeit + Versatz Server − Gerät. */
 function clockSample(t0, t1, serverMs){ return {rtt:t1-t0, offset:serverMs-(t0+t1)/2}; }
@@ -2170,6 +2186,18 @@ async function loadPatients(){
          * CCP-Verbund für den Offline-Filter merken. */
         _tombs=arr.filter(function(p){return p.deletedAt||p.status==='verworfen';});
         arr=arr.filter(function(p){return !(p.deletedAt||p.status==='verworfen');});
+        _tombs.forEach(function(tq){ tq._sig=groupSigs(tq, FGROUPS); });   /* Rückholen stempelt nur, was sich wirklich ändert */
+        /* Datenschutz: eine lokale, nicht-dirty Kopie eines (fremd) verworfenen Patienten
+         * mit dem Grabstein-Stand überschreiben — Inhalt/Foto leben lokal nicht weiter. */
+        for(var it=0;it<_tombs.length;it++){
+          try{
+            var tb=_tombs[it], lcp0=await sGet("ccp_pat_"+tb.id);
+            if(lcp0 && !lcp0._dirty && !lcp0.demo && !lcp0.training && !lcp0.deletedAt && lcp0.status!=='verworfen'){
+              var tcopy=JSON.parse(JSON.stringify(tb)); delete tcopy._dirty; tcopy._sig=groupSigs(tcopy, FGROUPS);
+              await sSet("ccp_pat_"+tb.id, tcopy);
+            }
+          }catch(e4){}
+        }
         _ccpIdsKnown=ccpIds;
         try{ localStorage.setItem('argus_ccp_ids_'+_ccpId, JSON.stringify(ccpIds)); }catch(e3){}
         ccpMerged = realMerged || _demoMerged;
@@ -2316,6 +2344,7 @@ async function addPatient(cat){
    *  • Offline/keine reserviert: lokal weiterzählen + Gerätenummer → „A-7-2".
    * Cloud-Upload läuft im HINTERGRUND (optimistisch, _dirty bis bestätigt). */
   var num, ccpLabel;
+  state.lastDiscardedId=null;
   if(!_training && _nextReserved && _nextReserved.ccp===_ccpId){
     num=_nextReserved.num; _nextReserved=null; ccpLabel=_ccpKennung;          /* fortlaufende Online-Nummer, kein Suffix */
   }else{
@@ -2357,6 +2386,13 @@ async function confirmUpload(id, updatedAtUpload, withFts){
     if(mem && withFts) clearPending(mem.fts||{}, updatedAtUpload);
     if(mem && (mem.updated||0)<=(updatedAtUpload||0)) delete mem._dirty;
   }catch(e){}
+}
+/* Rückholen speichern (Erfassung + MasterMedic): Hülle wiederherstellen, über die normale Naht. */
+async function restoreTomb(p){
+  restoreTombstone(p, stampNow(), deviceNoSync());
+  normalize(p);
+  await savePatient(p);
+  return p;
 }
 async function savePatient(p){
   /* Phase 6.5: nur tatsächlich geänderte Feldgruppen stempeln (D6.5-06). Ohne Änderung
@@ -2437,6 +2473,7 @@ function render(){
   var titles={locked:"ARGUS",install:"ARGUS installieren",praesidium:"ARGUS",start:"ARGUS",home:"ARGUS",checklist:"Checkliste",capture:"Patient erfassen",overview:"Patientenübersicht",catlist:catDef(state.cat||"T1").label,patient:"Patient",help:"Hilfestellungen",datenschutz:"Datenschutz",admin:"Administration",einsatzexport:"Übergabe-Export"};
   $("title").textContent=titles[state.view]||"ARGUS";
   var v=state.view, h="";
+  if(v!=="capture") state.lastDiscardedId=null;   /* Rückholen-Zeile nur direkt in der Erfassung */
   if(v==="locked")h=vLocked();
   else if(v==="install")h=vInstall();
   else if(v==="praesidium")h=vPraesidium();
@@ -2545,6 +2582,14 @@ function vCapture(){
     if(_photosAllowed) h+='<label id="cap-foto" class="txbtn'+(lc.photo?' on':'')+'" style="flex:1;padding:8px 4px;cursor:pointer;text-align:center;'+(lc.photo?'background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(lc.photo?'Foto ✓':'Foto')+'<input type="file" accept="image/*" capture="environment" data-kind="capphoto" style="display:none"></label>';
     h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="flex:1;padding:8px 4px">öffnen</button>';
     h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:8px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
+    h+='</div>';
+  }
+  /* Direkt nach dem Verwerfen: Hülle zurückholen (D6.5-12) */
+  var ld=(!lc && state.lastDiscardedId)?_tombs.find(function(p){return p.id===state.lastDiscardedId;}):null;
+  if(ld){
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">';
+    h+='<span class="hint">Patient <span class="mono" style="font-weight:700">'+esc(pno(ld))+'</span> verworfen</span>';
+    h+='<button class="txbtn" data-action="capundiscard" style="flex:1;padding:10px 4px">↩ Rückholen</button>';
     h+='</div>';
   }
   h+='</div>';
@@ -4191,11 +4236,33 @@ document.addEventListener("click",async function(e){
       var okv=await confirmModal("Patient "+pno(lcd)+" verwerfen?\n\nDer Patient hat bereits Eingaben — diese gehen unwiderruflich verloren.","Verwerfen");
       if(!okv) return;
     }
-    var dcl=sb();
-    if(dcl && _ccpId){ try{ await dcl.from('patients').delete().eq('id',lcd.id); }catch(e){} }
-    try{ await sDel("ccp_pat_"+lcd.id); }catch(e){}
-    state.lastCreatedId=null;
+    /* Phase 6.5 (D6.5-05): Grabstein statt Löschen — wandert über die normale Speicher-Naht
+     * (lokal sofort, Upload im Hintergrund/Flush) und kann offline nicht wiederauferstehen. */
+    var dt=stampNow(), ddev=deviceNoSync();
+    tombstoneHull(lcd, operator||'', ddev, dt); stampGroups(lcd, ['del'], dt, ddev);
+    await savePatient(lcd);
+    state.lastDiscardedId=lcd.id; state.lastCreatedId=null;
     await loadPatients(); render(); toast("Patient "+pno(lcd)+" verworfen");
+    return;
+  }
+  if(a==="capundiscard"){
+    var ud=state.lastDiscardedId?_tombs.find(function(p){return p.id===state.lastDiscardedId;}):null;
+    if(!ud && state.lastDiscardedId){ try{ ud=await sGet("ccp_pat_"+state.lastDiscardedId); }catch(e){} }
+    if(!ud){ state.lastDiscardedId=null; render(); return; }
+    await restoreTomb(ud);
+    state.lastDiscardedId=null; state.lastCreatedId=ud.id;
+    await loadPatients(); render(); toast("Patient "+pno(ud)+" zurückgeholt");
+    return;
+  }
+  if(a==="tombrestore"){
+    if(!isMasterMedic()) return;
+    var tid=el.getAttribute("data-id");
+    var tp=_tombs.find(function(p){return p.id===tid;});
+    if(!tp) return;
+    var okr=await confirmModal("Patient "+pno(tp)+" zurückholen?\n\nNummer und Kategorie kommen zurück — die früheren Eingaben nicht.","Zurückholen");
+    if(!okr) return;
+    await restoreTomb(tp);
+    await loadPatients(); render(); toast("Patient "+pno(tp)+" zurückgeholt");
     return;
   }
   if(a==="opencat"){state.cat=el.getAttribute("data-cat");go("catlist");return;}

@@ -157,6 +157,55 @@ test('Probe-Konsistenz: jede Vektor-ID kommt in supabase/probes/0025_sync_probe.
   });
 });
 
+/* ---------- Grabstein (Plan 06.5-04) ---------- */
+
+test('tombstoneHull leert Inhalt, behält Hülle', { skip: skipUnless('06.5-04', 'tombstoneHull') }, () => {
+  const f = load(['tombstoneHull']);
+  const p = Object.assign(samplePatient(), {
+    id: 'p7', num: 7, ccp: 'A', created: 111, by: 'MUE', ccpId: 'c1',
+    name: 'Testname', photo: 'data:image/png;base64,AAAA', tqStart: 5, tqSite: 'Arm', prio: true, ready: true,
+    notes: 'x', inj: ['a'], tx: {tq: true}, fts: {cat: {t: 9, d: 1}}
+  });
+  p.vit.hf = '80';
+  const r = f.tombstoneHull(p, 'KLA', 3, 4242);
+  assert.equal(r, p);
+  assert.equal(r.status, 'verworfen');
+  assert.equal(r.photo, null);
+  assert.equal(r.name, '');
+  assert.equal(r.vit.hf, '');
+  assert.deepEqual(r.vit, {af: '', spo2: '', hf: '', rr: '', avpu: '', pain: ''});
+  assert.equal(r.tqStart, null);
+  assert.equal(r.tqSite, null);
+  assert.equal(r.prio, false);
+  assert.equal(r.ready, false);
+  assert.deepEqual(r.tx, {});
+  assert.deepEqual(r.inj, []);
+  assert.equal(r.notes, '');
+  assert.equal(r.cat, 'T2');
+  assert.equal(r.num, 7);
+  assert.equal(r.id, 'p7');
+  assert.equal(r.created, 111);
+  assert.equal(r.ccpId, 'c1');
+  assert.deepEqual(r.fts, {cat: {t: 9, d: 1}});
+  assert.equal(r.deletedAt, 4242);
+  assert.equal(r.deletedBy, 'KLA');
+  assert.equal(r.deletedDev, 3);
+});
+
+test('restoreTombstone: Hülle zurück, del-Stempel neuer, keine Eingaben', { skip: skipUnless('06.5-04', 'tombstoneHull', 'restoreTombstone', 'stampGroups') }, () => {
+  const f = load(['tombstoneHull', 'restoreTombstone', 'stampGroups']);
+  const p = f.tombstoneHull(samplePatient(), 'KLA', 3, 100);
+  f.stampGroups(p, ['del'], 100, 3);
+  f.restoreTombstone(p, 200, 4);
+  assert.equal(p.status, 'active');
+  assert.equal(p.deletedAt, null);
+  assert.equal(p.deletedBy, '');
+  assert.equal(p.deletedDev, null);
+  assert.equal(p.name, '');
+  assert.equal(p.cat, 'T2');
+  assert.deepEqual(p.fts.del, {t: 200, d: 4, b: 0, p: 1});   // erster del-Stempel noch unbestätigt → Basis bleibt 0
+});
+
 /* ---------- Uhrversatz (Plan 06.5-03) ---------- */
 
 test('clockSample: RTT und Versatz', { skip: skipUnless('06.5-03', 'clockSample') }, () => {
