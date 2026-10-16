@@ -1341,7 +1341,156 @@ function esc(s){return (s==null?"":String(s)).replace(/&/g,"&amp;").replace(/</g
  * Nur strikte data:image-Base64-URIs durchlassen (enthalten keine "/</> →
  * nach dieser Prüfung ist Interpolation/Property-Zuweisung sicher), sonst ''. */
 function safePhoto(v){ return (typeof v==='string' && /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(v)) ? v : ''; }
-function nowMs(){return Date.now();}
+/* ── Sync-Fundament (Phase 6.5, Plan 03) ──
+ * Zeitbasis: nowMs() = Geräteuhr + gemessener Server-Versatz (D6.5-07). Die
+ * Geräteuhr selbst wird NIE verändert; rawNowMs() ist die unkorrigierte Zeit
+ * (nur für Messungen/Cache-Buster). */
+var _schemaV = 0;        /* zuletzt erkannte Server-Schema-Version (0 = unbekannt/alt, 25 = Feldgruppen-Merge) */
+var _clockOffset = 0;    /* Versatz Server − Gerät in ms */
+var _clockSamples = [];  /* letzte Uhr-Proben {rtt, offset, at} (max. 5) */
+var _lastStamp = 0;      /* letzter vergebener Gruppen-Stempel (monoton über Neustarts) */
+try{ _schemaV = parseInt(localStorage.getItem('argus_schema_v'),10)||0; }catch(e){}
+try{ _clockOffset = parseInt(localStorage.getItem('argus_clock_offset'),10)||0; }catch(e){}
+try{ _lastStamp = parseInt(localStorage.getItem('argus_last_stamp'),10)||0; }catch(e){}
+function rawNowMs(){return Date.now();}
+function nowMs(){return Date.now()+(_clockOffset||0);}
+/* Änderungsgruppen (D6.5-06) — spiegelt die Gruppen des Merge-Triggers aus Migration 0025 */
+var FGROUPS = {
+  cat:['cat','lastTriage'],
+  st:['status','prio','ready'],
+  vit:['vit','pupRe','pupLi'],
+  tx:['tx'],
+  tq:['tqStart','tqSite'],
+  stamm:['name','age','gender','allergies','moi','injury','fr','notes','inj'],
+  foto:['photo']
+};
+/* Signatur einer Gruppe: Foto nur als Länge + Ende (billig, erkennt Neuaufnahmen),
+ * alles andere als JSON. */
+function groupSig(p, keys){
+  return keys.map(function(k){
+    var v=p[k];
+    if(k==='photo') return (typeof v==='string' && v) ? 'P'+v.length+':'+v.slice(-24) : '';
+    return JSON.stringify(v==null?'':v);
+  }).join('\u0001');
+}
+function groupSigs(p, groups){
+  var o={};
+  Object.keys(groups).forEach(function(g){ o[g]=groupSig(p, groups[g]); });
+  return o;
+}
+/* Welche Gruppen weichen vom zuletzt gespeicherten Stand (p._sig) ab? Ohne _sig: alle. */
+function changedGroups(p, groups){
+  var cur=groupSigs(p, groups), old=p._sig;
+  return Object.keys(groups).filter(function(g){ return !old || old[g]!==cur[g]; });
+}
+function nextStamp(now, last){ return Math.max(now, (last||0)+1); }
+/* Gruppen gs mit Stempel t/Gerät dev versehen. p:1 = noch nicht vom Server bestätigt;
+ * b = Basis (der Stempel, auf dem diese Änderung aufbaut) — bleibt bei weiteren
+ * unbestätigten Änderungen derselben Gruppe erhalten. */
+function stampGroups(p, gs, t, dev){
+  if(!p.fts) p.fts={};
+  gs.forEach(function(g){
+    var o=p.fts[g];
+    var b=o ? (o.p ? (o.b||0) : (o.t||0)) : 0;
+    p.fts[g]={t:t, d:dev, b:b, p:1};
+  });
+  return p;
+}
+/* Upload-Kopie ohne lokale p-Flags; die Quittung "ack" trägt nur t. */
+function ftsForUpload(fts){
+  var out={};
+  Object.keys(fts||{}).forEach(function(k){
+    var e=fts[k]; if(!e || typeof e!=='object') return;
+    var o={t:e.t};
+    if(k!=='ack'){
+      if(e.d!==undefined) o.d=e.d;
+      if(e.b!==undefined) o.b=e.b;
+    }
+    out[k]=o;
+  });
+  return out;
+}
+/* Bestätigung: p-Flags aller Einträge mit t <= upTo entfernen. */
+function clearPending(fts, upTo){
+  Object.keys(fts||{}).forEach(function(k){
+    var e=fts[k];
+    if(e && e.p && (e.t||0)<=(upTo||0)) delete e.p;
+  });
+  return fts;
+}
+/* Uhrversatz (D6.5-07): eine Probe = Hin-und-Rück-Zeit + Versatz Server − Gerät. */
+function clockSample(t0, t1, serverMs){ return {rtt:t1-t0, offset:serverMs-(t0+t1)/2}; }
+function pickOffset(samples){
+  var best=null;
+  (samples||[]).forEach(function(s){ if(s && s.rtt<1500 && (best===null || s.rtt<best.rtt)) best=s; });
+  return best===null ? null : Math.round(best.offset);
+}
+function clockHint(offset){
+  var a=Math.abs(offset||0);
+  if(a<=5000) return '';
+  var dir=offset<0 ? 'vor' : 'nach';
+  var n=a>=120000 ? Math.floor(a/60000)+' min' : Math.round(a/1000)+' s';
+  return 'Geräteuhr geht '+n+' '+dir+' — wird herausgerechnet';
+}
+/* Streng monotoner Stempel (auch wenn der Versatz springt), über Neustarts persistiert. */
+function stampNow(){
+  _lastStamp=nextStamp(nowMs(), _lastStamp);
+  try{ localStorage.setItem('argus_last_stamp', String(_lastStamp)); }catch(e){}
+  return _lastStamp;
+}
+/* Probe in den Versatz übernehmen — erst ab > 1 s Änderung, sonst zittert die Zeit (Pitfall 5). */
+function addClockSample(s){
+  if(!s) return;
+  var now=rawNowMs();
+  s.at=now;
+  _clockSamples=_clockSamples.filter(function(x){return now-(x.at||0)<900000;});   /* alte Proben (Uhr könnte verstellt worden sein) verwerfen */
+  _clockSamples.push(s);
+  if(_clockSamples.length>5) _clockSamples.shift();
+  var o=pickOffset(_clockSamples);
+  if(o!==null && Math.abs(o-_clockOffset)>1000){
+    _clockOffset=o;
+    try{ localStorage.setItem('argus_clock_offset', String(o)); }catch(e){}
+  }
+}
+function setSchemaV(v){
+  _schemaV=v|0;
+  try{ localStorage.setItem('argus_schema_v', String(_schemaV)); }catch(e){}
+}
+/* Fehlt dem Server eine Spalte (PostgREST PGRST204 / Postgres 42703)? Dann sendet der
+ * Client ab sofort ohne die Phase-6.5-Spalten (D6.5-18); _dirty bleibt → nächster Flush. */
+function noteSchemaError(err){
+  if(!err) return false;
+  var m=String(err.message||'');
+  var miss = err.code==='PGRST204' || err.code==='42703' ||
+    (/column/i.test(m) && /(does not exist|Could not find)/i.test(m));
+  if(miss && _schemaV!==0) setSchemaV(0);
+  return miss;
+}
+/* Capability-Probe + Uhr-Probe über die RPC argus_server_time (Migration 0025).
+ * Fire-and-forget: wirft nie, blockiert die UI nie. Netzfehler/Timeouts lassen
+ * _schemaV unverändert; nur eine eindeutig fehlende Funktion setzt es auf 0. */
+var _schemaProbing = false;
+async function probeSchema(n){
+  var client=sb(); if(!client || _schemaProbing) return;
+  _schemaProbing=true;
+  try{
+    for(var i=0;i<(n||1);i++){
+      var t0=rawNowMs(), r=null;
+      try{ r=await qt(client.rpc('argus_server_time')); }catch(e){ break; }
+      var t1=rawNowMs();
+      if(r && !r.error && r.data && typeof r.data==='object'){
+        setSchemaV(r.data.v);
+        var sv=Number(r.data.now);
+        if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
+      }else{
+        var er=r&&r.error, em=String((er&&er.message)||'');
+        if(er && (er.code==='PGRST202' || r.status===404 || /Could not find the function/i.test(em))) setSchemaV(0);
+        break;   /* Netzfehler/Timeout → Wert unverändert lassen, nicht weiter proben */
+      }
+    }
+  }catch(e){}
+  _schemaProbing=false;
+}
 function two(n){return (n<10?"0":"")+n;}
 /* ── Local-First-Netzhelfer (2026-10-14) ──
  * Offline fror jede Aktion ~5 s ein, weil Cloud-Aufrufe im Aktionspfad awaited
@@ -2220,7 +2369,7 @@ function vHome(){
     '<div style="background:#F2B600;color:#1b1d20;padding:12px 14px;margin-bottom:8px;border-radius:10px;text-align:center;font-weight:700;font-size:16px;border:2px solid #c9960a;letter-spacing:.3px">🎓 SCHULUNGSUMGEBUNG — keine echten Patientendaten</div>':
     '';
   return countbar()+schulBanner+
-  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()&&netLikelyUp()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+'</div></div>'+
+  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()&&netLikelyUp()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+(function(){var h=clockHint(_clockOffset);return h?'<br><span class="hint">⏱ '+esc(h)+'</span>':'';})()+'</div></div>'+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
@@ -4271,6 +4420,7 @@ setInterval(async function(){
     state.view='praesidium'; render(); return;
   }
   await refreshJwtIfNeeded();
+  try{ probeSchema(3); }catch(e){}   /* Schema-/Uhr-Probe (D6.5-18/-07) — fire-and-forget, KEIN await */
   if(_revokedLocked) return;   /* Re-Exchange hat die Code-Sperre erkannt → init hier beenden */
   checkRevokedCode();          /* fire-and-forget (KEIN await) — der Start wartet nie auf den Re-Check */
   var storedCcp=localStorage.getItem('argus_ccp_id');
@@ -4340,6 +4490,7 @@ window.addEventListener('online', function(){
   checkRevokedCode();    /* Reconnect: Code-Sperre nachprüfen (fire-and-forget, offline-Guard intern) */
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
+  try{ probeSchema(1); }catch(e){}   /* Schema-/Uhr-Probe nach Reconnect */
   try{ ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer nach Reconnect sichern */
   try{ prefetchNum(true); }catch(e){}      /* nächste Online-Nummer sofort vorab holen (nicht auf Wächter-Bestätigung warten) */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
@@ -4379,6 +4530,7 @@ setInterval(function(){
       try{ if(_sb && _sb.realtime && _sb.realtime.setAuth && currentJwt) _sb.realtime.setAuth(currentJwt); }catch(e){}
       try{ healRealtime(); }catch(e){}
       try{ flushPendingClose(); }catch(e){}
+      try{ probeSchema(1); }catch(e){}
       try{ loadMeta().then(function(){ return loadPatients(); }).then(function(){ try{render();}catch(e){} }); }catch(e){}
       try{ checkForUpdate(); }catch(e){}
       try{ prefetchNum(); }catch(e){}
