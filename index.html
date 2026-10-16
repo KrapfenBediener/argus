@@ -1629,6 +1629,7 @@ async function probeSchema(n){
         var vPrev=_schemaV;
         setSchemaV(r.data.v);
         if(vPrev<26 && _schemaV>=26){ try{ deviceHeartbeat(); }catch(e){} }   /* Geräte-RPCs neu verfügbar → sofort melden */
+        if(_schemaV>=26){ try{ flushPendingLeave(); }catch(e){} }   /* vorgemerkte Abmeldung nachreichen (App-Start/Reconnect) */
         var sv=Number(r.data.now);
         if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
       }else{
@@ -1658,7 +1659,7 @@ async function deviceHeartbeat(){
     var t1=rawNowMs();
     var d=r?r.data:null;
     if(d && !d.error && ccpAt===_ccpId){
-      _hbFirst=false;
+      _hbFirst=!!d.left_at;   /* Server meldet noch „verlassen“ (spät eingetroffenes Verlassen) → nächster Beat bekräftigt den Wiederbeitritt */
       var sv=Number(d.now);
       if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
       try{ localStorage.setItem('argus_last_contact_'+ccpAt, String(nowMs())); }catch(e){}
@@ -2034,6 +2035,65 @@ async function leaveCurrentCcp(){
   _mergeGroupId=null; _ccpKennung='A'; _demoMerged=false; ccpMerged=false; patients=[];
   try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && !pp.demo) await sDel(lk[i]); } }catch(e){}
 }
+/* ════════ CCP verlassen / wieder beitreten (Phase 6.5, D6.5-02/-03/-04) ════════
+ * Das Verlassen ist ein bewusster, NICHT blockierender Zustandswechsel an der CCP-Grenze
+ * (Dialog nur im back()-Zweig des CCP-Hauptmenüs). Es löscht KEINE Patienten
+ * (leaveCurrentCcp wird bewusst nicht benutzt): ccp_pat_*, ccp_devno_<id> und
+ * argus_ccpcreator_<id> bleiben für den Wiederbeitritt unter derselben Gerätenummer.
+ * Marker argus_ccp_left = {id,kennung,ort,dev,ts,op,open,praesidiumId,training,pendingServer}
+ * — nur Zähler und Kennungen, keine Patientendaten. */
+function readLeftMarker(){
+  try{ var m=JSON.parse(localStorage.getItem('argus_ccp_left')||'null'); return (m && typeof m==='object' && m.id) ? m : null; }catch(e){ return null; }
+}
+function writeLeftMarker(m){ try{ localStorage.setItem('argus_ccp_left', JSON.stringify(m)); }catch(e){} }
+function clearLeftMarker(onlyTraining){
+  try{
+    if(onlyTraining){ var m=readLeftMarker(); if(!m || !m.training) return; }
+    localStorage.removeItem('argus_ccp_left');
+  }catch(e){}
+}
+function leavePending(){ var m=readLeftMarker(); return !!(m && m.pendingServer && !m.training); }
+async function leaveCcpState(){
+  var tr=!!_training;
+  /* Letzter Abgleich best effort (max. 2,5 s) — nie länger warten. */
+  try{
+    if(!tr && _ccpId && sb() && netLikelyUp()) await Promise.race([loadPatients(), new Promise(function(r){ setTimeout(r, 2500); })]);
+  }catch(e){}
+  var n=0; try{ n=patients.filter(function(p){return p._dirty;}).length; }catch(e){}
+  var dev=deviceNoSync();
+  /* Server-Ereignis nur, wenn es das Geräteregister gibt (Schema ≥ 26) und eine Gerätenummer bekannt ist. */
+  var needServer = !tr && _schemaV>=26 && dev>=1;
+  writeLeftMarker({id:_ccpId, kennung:_ccpKennung, ort:_ccpOrt||'', dev:dev, ts:nowMs(), op:operator||'', open:n,
+    praesidiumId:_praesidiumId||null, training:tr, pendingServer:needServer});
+  if(needServer){
+    if(sb() && netLikelyUp()) flushPendingLeave();   /* Hintergrund — fire-and-forget */
+    else toast("Abmeldung wird nachgereicht");
+  }
+  try{ localStorage.removeItem('argus_ccp_id'); }catch(e){}
+  if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
+  _ccpId=null; _mergeGroupId=null; _devices=null; patients=[];
+  _hbCcp=null; _hbFirst=true;   /* nächster Beat in diesem CCP bekräftigt den Wiederbeitritt */
+}
+/* Vorgemerkte Abmeldung an den Server nachreichen (App-Start, online, Rückkehr der Verbindung).
+ * Nur eine endgültige Server-Antwort (auch Fehler-JSON/closed) beendet die Vormerkung;
+ * Netzfehler lassen sie stehen. */
+var _leaveFlushing=false;
+async function flushPendingLeave(){
+  if(_leaveFlushing) return;
+  var m=readLeftMarker();
+  if(!m || !m.pendingServer || m.training || _schemaV<26 || !sb() || !netLikelyUp() || !(m.dev>=1)) return;
+  _leaveFlushing=true;
+  try{
+    for(var i=0;i<15 && _hbBusy;i++) await new Promise(function(r){ setTimeout(r, 100); });   /* laufenden Beat abwarten (nicht überholen) */
+    var r=await qt(sb().rpc('argus_device_leave',{p_ccp_id:m.id, p_dev:m.dev, p_operator:m.op||'', p_open_n:m.open|0}));
+    var d=r?r.data:null;
+    if(d && typeof d==='object'){
+      var cur=readLeftMarker();
+      if(cur && cur.id===m.id && cur.ts===m.ts){ cur.pendingServer=false; writeLeftMarker(cur); }
+    }
+  }catch(e){}
+  _leaveFlushing=false;
+}
 /* ════════ Einsatz-Lebenszyklus: abschließen, sperren, bereinigen ════════════
  * Der MasterMedic schließt den Einsatz ab (Typ + Lösch-Frist, optionaler
  * Übergabe-Export), der Server sperrt ihn (argus_close_einsatz: closed_at,
@@ -2051,6 +2111,7 @@ function isCcpClosedRow(row){
 }
 /* Lokale Bereinigung zum abgeschlossenen Einsatz. Demo-/Trainingsdaten bleiben. */
 async function cleanupClosedEinsatz(){
+  try{ var lmc=readLeftMarker(); if(lmc && !lmc.training && (!_ccpId || lmc.id===_ccpId)) clearLeftMarker(); }catch(e){}   /* Wiederbeitritt zu einem abgeschlossenen CCP gibt es nicht */
   try{
     var keys=await sList("ccp_pat_");
     for(var i=0;i<keys.length;i++){
@@ -3313,7 +3374,21 @@ function vStart(){
   h += '<div style="font-size:28px;font-weight:600;letter-spacing:-.5px;margin-bottom:5px">ARGUS</div>';
   h += '<div class="hint">Koordinierung · Sichtung · Transport</div>';
   h += '</div>';
-  if(hasSession){
+  var lm = readLeftMarker();
+  var lmShow = !!(lm && (lm.training===!!_training) && (_training || (lm.praesidiumId||null)===(_praesidiumId||null)));
+  if(lmShow){
+    /* Nach bewusstem Verlassen (D6.5-03): gleiche Gerätenummer, kein Code. */
+    var lmK = esc(lm.kennung||'A');
+    h += '<div class="banner" style="margin-bottom:16px"><span>↩</span><div>';
+    h += '<span style="font-weight:600">CCP '+lmK+(lm.ort?' · '+esc(lm.ort):'')+' — verlassen</span>';
+    var lmInfo = [];
+    if(lm.dev>=1) lmInfo.push('Gerät '+esc(lm.dev));
+    if(lm.open>0) lmInfo.push(esc(lm.open)+' '+(lm.open===1?'Patient':'Patienten')+' noch nicht synchronisiert');
+    if(lmInfo.length) h += '<br><span class="hint">'+lmInfo.join(' · ')+'</span>';
+    h += '</div></div>';
+    h += '<button class="prim" data-action="rejoinccp" style="margin-bottom:10px">↩ CCP '+lmK+' wieder beitreten</button>';
+    h += '<button class="ghost" data-action="newccp" style="margin-bottom:8px">Neue CCP eröffnen</button>';
+  } else if(hasSession){
     var activeCount = patients.filter(function(p){return p.status==="active";}).length;
     h += '<div class="banner" style="margin-bottom:16px"><span>↩</span><div>';
     h += '<span style="font-weight:600">Aktive CCP</span>';
@@ -3500,14 +3575,14 @@ function trainCount(){ return patients.filter(function(p){return p.training;}).l
 function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
 function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; if(_training)_photosAllowed=true; }catch(e){} }   /* Reload mitten im Training: Foto-Schalter lokal wieder an (s. Kommentar oben) */
 function trainSave(){ try{ localStorage.setItem('argus_training',_training?'1':'0'); localStorage.setItem('argus_train_step',String(_trainStep)); }catch(e){} }
-async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; _photosAllowed=true; trainSave(); try{await loadPatients();}catch(e){} render(); }   /* Foto-Schalter lokal an (train-ccp synct nie → kein Cloud-Leck) */
+async function startTraining(){ if(!_training){ try{await trainReset();}catch(e){} clearLeftMarker(true); _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; _photosAllowed=true; trainSave(); try{await loadPatients();}catch(e){} render(); }   /* Foto-Schalter lokal an (train-ccp synct nie → kein Cloud-Leck) */
 async function trainReset(){ try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && pp.training) await sDel(lk[i]); } }catch(e){} }
 async function endTraining(){
   /* Overlay (Spotlight + Panel) VOR dem Dialog entfernen, sonst liegt es im Vordergrund. */
   try{ trainClearSpot(); var pe=document.getElementById('train-coach'); if(pe&&pe.parentNode)pe.parentNode.removeChild(pe); }catch(e){}
   var ok=await confirmModal('Training beenden?\n\nDie Übungsdaten auf diesem Gerät werden entfernt. Echte CCPs sind nicht betroffen.','Beenden');
   if(!ok){ try{ renderCoach(); }catch(e){} return; }
-  _training=false; _photosAllowed=true; trainSave(); try{ trainTeardown(); }catch(e){}   /* Fotos bleiben dauerhaft an (v0.31.0) */ try{await trainReset();}catch(e){} if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
+  _training=false; _photosAllowed=true; trainSave(); try{ trainTeardown(); }catch(e){}   /* Fotos bleiben dauerhaft an (v0.31.0) */ try{await trainReset();}catch(e){} clearLeftMarker(true); if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
 }
 function trainStep(d){
   if(d>0){ _trainStep=Math.min(_trainStep+1,TRAIN_LESSONS.length); if(_trainStep>_trainMax)_trainMax=_trainStep; }
@@ -4064,9 +4139,12 @@ document.addEventListener("click",async function(e){
     await refreshSchulungFlag();
     _ccpId=null; _channel=null;
     localStorage.removeItem('argus_ccp_id');
+    clearLeftMarker();
     await loadPatients(); await loadOpenCcpCount(); go("start"); return;
   }
   if(a==="changepraesidium"){
+    try{ flushPendingLeave(); }catch(e){}   /* vorgemerkte Abmeldung noch mit dem bisherigen Zugang senden */
+    clearLeftMarker();
     _praesidiumId=null; _praesidiumName='';
     localStorage.removeItem('argus_praesidium_id');
     localStorage.removeItem('argus_praesidium_name');
@@ -4121,6 +4199,38 @@ document.addEventListener("click",async function(e){
   if(a==="whatsnew"){whatsNewModal(null,3);return;}
   if(a==="starttraining"){ startTraining(); return; }
   if(a==="showintro"){introOverlay();return;}
+  if(a==="rejoinccp"){
+    var rm=readLeftMarker(); if(!rm){ render(); return; }
+    if(rm.training){   /* Training: rein lokal */
+      if(!_training){ clearLeftMarker(); render(); return; }
+      _ccpId=rm.id; _ccpKennung=rm.kennung||'A'; _ccpOrt=rm.ort||'';
+      clearLeftMarker();
+      try{ await loadPatients(); }catch(e){}
+      go("home"); return;
+    }
+    var rcl=sb();
+    if(rcl && netLikelyUp()){   /* offline = Local-first: ohne Prüfung beitreten */
+      try{
+        var rrow=await qt(rcl.from('ccps').select('*').eq('id',rm.id).maybeSingle());
+        if(rrow && rrow.data && isCcpClosedRow(rrow.data)){
+          clearLeftMarker();
+          await confirmModal("CCP "+(rm.kennung||'A')+" wurde inzwischen abgeschlossen.\n\nNicht übertragene Patienten werden — sofern möglich — nachgereicht.","OK");
+          await loadOpenCcpCount(); go("start"); return;
+        }
+      }catch(e){}
+    }
+    _ccpId=rm.id; try{ localStorage.setItem('argus_ccp_id', rm.id); }catch(e){}
+    _ccpKennung=rm.kennung||'A'; _ccpOrt=rm.ort||'';
+    clearLeftMarker();   /* eine noch nicht übertragene Abmeldung verfällt: serverseitig war das Gerät nie „verlassen“ */
+    _hbCcp=null; _hbFirst=true;
+    try{ await ensureDeviceNo(sb()); }catch(e){}   /* dieselbe Nummer aus ccp_devno_<id> bzw. Ersteller = 1 */
+    try{ await loadMeta(); }catch(e){}
+    try{ await loadPatients(); }catch(e){}
+    subscribeRealtime();
+    go("home");
+    try{ deviceHeartbeat(); }catch(e){}   /* beendet „verlassen“ sofort */
+    return;
+  }
   if(a==="resumeccp"){
     /* Kürzel bekannt, aber MasterMedic noch nicht gesetzt → automatisch übernehmen */
     if(operator && !masterMedic){await setMasterMedic(operator);}
@@ -4143,6 +4253,7 @@ document.addEventListener("click",async function(e){
       var ortTr=null;
       try{ ortTr=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)",""); }catch(e){ ortTr=''; }
       if(ortTr===null){ toast("Abgebrochen — kein CCP angelegt"); render(); return; }   /* Ansicht bleibt, Lektion bleibt stehen */
+      clearLeftMarker();   /* neuer CCP → altes „verlassen“ verfällt */
       if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
       _ccpId='train-ccp'; _mergeGroupId=null; _ccpKennung='A'; patients=[];
       try{
@@ -4163,7 +4274,7 @@ document.addEventListener("click",async function(e){
     if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
     _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[];
     var ok2=await openOrCreateCCP();
-    if(ok2){ subscribeRealtime(); await loadPatients(); }
+    if(ok2){ clearLeftMarker(); subscribeRealtime(); await loadPatients(); }
     else{
       _ccpId=prevCcp.id; _mergeGroupId=prevCcp.grp; _ccpKennung=prevCcp.k; patients=prevCcp.pats;
       if(_ccpId && sb()) subscribeRealtime();
@@ -4208,6 +4319,7 @@ document.addEventListener("click",async function(e){
     toast("Verbinde mit CCP…");
     await loadMeta();await loadPatients();
     subscribeRealtime();
+    clearLeftMarker();
     go("home");return;
   }
   if(a==="setoperator"){e.preventDefault();var v=await promptModal("Bediener-Kürzel (z. B. Streife / Name):",operator||"");if(v!=null){operator=v.trim();await setOperatorStore(operator);if(!masterMedic&&operator){await setMasterMedic(operator);}render();}return;}
@@ -4614,7 +4726,18 @@ async function back(){
   else if(state.view==="einsatzexport"){_closeTyp=null;go("overview");}
   else if(state.view==="catlist"){go("overview");}
   else if(state.view==="capture"&&state.capMode==="tac"){state.capMode="menu";render();}
-  else if(state.view==="home"){await loadOpenCcpCount();go("start");}
+  else if(state.view==="home"){
+    /* Einziger Verlassen-Hook (D6.5-02): die CCP-Grenze. MasterToken-Sitzung bleibt ausgenommen. */
+    if(_isMaster || !_ccpId){ await loadOpenCcpCount(); go("start"); }
+    else{
+      var nLeave=0; try{ nLeave=patients.filter(function(p){return p._dirty;}).length; }catch(e){}
+      var okLeave=await confirmModal(leaveText(_ccpKennung, deviceNoSync(), nLeave, isMasterMedic()), "CCP verlassen");
+      if(!okLeave) return;
+      await leaveCcpState();
+      await loadOpenCcpCount();
+      go("start");
+    }
+  }
   else if(state.view==="admin"){go("praesidium");}
   else if(state.view==="help"){ go(_ccpId?"home":"start"); }
   else if(state.view==="datenschutz"){ go("help"); }   /* einziger Einstieg: Hilfestellungen */
@@ -4896,6 +5019,7 @@ window.addEventListener('online', function(){
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
   try{ probeSchema(1); }catch(e){}   /* Schema-/Uhr-Probe nach Reconnect */
   try{ deviceHeartbeat(); }catch(e){}   /* Lebenszeichen nach Reconnect */
+  try{ flushPendingLeave(); }catch(e){}   /* vorgemerkte Abmeldung nachreichen */
   try{ ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer nach Reconnect sichern */
   try{ prefetchNum(true); }catch(e){}      /* nächste Online-Nummer sofort vorab holen (nicht auf Wächter-Bestätigung warten) */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
@@ -4923,8 +5047,10 @@ function netProbe(){
   });
 }
 setInterval(function(){
-  if(_training || !_ccpId || _netProbing) return;
-  var pending=false; try{ pending=patients.some(function(p){return p._dirty;}); }catch(e){}
+  if(_training || _netProbing) return;
+  var pendingLeave=leavePending();   /* vorgemerkte Abmeldung hält den Wächter auch ohne aktiven CCP wach */
+  if(!_ccpId && !pendingLeave) return;
+  var pending=pendingLeave; try{ pending=pending||patients.some(function(p){return p._dirty;}); }catch(e){}
   if(_netUp && !pending && navigator.onLine!==false) return;   /* alles gut → kein Ping nötig */
   _netProbing=true;
   netProbe().then(function(up){
@@ -4939,6 +5065,7 @@ setInterval(function(){
       try{ loadMeta().then(function(){ return loadPatients(); }).then(function(){ try{render();}catch(e){} }); }catch(e){}
       try{ checkForUpdate(); }catch(e){}
       try{ prefetchNum(); }catch(e){}
+      try{ flushPendingLeave(); }catch(e){}
     } else {
       var was=_netUp; _netUp=up;
       if(was!==up){ try{ render(); }catch(e){} }   /* Banner sofort auf 🔴/🟢 umstellen */
