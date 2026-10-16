@@ -1543,6 +1543,42 @@ function clockHint(offset){
   var n=a>=120000 ? Math.floor(a/60000)+' min' : Math.round(a/1000)+' s';
   return 'Geräteuhr geht '+n+' '+dir+' — wird herausgerechnet';
 }
+/* ── Gerätestatus (Phase 6.5, D6.5-01/-15) ─────────────────────────────────
+ * Reine Funktionen (Tests extrahieren sie per Name — Hilfen stehen innen).
+ * Drei Zustände + abgemeldet: verbunden (< 30 s) / außer Reichweite (unbestätigt) /
+ * verlassen (bestätigt) / abgemeldet (MasterMedic-Markierung). */
+var HB_INTERVAL_MS = 15000;   /* Lebenszeichen-Takt; der 30-s-Wert in devStatus ist synchron dazu zu halten */
+function devStatus(d, now){
+  if(d.left_at) return 'verlassen';
+  if(d.lost_at && d.lost_at>=(d.last_seen||0)) return 'abgemeldet';   /* neueres Lebenszeichen schlägt die Vermutung */
+  return (now-(d.last_seen||0))<30000 ? 'verbunden' : 'ausser_reichweite';   /* 30 s = zwei Beats Toleranz — synchron zu HB_INTERVAL_MS halten */
+}
+function devLabel(d, now, o){
+  o=o||{};
+  var st=devStatus(d, now), n=d.open_n|0;
+  var nm=(o.merged && d.kennung) ? (d.kennung+'·'+d.device_no) : String(d.device_no);
+  var op=d.operator||'';
+  var head=nm+(op ? (' '+((o.mm && op===o.mm) ? '★ ' : '')+op) : '');
+  var cnt=function(w){ return ' ('+n+' '+(n===1?'Patient':'Patienten')+' '+w+')'; };
+  if(st==='verbunden'){
+    return head+(n>0 ? cnt('offen') : '');
+  }
+  if(st==='ausser_reichweite'){
+    var min=Math.floor((now-(d.last_seen||0))/60000);
+    return head+' — außer Reichweite seit '+(min<1 ? 'unter 1 min' : (min+' min'))+(n>0 ? cnt('offen') : '');
+  }
+  if(st==='abgemeldet') return head+' — abgemeldet'+(n>0 ? cnt('möglicherweise verloren') : '');
+  return head+' — verlassen '+(o.hhmm ? o.hhmm(d.left_at) : '')+(n>0 ? cnt('offen') : '');
+}
+/* Dialogtext „CCP verlassen?" (D6.5-02): Gerätenummer + noch nicht synchronisierte Patienten. */
+function leaveText(kennung, dev, n, isMM){
+  var t='CCP '+kennung+' verlassen?\n\n';
+  var sync = n>0 ? (n+' '+(n===1?'Patient':'Patienten')+' noch nicht synchronisiert') : 'alles synchronisiert';
+  if(dev>=1) t+='Du bist Gerät '+dev+' · '+sync;
+  else t+=sync.charAt(0).toUpperCase()+sync.slice(1);
+  if(isMM) t+='\n\nDu bist MasterMedic — die Rolle bleibt bei dir, bis jemand sie übernimmt.';
+  return t;
+}
 /* Streng monotoner Stempel (auch wenn der Versatz springt), über Neustarts persistiert. */
 function stampNow(){
   _lastStamp=nextStamp(nowMs(), _lastStamp);
@@ -1590,7 +1626,9 @@ async function probeSchema(n){
       try{ r=await qt(client.rpc('argus_server_time')); }catch(e){ break; }
       var t1=rawNowMs();
       if(r && !r.error && r.data && typeof r.data==='object'){
+        var vPrev=_schemaV;
         setSchemaV(r.data.v);
+        if(vPrev<26 && _schemaV>=26){ try{ deviceHeartbeat(); }catch(e){} }   /* Geräte-RPCs neu verfügbar → sofort melden */
         var sv=Number(r.data.now);
         if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
       }else{
@@ -1601,6 +1639,58 @@ async function probeSchema(n){
     }
   }catch(e){}
   _schemaProbing=false;
+}
+/* ── Heartbeat + Geräteliste (Phase 6.5, S1, D6.5-01/-11) ──────────────────
+ * Jedes Gerät im aktiven CCP meldet sich im Vordergrund alle HB_INTERVAL_MS
+ * (nur Schema ≥ 26, nie Training, nie MasterToken). Fire-and-forget: blockiert
+ * nie die UI; Fehler/Netzprobleme werden verschluckt (Local-first). */
+var _hbBusy=false, _hbCcp=null, _hbFirst=true, _devices=null, _devicesAt=0, _devPollBusy=false;
+async function deviceHeartbeat(){
+  if(_training || !_ccpId || _isMaster || _schemaV<26 || document.hidden || navigator.onLine===false || _hbBusy || !sb()) return;
+  var dev=deviceNoSync(); if(dev<1) return;
+  if(_hbCcp!==_ccpId){ _hbFirst=true; _hbCcp=_ccpId; }   /* erster Beat nach jedem Betreten: p_rejoin beendet ein früheres „verlassen" */
+  _hbBusy=true;
+  var ccpAt=_ccpId;
+  try{
+    var openN=0; try{ openN=patients.filter(function(p){return p._dirty;}).length; }catch(e){}
+    var t0=rawNowMs();
+    var r=await qt(sb().rpc('argus_device_heartbeat',{p_ccp_id:ccpAt, p_dev:dev, p_operator:operator||'', p_open_n:openN, p_ver:APP_VERSION, p_rejoin:_hbFirst}));
+    var t1=rawNowMs();
+    var d=r?r.data:null;
+    if(d && !d.error && ccpAt===_ccpId){
+      _hbFirst=false;
+      var sv=Number(d.now);
+      if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
+      try{ localStorage.setItem('argus_last_contact_'+ccpAt, String(nowMs())); }catch(e){}
+      if(d.closed) checkClosedEinsatz();   /* bestehender Abschlusspfad */
+    }
+  }catch(e){}
+  finally{ _hbBusy=false; }
+}
+/* Geräteliste des (Verbund-)CCP für den MasterMedic. Array oder null bei Fehler. */
+async function fetchDevices(){
+  var client=sb(); if(!client || !_ccpId) return null;
+  var ids=(_ccpIdsKnown && _ccpIdsKnown.length) ? _ccpIdsKnown : [_ccpId];
+  try{
+    var r=await qt(client.from('ccp_devices').select('ccp_id,device_no,operator,first_seen,last_seen,open_n,app_version,left_at,lost_at,ccps(kennung)').in('ccp_id', ids));
+    if(!r || r.error || !Array.isArray(r.data)) return null;
+    var arr=r.data.map(function(x){
+      var c=x.ccps; if(Array.isArray(c)) c=c[0];
+      return {ccp_id:x.ccp_id, device_no:x.device_no, operator:x.operator||'', first_seen:x.first_seen, last_seen:x.last_seen,
+        open_n:x.open_n|0, app_version:x.app_version||'', left_at:x.left_at, lost_at:x.lost_at, kennung:(c&&c.kennung)||''};
+    });
+    arr.sort(function(a,b){ return a.kennung<b.kennung?-1:a.kennung>b.kennung?1:(a.device_no-b.device_no); });
+    return arr;
+  }catch(e){ return null; }
+}
+async function pollDevices(){
+  if(!(isMasterMedic() && !_training && _ccpId && _schemaV>=26 && state.view==="home" && !document.hidden && netLikelyUp() && !_devPollBusy)) return;
+  _devPollBusy=true;
+  try{
+    var d=await fetchDevices();
+    if(d){ _devices=d; _devicesAt=nowMs(); }
+  }catch(e){}
+  _devPollBusy=false;
 }
 function two(n){return (n<10?"0":"")+n;}
 /* ── Local-First-Netzhelfer (2026-10-14) ──
@@ -2550,12 +2640,28 @@ function vHome(){
     '';
   return countbar()+schulBanner+
   '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()&&netLikelyUp()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+(function(){var h=clockHint(_clockOffset);return h?'<br><span class="hint">⏱ '+esc(h)+'</span>':'';})()+'</div></div>'+
+  devicesCard()+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
   navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze")+
   abgleichCard()+
   ccpAdminUI();
+}
+/* Geräte im CCP (D6.5-01/-15/-16): nur MasterMedic, nicht im Training, nur mit Geräteliste.
+ * Je Gerät ein großer Knopf: Statuspunkt + devLabel (alle Server-Texte über esc, T-06.5-50). */
+function devicesCard(){
+  if(_training || !isMasterMedic() || !_devices || !_devices.length) return '';
+  var now=nowMs(), merged=(_ccpIdsKnown||[]).length>1;
+  var col={verbunden:'var(--t3)', ausser_reichweite:'var(--t2)', abgemeldet:'var(--t1)', verlassen:'var(--mut)'};
+  var h='<div class="sech">Geräte im CCP</div><div class="card" style="padding:10px">';
+  _devices.forEach(function(d){
+    var st=devStatus(d, now);
+    h+='<button class="txbtn" data-action="devtap" data-ccp="'+esc(d.ccp_id)+'" data-dev="'+esc(d.device_no)+'" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;font-size:15px;margin-bottom:6px;padding:10px 12px">'+
+      '<span style="width:12px;height:12px;border-radius:50%;flex:none;background:'+col[st]+'"></span>'+
+      '<span style="flex:1;color:var(--tx)">'+esc(devLabel(d, now, {mm:masterMedic, merged:merged, hhmm:hhmm}))+'</span></button>';
+  });
+  return h+'</div>';
 }
 /* Abgleich (D6.5-14): nur MasterMedic, nur wenn es etwas zu sehen gibt — im Normalfall erscheint nichts. */
 function abgleichCard(){
@@ -4346,6 +4452,31 @@ document.addEventListener("click",async function(e){
     render(); toast(a==="confadopt"?"Stand übernommen":"Als erledigt markiert");
     return;
   }
+  if(a==="devtap"){
+    if(!isMasterMedic() || _training) return;
+    var dccp=el.getAttribute("data-ccp"), ddev=parseInt(el.getAttribute("data-dev"),10);
+    var dd=(_devices||[]).find(function(x){return x.ccp_id===dccp && x.device_no===ddev;});
+    if(!dd) return;
+    var dnow=nowMs(), dmerged=(_ccpIdsKnown||[]).length>1;
+    var dlab=devLabel(dd, dnow, {mm:masterMedic, merged:dmerged, hhmm:hhmm});
+    var dst=devStatus(dd, dnow);
+    if(dst!=='ausser_reichweite' && dst!=='abgemeldet'){ toast(dlab); return; }
+    if(!netLikelyUp() || !sb()){ toast("Ohne Verbindung nicht möglich"); return; }
+    var dname=(dmerged && dd.kennung) ? (dd.kennung+"·"+dd.device_no) : String(dd.device_no);
+    var dlost=(dst==='ausser_reichweite');
+    var dok=await confirmModal(dlost
+      ? ("Gerät "+dname+" als abgemeldet markieren?\n\nSeine "+dd.open_n+" offenen Patienten gelten dann als möglicherweise verloren. Meldet sich das Gerät wieder, wird die Markierung automatisch aufgehoben.")
+      : ("Abmeldung von Gerät "+dname+" aufheben?"), dlost?"Abmelden":"Aufheben");
+    if(!dok) return;
+    try{
+      var dr=await qt(sb().rpc('argus_device_mark',{p_ccp_id:dccp, p_dev:ddev, p_lost:dlost, p_by:operator||''}));
+      var dres=dr?dr.data:null;
+      if(!dres || dres.error){ toast((dres&&dres.error)||"Nicht möglich — bitte später erneut versuchen"); return; }
+    }catch(e2){ toast("Ohne Verbindung nicht möglich"); return; }
+    var dnew=await fetchDevices(); if(dnew){ _devices=dnew; _devicesAt=nowMs(); }
+    render();
+    return;
+  }
   if(a==="tombrestore"){
     if(!isMasterMedic()) return;
     var tid=el.getAttribute("data-id");
@@ -4752,6 +4883,7 @@ document.addEventListener('visibilitychange', function(){
   if(document.visibilityState!=='visible') return;
   checkForUpdate();
   healRealtime();
+  try{ deviceHeartbeat(); }catch(e){}   /* Lebenszeichen sofort nach Rückkehr in den Vordergrund */
 });
 
 /* Wiederverbindung: offline erfasste/bearbeitete Patienten nachschieben und
@@ -4763,6 +4895,7 @@ window.addEventListener('online', function(){
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
   try{ probeSchema(1); }catch(e){}   /* Schema-/Uhr-Probe nach Reconnect */
+  try{ deviceHeartbeat(); }catch(e){}   /* Lebenszeichen nach Reconnect */
   try{ ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer nach Reconnect sichern */
   try{ prefetchNum(true); }catch(e){}      /* nächste Online-Nummer sofort vorab holen (nicht auf Wächter-Bestätigung warten) */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
@@ -4812,4 +4945,8 @@ setInterval(function(){
     }
   });
 },4000);
+/* Lebenszeichen (Phase 6.5): nur Vordergrund + aktiver CCP (Guards in deviceHeartbeat). Der
+ * MasterMedic holt zusätzlich alle 10 s die Geräteliste (Anzeige übernimmt das 3,5-s-Render). */
+setInterval(function(){ try{ deviceHeartbeat(); }catch(e){} }, HB_INTERVAL_MS);
+setInterval(function(){ try{ pollDevices(); }catch(e){} }, 10000);
 </script>
