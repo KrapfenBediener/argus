@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Milestone complete
-last_updated: "2026-10-16T19:24:18.098Z"
+status: Executing Phase 06.5
+last_updated: "2026-10-16T21:30:35.961Z"
 progress:
-  total_phases: 11
+  total_phases: 13
   completed_phases: 9
-  total_plans: 35
-  completed_plans: 29
-  percent: 82
+  total_plans: 44
+  completed_plans: 30
+  percent: 68
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -939,6 +939,7 @@ bereits existiert).
 | Phase 05-01 | multi-session | 3 tasks | 2 files |
 | Phase 05-02 | 5min | 2 tasks | 2 files |
 | Phase 05-03 | ~35min | 2 tasks + checkpoint | 1 file |
+| Phase 06.5 P00 | 55min | 3 tasks | 9 files |
 
 ## Decisions
 
@@ -949,3 +950,4 @@ bereits existiert).
 - [Phase 05-02]: 05-02-01: audit_log-Retention als Schritt (e) in argus_run_purge (create or replace) — kein zweiter Cron-Job; bigint-ms-Cutoff analog governance_log; Return-JSON additiv (audit_log_retention-Schluessel); 0016 live angewendet + idempotent + Funktionstest bestanden
 - [Phase 05-03]: 05-03: Rollenwechsel = revoke(alt)+issue(neu, gleiche USBNK) statt direktem access_tokens-Update (Plan 01 hat keinen dedizierten Rollen-Change-RPC; RLS master-only + serverseitiges Logging); kein "Entsperren" (Widerruf = Kill-Switch, D-11); flz/normal-Person-Login akzeptiert aber ansichtslos (secNoView statt kaputter Master-Ansicht)
 - [Phase 05-03]: 05-03 Gap-Fix: doLogin um dritten Versuch argus_exchange_person_code NACH Master/Admin erweitert (CR-02-Haertung laesst Person-Codes am Master-Exchange korrekt scheitern); USBNK→argusl_kuerzel als Actor → personenscharfe Leitungs-Seiten-Sessions (D-08, sonst usbnk=null)
+- [Phase 06.5-00]: Vertragsfunktionen tragen Hilfsfunktionen innen; Tests extrahieren nur benannte Funktionen

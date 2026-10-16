@@ -539,37 +539,46 @@ heute (Server-Transport) nützlich und werden später vom Mesh (Phase 9) 1:1 üb
   verlassen*; Gerätezeile für den MasterMedic („1 ★ MUE · 4 — außer Reichweite seit 3 min
   (1 Patient offen) · 5 — verlassen 14:20"); MasterMedic kann stumme Geräte als abgemeldet
   markieren / Abmeldung aufheben.
+
 - **CCP verlassen als bewusster Zustandswechsel:** ‹ aus dem CCP-Hauptmenü zum
   Präsidiums-Start fragt „CCP A verlassen? Gerät 3 · 2 Patienten noch nicht synchronisiert"
   (Abbrechen / CCP verlassen). Danach „CCP A wieder beitreten" (gleiche Gerätenummer, kein
   Code). Kein Dialog bei App-Neustart; MasterToken ausgenommen. Navigation INNERHALB des CCP
   bleibt dialogfrei (Einfachheits-Prinzip).
+
 - **Grabsteine für Patienten:** „Verwerfen" löscht nie, sondern markiert (Zeit, Gerät,
   Bediener); Marker wandert über Server (und später Mesh) → keine Auferstehung durch
   Geräte mit altem Stand; rückholbar; verschwindet mit der Löschfrist.
+
 - **Feldweise Zeitstempel + Uhrabgleich:** Abgleich pro Feld statt pro Datensatz (Prio von
   Gerät 5 und Vitalwerte von Gerät 2 bleiben beide erhalten); Server-Zeit als Referenz,
   erkannter Uhrversatz wird angezeigt und herausgerechnet; Konflikt im selben Feld →
   sichtbarer Hinweis an den MasterMedic statt stillem Überschreiben.
+
 - **Vollständigkeit beim Einsatz-Abschluss:** „4 von 5 Geräten haben alles bestätigt —
   Gerät 3 außer Reichweite, 2 Patienten offen" + bewusstes „trotzdem abschließen";
   Nachzügler-Daten werden nach dem Abschluss noch angenommen (Tombstone-/RLS-Regel aus 0011
   anpassen).
+
 - **Lokale Löschfristen:** Fristen (Durchgangsspeicher, 72 h Fotos) greifen zeitgesteuert
   auch ohne Server auf dem Gerät.
+
 - **Herkunftsprotokoll:** jeder Upload (Gerät, Zeit, Patienten, Weg: direkt / für Gerät X)
   ins Governance-Log; Abschnitt „Datenherkunft" im Abschlussprotokoll.
+
 - **Funkspruch-Modus:** standardisierte, vorlesbare CCP-Lagemeldung für den MasterMedic
   (groß, mit Uhrzeit und Meldungsnummer) — der TETRA-Sprechfunk-Weg, der heute funktioniert.
+
 - Trainings-Drehbuch nachziehen (Lektion „CCP verlassen / wieder beitreten", „Funkspruch").
 
 **Nicht in dieser Phase:** Peer-to-Peer-Mesh (native App, Phase 9), TETRA-SDS-Kopplung
 (organisatorisch, Spur F), Fotos in der FLZ-Ansicht (Zweckänderung, DSB).
 
-**Plans:** 9 plans (8 Wellen; Migrationen 0025/0026 spielt der Owner im SQL-Editor ein)
+**Plans:** 1/9 plans executed
 
 Plans:
-- [ ] 06.5-00-PLAN.md — Wave 0: Basislinie grün (CHANGELOG, Lektionszahl) + Test-Vertrag (sync/funk/security, Merge-Vektoren)
+
+- [x] 06.5-00-PLAN.md — Wave 0: Basislinie grün (CHANGELOG, Lektionszahl) + Test-Vertrag (sync/funk/security, Merge-Vektoren)
 - [ ] 06.5-01-PLAN.md — Migration 0025: Feldgruppen-Merge-Trigger, Grabsteine, Konflikt-Marker, Audit, Lese-Filter, argus_server_time (+ Owner-Checkpoint)
 - [ ] 06.5-02-PLAN.md — Migration 0026: ccp_devices + Geräte-RPCs, argus_late_push, Herkunft, Protokoll-Datenherkunft, Purge-Neufassung (+ Owner-Checkpoint)
 - [ ] 06.5-03-PLAN.md — Client-Sync-Kern: Schema-Probe, Uhrabgleich, Gruppen-Stempel, mergeGroups, CCP-Filter
