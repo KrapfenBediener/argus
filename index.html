@@ -499,7 +499,7 @@ function applyMeta(row){
    * → Hinweis-Modal + cleanupClosedEinsatz() via handleRemoteClose(). Ohne
    * diesen Pfad erführen online bleibende Geräte den Abschluss erst beim
    * Neustart und schrieben bis dahin gegen die RLS-Sperre an (_dirty-Queue). */
-  if(_ccpId && !_training && isCcpClosedRow(row)){ handleRemoteClose(); return; }
+  if(_ccpId && !_training && isCcpClosedRow(row)){ handleRemoteClose(row); return; }
   if(typeof row.master_medic==='string') masterMedic=row.master_medic;
   /* T1 Foto-Schalter: synct über die ccps-Row (Realtime-UPDATE + loadMeta).
    * Im Training nicht überschreiben — dort gilt der lokale Trainings-Zustand. */
@@ -1613,6 +1613,41 @@ function noteSchemaError(err){
   if(miss && _schemaV!==0) setSchemaV(0);
   return miss;
 }
+/* ── Abschluss-Vollständigkeit + Nachfrist (Phase 6.5, S5, D6.5-08/-13/-15) ──
+ * Reine Funktionen (Tests extrahieren sie per Name — Hilfen stehen innen).
+ * closeCompleteness: Bestätigungsstand je Gerät für den Abschluss-Dialog.
+ * own = {dev, dirty[, ccp_id]} überschreibt/ergänzt die eigene Zeile (verbunden, open_n = dirty).
+ * Bestätigt = open_n==0 und Status verbunden oder verlassen. */
+function closeCompleteness(devs, now, own, merged){
+  if(!devs || !devs.length) return {total:0, ok:0, text:'Gerätestand unbekannt (keine Verbindung)'};
+  own=own||{};
+  var list=[], hasOwn=false;
+  devs.forEach(function(d){
+    var isOwn = own.dev>=1 && d.device_no===own.dev && (!own.ccp_id || !d.ccp_id || d.ccp_id===own.ccp_id);
+    if(isOwn){
+      hasOwn=true;
+      list.push({device_no:d.device_no, kennung:d.kennung, st:'verbunden', n:own.dirty|0});
+    }else{
+      list.push({device_no:d.device_no, kennung:d.kennung, st:devStatus(d, now), n:d.open_n|0});
+    }
+  });
+  if(!hasOwn && own.dev>=1) list.push({device_no:own.dev, kennung:own.kennung||'', st:'verbunden', n:own.dirty|0});
+  var ok=0, probs=[];
+  list.forEach(function(x){
+    if(x.n===0 && (x.st==='verbunden' || x.st==='verlassen')){ ok++; return; }
+    var lbl = (merged && x.kennung) ? (x.kennung+'·'+x.device_no) : String(x.device_no);
+    var t='Gerät '+lbl;
+    if(x.st==='ausser_reichweite') t+=' außer Reichweite';
+    else if(x.st==='abgemeldet') t+=' abgemeldet';
+    if(x.n>0) t+=', '+x.n+' '+(x.n===1?'Patient':'Patienten')+' offen';
+    probs.push(t);
+  });
+  return {total:list.length, ok:ok, text: probs.length ? (ok+' von '+list.length+' Geräten haben alles bestätigt — '+probs.join('; ')) : ''};
+}
+/* Nachfrist nach dem Abschluss: 24 h ab closed_at, begrenzt durch purge_after (D6.5-13). */
+function nachfristOk(closedAt, now, purgeAfter){
+  return !!closedAt && now < closedAt+86400000 && (!purgeAfter || now < purgeAfter);
+}
 /* Capability-Probe + Uhr-Probe über die RPC argus_server_time (Migration 0025).
  * Fire-and-forget: wirft nie, blockiert die UI nie. Netzfehler/Timeouts lassen
  * _schemaV unverändert; nur eine eindeutig fehlende Funktion setzt es auf 0. */
@@ -1629,7 +1664,7 @@ async function probeSchema(n){
         var vPrev=_schemaV;
         setSchemaV(r.data.v);
         if(vPrev<26 && _schemaV>=26){ try{ deviceHeartbeat(); }catch(e){} }   /* Geräte-RPCs neu verfügbar → sofort melden */
-        if(_schemaV>=26){ try{ flushPendingLeave(); }catch(e){} }   /* vorgemerkte Abmeldung nachreichen (App-Start/Reconnect) */
+        if(_schemaV>=26){ try{ flushPendingLeave(); }catch(e){} try{ flushLatePatients(); }catch(e){} }   /* vorgemerkte Abmeldung + Nachzügler nachreichen (App-Start/Reconnect) */
         var sv=Number(r.data.now);
         if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
       }else{
@@ -1663,7 +1698,11 @@ async function deviceHeartbeat(){
       var sv=Number(d.now);
       if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
       try{ localStorage.setItem('argus_last_contact_'+ccpAt, String(nowMs())); }catch(e){}
-      if(d.closed) checkClosedEinsatz();   /* bestehender Abschlusspfad */
+      if(d.closed){   /* Abschluss gemeldet: Fristen merken, Nachzügler anbieten, dann der bestehende Abschlusspfad */
+        try{ markCcpClosedLocal(ccpAt, d); }catch(e){}
+        try{ flushLatePatients(); }catch(e){}
+        checkClosedEinsatz();
+      }
     }
   }catch(e){}
   finally{ _hbBusy=false; }
@@ -2109,14 +2148,28 @@ function isCcpClosedRow(row){
   if(row.closed_at) return true;
   return ('join_token' in row) && !row.join_token && !(row.ort||'') && !(row.master_medic||'');
 }
-/* Lokale Bereinigung zum abgeschlossenen Einsatz. Demo-/Trainingsdaten bleiben. */
-async function cleanupClosedEinsatz(){
+/* Lokale Bereinigung zum abgeschlossenen Einsatz. Demo-/Trainingsdaten bleiben.
+ * Phase 6.5 (Pitfall 4): NICHT synchronisierte Patienten (_dirty) bleiben als Nachzügler
+ * erhalten — flushLatePatients reicht sie innerhalb der 24-h-Nachfrist über argus_late_push
+ * nach, runLocalPurge verwirft sie nach Fristablauf. info = ccps-Zeile (falls bekannt). */
+async function cleanupClosedEinsatz(info){
   try{ var lmc=readLeftMarker(); if(lmc && !lmc.training && (!_ccpId || lmc.id===_ccpId)) clearLeftMarker(); }catch(e){}   /* Wiederbeitritt zu einem abgeschlossenen CCP gibt es nicht */
+  try{   /* Abschlusszeit + Fristen lokal merken (Grundlage der lokalen Löschfristen) */
+    var cids={}; if(_ccpId) cids[_ccpId]=true;
+    (_ccpIdsKnown||[]).forEach(function(i){ cids[i]=true; });
+    var ck=Object.keys(cids);
+    for(var ci=0;ci<ck.length;ci++) await markCcpClosedLocal(ck[ci], info);
+  }catch(e){}
   try{
     var keys=await sList("ccp_pat_");
     for(var i=0;i<keys.length;i++){
       var p=await sGet(keys[i]);
-      if(p && !p.demo && !p.training) await sDel(keys[i]);
+      if(!p || p.demo || p.training) continue;
+      if(p._dirty){   /* Nachzügler: behalten; ohne CCP-Zuordnung dem abgeschlossenen CCP zuschlagen */
+        if(!p.ccpId && _ccpId){ p.ccpId=_ccpId; await sSet(keys[i], p); }
+        continue;
+      }
+      await sDel(keys[i]);
     }
   }catch(e){}
   await sDel(checklistKey()); await sDel("ccp_checklist");   /* aktuelle CCP-Checkliste + evtl. Alt-Schlüssel */
@@ -2131,20 +2184,26 @@ async function cleanupClosedEinsatz(){
     if(/^[a-f0-9]{32}$/i.test(inv.trim())) localStorage.removeItem('argus_invite');
   }catch(e){}
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
-  _ccpId=null; _mergeGroupId=null; _ccpKennung='A';
+  _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; _ccpIdsKnown=null;
   masterMedic=''; _demoMerged=false; ccpMerged=false;
   checklist={hdr:{},items:{}};
   patients=patients.filter(function(p){return p.demo||p.training;});
   try{ await loadPatients(); }catch(e){}
+  /* ohne CCP lädt der Offline-Pfad ALLE lokalen Patienten — die Nachzügler gehören nicht in die Anzeige */
+  patients=patients.filter(function(p){return p.demo||p.training;}); _tombs=[];
 }
 /* Fremd-Erkennung: dieses Gerät erfährt (Start/Reconnect/Realtime), dass der
  * Einsatz abgeschlossen wurde → Hinweis-Modal + lokale Bereinigung. */
-function handleRemoteClose(){
+function handleRemoteClose(row){
   if(_remoteCloseHandling || _selfClosing) return;
   _remoteCloseHandling=true;
   (async function(){
-    try{ await confirmModal("Einsatz wurde abgeschlossen.\n\nDie lokalen Daten zu diesem Einsatz werden jetzt von diesem Gerät entfernt.","OK"); }catch(e){}
-    await cleanupClosedEinsatz();
+    var nOpen=0; try{ nOpen=patients.filter(function(p){return p._dirty && !p.demo && !p.training;}).length; }catch(e){}
+    var rmsg="Einsatz wurde abgeschlossen.\n\nDie lokalen Daten zu diesem Einsatz werden jetzt von diesem Gerät entfernt.";
+    if(nOpen>0) rmsg+="\n\n"+nOpen+" noch nicht übertragene "+(nOpen===1?"Patient wird":"Patienten werden")+" innerhalb von 24 Std nachgereicht.";
+    try{ await confirmModal(rmsg,"OK"); }catch(e){}
+    await cleanupClosedEinsatz(row);
+    try{ flushLatePatients(); }catch(e){}   /* Nachzügler sofort versuchen (Hintergrund) */
     await loadOpenCcpCount();
     state.edit=null; state.readonly=false; state.lastCreatedId=null;
     go("start");
@@ -2160,7 +2219,7 @@ async function checkClosedEinsatz(){
   var client=sb(); if(!client || navigator.onLine===false) return false;
   try{
     var r=await client.from('ccps').select('*').eq('id',_ccpId).maybeSingle();
-    if(r && r.data && isCcpClosedRow(r.data)){ handleRemoteClose(); return true; }
+    if(r && r.data && isCcpClosedRow(r.data)){ handleRemoteClose(r.data); return true; }
   }catch(e){}
   return false;
 }
@@ -2232,9 +2291,26 @@ async function closeEinsatzWorkflow(){
   if(_training){ toast("Im Training nicht verfügbar — Training über „Beenden“ abschließen"); return; }
   if(!isMasterMedic()){ toast("Nur MasterMedic kann abschließen"); return; }
   var lbl=_mergeGroupId?'CCP-Verbund':'CCP';
-  var ok=await confirmModal(lbl+" abschließen?\n\n• Wird für ALLE Geräte gesperrt.\n• Übergabe-Export: im Nachgang über die Leitung (innerhalb 72 Std).\n• Daten werden 72 Std nach Abschluss automatisch gelöscht (Verlängerung nur über die Leitung).\n• Fotos werden 72 Std nach Abschluss ENDGÜLTIG gelöscht — keine Verlängerung.\n\nDas kann nicht rückgängig gemacht werden.","Abschließen");
+  /* Phase 6.5 (S5, D6.5-08): Vollständigkeit prüfen. Erst eigenen Stand best effort abgleichen
+   * (max. 2,5 s — nie länger warten), dann Geräteliste holen. Schema < 26: nicht prüfbar → heutiger Dialog. */
+  var nDirty=0;
+  try{ if(sb() && netLikelyUp()) await Promise.race([loadPatients(), new Promise(function(r){ setTimeout(r, 2500); })]); }catch(e){}
+  try{ nDirty=patients.filter(function(p){return p._dirty && !p.demo && !p.training;}).length; }catch(e){}
+  var cc=null;
+  if(_schemaV>=26){
+    var devs=null; try{ devs=netLikelyUp() ? await fetchDevices() : null; }catch(e){}
+    cc=closeCompleteness(devs, nowMs(), {dev:deviceNoSync(), dirty:nDirty, ccp_id:_ccpId}, (_ccpIdsKnown||[]).length>1);
+  }
+  var cmsg=lbl+" abschließen?\n\n• Wird für ALLE Geräte gesperrt.\n• Übergabe-Export: im Nachgang über die Leitung (innerhalb 72 Std).\n• Daten werden 72 Std nach Abschluss automatisch gelöscht (Verlängerung nur über die Leitung).\n• Fotos werden 72 Std nach Abschluss ENDGÜLTIG gelöscht — keine Verlängerung.\n\nDas kann nicht rückgängig gemacht werden.";
+  var cok="Abschließen";
+  if(cc && cc.text){
+    cmsg+="\n\n⚠ "+cc.text+"\n• Nicht übertragene Daten werden noch bis 24 Std nach dem Abschluss angenommen.";
+    cok="Trotzdem abschließen";
+  }
+  var ok=await confirmModal(cmsg,cok);
   if(!ok) return;
   _closeTyp=_praesidiumSchulung?'uebung':'einsatz';
+  try{ flushHerkunft(); }catch(e){}   /* Herkunftsprotokoll noch vor dem Abschluss absenden (Hintergrund) */
   await finalizeCloseEinsatz();
 }
 /* (d) Abschluss: RPC argus_close_einsatz; offline wird die Absicht gequeuet
@@ -2266,6 +2342,7 @@ async function finalizeCloseEinsatz(){
     }
   }
   await cleanupClosedEinsatz();
+  try{ flushLatePatients(); }catch(e){}   /* eigene Nachzügler sofort versuchen (Hintergrund) */
   await loadOpenCcpCount();
   state.edit=null; state.readonly=false; state.lastCreatedId=null;
   go("start");
@@ -2299,6 +2376,137 @@ async function flushPendingClose(){
       if(r.data && !r.data.error) toast("Einsatz-Abschluss übertragen");
     }
   }catch(e){}
+}
+/* ── Nachzügler (Phase 6.5, S5, D6.5-04/-13) ───────────────────────────────
+ * Lokale _dirty-Patienten eines verlassenen oder abgeschlossenen CCP:
+ *  (a) CCP noch offen → regulärer Upload im Hintergrund,
+ *  (b) abgeschlossen, Nachfrist (24 h) läuft → ausschließlich über argus_late_push,
+ *  (c) Nachfrist abgelaufen → lokal verwerfen, einmaliger sichtbarer Hinweis.
+ * Nie werfen, nie blockieren (Local-first). Marker argus_ccp_closed_<id> = {closedAt,purgeAfter,photoPurgeAfter}. */
+var _lateBusy=false, _lateN=0, _lateSkip={}, _lateLostKen=[], _lateNoticeOpen=false;
+function readCcpClosed(ccpId){
+  try{ var m=JSON.parse(localStorage.getItem('argus_ccp_closed_'+ccpId)||'null'); return (m && typeof m==='object' && m.closedAt) ? m : null; }catch(e){ return null; }
+}
+async function markCcpClosedLocal(ccpId, info){
+  if(!ccpId) return;
+  try{
+    var H72=72*3600000, real=Number(info && info.closed_at);
+    var hasReal = isFinite(real) && real>0;
+    if(hasReal || !readCcpClosed(ccpId)){   /* ein bekannter Marker wird nie durch einen Ersatzwert verschoben */
+      var ca = hasReal ? real : nowMs();
+      var pa=Number(info && info.purge_after), pp=Number(info && info.photo_purge_after);
+      localStorage.setItem('argus_ccp_closed_'+ccpId, JSON.stringify({closedAt:ca, purgeAfter:(isFinite(pa)&&pa>0)?pa:(ca+H72), photoPurgeAfter:(isFinite(pp)&&pp>0)?pp:(ca+H72)}));
+    }
+    var lm=readLeftMarker(); if(lm && !lm.training && lm.id===ccpId) clearLeftMarker();   /* Wiederbeitritt zu einem abgeschlossenen CCP gibt es nicht */
+  }catch(e){}
+}
+/* Gerätenummer, unter der dieses Gerät in diesem CCP bekannt ist (0 = unbekannt). */
+async function devForCcp(ccpId){
+  if(ccpId && ccpId===_ccpId && deviceNoSync()>=1) return deviceNoSync();
+  try{ var st=await sGet('ccp_devno_'+ccpId); if(typeof st==='number' && st>=1) return st; }catch(e){}
+  return isCcpCreator(ccpId) ? 1 : 0;
+}
+/* Einmaliger Hinweis, wenn Nachzügler nicht mehr übertragbar waren (nur im Vordergrund). */
+async function showLateLostNotice(){
+  if(_lateNoticeOpen || document.hidden) return;
+  var n=0; try{ n=parseInt(localStorage.getItem('argus_late_lost_n')||'0',10)||0; }catch(e){}
+  if(n<1) return;
+  _lateNoticeOpen=true;
+  try{ localStorage.removeItem('argus_late_lost_n'); }catch(e){}
+  var ken=_lateLostKen.filter(function(k,i,a){return k && a.indexOf(k)===i;}).join(', '); _lateLostKen=[];
+  try{
+    await confirmModal(n+" "+(n===1?"Patient":"Patienten")+(ken?" von CCP "+ken:"")+(n===1?" konnte":" konnten")+" nicht mehr übertragen werden (Nachfrist 24 Std abgelaufen) und "+(n===1?"wurde":"wurden")+" von diesem Gerät entfernt.","Verstanden");
+  }catch(e){}
+  _lateNoticeOpen=false;
+}
+async function flushLatePatients(){
+  if(_lateBusy || _training) return;
+  _lateBusy=true;
+  try{
+    var cur={}; if(_ccpId){ cur[_ccpId]=true; (_ccpIdsKnown||[]).forEach(function(i){ cur[i]=true; }); }
+    var keys=await sList("ccp_pat_"), groups={}, total=0;
+    for(var i=0;i<keys.length;i++){
+      var p=await sGet(keys[i]);
+      if(!p || p.demo || p.training || !p._dirty || !p.ccpId) continue;
+      if(cur[p.ccpId] && !readCcpClosed(p.ccpId)) continue;   /* gehört zum aktuell offenen Verbund → regulärer Weg */
+      (groups[p.ccpId]=groups[p.ccpId]||[]).push(p); total++;
+    }
+    _lateN=total;
+    var client=sb();
+    if(!total || !client || !netLikelyUp()) return;
+    var gids=Object.keys(groups), handled=0;
+    for(var gi=0;gi<gids.length;gi++){
+      var ccpId=gids[gi], list=groups[ccpId], row=null, readOk=false;
+      try{
+        var rr=await qt(client.from('ccps').select('id,kennung,closed_at,purge_after,photo_purge_after,join_token,ort,master_medic').eq('id',ccpId).maybeSingle());
+        if(rr && !rr.error){ row=rr.data||null; readOk=true; }
+      }catch(e){}
+      if(!readOk) continue;   /* Netzfehler → später erneut */
+      var mk=readCcpClosed(ccpId);
+      if(row && !isCcpClosedRow(row)){
+        /* (a) CCP noch offen → regulärer Upload (der Server-Trigger führt feldweise zusammen) */
+        var up=0;
+        for(var a=0;a<list.length;a++){
+          var pa=list[a], arow=null, pushed=false;
+          try{ arow=patToRow(pa); delete arow.locked_by; delete arow.locked_at; var ur=await client.from('patients').upsert(arow); if(!ur.error) pushed=true; else noteSchemaError(ur.error); }catch(e){}
+          if(pushed){ await confirmUpload(pa.id, arow.updated, !!arow.fts, 'nachgereicht'); up++; handled++; }
+        }
+        if(up>0) toast(up===1 ? "1 Patient nachgereicht" : (up+" Patienten nachgereicht"));
+        continue;
+      }
+      if(!row && !mk) continue;   /* weder Zeile noch Marker → nicht entscheidbar (lokale Auffangfrist greift) */
+      var closedAt = (row && Number(row.closed_at)) || (mk && mk.closedAt) || null;
+      if(row && row.closed_at) await markCcpClosedLocal(ccpId, row);
+      var purgeAfter = (row && Number(row.purge_after)) || null;
+      if(nachfristOk(closedAt, nowMs(), purgeAfter)){
+        /* (b) Nachfrist läuft: ausschließlich argus_late_push */
+        if(_schemaV<26) continue;
+        var dev=await devForCcp(ccpId); if(dev<1) continue;
+        var chunks=[], ch=[], chBytes=0;
+        list.forEach(function(pl){
+          if(_lateSkip[pl.id]) return;
+          var r0=patToRow(pl); delete r0.locked_by; delete r0.locked_at;
+          var sz=0; try{ sz=JSON.stringify(r0).length; }catch(e){}
+          if(ch.length>=20 || (ch.length && chBytes+sz>4000000)){ chunks.push(ch); ch=[]; chBytes=0; }
+          ch.push({p:pl, row:r0}); chBytes+=sz;
+        });
+        if(ch.length) chunks.push(ch);
+        var sent=0, stop=false;
+        for(var c=0;c<chunks.length && !stop;c++){
+          var cn=chunks[c], res=null;
+          try{ res=await client.rpc('argus_late_push',{p_ccp_id:ccpId, p_dev:dev, p_rows:cn.map(function(x){return x.row;}), p_kuerzel:operator||''}); }catch(e){ stop=true; break; }
+          var d=res?res.data:null;
+          if(!d || res.error || d.error){ stop=true; break; }   /* Netz/„Gerät unbekannt"/„Nachfrist abgelaufen" → behalten, später erneut */
+          var okN=d.ok|0, skN=d.skipped|0, one=[];
+          if(skN===0 && okN>=cn.length) one=cn.map(function(x){return true;});
+          else if(cn.length===1) one=[okN>=1];
+          else{   /* gemischtes Ergebnis → einzeln nachprüfen, damit nur wirklich Übertragene lokal entfallen */
+            for(var e1=0;e1<cn.length;e1++){
+              var r1=null; try{ r1=await client.rpc('argus_late_push',{p_ccp_id:ccpId, p_dev:dev, p_rows:[cn[e1].row], p_kuerzel:operator||''}); }catch(e){ r1=null; }
+              var d1=r1?r1.data:null;
+              one.push(!!(d1 && !d1.error && (d1.ok|0)>=1));
+            }
+          }
+          for(var o=0;o<cn.length;o++){
+            if(one[o]){
+              var cp=await sGet('ccp_pat_'+cn[o].p.id);
+              if(!cp || (cp.updated||0)<=(cn[o].row.updated||0)){ await sDel('ccp_pat_'+cn[o].p.id); sent++; handled++; }   /* inzwischen weiter bearbeitet → bleibt dirty */
+            }else{ _lateSkip[cn[o].p.id]=true; }   /* vom Server abgelehnt → nicht minütlich wiederholen */
+          }
+        }
+        if(sent>0) toast(sent===1 ? "1 Patient nachgereicht" : (sent+" Patienten nachgereicht"));
+      }else{
+        /* (c) Nachfrist abgelaufen → lokal verwerfen, Hinweis */
+        var lost=0;
+        for(var l=0;l<list.length;l++){ await sDel('ccp_pat_'+list[l].id); lost++; handled++; }
+        try{ localStorage.setItem('argus_late_lost_n', String((parseInt(localStorage.getItem('argus_late_lost_n')||'0',10)||0)+lost)); }catch(e){}
+        _lateLostKen.push((row && row.kennung) || ccpBase(list[0].ccp));
+      }
+    }
+    _lateN=Math.max(0, total-handled);
+  }catch(e){}
+  finally{ _lateBusy=false; }
+  try{ await showLateLostNotice(); }catch(e){}
 }
 /* Offline-Robustheit: lokal noch nicht synchronisierte Patienten in die
  * Cloud-Liste einmischen und — wenn online — nachschieben. Konfliktlösung per
@@ -2556,7 +2764,7 @@ async function addPatient(cat){
  * (Prio → TQ → Foto in schneller Folge) weitergetippt, wurde die neuere lokale
  * Änderung überschrieben. Jetzt: nur die _dirty-Markierung löschen, und nur,
  * wenn seitdem keine neuere Änderung (updated) gespeichert wurde. */
-async function confirmUpload(id, updatedAtUpload, withFts){
+async function confirmUpload(id, updatedAtUpload, withFts, weg){
   try{
     var cur=await sGet("ccp_pat_"+id);
     /* Phase 6.5: Stempel-Bestätigung (p-Flags) nur, wenn die Zeile fts wirklich mitgeführt hat */
@@ -4954,6 +5162,7 @@ setInterval(async function(){
 
   /* Offline gequeueter Einsatz-Abschluss? Jetzt (online) nachziehen. */
   await flushPendingClose();
+  try{ flushLatePatients(); }catch(e){}   /* Nachzügler verlassener/abgeschlossener CCPs (Hintergrund, nie blockierend) */
   /* Opportunistischer Purge-Lauf — Fallback zu pg_cron (z. B. pausiertes
    * Free-Tier-Projekt, das erst durch App-Traffic aufwacht). Fire-and-forget. */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
@@ -5017,6 +5226,7 @@ window.addEventListener('online', function(){
   checkRevokedCode();    /* Reconnect: Code-Sperre nachprüfen (fire-and-forget, offline-Guard intern) */
   checkForUpdate();
   flushPendingClose();   /* offline gequeueten Einsatz-Abschluss nachziehen */
+  try{ flushLatePatients(); }catch(e){}   /* Nachzügler nachreichen */
   try{ probeSchema(1); }catch(e){}   /* Schema-/Uhr-Probe nach Reconnect */
   try{ deviceHeartbeat(); }catch(e){}   /* Lebenszeichen nach Reconnect */
   try{ flushPendingLeave(); }catch(e){}   /* vorgemerkte Abmeldung nachreichen */
@@ -5049,8 +5259,8 @@ function netProbe(){
 setInterval(function(){
   if(_training || _netProbing) return;
   var pendingLeave=leavePending();   /* vorgemerkte Abmeldung hält den Wächter auch ohne aktiven CCP wach */
-  if(!_ccpId && !pendingLeave) return;
-  var pending=pendingLeave; try{ pending=pending||patients.some(function(p){return p._dirty;}); }catch(e){}
+  if(!_ccpId && !pendingLeave && !(_lateN>0)) return;
+  var pending=pendingLeave || _lateN>0; try{ pending=pending||patients.some(function(p){return p._dirty;}); }catch(e){}   /* _lateN: fremde _dirty-Nachzügler */
   if(_netUp && !pending && navigator.onLine!==false) return;   /* alles gut → kein Ping nötig */
   _netProbing=true;
   netProbe().then(function(up){
@@ -5061,6 +5271,7 @@ setInterval(function(){
       try{ if(_sb && _sb.realtime && _sb.realtime.setAuth && currentJwt) _sb.realtime.setAuth(currentJwt); }catch(e){}
       try{ healRealtime(); }catch(e){}
       try{ flushPendingClose(); }catch(e){}
+      try{ flushLatePatients(); }catch(e){}
       try{ probeSchema(1); }catch(e){}
       try{ loadMeta().then(function(){ return loadPatients(); }).then(function(){ try{render();}catch(e){} }); }catch(e){}
       try{ checkForUpdate(); }catch(e){}
@@ -5076,4 +5287,6 @@ setInterval(function(){
  * MasterMedic holt zusätzlich alle 10 s die Geräteliste (Anzeige übernimmt das 3,5-s-Render). */
 setInterval(function(){ try{ deviceHeartbeat(); }catch(e){} }, HB_INTERVAL_MS);
 setInterval(function(){ try{ pollDevices(); }catch(e){} }, 10000);
+/* Nachzügler (Phase 6.5): nur solange fremde/abgeschlossene _dirty-Patienten lokal liegen (_lateN). */
+setInterval(function(){ try{ if(_lateN>0) flushLatePatients(); }catch(e){} }, 60000);
 </script>
