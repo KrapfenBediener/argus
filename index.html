@@ -463,11 +463,16 @@ function patFromRow(r){
     tx:r.tx||{}, inj:r.inj||[],
     moi:r.moi||'', injury:r.injury||'', fr:r.fr||'',
     notes:r.notes||'', by:r.by||'',
-    photo:r.photo||null, lockedBy:r.locked_by||null, lockedAt:r.locked_at||null
+    photo:r.photo||null, lockedBy:r.locked_by||null, lockedAt:r.locked_at||null,
+    /* Phase 6.5: ccpId bleibt erhalten (Verbund-Patient behält beim Speichern seinen CCP);
+     * die neuen Spalten (Stempel, Grabstein, Konflikt-Marker) fehlen vor Migration 0025 → Defaults. */
+    ccpId:r.ccp_id||null, fts:r.fts||{},
+    deletedAt:r.deleted_at||null, deletedBy:r.deleted_by||'', deletedDev:r.deleted_dev||null,
+    conf:Array.isArray(r.conf)?r.conf:[]
   });
 }
 function patToRow(p){
-  return {
+  var row={
     id:p.id, ccp_id:p.ccpId||_ccpId, num:p.num, ccp:p.ccp||'A',
     cat:p.cat, status:p.status||'active',
     prio:!!p.prio, ready:!!p.ready, tq_start:p.tqStart||null, tq_site:p.tqSite||null,
@@ -479,6 +484,13 @@ function patToRow(p){
     notes:p.notes||'', by:p.by||'',
     photo:p.photo||null, locked_by:p.lockedBy||null, locked_at:p.lockedAt||null
   };
+  /* Phase 6.5 (D6.5-18): neue Spalten NUR, wenn der Server sie kennt (Migration 0025).
+   * Ohne 0025 bleibt die Zeile identisch zu 0.33.22. Konflikt-Marker und lokale Hilfsflags gehen nie raus. */
+  if(_schemaV>=25){
+    row.fts=ftsForUpload(p.fts||{});
+    row.deleted_at=p.deletedAt||null; row.deleted_by=p.deletedBy||null; row.deleted_dev=p.deletedDev||null;
+  }
+  return row;
 }
 function applyMeta(row){
   if(!row) return;
@@ -2107,6 +2119,7 @@ function normalize(p){
   if(!p.vit)p.vit={};if(!p.tx)p.tx={};if(!p.inj)p.inj=[];
   if(p.pupRe===undefined)p.pupRe="";if(p.pupLi===undefined)p.pupLi="";
   if(!p.ccp)p.ccp="A";
+  if(!p.fts)p.fts={};if(!p.conf)p.conf=[];
   return p;
 }
 /* Checkliste PRO CCP (Bugfix 2026-10-14): früher lag sie unter EINEM globalen
@@ -2225,12 +2238,14 @@ async function addPatient(cat){
     vit:{af:"",spo2:"",hf:"",rr:"",avpu:"",pain:""},
     tx:{},inj:[],moi:"",injury:"",fr:operator,notes:"",by:operator,updated:nowMs(),
     ccpId:_ccpId||null, _dirty:true};
+  /* Phase 6.5: alle Gruppen mit einem monotonen Stempel anlegen, Signatur merken. */
+  var st0=stampNow(); p.updated=st0; stampGroups(p, Object.keys(FGROUPS), st0, deviceNoSync()); p._sig=groupSigs(p, FGROUPS);
   if(_training){ p.training=true; delete p._dirty; }   /* Übungsdaten: lokal-only, nie Cloud */
   await sSet("ccp_pat_"+p.id,p);        /* lokal sichern (schnell) */
   patients.push(normalize(p));          /* sofort im Bestand sichtbar, ohne Netz */
   if(!p.training && _ccpId){            /* Hintergrund-Upload — bewusst NICHT awaiten */
     var cl=sb();
-    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error) confirmUpload(p.id, irow.updated); }, function(){}); }catch(e){} }
+    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error) confirmUpload(p.id, irow.updated, !!irow.fts); else if(r && r.error) noteSchemaError(r.error); }, function(){}); }catch(e){} }
   }
   try{ prefetchNum(); }catch(e){}      /* nächste Online-Nummer gleich wieder vorab holen */
   return p;
@@ -2241,16 +2256,24 @@ async function addPatient(cat){
  * (Prio → TQ → Foto in schneller Folge) weitergetippt, wurde die neuere lokale
  * Änderung überschrieben. Jetzt: nur die _dirty-Markierung löschen, und nur,
  * wenn seitdem keine neuere Änderung (updated) gespeichert wurde. */
-async function confirmUpload(id, updatedAtUpload){
+async function confirmUpload(id, updatedAtUpload, withFts){
   try{
     var cur=await sGet("ccp_pat_"+id);
+    /* Phase 6.5: Stempel-Bestätigung (p-Flags) nur, wenn die Zeile fts wirklich mitgeführt hat */
+    if(cur && withFts) clearPending(cur.fts||{}, updatedAtUpload);
     if(cur && cur._dirty && (cur.updated||0)<=(updatedAtUpload||0)){ delete cur._dirty; await sSet("ccp_pat_"+id,cur); }
+    else if(cur && withFts){ await sSet("ccp_pat_"+id,cur); }
     var mem=patients.find(function(x){return x.id===id;});
+    if(mem && withFts) clearPending(mem.fts||{}, updatedAtUpload);
     if(mem && (mem.updated||0)<=(updatedAtUpload||0)) delete mem._dirty;
   }catch(e){}
 }
 async function savePatient(p){
-  p.updated=nowMs();
+  /* Phase 6.5: nur tatsächlich geänderte Feldgruppen stempeln (D6.5-06). Ohne Änderung
+   * entsteht kein Gruppenstempel — kein Datensatz-LWW durch die Hintertür. */
+  var ch=changedGroups(p, FGROUPS); var t=stampNow();
+  if(ch.length) stampGroups(p, ch, t, deviceNoSync());
+  p.updated=t; p._sig=groupSigs(p, FGROUPS);
   /* Welchem CCP gehört dieser Patient? Für offline angelegte/bearbeitete
    * Datensätze festhalten, damit sie später in den RICHTIGEN CCP hochgehen. */
   if(!p.ccpId && _ccpId) p.ccpId=_ccpId;
@@ -2267,7 +2290,7 @@ async function savePatient(p){
      * Sperr-Spalten NICHT mitschreiben (Sperren laufen ausschließlich über pushLock). */
     try{
       var row=patToRow(p); delete row.locked_by; delete row.locked_at;
-      client.from('patients').upsert(row).then(function(r){ if(r && !r.error) confirmUpload(p.id, row.updated); }, function(){});
+      client.from('patients').upsert(row).then(function(r){ if(r && !r.error) confirmUpload(p.id, row.updated, !!row.fts); else if(r && r.error) noteSchemaError(r.error); }, function(){});
     }catch(e){}
   }
 }
