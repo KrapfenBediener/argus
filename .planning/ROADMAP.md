@@ -574,7 +574,7 @@ heute (Server-Transport) nützlich und werden später vom Mesh (Phase 9) 1:1 üb
 **Nicht in dieser Phase:** Peer-to-Peer-Mesh (native App, Phase 9), TETRA-SDS-Kopplung
 (organisatorisch, Spur F), Fotos in der FLZ-Ansicht (Zweckänderung, DSB).
 
-**Plans:** 6/9 plans executed
+**Plans:** 7/9 plans executed
 
 Plans:
 
@@ -584,7 +584,7 @@ Plans:
 - [x] 06.5-03-PLAN.md — Client-Sync-Kern: Schema-Probe, Uhrabgleich, Gruppen-Stempel, mergeGroups, CCP-Filter
 - [x] 06.5-04-PLAN.md — Grabstein/Rückholen + Konflikt-Hinweis für den MasterMedic
 - [x] 06.5-05-PLAN.md — Gerätestatus (Heartbeat, Gerätezeile, Eingriffe) + CCP verlassen / wieder beitreten
-- [ ] 06.5-06-PLAN.md — Abschluss-Vollständigkeit, Nachzügler-Nachfrist, lokale Löschfristen, Herkunft, Leitungs-Export
+- [x] 06.5-06-PLAN.md — Abschluss-Vollständigkeit, Nachzügler-Nachfrist, lokale Löschfristen, Herkunft, Leitungs-Export
 - [ ] 06.5-07-PLAN.md — Funkspruch-Modus + Trainings-Lektionen + Hilfe
 - [ ] 06.5-08-PLAN.md — Release 0.34.0, Phasen-Gate, Doku, iPhone-UAT (2 Geräte)
 
