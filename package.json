@@ -1,6 +1,6 @@
 {
   "name": "argus-ccp",
-  "version": "0.33.3",
+  "version": "0.34.0",
   "private": true,
   "description": "ARGUS — CCP-/Verwundetensammelstellen-App (Single-File-PWA + Supabase). Tests & CI-Gates; die App selbst bleibt buildfrei.",
   "type": "module",

@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.33.22';  /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.34.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,15 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.34.0': [
+    'Gerätestatus im CCP: Der MasterMedic sieht im Hauptmenü, welche Geräte verbunden, außer Reichweite, abgemeldet oder verlassen sind und wie viele Patienten dort noch offen sind.',
+    'CCP bewusst verlassen und wieder beitreten: Beim Zurückgehen aus dem Hauptmenü fragt ARGUS nach; wer wieder beitritt, behält seine Gerätenummer.',
+    'Abgleich pro Feldgruppe: Ändern zwei Geräte gleichzeitig verschiedene Dinge am selben Patienten (z. B. Prio und Vitalwerte), bleiben beide Änderungen erhalten. Echte Konflikte zeigt ARGUS dem MasterMedic mit dem überschriebenen Stand.',
+    'Verworfene Patienten kommen nicht mehr zurück und lassen sich vom MasterMedic mit „Rückholen“ wiederherstellen. Geht die Uhr eines Geräts falsch, wird der Versatz erkannt und herausgerechnet.',
+    'Abschluss mit Vollständigkeitsprüfung: Der Dialog zeigt, von welchen Geräten noch Daten fehlen. Wer beim Abschluss offline war, reicht seine Patienten bis 24 Stunden danach nach; nicht übertragene Daten werden lokal nach festen Fristen gelöscht.',
+    'Neu: Funkspruch-Modus für den MasterMedic mit fertig formulierter, gut lesbarer Lagemeldung ohne Patientendaten.',
+    'Geführtes Training um „Funkspruch“ und „CCP verlassen / wieder beitreten“ ergänzt.'
+  ],
   '0.33.22': [
     'Sofort-Optionen nach dem Anlegen (Prio, TQ, Foto): Änderungen in schneller Folge gingen verloren, und ein Foto über die Sofort-Option wurde nicht gespeichert, weil die Ansicht im Hintergrund neu aufgebaut wurde, während die Kamera offen war. Beides behoben (Feedback Einsatztrainer PP Einsatz).'
   ],

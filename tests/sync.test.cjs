@@ -362,3 +362,16 @@ test('localPurgeDecision: Matrix aus Abschluss-/Kontaktzeit, Foto und ausstehend
   // weder Abschluss noch Kontakt bekannt: nichts löschen
   assert.deepEqual(d({closedAt: null, dirty: true, hasPhoto: true, lastContact: null}, 1000 * D), R(false, false, false));
 });
+
+/* ---------- Phasen-Gate (Plan 06.5-08): keine Vertragsfunktion darf beim Release fehlen ---------- */
+
+test('Phase 6.5: alle Vertragsfunktionen vorhanden (keine Skips beim Release)', () => {
+  const FUNKTIONEN = ['groupSig', 'groupSigs', 'changedGroups', 'nextStamp', 'stampGroups', 'ftsForUpload',
+    'clearPending', 'mergeGroups', 'clockSample', 'pickOffset', 'clockHint', 'tombstoneHull', 'restoreTombstone',
+    'conflictText', 'devStatus', 'devLabel', 'leaveText', 'closeCompleteness', 'nachfristOk', 'localPurgeDecision',
+    'funkText', 'funkSds', 'probeSchema', 'deviceHeartbeat', 'leaveCcpState', 'flushLatePatients', 'runLocalPurge',
+    'flushHerkunft'];
+  const fehlend = FUNKTIONEN.filter(function(n){ return !hasFunction(script, n); });
+  if (!/var\s+FGROUPS\s*=/.test(script)) fehlend.push('FGROUPS');
+  assert.deepEqual(fehlend, [], 'Vertragsfunktionen fehlen in index.html: ' + fehlend.join(', '));
+});

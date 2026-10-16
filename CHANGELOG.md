@@ -6,6 +6,22 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.34.0 — 2026-10-17
+**Gerätestatus im CCP & Sync-Fundament (Mesh-Vorstufe)**
+- **Benötigt Migrationen 0025 + 0026** (ohne sie läuft die App wie 0.33.22 weiter: die Capability-Probe `argus_server_time` schaltet die neuen Funktionen dann ab).
+- **S1 Gerätestatus:** Jedes Gerät meldet sich im Vordergrund alle 15 s (`HB_INTERVAL_MS`); der MasterMedic sieht im Hauptmenü die Gerätezeile (verbunden < 30 s, außer Reichweite, abgemeldet, verlassen) samt Zahl offener Patienten und kann ein Gerät als abgemeldet markieren.
+- **S2 CCP verlassen / wieder beitreten:** Zurück aus dem Hauptmenü fragt mit genau zwei Knöpfen nach; das Verlassen wird nachgereicht, wenn offline. Wiederbeitreten behält die Gerätenummer (offline erfasste Nummern bleiben eindeutig). Innerhalb des CCP erscheint nie ein Dialog.
+- **S3 Grabsteine:** Verwerfen setzt einen synchronisierten, leeren Grabstein statt zu löschen; veraltete Geräte können den Patienten nicht wiederbeleben. Der MasterMedic kann Verworfene per „Rückholen“ zurückholen und sieht Konflikte samt überschriebenem Stand („Übernehmen“ / „Erledigt“).
+- **S4 Feldweiser Abgleich + Uhrabgleich:** Der Client stempelt nur geänderte Feldgruppen (streng monoton) und führt Offline-Stände beim Reconnect je Gruppe zusammen statt sie zu verwerfen — Prio von Gerät 5 und Vitalwerte von Gerät 2 gehen nicht mehr gegeneinander verloren. Der Versatz zur Serverzeit wird gemessen (Probe mit kleinster Laufzeit), in alle Zeitstempel eingerechnet und ab 5 s als Hinweis angezeigt; Laufzeiten wie der Tourniquet-Timer stimmen auf allen Geräten.
+- **S5 Abschluss-Vollständigkeit + Nachzügler:** Der Abschluss-Dialog zeigt den Bestätigungsstand je Gerät („Trotzdem abschließen“). Nicht übertragene Patienten bleiben als Nachzügler und werden bis 24 Stunden nach Abschluss nachgereicht (`argus_late_push`).
+- **S6 Lokale Löschfristen:** Auffangnetz auch ohne Serverkontakt — Foto 72 h nach Abschluss, Nachzügler 24 h nach Abschluss, synchronisierte Daten 72 h ohne Serverkontakt, nicht synchronisierte spätestens nach 60 Tagen.
+- **S7 Herkunftsprotokoll:** Das Leitungs-Protokoll (`docs/leitung-*.html`) zeigt „Datenherkunft“ je Gerät und Weg (direkt, nachgereicht, Nachfrist); pseudonym, nur Gerätenummern und Zähler.
+- **S8 Funkspruch-Modus:** „📻 Funkspruch“ im Hauptmenü erzeugt für den MasterMedic eine fertige, datenschutzfreie Lagemeldung mit SDS-Kurzform; „Meldung abgesetzt“ zählt die Meldungsnummer hoch.
+- **S9 Training:** Zwei neue Lektionen (Funkspruch; CCP verlassen / wieder beitreten), Drehbuch 47 Lektionen; Hilfe nachgezogen.
+- **Test:** Phasen-Gate „Phase 6.5: alle Vertragsfunktionen vorhanden“ — kein Vertragstest wird mehr übersprungen. `package.json` auf 0.34.0 nachgezogen. SW-Cache `ccp-shell-v87`.
+
+---
+
 ## Backend — 2026-10-16 · Migration 0026 Gerätestatus, Nachfrist, Herkunft
 **Datenbank-Seite für Gerätestatus, Nachzügler und Herkunftsnachweis (Phase 6.5)**
 - **Gerätestatus:** Neues Geräteregister je CCP (Gerätenummer, Kürzel, Zeitpunkt des letzten Lebenszeichens, Zahl offener Patienten). Die Zeit stempelt der Server. Geräte melden sich, verlassen den CCP oder werden vom MasterMedic abgemeldet — nur über geprüfte Datenbank-Funktionen, nie per direktem Schreibzugriff; lesen darf nur das eigene Präsidium.
