@@ -207,6 +207,10 @@ begin
       v_fts := v_fts || jsonb_build_object('del', v_old->'del');
     end if;
   end if;
+  if v_dt is null then
+    v_db := null;   -- Rückgeholt: keine Reste des Grabsteins
+    v_dd := null;
+  end if;
   v_tomb  := (v_dt is not null);
   v_fresh := v_tomb and OLD.deleted_at is null;
 
