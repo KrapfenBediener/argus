@@ -6,6 +6,102 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.33.22 — 2026-10-15
+**Sofort-Optionen nach dem Anlegen: Datenverlust und Foto-Verlust behoben**
+- **Feedback Einsatztrainer PP Einsatz (15.10.2026):** „Schnell-Optionen für neu angelegte Patienten funktionieren nicht, Fotos darüber werden nicht gespeichert."
+- **Ursache 1 (Race):** Der Hintergrund-Upload in `savePatient`/`addPatient` hielt das alte Patientenobjekt und schrieb es nach der Server-Bestätigung komplett zurück — wer in schneller Folge Prio, TQ und Foto tippte, verlor die jeweils neuere Änderung. Neu: `confirmUpload(id, updated)` löscht nur die `_dirty`-Markierung, und nur wenn seitdem nichts Neueres gespeichert wurde.
+- **Ursache 2 (Kamera):** Das 3,5-s-Intervall rendert die Erfassungsansicht neu, während die Kamera offen ist → das `<input type=file>` wird zerstört, das `change`-Ereignis geht ins Leere. Neu: kein Re-Render, solange das Sofort-Pop-up offen ist oder eine Dateiauswahl läuft (max. 3 min). SW-Cache v86.
+
+## v0.33.21 — 2026-10-15
+**Dauercode schaltet Echtbetrieb und Schulungs-Zwilling frei (Migration 0024)**
+- **Owner-Entscheid:** EIN Dauercode fürs PP schaltet beide Umgebungen frei.
+- **Migration 0024:** `argus_exchange_code(code, p_scope default 'echt')`; `p_scope='schulung'` löst den Zwilling serverseitig über `praesidien.schulungs_zwilling_id` auf und stellt dafür ein eigenes JWT aus. `jti` = `short_code` → die Sperre wirkt für beide. Einmal-Codes gelten nur für den Echtbetrieb.
+- **App:** `exchangeCode(code, scope)`; `unlockTwinFor()` nach jedem Sammelcode-Freischalten (Eingabe, `#code=`-Link, Invite-Pfad); JWT je Präsidium in einer Map, Zwillings-Merker `argus_twin_of_<pid>` für die stille Verlängerung; Picker-Wechsel und App-Start holen ein fehlendes Zwillings-JWT online nach. SW-Cache v85.
+
+## v0.33.20 — 2026-10-15
+**Schulung: JWT je Präsidium + Klartext statt „Abgebrochen"**
+- **Ursache** des „OK = Abbruch" in der Schulungsumgebung: Die App hielt nur EIN JWT — das des zuletzt eingegebenen Codes. Wer Echtbetrieb und Schulung mit zwei Codes freigeschaltet hatte und im Picker das andere Präsidium wählte, schrieb mit fremder `praesidium_id` → RLS lehnte den Insert ab → Toast „Abgebrochen".
+- **Fix:** `pidJwtMap`/`storePidJwt`/`jwtClaims`/`ensureJwtFor` merken das JWT je Präsidium (`argus_jwt_by_pid`) und schalten beim Präsidiumswechsel und beim Start passend um; fehlt eines, wird die Freischaltung entfernt und der Code neu abgefragt.
+- `openOrCreateCCP` merkt Server-/Zugangsfehler in `_ccpCreateErr`; der `newccp`-Handler zeigt sie im Klartext, „Abgebrochen" nur noch bei echtem Abbruch. SW-Cache v84.
+
+## v0.33.19 — 2026-10-15
+**Android III: Geister-Klick nach Dialog-Schließen abfangen**
+- Auf Touch-Geräten feuert nach `pointerup` noch ein synthetisches `click` auf das Element unter dem Finger. Wurde der Dialog schon beim Loslassen entfernt, traf der Klick die Seite darunter — in der Schulung genau den vom Coach-Spotlight zentrierten Knopf „Neue CCP eröffnen", die Ort-Abfrage erschien erneut.
+- `modalDismiss()`: Antwort sofort liefern, Overlay unsichtbar mit z-index 8600 als Schild belassen, Eingabe-Events darauf abfangen, DOM-Entfernung nach 450 ms. Gilt für `prompt`/`confirm`/`tqStart`/`ccpJoin`/`mergeSelect`. SW-Cache v83.
+
+## v0.33.18 — 2026-10-15
+**Android II: Eingabe-Dialoge oben verankern, kein Abbruch per Hintergrund-Tipp**
+- Zentrierte Dialoge springen beim Auf-/Zuklappen der Tastatur; der zweite Tipp landete auf dem Hintergrund und wurde als Abbrechen gewertet.
+- `promptModal`/`tqStartModal` sitzen jetzt oben; Abbrechen nur noch per Knopf. SW-Cache v82.
+
+## v0.33.17 — 2026-10-15
+**Android: „OK" in Eingabe-Dialogen wurde als Abbrechen gewertet**
+- **Feld-Befund** (Schulungsumgebung, Android): CCP-Name eingeben → „OK" → Abbruch, kein CCP. Ursache: Der Tipp auf OK blendet die Tastatur aus, der zentrierte Dialog rutscht nach, und das `click` trifft den abgedunkelten Hintergrund, den `promptModal`/`confirmModal`/`tqStartModal` als Abbrechen werteten.
+- **Fix:** Absicht beim Antippen (`pointerdown`) merken und beim Loslassen (`pointerup`) ausführen; der Hintergrund bricht nur ab, wenn der Tipp auch dort begann; `pointercancel` setzt zurück; `click` bleibt Fallback; `promptModal`: Enter bestätigt. SW-Cache v81.
+
+## v0.33.16 — 2026-10-14
+**AT-MIST: Tourniquet vollständig unter „T — Maßnahmen"**
+- **Fachliche Korrektur** (Owner-Entscheid, Quellen TCCC/MIST): Das erste T ist „Time" (Zeitpunkt des Ereignisses/der Erfassung); das Tourniquet ist eine Maßnahme und gehört unter das zweite T „Treatment" — mit Anlagezeit.
+- Einheitlich in Übergabekarte (`vHandover`), Übergabe-Export (`exportPrintCard`) und Protokolldruck der Leitungs-Seite (`docs/leitung-*.html`): Tourniquet nur noch unter „T — Maßnahmen", dort vollständig und rot (Anlageort, Anlagezeit, laufende Dauer). „T — Zeiten" zeigt nur noch die Erfassungszeit.
+- Trainingslektionen „Karte: T — Zeiten" / „T — Maßnahmen" angepasst. SW-Cache v80.
+
+## v0.33.15 — 2026-10-14
+**„Neue CCP" abbrechen → immer zurück auf den Präsidiums-Start**
+- **Feld-Befund:** Nach Abbruch der Ort-Abfrage landete man in „irgendeiner" offenen CCP (der wiederhergestellte `_ccpId` führte in dessen Home).
+- Der Zustand wird weiterhin wiederhergestellt (bisheriger CCP bleibt über „Aktive CCP fortsetzen" erreichbar), die Navigation geht aber immer auf den Präsidiums-Startbildschirm. SW-Cache v79.
+
+## v0.33.14 — 2026-10-14
+**Nummern-Reservierung: Hänger-Schutz, online-Event erzwingt Prefetch**
+- **Feld-Befund:** Nach Rückkehr ins Netz behielten neu angelegte Online-Patienten die Gerätenummer. Ursache: Ging das Gerät offline, während ein Reservierungs-RPC (`argus_claim_nums`) lief, hing der Aufruf ohne Timeout; `_prefetching` blieb dauerhaft `true`. Zusätzlich übersprang der `online`-Event den Prefetch.
+- **Fix:** Prefetch-RPC mit 2,5-s-Abbruch; ein laufender Versuch gilt nach 6 s als tot (`_prefetchingSince`); späte Antworten eines alten Versuchs setzen einen neueren nicht zurück; `prefetchNum(force)`: der `online`-Event stößt die Reservierung sofort an. SW-Cache v78.
+
+## v0.33.13 — 2026-10-14
+**Statusbanner ehrlich + „Neue CCP" wirklich abbrechbar**
+- Banner zeigte „Echtzeit-Modus" auch offline: Bedingung prüfte nur die Existenz des Client-Objekts. Jetzt zusätzlich `netLikelyUp()`; der Wächter rendert bei Verbindungswechsel sofort neu.
+- „Neue CCP eröffnen" + „Abbrechen" legte trotzdem einen namenlosen CCP an (Insert vor der Ort-Abfrage). Die Ort-Abfrage läuft jetzt VOR dem Insert; Abbrechen → kein CCP; der `newccp`-Handler stellt den bisherigen Zustand bei Abbruch/Fehler wieder her. Training: Ort-Abfrage ebenfalls vor dem Anlegen. SW-Cache v77.
+
+## v0.33.12 — 2026-10-14
+**Offline-Freeze behoben + Nummern nach Spec: online fortlaufend, Suffix nur offline**
+- **Feld-Befund:** JEDE Offline-Aktion fror ca. 5 s ein. Ursache: Cloud-Aufrufe im Aktionspfad wurden awaited (iOS lässt `fetch` offline erst nach Sekunden scheitern) — Verstoß gegen Local-First.
+- **Fix:** `savePatient`/`pushLock` schreiben die Cloud im Hintergrund (fire-and-forget), `_dirty` bleibt bis zur Server-Bestätigung (`flushPendingPatients` schiebt nach); `loadMeta`/`loadPatients` mit Sofort-Offline-Guard und hartem 2,5-s-Abbruch.
+- **Nummern:** Online wird die nächste Server-Nummer im Hintergrund einzeln vorab reserviert (`prefetchNum` → `argus_claim_nums` mit `p_count=1`) → sofort, fortlaufend, „A-7". Offline/ohne Reserve: lokal weiterzählen + Gerätenummer („A-8-1" / „A-9-2"). SW-Cache v76.
+
+## v0.33.11 — 2026-10-14
+**Nummern local-first: Anlegen sofort, Gerätenummer rein lokal**
+- Zwei Feld-Befunde: im Echtzeit-Modus erschien fälschlich das „-2"-Suffix und die Nummer sprang (A-3 → A-24); Anlegen offline „unfassbar langsam". Ursache: `addPatient` wartete beim Anlegen auf den Server.
+- Anlegen ist jetzt 100 % lokal und sofort: Patientennummer rein lokal je Gerät (`nextNum`), Gerätenummer einmal beim Beitritt gecacht (`ensureDeviceNo`); Ersteller = 1 → „A-7", Zweitgerät „A-7-2". Cloud-Insert läuft im Hintergrund; die Server-Nummernvergabe (`argus_claim_nums`) entfällt im Client. SW-Cache v75.
+
+## v0.33.10 — 2026-10-14
+**Nummern-Client: online A-7 zentral, offline A-7-2 mit Gerätenummer**
+- Behebt doppelte laufende Nummern bei mehreren Geräten im Offline-Betrieb ohne Sprünge: Online atomar vom Server (`argus_claim_nums`), Label „A-7"; offline lokal weiterzählen + eigene Gerätenummer anhängen → „A-7-2".
+- Gerätenummer je CCP eindeutig: Ersteller = 1, Beitritt holt sie atomar über `argus_claim_device` (Migration, beim Online-Beitritt). Kodierung im vorhandenen `ccp`-Label-Feld (`ccp="A~2"`), kein neues DB-Feld; `pno`/`nextNum`/Duplikatprüfung/Sortierung angepasst. Die 0.33.5-Blocklogik (Sprünge) entfällt. SW-Cache v74.
+
+## v0.33.9 — 2026-10-14
+**Checkliste pro CCP + Merge-Button auf der CCP-Hauptseite**
+- **Checkliste-Bug:** Sie lag unter EINEM globalen Schlüssel (`ccp_checklist`) → Einträge aus CCP A erschienen in allen anderen CCPs. Jetzt je CCP ein eigener Schlüssel (`checklistKey()`); einmalige Migration des alten globalen Stands auf den aktiven CCP.
+- „CCP zusammenführen" liegt jetzt auf der CCP-Hauptseite (`ccpAdminUI`) direkt bei „abschließen" — raus aus der Patientenübersicht. SW-Cache v73.
+
+## v0.33.8 — 2026-10-14
+**Reconnect: aktiver Verbindungs-Wächter statt trägem online-Event**
+- iOS-PWAs feuern `online` nach dem Flugmodus oft spät oder gar nicht. Ein neuer Wächter pingt aktiv (`version.json`, harter 3-s-Timeout) und löst bei Rückkehr sofort Heal, Flush und Reload aus. Gepingt wird nur, wenn Erholung plausibel nötig ist (offline geglaubt oder `_dirty` ausstehend). Additiv; bestehende `online`-/`visibility`-Handler bleiben.
+- Reconnect-Latenz ist ohne echtes Gerät nicht verifizierbar — auf dem iPhone gegenprüfen. SW-Cache v72.
+
+## v0.33.7 — 2026-10-14
+**Training: CCP-Eröffnung simuliert, Lektions-Rücksprung, Sofort-Optionen einzeln**
+- Die CCP-Eröffnung im Training spielt Benennung (Ort) und simulierte Standorterfassung mit durch (lokal, kein echtes GPS).
+- „‹ vorherige Lektion"-Knopf im Coach-Panel (`trainStep(-1)`).
+- Sofort-Optionen (Prio/TQ/Foto/öffnen/Verwerfen) werden als einzelne Lektionen gezeigt; der Foto-Knopf im `#cap-last` bekam dafür eine id. SW-Cache v71.
+
+## v0.33.6 — 2026-10-14
+**UI: CCP-Auswahl-Kontrast + Merge-Button prominenter**
+- `ccpJoinModal`: Örtlichkeit als lesbare Hauptzeile, Kennung als Badge.
+- `realMergeUI`: „CCPs zusammenführen" / „Weitere CCP hinzufügen" als prominenter `navbtn` statt blassem Ghost-Link. SW-Cache v70.
+
+## v0.33.5 — 2026-10-14
+**Fix: offline-sichere Nummernvergabe per Geräte-Blöcken**
+- Zwei Geräte im selben CCP vergaben offline dieselben laufenden Nummern, weil der Offline-Fallback je Gerät aus dem lokalen Maximum zählte.
+- Jedes Gerät reserviert online einen eigenen Nummernblock (`argus_claim_nums` mit `p_count`) und zieht offline nur daraus; Block-Pool pro `ccpId` (persistiert). Rein clientseitig, keine DB-Migration. (In 0.33.10 durch die Gerätenummer-Lösung abgelöst.) SW-Cache v69.
+
 ## Backend/Lage — 2026-09-11 · MasterToken sieht die Lage präsidienübergreifend
 _(Keine Feld-App-Änderung → `APP_VERSION` bleibt 0.33.4; betrifft Backend-Migration 0021 + Lage-Seite.)_
 - **Owner-Report:** Der MasterToken wurde von der FLZ-/Lage-Ansicht mit „Kein Beobachter-Code" abgewiesen (Beobachter-Rolle ≠ Master, by design) — den global „alles sehenden" Master aber aus der reinen Lese-Ansicht auszusperren war unnötig.

@@ -17,8 +17,8 @@ const stubs = {
 };
 const { value: LESSONS, scope } = evalInScope(extractVarLiteral(script, 'TRAIN_LESSONS'), stubs);
 
-test('Drehbuch: Lektionszahl ist 40 (bei bewusster Änderung Test aktualisieren — DAUERREGEL)', () => {
-  assert.equal(LESSONS.length, 40);
+test('Drehbuch: Lektionszahl ist 45 (bei bewusster Änderung Test aktualisieren — DAUERREGEL)', () => {
+  assert.equal(LESSONS.length, 45);
 });
 
 test('Drehbuch: jede Lektion hat Titel, Text und gültigen Modus', () => {
