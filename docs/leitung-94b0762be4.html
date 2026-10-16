@@ -1483,7 +1483,8 @@ async function exportProtokoll(){
   var d=_detail.data||{};
   var kenn=(Array.isArray(d.ccps)?d.ccps:[]).map(function(c){return c.kennung||'?';}).join('+')||'CCP';
   var payload={ exportiert:new Date().toISOString(), quelle:'ARGUS Leitungs-Oberfläche',
-    ccps:d.ccps||[], patients:d.patients||[], checklists:d.checklists||[] };
+    ccps:d.ccps||[], patients:activePats(d), checklists:d.checklists||[],
+    datenherkunft:{ devices:Array.isArray(d.devices)?d.devices:[], herkunft:Array.isArray(d.herkunft)?d.herkunft:[], verworfen_n:(+d.verworfen_n)||0 } };
   try{
     var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
     var a=document.createElement('a');
@@ -1534,10 +1535,115 @@ function patStatusLabel(s){
   return s ? esc(String(s)) : '—';
 }
 
+/* Grabstein-Filter (Phase 6.5, defensiv): der Server liefert verworfene Patienten ohnehin nicht
+ * (0025), die Oberfläche zeigt/exportiert/druckt sie unter keinen Umständen als Patienten. */
+function activePats(d){
+  var a=(d && Array.isArray(d.patients)) ? d.patients : [];
+  return a.filter(function(p){ return p && !p.deleted_at && p.status!=='verworfen'; });
+}
+function hhmmMs(ms){
+  if(ms==null) return '—';
+  var t=new Date(+ms);
+  return isNaN(t.getTime()) ? '—' : t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+/* Patienten-Anzeigename "A-7" (Kennung ohne Gerätesuffix + Nummer) */
+function patLabelPlain(p){
+  var c=(p.ccp==null ? '' : String(p.ccp)), i=c.indexOf('~');
+  if(i>=0) c=c.slice(0,i);
+  return c+'-'+(p.num!=null ? p.num : '?');
+}
+var HERK_EV={ geraet_verlassen:'verlassen', geraet_abgemeldet:'abgemeldet durch MasterMedic',
+  geraet_abmeldung_aufgehoben:'Abmeldung aufgehoben', geraet_wieder_beigetreten:'wieder beigetreten' };
+/* Datenherkunft (Phase 6.5, S7, D6.5-09/-15): Geräte, Wege und Ereignisse aus
+ * argus_governance_protokoll.devices/.herkunft. Fehlen beide Schlüssel (Server ohne 0026) → null.
+ * Alle Werte stammen von Feld-Geräten: die Ausgabe in vDatenherkunft läuft ausschließlich über esc(). */
+function herkunftModel(d, pats){
+  var devs=(d && Array.isArray(d.devices)) ? d.devices : null;
+  var ev=(d && Array.isArray(d.herkunft)) ? d.herkunft : null;
+  if(!devs && !ev) return null;
+  devs=devs||[]; ev=ev||[];
+  var kenn={}; devs.forEach(function(x){ if(x && x.kennung) kenn[x.kennung]=true; });
+  var merged=Object.keys(kenn).length>1;
+  var byId={}; (pats||[]).forEach(function(p){ if(p && p.id!=null) byId[String(p.id)]=patLabelPlain(p); });
+  var rows=devs.filter(Boolean).map(function(x){
+    var st;
+    if(x.left_at) st='verlassen '+hhmmMs(x.left_at);
+    else if(x.lost_at && +x.lost_at>=(+x.last_seen||0)) st='abgemeldet durch MasterMedic '+(x.lost_by||'?')+' '+hhmmMs(x.lost_at);
+    else st='zuletzt gesehen '+hhmmMs(x.last_seen);
+    return { label:(merged && x.kennung ? (x.kennung+'·'+x.device_no) : String(x.device_no)),
+      op:x.operator||'', first:x.first_seen, last:x.last_seen, status:st, open:(x.open_n|0) };
+  });
+  var herk={}, events=[];
+  ev.forEach(function(e){
+    if(!e || typeof e!=='object') return;
+    var det=(e.detail && typeof e.detail==='object') ? e.detail : {};
+    var dev=parseInt(det.dev,10)||0;
+    if(e.action==='herkunft'){
+      var h=herk[dev]||(herk[dev]={direkt:{}, nachgereicht:{}, nachfrist:{}});
+      var w=(det.weg==='nachgereicht'||det.weg==='nachfrist') ? det.weg : 'direkt';
+      (Array.isArray(det.ids)?det.ids:[]).forEach(function(id){ h[w][String(id)]=true; });
+    }else if(HERK_EV[e.action]){
+      events.push({at:e.at, label:HERK_EV[e.action], dev:dev, kuerzel:e.kuerzel||'', open:(det.open_n!=null ? (det.open_n|0) : null)});
+    }
+  });
+  function names(set){
+    var known=[], more=0;
+    Object.keys(set).forEach(function(id){ if(byId[id]) known.push(byId[id]); else more++; });
+    known.sort(function(a,b){ return a<b?-1:a>b?1:0; });
+    return {known:known, more:more};
+  }
+  var herkRows=Object.keys(herk).map(Number).sort(function(a,b){return a-b;}).map(function(dev){
+    var h=herk[dev];
+    return {dev:dev, direktN:Object.keys(h.direkt).length, nach:names(h.nachgereicht), nf:names(h.nachfrist)};
+  });
+  events.sort(function(a,b){ return (+a.at||0)-(+b.at||0); });
+  return {rows:rows, herk:herkRows, events:events};
+}
+function vDatenherkunft(d, pats){
+  var m=herkunftModel(d, pats);
+  var h='<div class="sech">Datenherkunft</div>';
+  if(!m){
+    return h+'<div class="card"><p class="hint" style="margin:0">Keine Herkunftsdaten (Server-Migration 0026 fehlt).</p></div>';
+  }
+  if(!m.rows.length && !m.herk.length && !m.events.length){
+    return h+'<div class="card"><p class="hint" style="margin:0">Keine Geräte- oder Herkunftsdaten erfasst.</p></div>';
+  }
+  if(m.rows.length){
+    h+='<div class="tablewrap"><table><thead><tr><th>Gerät</th><th>Bediener</th><th>Erstes Signal</th><th>Letztes Signal</th><th>Status</th><th>Offen beim letzten Signal</th></tr></thead><tbody>';
+    m.rows.forEach(function(r){
+      h+='<tr><td class="mono" style="font-weight:600">'+esc(r.label)+'</td><td>'+(r.op?esc(r.op):'—')+'</td>'+
+        '<td class="hint" style="white-space:nowrap">'+esc(fmtMs(r.first))+'</td><td class="mono">'+esc(hhmmMs(r.last))+'</td>'+
+        '<td>'+esc(r.status)+'</td><td>'+esc(String(r.open))+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  if(m.herk.length){
+    h+='<div class="card" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Herkunft der Patienten je Gerät</div>';
+    m.herk.forEach(function(r){
+      var parts=[];
+      if(r.direktN) parts.push('direkt '+r.direktN+' '+(r.direktN===1?'Patient':'Patienten'));
+      function lst(o){ return o.known.map(esc).join(', ')+(o.more ? (o.known.length?' ':'')+'+'+o.more+' weitere' : ''); }
+      if(r.nach.known.length||r.nach.more) parts.push('nachgereicht: '+lst(r.nach));
+      if(r.nf.known.length||r.nf.more) parts.push('nach Abschluss (Nachfrist): '+lst(r.nf));
+      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)">Gerät '+esc(String(r.dev||'?'))+': '+(parts.length?parts.join(' · '):'—')+'</div>';
+    });
+    h+='</div>';
+  }
+  if(m.events.length){
+    h+='<div class="card" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Ereignisse</div>';
+    m.events.forEach(function(e){
+      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)"><span class="mono">'+esc(fmtMs(e.at))+'</span> · Gerät '+esc(String(e.dev||'?'))+' '+esc(e.label)+
+        (e.kuerzel?(' · '+esc(e.kuerzel)):'')+(e.open!=null?(' · offen: '+esc(String(e.open))):'')+'</div>';
+    });
+    h+='</div>';
+  }
+  return h;
+}
+
 function vProtokollDetail(){
   var d=_detail.data||{};
   var ccps=Array.isArray(d.ccps)?d.ccps:[];
-  var pats=Array.isArray(d.patients)?d.patients:[];
+  var pats=activePats(d);   /* Grabsteine nie als Patienten */
   var cls=Array.isArray(d.checklists)?d.checklists:[];
   var now=nowMs();
   var h='<div class="mh"><h2>Einsatzprotokoll</h2><span style="display:flex;gap:8px;flex-wrap:wrap">'+
@@ -1558,7 +1664,7 @@ function vProtokollDetail(){
     h+='</div>';
   });
   /* Patiententabelle — alle Werte defensiv + esc() (XSS: Daten stammen von Feld-Geräten) */
-  h+='<div class="sech">Patienten ('+pats.length+')</div>';
+  h+='<div class="sech">Patienten ('+pats.length+')'+((+d.verworfen_n>0)?' <span class="hint" style="font-weight:400">· verworfen: '+esc(String(+d.verworfen_n))+'</span>':'')+'</div>';
   if(!pats.length){
     h+='<div class="card"><p class="hint" style="margin:0">Keine Patientendaten (mehr) vorhanden.</p></div>';
   }else{
@@ -1581,6 +1687,8 @@ function vProtokollDetail(){
     h+='</tbody></table></div>';
     h+='<p class="hint" style="margin-top:6px">Jeder Foto-Abruf wird einzeln protokolliert. Fotos nur bis zur 72-Std-Frist — danach endgültig gelöscht.</p>';
   }
+  /* Datenherkunft (Phase 6.5): Geräte, Wege, Ereignisse */
+  h+=vDatenherkunft(d, pats);
   /* Checklisten */
   h+='<div class="sech">Checkliste CCP ('+cls.length+')</div>';
   if(!cls.length){
@@ -1615,7 +1723,7 @@ function vProtokollDetail(){
 function vAtmistPrint(){
   var d=_detail && _detail.data;
   if(!d) return;
-  var pats=Array.isArray(d.patients)?d.patients:[];
+  var pats=activePats(d);   /* Grabsteine nie als Patienten */
   if(!pats.length){ toast('Keine Patientendaten (mehr) vorhanden.'); return; }
   var ccps=Array.isArray(d.ccps)?d.ccps:[];
   var kenn=ccps.map(function(c){return c.kennung||'?';}).sort().join(', ')||'?';
