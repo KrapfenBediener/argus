@@ -1342,6 +1342,8 @@ var FLOW={
 
 var state = {view:"start", installShortCode:"", installTokenFull:"", cat:null, id:null, capMode:"menu", tacNode:"walk", tacResult:null, edit:null, readonly:false, lastCreatedId:null, capDirect:false, capPopup:false};
 var patients = [];
+var _tombs = [];           /* Grabsteine (verworfene Patienten) — nicht in patients, nur für Rückholen/Zähler (Plan 04) */
+var _ccpIdsKnown = null;   /* CCP-IDs des aktuellen Verbunds (zuletzt online ermittelt) */
 var checklist = {hdr:{}, items:{}};
 var operator = "";
 var masterMedic = "";
@@ -1429,6 +1431,57 @@ function clearPending(fts, upTo){
     if(e && e.p && (e.t||0)<=(upTo||0)) delete e.p;
   });
   return fts;
+}
+/* Feldgruppen-Merge Client-Seite (Gegenstück zum Trigger argus_patients_merge, Migration 0025):
+ * Basis = Kopie des Serverstands (cloud); je Gruppe gewinnt der jüngere Stempel, bei
+ * Gleichstand der Server. Grabstein: lokal gewinnt nur mit jüngerem fts.del; ein Grabstein
+ * trägt nie Inhalt (Kategorie bleibt). Reine Funktion — verändert weder local noch cloud. */
+function mergeGroups(local, cloud, groups){
+  function cp(v){ return v===undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+  var HULL_VIT={af:'',spo2:'',hf:'',rr:'',avpu:'',pain:''};
+  var m=cp(cloud)||{};
+  var lf=local.fts||{}, cf=cloud.fts||{};
+  m.fts=cp(cf)||{};
+  /* Grabstein-Gruppe "del" */
+  var tdl=(lf.del && lf.del.t) || 0;
+  var tdc=(cf.del && cf.del.t) || cloud.deletedAt || 0;
+  var delWon=false;
+  if(tdl>tdc){
+    delWon=true;
+    m.deletedAt=local.deletedAt||null;
+    m.deletedBy=m.deletedAt ? (local.deletedBy||'') : '';
+    m.deletedDev=m.deletedAt ? (local.deletedDev==null ? null : local.deletedDev) : null;
+    m.fts.del=cp(lf.del);
+  }
+  var tomb=!!m.deletedAt;
+  if(tomb){
+    /* Inhalt leeren (identisch zum Grabstein-Inhalt des Servers); cat/lastTriage bleiben */
+    m.status='verworfen'; m.prio=false; m.ready=false;
+    m.vit=cp(HULL_VIT); m.tx={}; m.inj=[];
+    ['name','age','gender','allergies','moi','injury','fr','notes','pupRe','pupLi'].forEach(function(k){ m[k]=''; });
+    m.tqStart=null; m.tqSite=null; m.photo=null;
+    m.conf=[];
+    if(delWon){
+      ['st','vit','tx','tq','stamm','foto'].forEach(function(g){
+        m.fts[g]={t:lf.del.t, d:lf.del.d};
+      });
+    }
+  }
+  /* Inhaltsgruppen */
+  Object.keys(groups).forEach(function(g){
+    if(tomb && g!=='cat') return;
+    var keys=groups[g];
+    var tl;
+    if(lf[g] && lf[g].t!=null) tl=lf[g].t;
+    else tl=(groupSig(local, keys)!==groupSig(cloud, keys)) ? (local.updated||0) : 0;
+    var tc=(cf[g] && cf[g].t) || cloud.updated || 0;
+    if(tl>tc){
+      keys.forEach(function(k){ if(local[k]!==undefined) m[k]=cp(local[k]); });
+      m.fts[g]=lf[g] ? cp(lf[g]) : {t:local.updated, d:0};
+    }
+  });
+  m.updated=Math.max(local.updated||0, cloud.updated||0);
+  return m;
 }
 /* Uhrversatz (D6.5-07): eine Probe = Hin-und-Rück-Zeit + Versatz Server − Gerät. */
 function clockSample(t0, t1, serverMs){ return {rtt:t1-t0, offset:serverMs-(t0+t1)/2}; }
@@ -2063,13 +2116,30 @@ async function flushPendingPatients(arr, client, ccpIds){
     /* nur Patienten des aktuellen CCP(-Verbunds) berücksichtigen */
     if(lp.ccpId && ccpIds && ccpIds.indexOf(lp.ccpId)===-1) continue;
     var cloudP=byId[lp.id];
-    if(cloudP && (cloudP.updated||0) >= (lp.updated||0)){
-      delete lp._dirty; await sSet("ccp_pat_"+lp.id, lp);   /* Cloud ist aktueller */
+    if(cloudP){
+      /* Phase 6.5: statt "Cloud >= lokal → lokal verwerfen" je Feldgruppe zusammenführen */
+      var m=mergeGroups(lp, cloudP, FGROUPS); m.ccpId=lp.ccpId||cloudP.ccpId;
+      var won=Object.keys(FGROUPS).some(function(g){return groupSig(m,FGROUPS[g])!==groupSig(cloudP,FGROUPS[g]);}) || (m.deletedAt||null)!==(cloudP.deletedAt||null);
+      if(!won){   /* lokal hat nichts Neues → Serverstand übernehmen, nichts hochladen */
+        delete m._dirty; m._sig=groupSigs(m, FGROUPS); await sSet("ccp_pat_"+m.id, m);
+        byId[m.id]=normalize(m);
+        continue;
+      }
+      var mpushed=false, mrow=null;
+      try{
+        mrow=patToRow(m); delete mrow.locked_by; delete mrow.locked_at;
+        var mr=await client.from('patients').upsert(mrow);
+        if(!mr.error) mpushed=true; else noteSchemaError(mr.error);
+      }catch(e){}
+      m._sig=groupSigs(m, FGROUPS);
+      if(mpushed){ delete m._dirty; if(mrow.fts) clearPending(m.fts, mrow.updated); } else { m._dirty=true; }
+      await sSet("ccp_pat_"+m.id, m);
+      byId[m.id]=normalize(m);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
       continue;
     }
-    var pushed=false;
-    try{ var lrow=patToRow(lp); delete lrow.locked_by; delete lrow.locked_at; var r=await client.from('patients').upsert(lrow); if(!r.error) pushed=true; }catch(e){}
-    if(pushed){ delete lp._dirty; await sSet("ccp_pat_"+lp.id, lp); }
+    var pushed=false, lrow=null;
+    try{ lrow=patToRow(lp); delete lrow.locked_by; delete lrow.locked_at; var r=await client.from('patients').upsert(lrow); if(!r.error) pushed=true; else noteSchemaError(r.error); }catch(e){}
+    if(pushed){ delete lp._dirty; if(lrow.fts) clearPending(lp.fts||{}, lrow.updated); await sSet("ccp_pat_"+lp.id, lp); }
     byId[lp.id]=normalize(lp);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
   }
   arr.length=0;
@@ -2096,6 +2166,12 @@ async function loadPatients(){
       if(!q.error && q.data){
         var arr=q.data.map(patFromRow);
         await flushPendingPatients(arr, client, ccpIds);
+        /* Phase 6.5: Grabsteine (verworfene Patienten) nie in die Patientenliste;
+         * CCP-Verbund für den Offline-Filter merken. */
+        _tombs=arr.filter(function(p){return p.deletedAt||p.status==='verworfen';});
+        arr=arr.filter(function(p){return !(p.deletedAt||p.status==='verworfen');});
+        _ccpIdsKnown=ccpIds;
+        try{ localStorage.setItem('argus_ccp_ids_'+_ccpId, JSON.stringify(ccpIds)); }catch(e3){}
         ccpMerged = realMerged || _demoMerged;
         if(_demoMerged){
           var keys2=await sList("ccp_pat_");
@@ -2105,13 +2181,27 @@ async function loadPatients(){
           var keysT=await sList("ccp_pat_");
           for(var iT=0;iT<keysT.length;iT++){var pt=await sGet(keysT[iT]);if(pt&&pt.training)arr.push(normalize(pt));}
         }
+        arr.forEach(function(p){ p._sig=groupSigs(p, FGROUPS); });   /* sonst stempelt die erste Speicherung alle Gruppen */
         arr.sort(function(a,b){var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);if(ca!==cb)return ca<cb?-1:1;if(a.num!==b.num)return a.num-b.num;return ccpDev(a.ccp)-ccpDev(b.ccp);});
         patients=arr; return;
       }
     }catch(e){}
   }
-  var keys=await sList("ccp_pat_");var arr=[];
-  for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!_demoMerged)continue;if(p.training&&!_training)continue;if(_training&&!p.training)continue;arr.push(normalize(p));}}
+  var keys=await sList("ccp_pat_");var arr=[];var tombsOff=[];
+  /* Pitfall 7: Offline-Fallback zeigt nur Patienten des aktuellen CCP(-Verbunds) —
+   * lokal liegen auch Nachzügler/Reste anderer CCPs. Ohne _ccpId: wie bisher. */
+  var idsOff=null;
+  if(_ccpId && !_training){
+    idsOff=[_ccpId];
+    try{ var jo=JSON.parse(localStorage.getItem('argus_ccp_ids_'+_ccpId)); if(Array.isArray(jo) && jo.length) idsOff=jo; }catch(e){}
+  }
+  for(var i=0;i<keys.length;i++){var p=await sGet(keys[i]);if(p){if(p.demo&&!_demoMerged)continue;if(p.training&&!_training)continue;if(_training&&!p.training)continue;
+    if(idsOff && !p.demo && !p.training && p.ccpId && idsOff.indexOf(p.ccpId)<0) continue;
+    normalize(p);
+    if(p.deletedAt||p.status==='verworfen'){ tombsOff.push(p); continue; }
+    if(!p._sig) p._sig=groupSigs(p, FGROUPS);
+    arr.push(p);}}
+  _tombs=tombsOff;
   arr.sort(function(a,b){var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);if(ca!==cb)return ca<cb?-1:1;if(a.num!==b.num)return a.num-b.num;return ccpDev(a.ccp)-ccpDev(b.ccp);});
   patients=arr;
 }
