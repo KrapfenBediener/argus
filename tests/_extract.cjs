@@ -76,6 +76,24 @@ function evalFunction(src){
   return new Function('return (' + src + ');')();
 }
 
+/* true, wenn `function NAME(` im Script vorkommt (wirft nie). */
+function hasFunction(script, name){
+  return new RegExp('function\\s+' + name + '\\s*\\(').test(script);
+}
+
+/* Mehrere Funktionen (und optional var-Literale) in EINEM Scope auswerten, damit
+ * sie sich gegenseitig aufrufen können (z. B. mergeGroups -> groupSig).
+ * Rückgabe: { name: fn, …, VARNAME: wert }. Fehlende Namen werfen wie extractFunction. */
+function evalFunctions(script, names, varNames){
+  varNames = varNames || [];
+  const parts = [];
+  varNames.forEach(function(v){ parts.push('var ' + v + ' = ' + extractVarLiteral(script, v) + ';'); });
+  names.forEach(function(n){ parts.push(extractFunction(script, n)); });
+  const keys = names.concat(varNames);
+  const body = parts.join('\n') + '\nreturn {' + keys.map(function(k){ return k + ':' + k; }).join(',') + '};';
+  return new Function(body)();
+}
+
 /* Literal in einem kontrollierten Scope auswerten: with(Proxy) fängt ALLE freien
  * Bezeichner ab — unbekannte liefern undefined statt ReferenceError. Closures
  * (sel/adv/ctx in TRAIN_LESSONS) lesen den Scope bei AUFRUF → Tests können
@@ -102,4 +120,4 @@ function app(){
 }
 
 module.exports = { ROOT, readFileText, extractInlineScript, balancedEnd,
-  extractFunction, extractVarLiteral, evalFunction, evalInScope, app };
+  extractFunction, extractVarLiteral, evalFunction, evalFunctions, hasFunction, evalInScope, app };

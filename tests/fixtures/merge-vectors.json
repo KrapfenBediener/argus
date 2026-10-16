@@ -1,0 +1,119 @@
+[
+  {
+    "id": "V01-prio-und-vitalwerte",
+    "desc": "Verschiedene Gruppen: A setzt Prio (st), B ändert Vitalwerte (vit) offline — beide Änderungen bleiben erhalten. Die jüngere vit-Änderung des Servers (t150) schlägt die ältere des eingehenden Stands (t100).",
+    "old": {
+      "prio": false, "vit": {"hf": "80"}, "updated": 150,
+      "fts": {"st": {"t": 100, "d": 1}, "vit": {"t": 150, "d": 2}}
+    },
+    "new": {
+      "prio": true, "vit": {"hf": "70"}, "updated": 200,
+      "fts": {"st": {"t": 200, "d": 5, "b": 100}, "vit": {"t": 100, "d": 1}}
+    },
+    "expect": {"prio": true, "vit.hf": "80", "fts.st.t": 200, "fts.vit.t": 150}
+  },
+  {
+    "id": "V02-gleiche-gruppe-neuere-gewinnt",
+    "desc": "Gleiche Gruppe vit: der jüngere Stempel (eingehend, t200) gewinnt.",
+    "old": {"vit": {"hf": "80"}, "updated": 150, "fts": {"vit": {"t": 150, "d": 2}}},
+    "new": {"vit": {"hf": "90"}, "updated": 200, "fts": {"vit": {"t": 200, "d": 5, "b": 150}}},
+    "expect": {"vit.hf": "90"}
+  },
+  {
+    "id": "V03-gleiche-gruppe-aeltere-verliert",
+    "desc": "Gleiche Gruppe vit: der ältere eingehende Stempel (t150) verliert gegen den Server (t200) — später eintreffender alter Stand überschreibt nichts.",
+    "old": {"vit": {"hf": "90"}, "updated": 200, "fts": {"vit": {"t": 200, "d": 5, "b": 150}}},
+    "new": {"vit": {"hf": "80"}, "updated": 150, "fts": {"vit": {"t": 150, "d": 2}}},
+    "expect": {"vit.hf": "90"}
+  },
+  {
+    "id": "V04-gleichstand-stabil",
+    "desc": "Gleichstand (t300 beide): kein Überschreiben, der Serverstand bleibt — stabil und deterministisch.",
+    "old": {"cat": "T2", "updated": 300, "fts": {"cat": {"t": 300, "d": 1}}},
+    "new": {"cat": "T1", "updated": 300, "fts": {"cat": {"t": 300, "d": 4}}},
+    "expect": {"cat": "T2"}
+  },
+  {
+    "id": "V05-grabstein-schlaegt-alten-stand",
+    "desc": "Der Server hält einen Grabstein (del t500). Ein eingehender Stand ohne del-Stempel — auch mit jüngeren Inhaltsstempeln (t600) — erweckt den Patienten NICHT: Ergebnis bleibt Grabstein mit leerem Inhalt.",
+    "old": {
+      "deleted_at": 500, "deleted_by": "MUE", "deleted_dev": 3, "status": "verworfen",
+      "name": "", "vit": {}, "updated": 500,
+      "fts": {"del": {"t": 500, "d": 3}, "stamm": {"t": 500, "d": 3}}
+    },
+    "new": {
+      "name": "Testname", "vit": {"hf": "80"}, "status": "active", "updated": 600,
+      "fts": {"stamm": {"t": 600, "d": 2}, "vit": {"t": 600, "d": 2}}
+    },
+    "expect": {"deleted_at": 500, "name": "", "status": "verworfen"}
+  },
+  {
+    "id": "V06-rueckholen-mit-juengerem-del",
+    "desc": "Rückholen: ein eingehender del-Stempel (t700) ist jünger als der Grabstein (t500) und hebt ihn auf. Der Inhalt bleibt leer/serverseitig (die rückholende Seite hatte nur einen älteren Stand der Stammdaten, t400), der Status kommt aus der jüngeren Gruppe st.",
+    "old": {
+      "deleted_at": 500, "deleted_by": "MUE", "deleted_dev": 3, "status": "verworfen",
+      "cat": "T2", "name": "", "updated": 500,
+      "fts": {"del": {"t": 500, "d": 3}, "st": {"t": 500, "d": 3}, "cat": {"t": 500, "d": 3}, "stamm": {"t": 500, "d": 3}}
+    },
+    "new": {
+      "deleted_at": null, "status": "active", "cat": "T1", "name": "Testname", "updated": 700,
+      "fts": {"del": {"t": 700, "d": 3}, "st": {"t": 700, "d": 3}, "cat": {"t": 400, "d": 2}, "stamm": {"t": 400, "d": 2}}
+    },
+    "expect": {"deleted_at": null, "status": "active", "cat": "T2", "name": ""}
+  },
+  {
+    "id": "V07-juengerer-grabstein-leert-inhalt",
+    "desc": "Ein eingehender Grabstein (del t800) ist jünger als alles auf dem Server: er gewinnt und leert den Inhalt (Name, Foto), der Status wird 'verworfen'.",
+    "old": {
+      "name": "Testname", "vit": {"hf": "80"}, "status": "active", "updated": 100,
+      "fts": {"stamm": {"t": 100, "d": 1}, "vit": {"t": 100, "d": 1}}
+    },
+    "new": {
+      "deleted_at": 800, "deleted_by": "MUE", "deleted_dev": 4, "name": "Testname", "updated": 800,
+      "fts": {"del": {"t": 800, "d": 4}}
+    },
+    "expect": {"deleted_at": 800, "name": "", "photo": null, "status": "verworfen"}
+  },
+  {
+    "id": "V08-alter-client-ohne-fts",
+    "desc": "Alter Client ohne fts-Stempel: Fallback über 'updated'. Geänderte Gruppe (st, Prio) gewinnt mit Stempel t=updated=300; unveränderte Gruppe (vit) behält den Serverstempel (t100).",
+    "old": {
+      "prio": false, "vit": {"hf": "80"}, "updated": 100,
+      "fts": {"st": {"t": 100, "d": 1}, "vit": {"t": 100, "d": 1}}
+    },
+    "new": {"prio": true, "vit": {"hf": "80"}, "updated": 300},
+    "expect": {"prio": true, "vit.hf": "80", "fts.st.t": 300, "fts.vit.t": 100}
+  },
+  {
+    "id": "V09-zukunftsstempel-geklemmt",
+    "serverOnly": true,
+    "desc": "Nur Server/SQL-Probe: ein Stempel aus der Zukunft (Geräteuhr falsch) wird auf Serverzeit + Toleranz geklemmt. Platzhalter NOW+N = Serverzeit in ms plus N.",
+    "old": {"vit": {"hf": "80"}, "updated": 100, "fts": {"vit": {"t": 100, "d": 1}}},
+    "new": {"vit": {"hf": "99"}, "updated": 200, "fts": {"vit": {"t": "NOW+86400000", "d": 5}}},
+    "expect": {"fts.vit.t": {"max": "NOW+60000"}}
+  },
+  {
+    "id": "V10-konflikt-erzeugt-marker",
+    "serverOnly": true,
+    "desc": "Nur Server/SQL-Probe: gleichzeitige Änderung derselben Gruppe (eingehende Basis b150 < Serverstempel t200). Der jüngere Stand (t250) gewinnt, der Verlierer wird als Konflikt-Marker mit Snapshot (Gerät 2, hf 80) festgehalten.",
+    "old": {"vit": {"hf": "80"}, "updated": 200, "fts": {"vit": {"t": 200, "d": 2}}, "conf": []},
+    "new": {"vit": {"hf": "95"}, "updated": 250, "fts": {"vit": {"t": 250, "d": 5, "b": 150}}},
+    "expect": {"vit.hf": "95", "conf.0.g": "vit", "conf.0.lose.d": 2, "conf.0.lose.v.vit.hf": "80"}
+  },
+  {
+    "id": "V11-ack-entfernt-konflikte",
+    "serverOnly": true,
+    "desc": "Nur Server/SQL-Probe: eine Quittung (fts.ack, t2000) jünger als der Marker (at1000) räumt die Konflikt-Marker ab.",
+    "old": {"vit": {"hf": "80"}, "updated": 200, "fts": {"vit": {"t": 200, "d": 2}}, "conf": [{"g": "vit", "at": 1000}]},
+    "new": {"vit": {"hf": "80"}, "updated": 2000, "fts": {"ack": {"t": 2000}}},
+    "expect": {"conf": []}
+  },
+  {
+    "id": "V12-foto-konflikt-ohne-snapshot",
+    "serverOnly": true,
+    "desc": "Nur Server/SQL-Probe: ein Konflikt in der Gruppe foto erzeugt einen Marker OHNE Foto-Snapshot (Größe/Datenschutz) — lose.v enthält kein photo.",
+    "old": {"photo": "data:image/jpeg;base64,AAAA", "updated": 200, "fts": {"foto": {"t": 200, "d": 2}}, "conf": []},
+    "new": {"photo": "data:image/jpeg;base64,BBBB", "updated": 250, "fts": {"foto": {"t": 250, "d": 5, "b": 150}}},
+    "expect": {"conf.0.g": "foto", "conf.0.lose.v.photo": {"absent": true}}
+  }
+]
