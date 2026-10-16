@@ -566,6 +566,19 @@ heute (Server-Transport) nützlich und werden später vom Mesh (Phase 9) 1:1 üb
 **Nicht in dieser Phase:** Peer-to-Peer-Mesh (native App, Phase 9), TETRA-SDS-Kopplung
 (organisatorisch, Spur F), Fotos in der FLZ-Ansicht (Zweckänderung, DSB).
 
+**Plans:** 9 plans (8 Wellen; Migrationen 0025/0026 spielt der Owner im SQL-Editor ein)
+
+Plans:
+- [ ] 06.5-00-PLAN.md — Wave 0: Basislinie grün (CHANGELOG, Lektionszahl) + Test-Vertrag (sync/funk/security, Merge-Vektoren)
+- [ ] 06.5-01-PLAN.md — Migration 0025: Feldgruppen-Merge-Trigger, Grabsteine, Konflikt-Marker, Audit, Lese-Filter, argus_server_time (+ Owner-Checkpoint)
+- [ ] 06.5-02-PLAN.md — Migration 0026: ccp_devices + Geräte-RPCs, argus_late_push, Herkunft, Protokoll-Datenherkunft, Purge-Neufassung (+ Owner-Checkpoint)
+- [ ] 06.5-03-PLAN.md — Client-Sync-Kern: Schema-Probe, Uhrabgleich, Gruppen-Stempel, mergeGroups, CCP-Filter
+- [ ] 06.5-04-PLAN.md — Grabstein/Rückholen + Konflikt-Hinweis für den MasterMedic
+- [ ] 06.5-05-PLAN.md — Gerätestatus (Heartbeat, Gerätezeile, Eingriffe) + CCP verlassen / wieder beitreten
+- [ ] 06.5-06-PLAN.md — Abschluss-Vollständigkeit, Nachzügler-Nachfrist, lokale Löschfristen, Herkunft, Leitungs-Export
+- [ ] 06.5-07-PLAN.md — Funkspruch-Modus + Trainings-Lektionen + Hilfe
+- [ ] 06.5-08-PLAN.md — Release 0.34.0, Phasen-Gate, Doku, iPhone-UAT (2 Geräte)
+
 ## Phase 7 — Betriebsbereitschaft & Open Beta ⬜
 
 **Ziel:** Die App ist legal, organisatorisch und dokumentarisch bereit für
