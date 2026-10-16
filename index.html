@@ -1480,6 +1480,12 @@ function mergeGroups(local, cloud, groups){
       m.fts[g]=lf[g] ? cp(lf[g]) : {t:local.updated, d:0};
     }
   });
+  /* Quittung für Konflikt-Marker (D6.5-14): lokal jüngere Quittung gewinnt und räumt die Marker ab */
+  var ackL=(lf.ack && lf.ack.t) || 0, ackC=(cf.ack && cf.ack.t) || 0;
+  if(ackL>ackC){
+    m.fts.ack={t:ackL};
+    m.conf=(m.conf||[]).filter(function(c){ return (c.at||0)>ackL; });
+  }
   m.updated=Math.max(local.updated||0, cloud.updated||0);
   return m;
 }
@@ -1498,6 +1504,30 @@ function restoreTombstone(p, t, dev){
   p.deletedAt=null; p.deletedBy=''; p.deletedDev=null; p.status='active';
   stampGroups(p, ['del'], t, dev);
   return p;
+}
+/* Konflikt-Hinweis (D6.5-14): eine Zeile pro Marker aus patients.conf. Die Bezeichnungen stehen
+ * innen (Extraktions-Tests); GROUP_LABEL trägt dieselben Werte für die Detailanzeige. */
+function conflictText(c, hhmm){
+  var L={cat:'Kategorie',st:'Status/Prio/Transport',vit:'Vitalwerte',tx:'Maßnahmen',tq:'Tourniquet',stamm:'Stammdaten/Notizen',foto:'Foto'};
+  var w=c.win||{}, l=c.lose||{};
+  return (L[c.g]||c.g)+': Stand von Gerät '+(l.d==null?'?':l.d)+' ('+hhmm(l.t)+') wurde durch Gerät '+(w.d==null?'?':w.d)+' ('+hhmm(w.t)+') ersetzt';
+}
+var GROUP_LABEL = {cat:'Kategorie', st:'Status/Prio/Transport', vit:'Vitalwerte', tx:'Maßnahmen', tq:'Tourniquet', stamm:'Stammdaten/Notizen', foto:'Foto'};
+/* Server-Spalte (lose.v) → Client-Feld; übrige Spalten heißen gleich */
+var CONF_COL = {last_triage:'lastTriage', pup_re:'pupRe', pup_li:'pupLi', tq_start:'tqStart', tq_site:'tqSite'};
+var CONF_FIELD = {cat:'Kategorie', lastTriage:'Letzte Sichtung', status:'Status', prio:'Prio', ready:'Transportfertig', vit:'Vitalwerte', pupRe:'Pupille rechts', pupLi:'Pupille links', tx:'Maßnahmen', tqStart:'TQ-Start', tqSite:'TQ-Ort', name:'Name', age:'Alter', gender:'Geschlecht', allergies:'Allergien', moi:'Unfallmechanismus', injury:'Verletzung', fr:'Erfasser', notes:'Notizen', inj:'Verletzungen'};
+function hhmm(t){ return t ? new Date(t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}) : '—'; }
+/* Wert eines Snapshot-Felds als Klartext (Aufrufer setzt esc()). */
+function confValText(k, v){
+  if(v===null || v===undefined || v==='') return '—';
+  if(typeof v==='boolean') return v?'ja':'nein';
+  if(k==='tqStart' && typeof v==='number') return hhmm(v)+' Uhr';
+  if(Array.isArray(v)) return v.length ? v.map(function(x){ return typeof x==='object' ? JSON.stringify(x) : String(x); }).join(', ') : '—';
+  if(typeof v==='object'){
+    var parts=Object.keys(v).filter(function(x){ return v[x]!=='' && v[x]!==null && v[x]!==false && v[x]!==undefined; }).map(function(x){ return x+(v[x]===true?'':': '+v[x]); });
+    return parts.length ? parts.join(', ') : '—';
+  }
+  return String(v);
 }
 /* Uhrversatz (D6.5-07): eine Probe = Hin-und-Rück-Zeit + Versatz Server − Gerät. */
 function clockSample(t0, t1, serverMs){ return {rtt:t1-t0, offset:serverMs-(t0+t1)/2}; }
@@ -2135,7 +2165,7 @@ async function flushPendingPatients(arr, client, ccpIds){
     if(cloudP){
       /* Phase 6.5: statt "Cloud >= lokal → lokal verwerfen" je Feldgruppe zusammenführen */
       var m=mergeGroups(lp, cloudP, FGROUPS); m.ccpId=lp.ccpId||cloudP.ccpId;
-      var won=Object.keys(FGROUPS).some(function(g){return groupSig(m,FGROUPS[g])!==groupSig(cloudP,FGROUPS[g]);}) || (m.deletedAt||null)!==(cloudP.deletedAt||null);
+      var won=Object.keys(FGROUPS).some(function(g){return groupSig(m,FGROUPS[g])!==groupSig(cloudP,FGROUPS[g]);}) || (m.deletedAt||null)!==(cloudP.deletedAt||null) || ((m.fts.ack&&m.fts.ack.t)||0)>((cloudP.fts&&cloudP.fts.ack&&cloudP.fts.ack.t)||0);
       if(!won){   /* lokal hat nichts Neues → Serverstand übernehmen, nichts hochladen */
         delete m._dirty; m._sig=groupSigs(m, FGROUPS); await sSet("ccp_pat_"+m.id, m);
         byId[m.id]=normalize(m);
@@ -2524,7 +2554,24 @@ function vHome(){
   navbtn("capture","＋","Patient erfassen","tacSTART oder direkt T-1…T-5")+
   navbtn("overview","▦","Patientenübersicht","Kategorien, Listen, Verwundetenkarte")+
   navbtn("help","?","Hilfestellungen","tacSTART · Rollen · Merksätze")+
+  abgleichCard()+
   ccpAdminUI();
+}
+/* Abgleich (D6.5-14): nur MasterMedic, nur wenn es etwas zu sehen gibt — im Normalfall erscheint nichts. */
+function abgleichCard(){
+  if(_training || !isMasterMedic()) return '';
+  var cps=patients.filter(function(p){ return p.conf && p.conf.length>0; });
+  var tbs=_tombs.filter(function(p){ return !p.training && !p.demo; });
+  if(!cps.length && !tbs.length) return '';
+  var h='<div class="sech">Abgleich</div><div class="card" style="padding:10px">';
+  cps.forEach(function(p){
+    h+='<button class="patrow" data-action="openpat" data-id="'+esc(p.id)+'"><span class="pnum">'+esc(pno(p))+'</span><span style="flex:1"><span class="hint">⚠ '+esc(conflictText(p.conf[p.conf.length-1], hhmm))+'</span></span></button>';
+  });
+  tbs.forEach(function(p){
+    h+='<div class="patrow" style="cursor:default"><span class="pnum">'+esc(pno(p))+'</span><span style="flex:1"><span class="hint">🗑 verworfen '+esc(hhmm(p.deletedAt))+(p.deletedDev!=null?' · Gerät '+esc(p.deletedDev):'')+'</span></span>'+
+      '<button class="txbtn" data-action="tombrestore" data-id="'+esc(p.id)+'" style="width:auto;padding:10px 12px">↩ Rückholen</button></div>';
+  });
+  return h+'</div>';
 }
 function vChecklist(){
   var hd=checklist.hdr;
@@ -2731,6 +2778,28 @@ function vPatient(){
        '<div class="hint" style="margin-top:4px">Schreibgeschützt, um Doppelbearbeitung zu vermeiden. Sobald die Bearbeitung freigegeben wird oder 45 s ohne Aktivität vergehen, kannst du automatisch übernehmen.</div>'+
        (isMasterMedic()?'<button class="prim" data-action="overridelock" data-id="'+p.id+'" style="margin-top:10px;background:var(--prio);border-color:var(--prio);color:#fff">🔓 Sperre übernehmen (MasterMedic)</button>':'')+
        '</div>';
+  }
+  if(isMasterMedic() && !_training && p.conf && p.conf.length){
+    p.conf.forEach(function(cf,ci){
+      var key=p.id+':'+ci, open=(state.confShow===key), lv=cf.lose&&cf.lose.v;
+      h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:12px;margin-bottom:10px">'+
+        '<div style="font-weight:600;font-size:15px;color:var(--prio)">⚠ '+esc(conflictText(cf, hhmm))+'</div>';
+      if(open){
+        if(lv && typeof lv==='object'){
+          h+='<div class="hint" style="margin:8px 0 2px">Überschriebener Stand:</div>';
+          Object.keys(lv).forEach(function(col){
+            var fld=CONF_COL[col]||col;
+            h+='<div style="font-size:14px;margin-top:3px"><b>'+esc(CONF_FIELD[fld]||fld)+':</b> '+esc(confValText(fld, lv[col]))+'</div>';
+          });
+        }else{
+          h+='<div class="hint" style="margin-top:8px">Foto-Stand nicht gespeichert.</div>';
+        }
+      }
+      h+='<div class="row" style="margin-top:10px;flex-wrap:wrap">'+
+        '<button class="txbtn" data-action="confshow" data-id="'+esc(p.id)+'" data-i="'+ci+'" style="flex:1">'+(open?'Stand ausblenden':'Überschriebenen Stand anzeigen')+'</button>'+
+        (lv?'<button class="txbtn" data-action="confadopt" data-id="'+esc(p.id)+'" data-i="'+ci+'" style="flex:1">Stand übernehmen</button>':'')+
+        '<button class="txbtn" data-action="confack" data-id="'+esc(p.id)+'" data-i="'+ci+'" style="flex:1">Erledigt</button></div></div>';
+    });
   }
   h+='<div id="patbody"'+(ro?' style="opacity:.55;pointer-events:none"':'')+'>';
   h+='<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px"><span class="pnum" style="font-size:28px">'+pno(p)+'</span>'+
@@ -4252,6 +4321,29 @@ document.addEventListener("click",async function(e){
     await restoreTomb(ud);
     state.lastDiscardedId=null; state.lastCreatedId=ud.id;
     await loadPatients(); render(); toast("Patient "+pno(ud)+" zurückgeholt");
+    return;
+  }
+  if(a==="confshow"){
+    var ck=el.getAttribute("data-id")+":"+el.getAttribute("data-i");
+    state.confShow=(state.confShow===ck)?null:ck; render(); return;
+  }
+  if(a==="confack" || a==="confadopt"){
+    if(!isMasterMedic()) return;
+    var cid=el.getAttribute("data-id"), ci2=parseInt(el.getAttribute("data-i"),10);
+    var cp0=(state.edit && state.edit.id===cid)?state.edit:patients.find(function(p){return p.id===cid;});
+    if(!cp0 || !cp0.conf || !cp0.conf[ci2]) return;
+    if(a==="confadopt"){
+      var cfe=cp0.conf[ci2], lv2=cfe.lose&&cfe.lose.v;
+      if(!lv2 || typeof lv2!=='object') return;
+      var okc=await confirmModal("Überschriebenen Stand für "+(GROUP_LABEL[cfe.g]||cfe.g)+" übernehmen?","Übernehmen");
+      if(!okc) return;
+      Object.keys(lv2).forEach(function(col){ cp0[CONF_COL[col]||col]=JSON.parse(JSON.stringify(lv2[col])); });
+    }
+    /* Quittung: der Server-Trigger (0025) räumt alle Marker mit at <= ack ab */
+    if(!cp0.fts) cp0.fts={};
+    cp0.fts.ack={t:stampNow(), p:1}; cp0.conf=[]; state.confShow=null;
+    await savePatient(cp0);
+    render(); toast(a==="confadopt"?"Stand übernommen":"Als erledigt markiert");
     return;
   }
   if(a==="tombrestore"){

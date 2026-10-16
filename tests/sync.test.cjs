@@ -206,6 +206,33 @@ test('restoreTombstone: Hülle zurück, del-Stempel neuer, keine Eingaben', { sk
   assert.deepEqual(p.fts.del, {t: 200, d: 4, b: 0, p: 1});   // erster del-Stempel noch unbestätigt → Basis bleibt 0
 });
 
+/* ---------- Konflikt-Hinweis (Plan 06.5-04) ---------- */
+
+test('conflictText: Gruppe, Geräte und Zeiten; unbekannte Gruppe; fehlendes Gerät', { skip: skipUnless('06.5-04', 'conflictText') }, () => {
+  const f = load(['conflictText']);
+  const hh = function(){ return '14:31'; };
+  assert.equal(
+    f.conflictText({g: 'vit', at: 0, win: {t: 2, d: 5}, lose: {t: 1, d: 2}}, hh),
+    'Vitalwerte: Stand von Gerät 2 (14:31) wurde durch Gerät 5 (14:31) ersetzt');
+  assert.ok(f.conflictText({g: 'xyz', win: {t: 2, d: 5}, lose: {t: 1, d: 2}}, hh).startsWith('xyz: '));
+  assert.equal(
+    f.conflictText({g: 'foto', win: {t: 2, d: null}, lose: {t: 1}}, hh),
+    'Foto: Stand von Gerät ? (14:31) wurde durch Gerät ? (14:31) ersetzt');
+});
+
+test('mergeGroups: lokale Quittung (fts.ack) gewinnt und räumt Konflikt-Marker ab', { skip: skipUnless('06.5-04', 'FGROUPS', 'groupSig', 'mergeGroups') }, () => {
+  const f = load(['groupSig', 'tombstoneHull', 'mergeGroups'], true);
+  const cloud = {updated: 500, fts: {vit: {t: 400, d: 2}}, conf: [{g: 'vit', at: 450}, {g: 'st', at: 900}]};
+  const local = {updated: 450, fts: {ack: {t: 600}}};
+  const m = f.mergeGroups(local, cloud, f.FGROUPS);
+  assert.deepEqual(m.fts.ack, {t: 600});
+  assert.deepEqual(m.conf, [{g: 'st', at: 900}]);
+  const cloud2 = {updated: 500, fts: {vit: {t: 400, d: 2}, ack: {t: 200}}, conf: [{g: 'vit', at: 450}, {g: 'st', at: 900}]};
+  const m2 = f.mergeGroups({updated: 450, fts: {ack: {t: 100}}}, cloud2, f.FGROUPS);   // ältere Quittung: Server bleibt
+  assert.deepEqual(m2.fts.ack, {t: 200});
+  assert.equal(m2.conf.length, 2);
+});
+
 /* ---------- Uhrversatz (Plan 06.5-03) ---------- */
 
 test('clockSample: RTT und Versatz', { skip: skipUnless('06.5-03', 'clockSample') }, () => {
