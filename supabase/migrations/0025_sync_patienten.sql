@@ -24,12 +24,13 @@
 --        * Stempel > jetzt + 60 s werden auf Server-Jetzt geklemmt
 --        * Quittung fts.ack räumt Konflikt-Marker ab
 --      Alte Clients (ohne fts) laufen über den Fallback "updated je Gruppe".
---   3) argus_audit_patients(): Verwerfen/Rückholen → patient_discard /
+--   3) argus_server_time() → {now, v:25}: Capability-Probe des Clients.
+--   4) argus_audit_patients(): Verwerfen/Rückholen → patient_discard /
 --      patient_restore im audit_log.
---   4) Grabstein-Filter in argus_lage(), argus_governance_einsaetze(),
+--   5-7) Grabstein-Filter in argus_lage(), argus_governance_einsaetze(),
 --      argus_governance_protokoll() (Protokoll zusätzlich ohne conf, mit
 --      verworfen_n).
---   5) argus_server_time() → {now, v:25}: Capability-Probe des Clients.
+--   8) audit_log.action-Katalog um patient_discard/patient_restore ergänzt.
 --
 -- Reihenfolge: 0000 → … → 0024 → 0025. 0025 hängt NICHT von 0024 ab.
 -- Einspielen: durch den Owner im Supabase-SQL-Editor (kein CLI/db push).
@@ -367,3 +368,299 @@ grant execute on function public.argus_server_time() to anon;
 comment on function public.argus_server_time() is
   'Capability-/Zeit-Probe (Phase 6.5): {now: Server-ms, v: Schema-Version 25}. Ohne Claims aufrufbar.';
 
+-- ── 4) Audit: Verwerfen / Rückholen ────────────────────────────────────────
+-- Basis = 0020-Fassung. Neu: zwei Zweige mit höchster Priorität
+-- (patient_discard / patient_restore, detail = {"dev": Gerätenummer}).
+-- Trigger-Anlage (argus_audit_patients_aiu, 0018) bleibt unverändert; da der
+-- Merge-Trigger BEFORE feuert, sieht das Audit den gemergten Stand — ein
+-- verworfener Stale-Write erzeugt keinen Eintrag.
+create or replace function public.argus_audit_patients()
+  returns trigger
+  language plpgsql
+  security definer
+  set search_path to 'public'
+as $$
+declare
+  v_action      text;
+  v_praesidium  uuid;
+  v_detail      text := null;
+begin
+  -- action aus TG_OP + Spaltendiff ableiten (Priorität: discard/restore > photo > checkout > ready > cat_change).
+  if TG_OP = 'INSERT' then
+    v_action := 'patient_create';
+  elsif TG_OP = 'UPDATE' then
+    -- 0025: Verwerfen/Rückholen (Grabstein) haben höchste Priorität. Der Grabstein setzt
+    -- photo auf null und status auf 'verworfen' → kein falsches patient_photo/-checkout.
+    if NEW.deleted_at is not null and OLD.deleted_at is null then
+      v_action := 'patient_discard';
+      v_detail := jsonb_build_object('dev', NEW.deleted_dev)::text;
+    elsif NEW.deleted_at is null and OLD.deleted_at is not null then
+      v_action := 'patient_restore';
+      v_detail := jsonb_build_object('dev', OLD.deleted_dev)::text;
+    -- IN-02 (0020): Foto-Erst-Upload UND Foto-Ersatz lösen 'patient_photo' aus.
+    elsif NEW.photo is not null and (OLD.photo is null or NEW.photo <> OLD.photo) then
+      v_action := 'patient_photo';
+    elsif NEW.status = 'gpa' and coalesce(OLD.status, '') <> 'gpa' then
+      v_action := 'patient_checkout';
+    elsif NEW.ready = true and coalesce(OLD.ready, false) = false then
+      v_action := 'patient_ready';
+    elsif NEW.cat <> OLD.cat then
+      v_action := 'patient_cat_change';
+    else
+      -- Reine Vitalwert-/Feld-Änderung → kein Eintrag (D-06).
+      return NEW;
+    end if;
+  else
+    return NEW;
+  end if;
+
+  -- praesidium_id über die ccps-Row auflösen (patients hat keine eigene Spalte).
+  select praesidium_id
+    into v_praesidium
+    from public.ccps
+   where id = NEW.ccp_id;
+
+  -- audit_log-Eintrag schreiben (auch bei usbnk=null, §73-Vollständigkeit).
+  insert into public.audit_log (at, usbnk, action, ccp_id, patient_id, praesidium_id, detail)
+    values (
+      (extract(epoch from now()) * 1000)::bigint,
+      public.argus_usbnk(),
+      v_action,
+      NEW.ccp_id,
+      NEW.id,
+      v_praesidium,
+      v_detail
+    );
+
+  return NEW;
+end;
+$$;
+grant execute on function public.argus_audit_patients() to anon;
+
+-- ── 5) argus_lage(): Grabsteine nicht zählen ───────────────────────────────
+-- Basis = 0015-Fassung (FLZ- und Observer-/Admin-Zweig, Feldsatz byte-gleich);
+-- einzige Änderung: jeder Subselect über die Patiententabelle filtert Grabsteine heraus.
+create or replace function public.argus_lage()
+  returns jsonb
+  language plpgsql
+  security definer
+  set search_path to 'public'
+as $function$
+declare
+  v_pid   uuid;
+  v_pname text;
+  v_ccps  jsonb;
+begin
+  -- Eingangs-Guard: Observer, Admin oder FLZ (jeder auf seinen Scope begrenzt).
+  -- FLZ darf hier rein (D-12: präsidienübergreifend).
+  if not (public.argus_is_observer()
+          or public.argus_is_admin()
+          or public.argus_is_flz()) then
+    raise exception 'Nur mit Beobachter-, Admin- oder FLZ-Zugang';
+  end if;
+
+  -- ── FLZ-Zweig: präsidienübergreifend (D-12) ─────────────────────────────
+  -- FLZ trägt praesidium_id=null im JWT → argus_praesidium_id() liefert null.
+  -- Kein Präsidiums-Filter: alle offenen CCPs aller Präsidien aggregieren.
+  if public.argus_is_flz() then
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'kennung',        c.kennung,
+             'ort',            c.ort,
+             'lat',            c.geo_lat,
+             'lng',            c.geo_lng,
+             'verbund',        (c.merge_group_id is not null),
+             'verbund_gruppe', c.merge_group_id,
+             'praesidium_id',  c.praesidium_id,
+             'praesidium_name',(select p.name from public.praesidien p where p.id = c.praesidium_id),
+             't1',    (select count(*) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null and pt.status = 'active' and pt.cat = 'T1'),
+             't2',    (select count(*) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null and pt.status = 'active' and pt.cat = 'T2'),
+             't3',    (select count(*) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null and pt.status = 'active' and pt.cat = 'T3'),
+             't5',    (select count(*) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null and pt.status = 'active' and pt.cat = 'T5'),
+             'gpa',   (select count(*) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null and pt.status = 'gpa'),
+             'prio',  (select count(*) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null and pt.status = 'active' and pt.prio),
+             'ready', (select count(*) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null and pt.status = 'active' and pt.ready),
+             'letzte_aenderung', (select max(pt.updated) from public.patients pt where pt.ccp_id = c.id and pt.deleted_at is null)
+           ) order by c.kennung), '[]'::jsonb)
+    into v_ccps
+    from public.ccps c
+    where c.closed_at is null;  -- KEIN Präsidiums-Filter für FLZ
+
+    return jsonb_build_object(
+      'praesidium_name', null,   -- FLZ: kein eigenes Präsidium
+      'stand',           (extract(epoch from now())*1000)::bigint,
+      'ccps',            v_ccps
+    );
+  end if;
+
+  -- ── Observer-/Admin-Zweig: eigenes Präsidium (0013-Fassung byte-gleich) ──
+  if coalesce(public.argus_observer_praesidium_id(),
+              public.argus_admin_praesidium_id()) is null then
+    raise exception 'Nur mit Beobachter- oder Admin-Zugang';
+  end if;
+
+  v_pid := coalesce(public.argus_observer_praesidium_id(),
+                    public.argus_admin_praesidium_id());
+
+  select name into v_pname from public.praesidien where id = v_pid;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'kennung', c.kennung,
+           'ort',     c.ort,
+           'lat',     c.geo_lat,
+           'lng',     c.geo_lng,
+           'verbund', (c.merge_group_id is not null),
+           'verbund_gruppe', c.merge_group_id,
+           't1',    (select count(*) from public.patients p where p.ccp_id = c.id and p.deleted_at is null and p.status = 'active' and p.cat = 'T1'),
+           't2',    (select count(*) from public.patients p where p.ccp_id = c.id and p.deleted_at is null and p.status = 'active' and p.cat = 'T2'),
+           't3',    (select count(*) from public.patients p where p.ccp_id = c.id and p.deleted_at is null and p.status = 'active' and p.cat = 'T3'),
+           't5',    (select count(*) from public.patients p where p.ccp_id = c.id and p.deleted_at is null and p.status = 'active' and p.cat = 'T5'),
+           'gpa',   (select count(*) from public.patients p where p.ccp_id = c.id and p.deleted_at is null and p.status = 'gpa'),
+           'prio',  (select count(*) from public.patients p where p.ccp_id = c.id and p.deleted_at is null and p.status = 'active' and p.prio),
+           'ready', (select count(*) from public.patients p where p.ccp_id = c.id and p.deleted_at is null and p.status = 'active' and p.ready),
+           'letzte_aenderung', (select max(p.updated) from public.patients p where p.ccp_id = c.id and p.deleted_at is null)
+         ) order by c.kennung), '[]'::jsonb)
+  into v_ccps
+  from public.ccps c
+  where c.praesidium_id = v_pid
+    and c.closed_at is null;
+
+  return jsonb_build_object(
+    'praesidium_name', v_pname,
+    'stand',           (extract(epoch from now())*1000)::bigint,
+    'ccps',            v_ccps
+  );
+end;
+$function$;
+grant execute on function public.argus_lage() to anon;
+
+-- ── 6) argus_governance_einsaetze(): patient_count ohne Grabsteine ─────────
+-- Basis = 0009-Fassung; nur patient_count ändert sich.
+create or replace function public.argus_governance_einsaetze()
+  returns jsonb
+  language plpgsql
+  security definer
+  set search_path to 'public'
+as $function$
+declare
+  v jsonb;
+begin
+  if not public.argus_is_master() then
+    raise exception 'Nur mit MasterUser-Token';
+  end if;
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'ccp_id',            c.id,
+           'kennung',           c.kennung,
+           'merge_group_id',    c.merge_group_id,
+           'einsatz_typ',       c.einsatz_typ,
+           'closed_at',         c.closed_at,
+           'purge_after',       c.purge_after,
+           'photo_purge_after', c.photo_purge_after,
+           'exported_at',       c.exported_at,
+           'patient_count',     (select count(*)       from public.patients   p where p.ccp_id = c.id and p.deleted_at is null),
+           'photo_count',       (select count(p.photo) from public.patients   p where p.ccp_id = c.id),
+           'checklist_count',   (select count(*)       from public.checklists k where k.ccp_id = c.id)
+         ) order by c.closed_at desc), '[]'::jsonb)
+  into v
+  from public.ccps c
+  where c.closed_at is not null
+    and (    exists (select 1 from public.patients   p where p.ccp_id = c.id)
+          or exists (select 1 from public.checklists k where k.ccp_id = c.id)
+          or coalesce(c.ort,'') <> '' or coalesce(c.master_medic,'') <> ''
+          or c.join_token is not null );
+  return v;
+end;
+$function$;
+grant execute on function public.argus_governance_einsaetze() to anon;
+
+-- ── 7) argus_governance_protokoll(): ohne Grabsteine, ohne conf, mit verworfen_n ──
+-- Basis = 0003-Fassung. conf (Konflikt-Snapshots) wird nie ausgeliefert.
+create or replace function public.argus_governance_protokoll(p_ccp_id uuid, p_kuerzel text)
+  returns jsonb
+  language plpgsql
+  security definer
+  set search_path to 'public'
+as $function$
+declare
+  v_now        bigint := (extract(epoch from now())*1000)::bigint;
+  v_ccp        record;
+  v_ccps       jsonb;
+  v_patients   jsonb;
+  v_verworfen  bigint;
+  v_checklists jsonb;
+begin
+  if not public.argus_is_master() then
+    raise exception 'Nur mit MasterUser-Token';
+  end if;
+  if p_kuerzel is null or btrim(p_kuerzel) = '' then
+    raise exception 'Kürzel erforderlich';
+  end if;
+
+  select id, merge_group_id, closed_at into v_ccp
+  from public.ccps where id = p_ccp_id;
+  if not found then
+    raise exception 'CCP nicht gefunden';
+  end if;
+  if v_ccp.closed_at is null then
+    raise exception 'Einsatz noch offen — Einsatzprotokolle gibt es nur für abgeschlossene Einsätze';
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id',                c.id,
+           'kennung',           c.kennung,
+           'einsatz_typ',       c.einsatz_typ,
+           'closed_at',         c.closed_at,
+           'purge_after',       c.purge_after,
+           'photo_purge_after', c.photo_purge_after,
+           'ort',               c.ort
+         ) order by c.kennung), '[]'::jsonb)
+  into v_ccps
+  from public.ccps c
+  where c.id = p_ccp_id
+     or (v_ccp.merge_group_id is not null and c.merge_group_id = v_ccp.merge_group_id);
+
+  -- Patienten ohne 'photo' (s. o.), ohne Sperr-Interna ('locked_by'/'locked_at'),
+  -- plus has_photo-Flag für den Lazy-Load der Leitungs-Seite.
+  select coalesce(jsonb_agg(
+           (to_jsonb(p) - 'photo' - 'locked_by' - 'locked_at' - 'conf')
+             || jsonb_build_object('has_photo', p.photo is not null)
+           order by p.ccp, p.num), '[]'::jsonb)
+  into v_patients
+  from public.patients p
+  where (p.ccp_id = p_ccp_id
+         or (v_ccp.merge_group_id is not null
+             and p.ccp_id in (select id from public.ccps where merge_group_id = v_ccp.merge_group_id)))
+    and p.deleted_at is null;
+
+  -- Grabsteine (verworfene Patienten) erscheinen nicht in der Liste, nur als Zähler.
+  select count(*)
+  into v_verworfen
+  from public.patients p
+  where (p.ccp_id = p_ccp_id
+         or (v_ccp.merge_group_id is not null
+             and p.ccp_id in (select id from public.ccps where merge_group_id = v_ccp.merge_group_id)))
+    and p.deleted_at is not null;
+
+  select coalesce(jsonb_agg(to_jsonb(k)), '[]'::jsonb)
+  into v_checklists
+  from public.checklists k
+  where k.ccp_id = p_ccp_id
+     or (v_ccp.merge_group_id is not null
+         and k.ccp_id in (select id from public.ccps where merge_group_id = v_ccp.merge_group_id));
+
+  -- Zwangs-Log VOR der Rückgabe — jeder Protokoll-Abruf = ein Eintrag (D-01, D-17).
+  insert into public.governance_log (at, ccp_id, kuerzel, action)
+    values (v_now, p_ccp_id, btrim(p_kuerzel), 'protokoll_view');
+
+  return jsonb_build_object(
+    'ccps',       v_ccps,
+    'patients',   v_patients,
+    'verworfen_n', v_verworfen,
+    'checklists', v_checklists
+  );
+end;
+$function$;
+grant execute on function public.argus_governance_protokoll(uuid, text) to anon;
+
+-- ── 8) audit_log.action: Katalog erweitert um Verwerfen/Rückholen ──────────
+comment on column public.audit_log.action is
+  'person_login | person_issue | person_revoke | person_role_change | governance_abruf | patient_create | patient_cat_change | patient_ready | patient_checkout | patient_photo | patient_discard | patient_restore | ccp_open | ccp_close | ccp_merge';
