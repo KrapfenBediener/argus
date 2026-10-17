@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 06.6 (Hülle) in Ausführung — Pläne 01 (Scaffold native/) und 02 (App-Brücke I) abgeschlossen; 06.7 (Mesh MVP) geplant
-last_updated: "2026-10-17T15:44:00.000Z"
+status: Phase 06.6 (Hülle) in Ausführung — Pläne 01 (Scaffold native/), 02 (App-Brücke I) und 03 (Keychain-Fassade, Release 0.35.0) abgeschlossen; 06.7 (Mesh MVP) geplant
+last_updated: "2026-10-17T15:53:00.000Z"
 progress:
   total_phases: 15
   completed_phases: 10
   total_plans: 59
-  completed_plans: 43
-  percent: 73
+  completed_plans: 44
+  percent: 75
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -975,6 +975,7 @@ bereits existiert).
 | Phase 06.5 P10 | 1 Sitzung | 4 tasks | 7 files |
 | Phase 06.6 P01 | 7min | 3 tasks | 29 files |
 | Phase 06.6 P02 | 5min | 2 tasks | 2 files |
+| Phase 06.6 P03 | 5min | 2 tasks | 7 files |
 
 ## Decisions
 
@@ -997,3 +998,4 @@ bereits existiert).
 - [Phase 06.5-10]: Start wartet höchstens 2 s auf die Netzkette und zeigt dann den lokalen Stand; Flush und loadPatients mit Neuer-lokal-Prüfung, Busy-Guard (gemeinsamer Folgelauf) und CCP-Guard
 - [Phase 06.6]: 06.6-01: Bundle-ID de.gaborszeman.argus vor cap add gesetzt; Package.swift-Gate prüft die reale CLI-Ausgabe (CapacitorApp, @capacitor/app); DEVELOPMENT_TEAM-Gate in tests/native.test.cjs ab sofort aktiv — cap add schreibt die ID in die pbxproj (Pitfall 11); CLI 8.5.3 schreibt kein Literal capacitor-app; T-06.6-07 (öffentliches Repo)
 - [Phase 06.6]: 06.6-02: Deep-Link-Warmstart = Hash setzen + location.reload (ein Einlösepfad in init, Local-first); Sitzungs-Guard argus_launch_consumed als Liste (Kaltstart-URL aus getLaunchUrl darf nach Warmstart-Reload nicht erneut greifen); launchHashFrom reicht nur den validierten Code/Token weiter (T-06.6-10); Safe-Area nur unter html.native-shell; kein Versions-Bump (Release in 06.6-03)
+- [Phase 06.6]: 06.6-03: Zugangs-Fassade accessGet/accessSet/accessDel — nativ Keychain (SecureStore) + sessionStorage-Cache, PWA localStorage (gleiche Schlüssel, kein Datenumzug); keychainStartDecision pur (discard bei Keychain-Resten ohne argus_verified/Alt-Werte, Pitfall 9); Hydration erste Anweisung in init() vor nativeStartup(), Timeout 1,2 s (Keychain-Timeout zählt als leer, nie Blockieren); 57 Aufrufstellen umgestellt, Gate „kein Direktzugriff“; Release 0.35.0 (sw v93, pbxproj 0.35.0), Push durch Orchestrator
