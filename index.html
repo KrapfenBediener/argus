@@ -1446,42 +1446,25 @@ function clearPending(fts, upTo){
 }
 /* Feldgruppen-Merge Client-Seite (Gegenstück zum Trigger argus_patients_merge, Migration 0025):
  * Basis = Kopie des Serverstands (cloud); je Gruppe gewinnt der jüngere Stempel, bei
- * Gleichstand der Server. Grabstein: lokal gewinnt nur mit jüngerem fts.del; ein Grabstein
- * trägt nie Inhalt (Kategorie bleibt). Reine Funktion — verändert weder local noch cloud. */
+ * Gleichstand der Server. Grabstein (D6.5-19): nur die Gruppe del; lokal gewinnt nur mit
+ * jüngerem fts.del. Der Inhalt bleibt erhalten und wird auch beim Grabstein normal gemergt,
+ * damit ein Rückholen den neuesten Stand bringt. Reine Funktion — verändert weder local noch cloud. */
 function mergeGroups(local, cloud, groups){
   function cp(v){ return v===undefined ? undefined : JSON.parse(JSON.stringify(v)); }
-  var HULL_VIT={af:'',spo2:'',hf:'',rr:'',avpu:'',pain:''};
   var m=cp(cloud)||{};
   var lf=local.fts||{}, cf=cloud.fts||{};
   m.fts=cp(cf)||{};
   /* Grabstein-Gruppe "del" */
   var tdl=(lf.del && lf.del.t) || 0;
   var tdc=(cf.del && cf.del.t) || cloud.deletedAt || 0;
-  var delWon=false;
   if(tdl>tdc){
-    delWon=true;
     m.deletedAt=local.deletedAt||null;
     m.deletedBy=m.deletedAt ? (local.deletedBy||'') : '';
     m.deletedDev=m.deletedAt ? (local.deletedDev==null ? null : local.deletedDev) : null;
     m.fts.del=cp(lf.del);
   }
-  var tomb=!!m.deletedAt;
-  if(tomb){
-    /* Inhalt leeren (identisch zum Grabstein-Inhalt des Servers); cat/lastTriage bleiben */
-    m.status='verworfen'; m.prio=false; m.ready=false;
-    m.vit=cp(HULL_VIT); m.tx={}; m.inj=[];
-    ['name','age','gender','allergies','moi','injury','fr','notes','pupRe','pupLi'].forEach(function(k){ m[k]=''; });
-    m.tqStart=null; m.tqSite=null; m.photo=null;
-    m.conf=[];
-    if(delWon){
-      ['st','vit','tx','tq','stamm','foto'].forEach(function(g){
-        m.fts[g]={t:lf.del.t, d:lf.del.d};
-      });
-    }
-  }
   /* Inhaltsgruppen */
   Object.keys(groups).forEach(function(g){
-    if(tomb && g!=='cat') return;
     var keys=groups[g];
     var tl;
     if(lf[g] && lf[g].t!=null) tl=lf[g].t;
@@ -1501,20 +1484,19 @@ function mergeGroups(local, cloud, groups){
   m.updated=Math.max(local.updated||0, cloud.updated||0);
   return m;
 }
-/* Grabstein (D6.5-05): Inhalt und Foto leeren, Hülle (Nummer, Kategorie, Zeiten) bleibt.
- * Werte identisch zum Grabstein-Inhalt des Server-Triggers. Verändert p, gibt p zurück. */
-function tombstoneHull(p, by, dev, t){
-  ['name','age','gender','allergies','moi','injury','fr','notes','pupRe','pupLi'].forEach(function(k){ p[k]=''; });
-  p.vit={af:'',spo2:'',hf:'',rr:'',avpu:'',pain:''}; p.tx={}; p.inj=[];
-  p.tqStart=null; p.tqSite=null; p.photo=null;
-  p.status='verworfen'; p.prio=false; p.ready=false;
+/* Grabstein (D6.5-19): nur die Gruppe del (deleted_*) wird gesetzt. Inhalt, Foto, Tourniquet,
+ * Status und Prio bleiben erhalten — Rückholen bringt alles zurück. Verändert p, gibt p zurück. */
+function tombstoneMark(p, by, dev, t){
   p.deletedAt=t; p.deletedBy=by; p.deletedDev=dev;
   return p;
 }
-/* Rückholen (D6.5-12): nur die Hülle kommt zurück, keine Eingaben. Stempel "del" neuer als der Grabstein. */
+/* Rückholen (D6.5-19): deleted_* leeren, Stempel "del" neuer als der Grabstein. Nur ein Alt-Grabstein
+ * aus 0.34.0/0.34.1 (status 'verworfen', leerer Inhalt) bekommt zusätzlich status 'active' + Stempel st. */
 function restoreTombstone(p, t, dev){
-  p.deletedAt=null; p.deletedBy=''; p.deletedDev=null; p.status='active';
-  stampGroups(p, ['del'], t, dev);
+  p.deletedAt=null; p.deletedBy=''; p.deletedDev=null;
+  var groups=['del'];
+  if(p.status==='verworfen'){ p.status='active'; groups.push('st'); }
+  stampGroups(p, groups, t, dev);
   return p;
 }
 /* Konflikt-Hinweis (D6.5-14): eine Zeile pro Marker aus patients.conf. Die Bezeichnungen stehen
@@ -2716,8 +2698,8 @@ async function loadPatients(){
         _tombs=arr.filter(function(p){return p.deletedAt||p.status==='verworfen';});
         arr=arr.filter(function(p){return !(p.deletedAt||p.status==='verworfen');});
         _tombs.forEach(function(tq){ tq._sig=groupSigs(tq, FGROUPS); });   /* Rückholen stempelt nur, was sich wirklich ändert */
-        /* Datenschutz: eine lokale, nicht-dirty Kopie eines (fremd) verworfenen Patienten
-         * mit dem Grabstein-Stand überschreiben — Inhalt/Foto leben lokal nicht weiter. */
+        /* Eine lokale, nicht-dirty Kopie eines (fremd) verworfenen Patienten mit dem Grabstein-Stand
+         * überschreiben — der Patient bleibt offline unsichtbar (Inhalt bleibt für das Rückholen, D6.5-19). */
         for(var it=0;it<_tombs.length;it++){
           try{
             var tb=_tombs[it], lcp0=await sGet("ccp_pat_"+tb.id);
@@ -2918,7 +2900,7 @@ async function confirmUpload(id, updatedAtUpload, withFts, weg){
     if(mem && (mem.updated||0)<=(updatedAtUpload||0)) delete mem._dirty;
   }catch(e){}
 }
-/* Rückholen speichern (Erfassung + MasterMedic): Hülle wiederherstellen, über die normale Naht. */
+/* Rückholen speichern (Erfassung + MasterMedic): Patient vollständig wiederherstellen, über die normale Naht. */
 async function restoreTomb(p){
   restoreTombstone(p, stampNow(), deviceNoSync());
   normalize(p);
@@ -3203,7 +3185,7 @@ function vCapture(){
     h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:8px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
     h+='</div>';
   }
-  /* Direkt nach dem Verwerfen: Hülle zurückholen (D6.5-12) */
+  /* Direkt nach dem Verwerfen: mit allen Eingaben zurückholen (D6.5-19) */
   var ld=(!lc && state.lastDiscardedId)?_tombs.find(function(p){return p.id===state.lastDiscardedId;}):null;
   if(ld){
     h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">';
@@ -3942,7 +3924,7 @@ var TRAIN_LESSONS=[
   {t:'Sofort-Option: TQ', mode:'explain', x:'„TQ" startet direkt den Tourniquet-Timer für diesen Patienten (mit Abfrage von Anlageort und -zeit) — ohne Umweg über die Detailansicht. Den vollständigen TQ-Dialog üben wir gleich noch im Detail.', sel:'#cap-last [data-action="captq"]'},
   {t:'Sofort-Option: Foto', mode:'explain', x:'„Foto" nimmt ein Wiedererkennungs-Foto auf (statt Name — pseudonym), direkt aus der Erfassung heraus. Es dient nur der Wiedererkennung und wird nach dem Einsatz automatisch gelöscht.', sel:'#cap-foto'},
   {t:'Sofort-Option: öffnen', mode:'explain', x:'„öffnen" springt in die vollständige Patienten-Detailansicht — für alle weiteren Angaben (Vitalwerte, Maßnahmen, Verletzungen …). Gleich öffnen wir einen Patienten ohnehin. (Nur zeigen — jetzt nicht tippen.)', sel:'#cap-last [data-action="openpat"]'},
-  {t:'Sofort-Option: Verwerfen', mode:'explain', x:'Vertippt? „Verwerfen" nimmt den zuletzt angelegten Patienten wieder heraus — nur für den Fehlerfall gedacht. Direkt danach kannst du ihn mit „↩ Rückholen" als leere Hülle (Nummer und Kategorie) zurückholen. (Nur zeigen — bitte NICHT tippen, sonst ist dein Übungspatient weg.)', sel:'#cap-last [data-action="capdiscard"]'},
+  {t:'Sofort-Option: Verwerfen', mode:'explain', x:'Vertippt? „Verwerfen" nimmt den zuletzt angelegten Patienten wieder heraus — nur für den Fehlerfall gedacht. Direkt danach kannst du ihn mit „↩ Rückholen" samt allen Eingaben (auch laufendem Tourniquet-Timer) zurückholen. (Nur zeigen — bitte NICHT tippen, sonst ist dein Übungspatient weg.)', sel:'#cap-last [data-action="capdiscard"]'},
   {t:'Sichten mit tacSTART (Standard)', mode:'do', x:'Der STANDARDWEG: tacSTART führt Schritt für Schritt durch die Vorsichtung — beginnend bei „gehfähig?" — und schlägt eine Kategorie vor. Am Ende bestätigst du mit „Patient anlegen". (Kritische Blutungen sind zu diesem Zeitpunkt bereits versorgt — dafür gibt es keinen eigenen Abfrage-Schritt mehr.)', sel:'.navbtn[data-action="tacstart"]', doit:'Tippe „Erfassen mit tacSTART"', adv:function(){return trainCount()>=2;}},
 
   {t:'Patientenübersicht öffnen', mode:'do', home:true, x:'Zurück auf dem Start: Öffne die Patientenübersicht — hier hast du alle Verletzten im Blick.', sel:'[data-action="nav"][data-view="overview"]', doit:'Öffne „Patientenübersicht"', adv:function(){return state.view==='overview';}},
@@ -4936,13 +4918,13 @@ document.addEventListener("click",async function(e){
       (lcd.vit&&(lcd.vit.af||lcd.vit.spo2||lcd.vit.hf||lcd.vit.rr||lcd.vit.avpu||lcd.vit.pain))||
       (lcd.tx&&Object.keys(lcd.tx).length);
     if(hasData){
-      var okv=await confirmModal("Patient "+pno(lcd)+" verwerfen?\n\nDer Patient hat bereits Eingaben — diese gehen unwiderruflich verloren.","Verwerfen");
+      var okv=await confirmModal("Patient "+pno(lcd)+" verwerfen?\n\nEr verschwindet aus allen Listen. Der MasterMedic kann ihn mit allen Eingaben zurückholen (Hauptmenü → Abgleich).","Verwerfen");
       if(!okv) return;
     }
     /* Phase 6.5 (D6.5-05): Grabstein statt Löschen — wandert über die normale Speicher-Naht
      * (lokal sofort, Upload im Hintergrund/Flush) und kann offline nicht wiederauferstehen. */
     var dt=stampNow(), ddev=deviceNoSync();
-    tombstoneHull(lcd, operator||'', ddev, dt); stampGroups(lcd, ['del'], dt, ddev);
+    tombstoneMark(lcd, operator||'', ddev, dt); stampGroups(lcd, ['del'], dt, ddev);
     await savePatient(lcd);
     state.lastDiscardedId=lcd.id; state.lastCreatedId=null;
     await loadPatients(); render(); toast("Patient "+pno(lcd)+" verworfen");
@@ -4954,7 +4936,7 @@ document.addEventListener("click",async function(e){
     if(!ud){ state.lastDiscardedId=null; render(); return; }
     await restoreTomb(ud);
     state.lastDiscardedId=null; state.lastCreatedId=ud.id;
-    await loadPatients(); render(); toast("Patient "+pno(ud)+" zurückgeholt");
+    await loadPatients(); render(); toast("Patient "+pno(ud)+" mit allen Eingaben zurückgeholt");
     return;
   }
   if(a==="confshow"){
@@ -5010,10 +4992,10 @@ document.addEventListener("click",async function(e){
     var tid=el.getAttribute("data-id");
     var tp=_tombs.find(function(p){return p.id===tid;});
     if(!tp) return;
-    var okr=await confirmModal("Patient "+pno(tp)+" zurückholen?\n\nNummer und Kategorie kommen zurück — die früheren Eingaben nicht.","Zurückholen");
+    var okr=await confirmModal("Patient "+pno(tp)+" zurückholen?\n\nEr kommt mit allen Eingaben zurück.","Zurückholen");
     if(!okr) return;
     await restoreTomb(tp);
-    await loadPatients(); render(); toast("Patient "+pno(tp)+" zurückgeholt");
+    await loadPatients(); render(); toast("Patient "+pno(tp)+" mit allen Eingaben zurückgeholt");
     return;
   }
   if(a==="opencat"){state.cat=el.getAttribute("data-cat");go("catlist");return;}

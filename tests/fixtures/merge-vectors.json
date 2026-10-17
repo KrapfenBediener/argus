@@ -35,21 +35,21 @@
   },
   {
     "id": "V05-grabstein-schlaegt-alten-stand",
-    "desc": "Der Server hält einen Grabstein (del t500). Ein eingehender Stand ohne del-Stempel — auch mit jüngeren Inhaltsstempeln (t600) — erweckt den Patienten NICHT: Ergebnis bleibt Grabstein mit leerem Inhalt.",
+    "desc": "Der Server hält einen Grabstein (del t500) mit Inhalt (D6.5-19). Ein eingehender Stand ohne del-Stempel erweckt den Patienten NICHT (Grabstein bleibt, deleted_at 500). Jüngere Inhaltsstempel (t600) werden normal übernommen: Name 'Testname', Status 'active'.",
     "old": {
-      "deleted_at": 500, "deleted_by": "MUE", "deleted_dev": 3, "status": "verworfen",
+      "deleted_at": 500, "deleted_by": "MUE", "deleted_dev": 3, "status": "active",
       "name": "", "vit": {}, "updated": 500,
-      "fts": {"del": {"t": 500, "d": 3}, "stamm": {"t": 500, "d": 3}}
+      "fts": {"del": {"t": 500, "d": 3}, "stamm": {"t": 500, "d": 3}, "st": {"t": 500, "d": 3}}
     },
     "new": {
       "name": "Testname", "vit": {"hf": "80"}, "status": "active", "updated": 600,
       "fts": {"stamm": {"t": 600, "d": 2}, "vit": {"t": 600, "d": 2}}
     },
-    "expect": {"deleted_at": 500, "name": "", "status": "verworfen"}
+    "expect": {"deleted_at": 500, "name": "Testname", "vit.hf": "80", "status": "active"}
   },
   {
     "id": "V06-rueckholen-mit-juengerem-del",
-    "desc": "Rückholen: ein eingehender del-Stempel (t700) ist jünger als der Grabstein (t500) und hebt ihn auf. Der Inhalt bleibt leer/serverseitig (die rückholende Seite hatte nur einen älteren Stand der Stammdaten, t400), der Status kommt aus der jüngeren Gruppe st.",
+    "desc": "Rückholen: ein eingehender del-Stempel (t700) ist jünger als der Grabstein (t500) und hebt ihn auf. Der Alt-Grabstein (0.34.0/1, leerer Inhalt) behält seinen serverseitigen Inhalt (die rückholende Seite hatte nur einen älteren Stand der Stammdaten, t400), der Status kommt aus der jüngeren Gruppe st.",
     "old": {
       "deleted_at": 500, "deleted_by": "MUE", "deleted_dev": 3, "status": "verworfen",
       "cat": "T2", "name": "", "updated": 500,
@@ -62,8 +62,8 @@
     "expect": {"deleted_at": null, "status": "active", "cat": "T2", "name": ""}
   },
   {
-    "id": "V07-juengerer-grabstein-leert-inhalt",
-    "desc": "Ein eingehender Grabstein (del t800) ist jünger als alles auf dem Server: er gewinnt und leert den Inhalt (Name, Foto), der Status wird 'verworfen'.",
+    "id": "V07-juengerer-grabstein-behaelt-inhalt",
+    "desc": "Ein eingehender Grabstein (del t800) ist jünger als alles auf dem Server: er gewinnt (deleted_at 800), der Inhalt bleibt erhalten (Name 'Testname', Status 'active') — D6.5-19.",
     "old": {
       "name": "Testname", "vit": {"hf": "80"}, "status": "active", "updated": 100,
       "fts": {"stamm": {"t": 100, "d": 1}, "vit": {"t": 100, "d": 1}}
@@ -72,7 +72,7 @@
       "deleted_at": 800, "deleted_by": "MUE", "deleted_dev": 4, "name": "Testname", "updated": 800,
       "fts": {"del": {"t": 800, "d": 4}}
     },
-    "expect": {"deleted_at": 800, "name": "", "photo": null, "status": "verworfen"}
+    "expect": {"deleted_at": 800, "name": "Testname", "vit.hf": "80", "status": "active"}
   },
   {
     "id": "V08-alter-client-ohne-fts",

@@ -128,7 +128,7 @@ function getPath(obj, p){
 
 vectors.filter(function(v){ return !v.serverOnly; }).forEach(function(v){
   test('mergeGroups ' + v.id, { skip: skipUnless('06.5-03', 'FGROUPS', 'groupSig', 'mergeGroups') }, () => {
-    const f = load(['groupSig', 'tombstoneHull', 'mergeGroups'], true);
+    const f = load(['groupSig', 'mergeGroups'], true);
     const res = f.mergeGroups(toClient(v.new), toClient(v.old), f.FGROUPS);
     Object.keys(v.expect).forEach(function(path){
       const segs = path.split('.');
@@ -139,7 +139,7 @@ vectors.filter(function(v){ return !v.serverOnly; }).forEach(function(v){
 });
 
 test('mergeGroups: Eingabe-Objekte bleiben unverändert (reine Funktion)', { skip: skipUnless('06.5-03', 'FGROUPS', 'groupSig', 'mergeGroups') }, () => {
-  const f = load(['groupSig', 'tombstoneHull', 'mergeGroups'], true);
+  const f = load(['groupSig', 'mergeGroups'], true);
   const v = vectors[0];
   const L = toClient(v.new), C = toClient(v.old);
   const l0 = JSON.stringify(L), c0 = JSON.stringify(C);
@@ -159,51 +159,63 @@ test('Probe-Konsistenz: jede Vektor-ID kommt in supabase/probes/0025_sync_probe.
 
 /* ---------- Grabstein (Plan 06.5-04) ---------- */
 
-test('tombstoneHull leert Inhalt, behält Hülle', { skip: skipUnless('06.5-04', 'tombstoneHull') }, () => {
-  const f = load(['tombstoneHull']);
+test('tombstoneMark setzt nur deleted_*, Inhalt/Foto/TQ/Status bleiben (D6.5-19)', { skip: skipUnless('06.5-09', 'tombstoneMark') }, () => {
+  const f = load(['tombstoneMark']);
   const p = Object.assign(samplePatient(), {
     id: 'p7', num: 7, ccp: 'A', created: 111, by: 'MUE', ccpId: 'c1',
     name: 'Testname', photo: 'data:image/png;base64,AAAA', tqStart: 5, tqSite: 'Arm', prio: true, ready: true,
     notes: 'x', inj: ['a'], tx: {tq: true}, fts: {cat: {t: 9, d: 1}}
   });
   p.vit.hf = '80';
-  const r = f.tombstoneHull(p, 'KLA', 3, 4242);
+  const before = JSON.parse(JSON.stringify(p));
+  const r = f.tombstoneMark(p, 'KLA', 3, 4242);
   assert.equal(r, p);
-  assert.equal(r.status, 'verworfen');
-  assert.equal(r.photo, null);
-  assert.equal(r.name, '');
-  assert.equal(r.vit.hf, '');
-  assert.deepEqual(r.vit, {af: '', spo2: '', hf: '', rr: '', avpu: '', pain: ''});
-  assert.equal(r.tqStart, null);
-  assert.equal(r.tqSite, null);
-  assert.equal(r.prio, false);
-  assert.equal(r.ready, false);
-  assert.deepEqual(r.tx, {});
-  assert.deepEqual(r.inj, []);
-  assert.equal(r.notes, '');
-  assert.equal(r.cat, 'T2');
-  assert.equal(r.num, 7);
-  assert.equal(r.id, 'p7');
-  assert.equal(r.created, 111);
-  assert.equal(r.ccpId, 'c1');
-  assert.deepEqual(r.fts, {cat: {t: 9, d: 1}});
   assert.equal(r.deletedAt, 4242);
   assert.equal(r.deletedBy, 'KLA');
   assert.equal(r.deletedDev, 3);
+  assert.equal(r.tqStart, 5);
+  assert.equal(r.tqSite, 'Arm');
+  assert.equal(r.photo, 'data:image/png;base64,AAAA');
+  assert.equal(r.name, 'Testname');
+  assert.equal(r.vit.hf, '80');
+  assert.equal(r.prio, true);
+  assert.equal(r.ready, true);
+  assert.equal(r.status, before.status);
+  // alles außer deleted_* unverändert
+  ['deletedAt', 'deletedBy', 'deletedDev'].forEach(function(k){ delete r[k]; delete before[k]; });
+  assert.deepEqual(r, before);
 });
 
-test('restoreTombstone: Hülle zurück, del-Stempel neuer, keine Eingaben', { skip: skipUnless('06.5-04', 'tombstoneHull', 'restoreTombstone', 'stampGroups') }, () => {
-  const f = load(['tombstoneHull', 'restoreTombstone', 'stampGroups']);
-  const p = f.tombstoneHull(samplePatient(), 'KLA', 3, 100);
+test('restoreTombstone: stellt alles wieder her, nur del-Stempel (D6.5-19)', { skip: skipUnless('06.5-09', 'tombstoneMark', 'restoreTombstone', 'stampGroups') }, () => {
+  const f = load(['tombstoneMark', 'restoreTombstone', 'stampGroups']);
+  const p = Object.assign(samplePatient(), {name: 'Testname', photo: 'data:image/png;base64,AAAA', tqStart: 5, tqSite: 'Arm', prio: true, notes: 'x'});
+  f.tombstoneMark(p, 'KLA', 3, 100);
   f.stampGroups(p, ['del'], 100, 3);
+  const st0 = p.status;
   f.restoreTombstone(p, 200, 4);
-  assert.equal(p.status, 'active');
+  assert.equal(p.status, st0);
   assert.equal(p.deletedAt, null);
   assert.equal(p.deletedBy, '');
   assert.equal(p.deletedDev, null);
-  assert.equal(p.name, '');
+  assert.equal(p.name, 'Testname');
+  assert.equal(p.photo, 'data:image/png;base64,AAAA');
+  assert.equal(p.tqStart, 5);
+  assert.equal(p.tqSite, 'Arm');
+  assert.equal(p.prio, true);
+  assert.equal(p.notes, 'x');
   assert.equal(p.cat, 'T2');
   assert.deepEqual(p.fts.del, {t: 200, d: 4, b: 0, p: 1});   // erster del-Stempel noch unbestätigt → Basis bleibt 0
+  assert.equal(p.fts.st, undefined, 'st wird nur beim Alt-Grabstein mitgestempelt');
+});
+
+test('restoreTombstone: Alt-Grabstein (status verworfen) wird active, st mitgestempelt', { skip: skipUnless('06.5-09', 'restoreTombstone', 'stampGroups') }, () => {
+  const f = load(['restoreTombstone', 'stampGroups']);
+  const p = Object.assign(samplePatient(), {status: 'verworfen', name: '', deletedAt: 100, deletedBy: 'KLA', deletedDev: 3, fts: {del: {t: 100, d: 3}}});
+  f.restoreTombstone(p, 200, 4);
+  assert.equal(p.status, 'active');
+  assert.equal(p.deletedAt, null);
+  assert.deepEqual(p.fts.del, {t: 200, d: 4, b: 100, p: 1});
+  assert.deepEqual(p.fts.st, {t: 200, d: 4, b: 0, p: 1});
 });
 
 /* ---------- Konflikt-Hinweis (Plan 06.5-04) ---------- */
@@ -221,7 +233,7 @@ test('conflictText: Gruppe, Geräte und Zeiten; unbekannte Gruppe; fehlendes Ger
 });
 
 test('mergeGroups: lokale Quittung (fts.ack) gewinnt und räumt Konflikt-Marker ab', { skip: skipUnless('06.5-04', 'FGROUPS', 'groupSig', 'mergeGroups') }, () => {
-  const f = load(['groupSig', 'tombstoneHull', 'mergeGroups'], true);
+  const f = load(['groupSig', 'mergeGroups'], true);
   const cloud = {updated: 500, fts: {vit: {t: 400, d: 2}}, conf: [{g: 'vit', at: 450}, {g: 'st', at: 900}]};
   const local = {updated: 450, fts: {ack: {t: 600}}};
   const m = f.mergeGroups(local, cloud, f.FGROUPS);
@@ -367,7 +379,7 @@ test('localPurgeDecision: Matrix aus Abschluss-/Kontaktzeit, Foto und ausstehend
 
 test('Phase 6.5: alle Vertragsfunktionen vorhanden (keine Skips beim Release)', () => {
   const FUNKTIONEN = ['groupSig', 'groupSigs', 'changedGroups', 'nextStamp', 'stampGroups', 'ftsForUpload',
-    'clearPending', 'mergeGroups', 'clockSample', 'pickOffset', 'clockHint', 'tombstoneHull', 'restoreTombstone',
+    'clearPending', 'mergeGroups', 'clockSample', 'pickOffset', 'clockHint', 'tombstoneMark', 'restoreTombstone',
     'conflictText', 'devStatus', 'devLabel', 'leaveText', 'closeCompleteness', 'nachfristOk', 'localPurgeDecision',
     'funkText', 'funkSds', 'probeSchema', 'deviceHeartbeat', 'leaveCcpState', 'flushLatePatients', 'runLocalPurge',
     'flushHerkunft'];
