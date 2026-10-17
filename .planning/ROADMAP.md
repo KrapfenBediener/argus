@@ -667,7 +667,15 @@ Konflikt-Marker, Gerätestatus, Herkunft. Jedes Gerät mit Netz lädt alles hoch
 **Nicht in dieser Phase:** Brücken/mehrere Sterne, Kuriere/Hysterese, TETRA-SDS, Android, Fotos im Mesh
 automatisch. **Voraussetzung:** Phase 6.6 baut und läuft auf einem Gerät.
 
-**Plans:** TBD
+**Plans:** 5 plans (Welle 1: 01 · Welle 2: 02 ∥ 03 · Welle 3: 04 · Welle 4: 05; 01/03/04 heute ohne Xcode ausführbar, 02 braucht die Hülle aus 6.6, 05 Xcode + zwei iPhones)
+
+Plans:
+
+- [ ] 06.7-01-PLAN.md — Protokollschicht (JS, rein, getestet): Inventar, Diff, Delta, meshApply über mergeGroups, Quittung, Validierung/Dedup, Nabenwahl/Zustandsautomat, Pillentexte, meshNative-Fassade (kein Bump)
+- [ ] 06.7-02-PLAN.md — Transport-Plugin (Swift): Owner-Entscheid MC vs. Network framework (Checkpoint), MeshTransport-Schnittstelle + MultipeerTransport (HMAC-Beitritt, .required, eine Sitzung je Speiche), ArgusMeshPlugin, Info.plist, Typecheck ohne Xcode
+- [ ] 06.7-03-PLAN.md — Gateway-Fundament: Migration 0030 (Herkunft Weg mesh + p_fuer, v:30) + Probe + SELF-HOSTING + Leitungs-Protokoll „für Gerät X (Mesh)“, Client-Herkunft/Quittungs-Queue/CCP-Geheimnis (+ Owner-Checkpoint Migration)
+- [ ] 06.7-04-PLAN.md — Mesh-Controller & Integration: Nabe/Speiche-Automat, hello/inv/req/delta/rcpt, Deltas aus savePatient, Sperren, Fotos auf Anforderung, Heartbeat/Meta, Pille + Gerätezeile (Mesh)/(Server), Lebenszyklus
+- [ ] 06.7-05-PLAN.md — Lektion „Abgleich ohne Netz“ (48), Hilfe, Smoke-Checkliste, Release (App + native), Phasen-Gate 0 Skips, Zwei-iPhone-Checkpoint ohne Netz (blockierend)
 
 ## Phase 7 — Betriebsbereitschaft & Open Beta ⬜
 
