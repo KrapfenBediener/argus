@@ -1552,7 +1552,7 @@ function devLabel(d, now, o){
   var st=devStatus(d, now), n=d.open_n|0;
   var nm=(o.merged && d.kennung) ? (d.kennung+'·'+d.device_no) : String(d.device_no);
   var op=d.operator||'';
-  var head=nm+(op ? (' '+((o.mm && op===o.mm) ? '★ ' : '')+op) : '');
+  var head=nm+(op ? (' '+((o.mm && op===o.mm) ? '★ ' : '')+op) : '')+(o.self ? ' (dieses Gerät)' : '');
   var cnt=function(w){ return ' ('+n+' '+(n===1?'Patient':'Patienten')+' '+w+')'; };
   if(st==='verbunden'){
     return head+(n>0 ? cnt('offen') : '');
@@ -1563,6 +1563,12 @@ function devLabel(d, now, o){
   }
   if(st==='abgemeldet') return head+' — abgemeldet'+(n>0 ? cnt('möglicherweise verloren') : '');
   return head+' — verlassen '+(o.hhmm ? o.hhmm(d.left_at) : '')+(n>0 ? cnt('offen') : '');
+}
+/* Gerätestand veraltet/unbekannt (Plan 06.5-10, B6): ohne Verbindung oder älter als 30 s
+ * (= zwei Beats Toleranz wie devStatus) darf die Liste NICHT als „außer Reichweite" gelesen
+ * werden — das Gerät des MasterMedic selbst wäre dann die Ursache, nicht die anderen Geräte. */
+function devStale(devicesAt, now, online){
+  return !online || !devicesAt || (now-devicesAt)>30000;
 }
 /* Dialogtext „CCP verlassen?" (D6.5-02): Gerätenummer + noch nicht synchronisierte Patienten. */
 function leaveText(kennung, dev, n, isMM){
@@ -1690,11 +1696,12 @@ async function probeSchema(n){
 }
 /* ── Heartbeat + Geräteliste (Phase 6.5, S1, D6.5-01/-11) ──────────────────
  * Jedes Gerät im aktiven CCP meldet sich im Vordergrund alle HB_INTERVAL_MS
- * (nur Schema ≥ 26, nie Training, nie MasterToken). Fire-and-forget: blockiert
+ * (nur Schema ≥ 26, nie Training; auch Geräte mit MasterToken — der Server erlaubt
+ * Master in argus_device_heartbeat, 0026). Fire-and-forget: blockiert
  * nie die UI; Fehler/Netzprobleme werden verschluckt (Local-first). */
 var _hbBusy=false, _hbCcp=null, _hbFirst=true, _devices=null, _devicesAt=0, _devPollBusy=false;
 async function deviceHeartbeat(){
-  if(_training || !_ccpId || _isMaster || _schemaV<26 || document.hidden || navigator.onLine===false || _hbBusy || !sb()) return;
+  if(_training || !_ccpId || _schemaV<26 || document.hidden || navigator.onLine===false || _hbBusy || !sb()) return;
   var dev=deviceNoSync(); if(dev<1) return;
   if(_hbCcp!==_ccpId){ _hbFirst=true; _hbCcp=_ccpId; }   /* erster Beat nach jedem Betreten: p_rejoin beendet ein früheres „verlassen" */
   _hbBusy=true;
@@ -3101,15 +3108,26 @@ function vHome(){
 /* Geräte im CCP (D6.5-01/-15/-16): nur MasterMedic, nicht im Training, nur mit Geräteliste.
  * Je Gerät ein großer Knopf: Statuspunkt + devLabel (alle Server-Texte über esc, T-06.5-50). */
 function devicesCard(){
-  if(_training || !isMasterMedic() || !_devices || !_devices.length) return '';
-  var now=nowMs(), merged=(_ccpIdsKnown||[]).length>1;
+  if(_training || !isMasterMedic()) return '';
+  var online=netLikelyUp(), now=nowMs();
+  if(!_devices || !_devices.length){
+    /* Nie geladen: ohne Verbindung ehrlich „unbekannt“ (nur mit Geräte-Schema), sonst still bis zum ersten Abruf. */
+    if(!_devices && _schemaV>=26 && !online)
+      return '<div class="sech">Geräte im CCP</div><div class="card" style="padding:10px"><div class="hint" style="padding:10px 12px;min-height:48px;display:flex;align-items:center">Gerätestand unbekannt (keine Verbindung)</div></div>';
+    return '';
+  }
+  if(devStale(_devicesAt, now, online)){
+    if(online){ try{ pollDevices(); }catch(e){} }   /* Rückkehr auf Home nach längerer Zeit: sofort neu holen statt bis zum 10-s-Takt zu warten */
+    return '<div class="sech">Geräte im CCP</div><div class="card" style="padding:10px"><div class="hint" style="padding:10px 12px;min-height:48px;display:flex;align-items:center">Gerätestand unbekannt'+(online?' (veraltet)':' (keine Verbindung)')+(_devicesAt?' · zuletzt aktualisiert '+esc(hhmm(_devicesAt)):'')+'</div></div>';
+  }
+  var merged=(_ccpIdsKnown||[]).length>1, myDev=deviceNoSync();
   var col={verbunden:'var(--t3)', ausser_reichweite:'var(--t2)', abgemeldet:'var(--t1)', verlassen:'var(--mut)'};
   var h='<div class="sech">Geräte im CCP</div><div class="card" style="padding:10px">';
   _devices.forEach(function(d){
-    var st=devStatus(d, now);
+    var st=devStatus(d, now), self=(d.ccp_id===_ccpId && myDev>=1 && d.device_no===myDev);
     h+='<button class="txbtn" data-action="devtap" data-ccp="'+esc(d.ccp_id)+'" data-dev="'+esc(d.device_no)+'" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;font-size:15px;margin-bottom:6px;padding:10px 12px">'+
       '<span style="width:12px;height:12px;border-radius:50%;flex:none;background:'+col[st]+'"></span>'+
-      '<span style="flex:1;color:var(--tx)">'+esc(devLabel(d, now, {mm:masterMedic, merged:merged, hhmm:hhmm}))+'</span></button>';
+      '<span style="flex:1;color:var(--tx)">'+esc(devLabel(d, now, {mm:masterMedic, merged:merged, hhmm:hhmm, self:self}))+'</span></button>';
   });
   return h+'</div>';
 }
@@ -4725,6 +4743,7 @@ document.addEventListener("click",async function(e){
     await setMasterMedic(operator);
     /* Checklisten-Kopfdaten nachziehen (Paket 2): neuer MasterMedic-Name */
     try{ if(!checklist.hdr)checklist.hdr={}; checklist.hdr.mm=operator; await saveChecklist(); }catch(e){}
+    try{ pollDevices().then(function(){ try{ render(); }catch(e){} }); }catch(e){}   /* Geräteliste sofort holen (nicht erst im 10-s-Takt) */
     render();toast("Du bist jetzt MasterMedic");
     return;
   }

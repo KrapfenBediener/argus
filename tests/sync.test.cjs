@@ -14,7 +14,7 @@ const fs = require('fs');
 const path = require('path');
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { app, hasFunction, evalFunctions, ROOT } = require('./_extract.cjs');
+const { app, hasFunction, evalFunctions, extractFunction, ROOT } = require('./_extract.cjs');
 
 const script = app().script;
 const vectors = require('./fixtures/merge-vectors.json');
@@ -330,6 +330,33 @@ test('devLabel: Gerätezeile nach ROADMAP-Beispiel (Stern, außer Reichweite, ve
     '7 — außer Reichweite seit 1 min (2 Patienten offen)');
 });
 
+test('devLabel: eigenes Gerät trägt „(dieses Gerät)“ (nach MasterMedic-Übernahme erkennbar)', { skip: skipUnless('06.5-10', 'devStatus', 'devLabel') }, () => {
+  const f = load(['devStatus', 'devLabel']);
+  const d = {device_no: 2, operator: 'MUE', last_seen: NOW - 1000, open_n: 0};
+  assert.equal(f.devLabel(d, NOW, {mm: 'MUE', hhmm: HHMM, self: true}), '2 ★ MUE (dieses Gerät)');
+  assert.equal(f.devLabel(d, NOW, {mm: 'MUE', hhmm: HHMM}), '2 ★ MUE');
+  assert.equal(f.devLabel(Object.assign({}, d, {last_seen: NOW - 100000}), NOW, {mm: 'MUE', hhmm: HHMM, self: true}),
+    '2 ★ MUE (dieses Gerät) — außer Reichweite seit 1 min');
+});
+
+test('devStale: Gerätestand ab 30 s oder ohne Verbindung unbekannt (B6)', { skip: skipUnless('06.5-10', 'devStale') }, () => {
+  const f = load(['devStale']);
+  assert.equal(f.devStale(NOW - 29000, NOW, true), false);
+  assert.equal(f.devStale(NOW - 30000, NOW, true), false);
+  assert.equal(f.devStale(NOW - 31000, NOW, true), true);
+  assert.equal(f.devStale(NOW - 1000, NOW, false), true);   // offline: auch ein frischer Stand gilt als unbekannt
+  assert.equal(f.devStale(0, NOW, true), true);             // nie geladen
+});
+
+test('deviceHeartbeat: MasterToken-Geräte melden sich (kein _isMaster-Abbruch); devicesCard kennt „Gerätestand unbekannt“', () => {
+  const hb = extractFunction(script, 'deviceHeartbeat');
+  assert.ok(!/_isMaster/.test(hb), 'deviceHeartbeat darf MasterToken-Geräte nicht ausschließen');
+  assert.ok(/_schemaV\s*<\s*26/.test(hb), 'Geräte-RPCs bleiben hinter Schema >= 26');
+  const card = extractFunction(script, 'devicesCard');
+  assert.ok(card.indexOf('Gerätestand unbekannt (keine Verbindung)') >= 0);
+  assert.ok(/devStale\(/.test(card));
+});
+
 test('leaveText: Dialogtext mit Gerätenummer, offenen Patienten und MasterMedic-Hinweis', { skip: skipUnless('06.5-05', 'leaveText') }, () => {
   const f = load(['leaveText']);
   assert.equal(f.leaveText('A', 3, 2, false), 'CCP A verlassen?\n\nDu bist Gerät 3 · 2 Patienten noch nicht synchronisiert');
@@ -407,7 +434,7 @@ test('localPurgeDecision: Matrix aus Abschluss-/Kontaktzeit, Foto und ausstehend
 test('Phase 6.5: alle Vertragsfunktionen vorhanden (keine Skips beim Release)', () => {
   const FUNKTIONEN = ['groupSig', 'groupSigs', 'changedGroups', 'nextStamp', 'stampGroups', 'ftsForUpload',
     'clearPending', 'mergeGroups', 'clockSample', 'pickOffset', 'clockHint', 'tombstoneMark', 'restoreTombstone',
-    'conflictText', 'devStatus', 'devLabel', 'leaveText', 'closeCompleteness', 'nachfristOk', 'localPurgeDecision',
+    'conflictText', 'devStatus', 'devLabel', 'devStale', 'leaveText', 'closeCompleteness', 'nachfristOk', 'localPurgeDecision',
     'funkText', 'funkSds', 'probeSchema', 'deviceHeartbeat', 'leaveCcpState', 'flushLatePatients', 'runLocalPurge',
     'flushHerkunft'];
   const fehlend = FUNKTIONEN.filter(function(n){ return !hasFunction(script, n); });
