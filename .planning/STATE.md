@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
 status: Executing Phase 06.5
-last_updated: "2026-10-16T22:38:24.257Z"
+last_updated: "2026-10-17T11:11:29.074Z"
 progress:
   total_phases: 13
   completed_phases: 9
-  total_plans: 44
-  completed_plans: 37
+  total_plans: 46
+  completed_plans: 38
   percent: 69
 ---
 
@@ -946,6 +946,7 @@ bereits existiert).
 | Phase 06.5 P05 | 45min | 2 tasks | 1 files |
 | Phase 06.5 P06 | 70min | 3 tasks | 2 files |
 | Phase 06.5 P07 | 25min | 2 tasks | 2 files |
+| Phase 06.5 P09 | 2 Code-Tasks + Owner-Checkpoint | 3 tasks | 7 files |
 
 ## Decisions
 
@@ -963,3 +964,4 @@ bereits existiert).
 - [Phase 06.5-05]: Abmeldung wird nur bei Schema >= 26 und bekannter Gerätenummer vorgemerkt; eine endgültige Server-Antwort beendet die Vormerkung, Netzfehler nicht; der 4-s-Wächter läuft auch ohne aktiven CCP, solange eine Abmeldung vorgemerkt ist
 - [Phase 06.5-06]: Nachzügler gehören dem abgeschlossenen CCP und bleiben bis zum Ende der 24-h-Nachfrist lokal; argus_late_push-Teilergebnisse werden einzeln nachgeprüft, lokal entfällt nur Übertragenes; Auffangnetz-Schwellen 72 h / 60 Tage bleiben Annahme A4 (Owner in Plan 08)
 - [Phase 06.5-07]: Meldungsnummer zählt nur bei 'Meldung abgesetzt' (argus_funk_n_<ccpId>); Farbwörter in einer Zeile (Trainer-Abstimmung offen)
+- [Phase 06.5-09]: D6.5-19: Grabstein behält Inhalt, Rückholen stellt alles wieder her (Server v27, Probe 23/23)

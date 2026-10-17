@@ -576,7 +576,7 @@ heute (Server-Transport) nützlich und werden später vom Mesh (Phase 9) 1:1 üb
 **Nicht in dieser Phase:** Peer-to-Peer-Mesh (native App, Phase 9), TETRA-SDS-Kopplung
 (organisatorisch, Spur F), Fotos in der FLZ-Ansicht (Zweckänderung, DSB).
 
-**Plans:** 8/9 plans executed
+**Plans:** 9/11 plans executed
 
 Plans:
 
