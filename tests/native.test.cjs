@@ -11,6 +11,7 @@
  *   Pitfall 10 / T-06.6-SC (genau vier exakt gepinnte Pakete, kein stilles Nachinstallieren)
  *
  * Abschnitt „Plan 06.6-01“: Config, Pins, Kopierskript (Allowlist + Idempotenz), Versionen, gitignore.
+ * Abschnitt „Plan 06.6-03“: Zugangs-Fassade (Keychain) — ACCESS_KEYS, Wahrheitstafel, Gate „kein Direktzugriff“.
  * Spätere Pläne der Phase ergänzen eigene Abschnitte in dieser Datei. */
 'use strict';
 const { test } = require('node:test');
@@ -20,7 +21,7 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const { ROOT, app, readFileText, extractVarLiteral, extractFunction, evalFunction, evalFunctions, evalInScope } = require('./_extract.cjs');
+const { ROOT, app, readFileText, extractVarLiteral, extractFunction, evalFunction, evalFunctions, evalInScope, hasFunction } = require('./_extract.cjs');
 
 const script = app().script;
 const html = app().html;
@@ -376,4 +377,224 @@ test('deeplink: Install-Screen bietet „In der ARGUS-App öffnen“ (Klasse gho
   const branch = script.slice(i, script.indexOf('return;', i));
   assert.ok(branch.includes('installTokenFull') && branch.includes('/^[A-Z0-9]{8}$/'), 'openapp muss den Code aus state.installTokenFull validieren');
   assert.ok(!branch.includes('exchangeCode('), 'openapp löst nicht selbst ein');
+});
+
+/* ── Plan 06.6-03 — Zugangs-Fassade (Keychain) ───────────────────────────────
+ * D6.6-05: Zugangsschlüssel laufen durch accessGet/accessSet/accessDel — in der
+ * Hülle Keychain (SecureStore-Plugin) + sessionStorage-Cache, in der PWA
+ * unverändert localStorage (gleiche Schlüsselnamen, kein Datenumzug, T-06.6-27).
+ * Pitfall 9 (Keychain überlebt die Deinstallation): keychainStartDecision ist pur
+ * und per Wahrheitstafel abgedeckt. Pitfall 10 (übersehene Aufrufstelle): Gate
+ * „kein Direktzugriff“ über das kommentarfreie Inline-Script (T-06.6-24). */
+
+const ACCESS_KEYS_EXPECTED = ['argus_jwt', 'argus_jwt_exp', 'argus_jwt_by_pid', 'argus_code', 'argus_is_master', 'argus_invite'];
+const DIRECT_ACCESS_RE = /localStorage\.(getItem|setItem|removeItem)\(\s*['"](argus_jwt|argus_jwt_exp|argus_jwt_by_pid|argus_code|argus_is_master|argus_invite)['"]/g;
+
+/* Kommentare wie in security.test.cjs entfernen — Zeilenkommentare nur, wenn
+ * `//` nicht Teil einer URL/eines Strings ist (sonst würden Treffer versteckt). */
+function stripCommentsStrict(js){
+  return js
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .replace(/([^:'"\\])\/\/[^\n]*/g, '$1');
+}
+function fakeStorage(init){
+  const m = new Map(Object.entries(init || {}));
+  return {
+    getItem: k => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => { m.set(k, String(v)); },
+    removeItem: k => { m.delete(k); },
+    _map: m
+  };
+}
+/* Fassade in einem kontrollierten Scope zusammensetzen (window/localStorage/
+ * sessionStorage sind Fakes; Promise/String/setTimeout werden durchgereicht). */
+const FACADE_FNS = ['isNativeShell', 'capPlugin', 'withTimeout', 'secureStore', 'accessStore', 'accessGet', 'accessSet', 'accessDel', 'secureWrite', 'keychainStartDecision', 'hydrateAccessFromKeychain'];
+function facadeIn(scope){
+  const src = '(function(){\nvar ACCESS_KEYS=' + extractVarLiteral(script, 'ACCESS_KEYS') + ';\n' +
+    FACADE_FNS.map(n => {
+      const f = extractFunction(script, n);
+      return n === 'hydrateAccessFromKeychain' ? 'async ' + f : f;
+    }).join('\n') +
+    '\nreturn {' + FACADE_FNS.map(n => n + ':' + n).join(',') + '};\n})()';
+  return evalInScope(src, Object.assign({ Promise: Promise, String: String, setTimeout: setTimeout, Object: Object }, scope)).value;
+}
+function fakeSecureStore(init){
+  const kc = new Map(Object.entries(init || {}));
+  const calls = [];
+  return {
+    _kc: kc, _calls: calls,
+    get: o => { calls.push(['get', o.key]); return Promise.resolve({ value: kc.has(o.key) ? kc.get(o.key) : null }); },
+    set: o => { calls.push(['set', o.key, o.value]); kc.set(o.key, o.value); return Promise.resolve(); },
+    remove: o => { calls.push(['remove', o.key]); kc.delete(o.key); return Promise.resolve(); }
+  };
+}
+const NATIVE_WIN = S => ({ Capacitor: { isNativePlatform: () => true, Plugins: { SecureStore: S } } });
+
+test('keychain: ACCESS_KEYS exakt die sechs Zugangsschlüssel (D6.6-05)', () => {
+  const keys = new Function('return (' + extractVarLiteral(script, 'ACCESS_KEYS') + ');')();
+  assert.deepEqual(keys, ACCESS_KEYS_EXPECTED);
+});
+
+test('keychain: Fassade vollständig vorhanden', () => {
+  for (const n of ['secureStore', 'accessStore', 'accessGet', 'accessSet', 'accessDel', 'secureWrite', 'keychainStartDecision', 'hydrateAccessFromKeychain']){
+    assert.ok(hasFunction(script, n), 'Funktion fehlt: ' + n);
+  }
+});
+
+test('keychain: keychainStartDecision — Wahrheitstafel 8/8 (Pitfall 9, T-06.6-21)', () => {
+  const d = evalFunction(extractFunction(script, 'keychainStartDecision'));
+  const table = [
+    [true,  false, false, 'discard'],
+    [true,  true,  false, 'hydrate'],
+    [true,  true,  true,  'hydrate'],
+    [true,  false, true,  'hydrate'],
+    [false, false, true,  'migrate'],
+    [false, true,  true,  'migrate'],
+    [false, true,  false, 'none'],
+    [false, false, false, 'none']
+  ];
+  for (const [kc, ver, leg, want] of table){
+    assert.equal(d(kc, ver, leg), want, 'keychainStartDecision(' + [kc, ver, leg].join(',') + ') erwartet ' + want);
+  }
+});
+
+test('keychain: Gate „kein Direktzugriff“ — localStorage auf ACCESS_KEYS nur in hydrateAccessFromKeychain (Pitfall 10, T-06.6-24)', () => {
+  const stripped = stripCommentsStrict(script);
+  const hyd = extractFunction(stripped, 'hydrateAccessFromKeychain');
+  assert.ok(hyd.length > 0);
+  const rest = stripped.replace(hyd, '');
+  const hits = [...rest.matchAll(DIRECT_ACCESS_RE)].map(m => m[0]);
+  assert.deepEqual(hits, [], 'Direkter localStorage-Zugriff auf Zugangsschlüssel außerhalb der Fassade: ' + hits.join(' | '));
+  /* Die Fassade wird tatsächlich benutzt (keine stille Umgehung über eine andere Schicht) */
+  assert.ok((script.match(/accessGet\('argus_jwt'\)/g) || []).length >= 10, 'accessGet(\'argus_jwt\') zu selten — Aufrufstellen nicht umgestellt?');
+  assert.ok(script.includes("accessSet('argus_jwt',") && script.includes("accessDel('argus_jwt')"));
+  assert.ok(script.includes("accessGet('argus_invite')") && script.includes("accessGet('argus_is_master')"));
+});
+
+test('keychain: accessStore wählt sessionStorage/localStorage; secureWrite nutzt set/remove und loggt nie (T-06.6-23)', () => {
+  const st = extractFunction(script, 'accessStore');
+  assert.ok(st.includes('sessionStorage') && st.includes('localStorage'));
+  const sw = extractFunction(script, 'secureWrite');
+  assert.ok(sw.includes('remove(') && sw.includes('set('), 'secureWrite muss S.set/S.remove aufrufen');
+  assert.ok(!/console\.(log|warn|error|info|debug)/.test(sw), 'secureWrite darf nie loggen (Werte sind Geheimnisse)');
+  assert.ok(!/console\.(log|warn|error|info|debug)/.test(extractFunction(script, 'hydrateAccessFromKeychain')), 'hydrateAccessFromKeychain darf nie loggen');
+});
+
+test('keychain: hydrateAccessFromKeychain — argus_verified, Entscheidung, Timeout, parallele get-Aufrufe (T-06.6-22)', () => {
+  const src = extractFunction(script, 'hydrateAccessFromKeychain');
+  for (const t of ['argus_verified', 'keychainStartDecision(', 'withTimeout(', 'Promise.all(']){
+    assert.ok(src.includes(t), 'hydrateAccessFromKeychain fehlt: ' + t);
+  }
+  assert.ok(/withTimeout\([\s\S]*?,\s*1200\)/.test(src), 'Timeout 1200 ms erwartet (Local-first)');
+  assert.ok(script.includes('async function hydrateAccessFromKeychain('), 'hydrateAccessFromKeychain muss async sein');
+});
+
+test('keychain: init() — Hydration vor nativeStartup() vor getOperator()', () => {
+  const src = extractFunction(script, 'init');
+  const a = src.indexOf('hydrateAccessFromKeychain()'), b = src.indexOf('nativeStartup()'), c = src.indexOf('getOperator()');
+  assert.ok(a >= 0 && b >= 0 && c >= 0, 'hydrateAccessFromKeychain()/nativeStartup()/getOperator() in init nicht gefunden');
+  assert.ok(a < b && b < c, 'Reihenfolge muss hydrateAccessFromKeychain() < nativeStartup() < getOperator() sein');
+  assert.ok(src.includes('await hydrateAccessFromKeychain()'), 'Hydration muss awaited werden');
+});
+
+test('keychain: PWA-Pfad — accessGet/Set/Del arbeiten auf localStorage, kein Plugin-Aufruf (T-06.6-27)', () => {
+  const ls = fakeStorage({ argus_jwt: 'JWT1' });
+  const ss = fakeStorage();
+  const f = facadeIn({ window: { localStorage: ls, sessionStorage: ss }, localStorage: ls, sessionStorage: ss });
+  assert.equal(f.secureStore(), null);
+  assert.equal(f.accessGet('argus_jwt'), 'JWT1');
+  assert.equal(f.accessGet('argus_code'), null);
+  f.accessSet('argus_code', 'ABCDEFGH');
+  assert.equal(ls.getItem('argus_code'), 'ABCDEFGH');
+  assert.equal(ss.getItem('argus_code'), null, 'PWA darf nie in sessionStorage schreiben');
+  f.accessDel('argus_jwt');
+  assert.equal(ls.getItem('argus_jwt'), null);
+  /* localStorage wirft (Private Mode) → null statt Absturz */
+  const broken = { getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); }, removeItem(){ throw new Error('x'); } };
+  const g = facadeIn({ window: { localStorage: broken }, localStorage: broken });
+  assert.equal(g.accessGet('argus_jwt'), null);
+  assert.doesNotThrow(() => { g.accessSet('argus_jwt', 'x'); g.accessDel('argus_jwt'); });
+});
+
+test('keychain: Hüllen-Pfad — sessionStorage-Cache + SecureStore set/remove; ohne Plugin Rückfall auf localStorage (D6.6-05)', () => {
+  const S = fakeSecureStore();
+  const ls = fakeStorage({ argus_jwt: 'OLD' }), ss = fakeStorage({ argus_jwt: 'CACHED' });
+  const win = Object.assign(NATIVE_WIN(S), { localStorage: ls, sessionStorage: ss });
+  const f = facadeIn({ window: win, localStorage: ls, sessionStorage: ss });
+  assert.equal(f.secureStore(), S);
+  assert.equal(f.accessGet('argus_jwt'), 'CACHED', 'nativ liest der Cache (sessionStorage), nie localStorage');
+  f.accessSet('argus_code', 'ABCDEFGH');
+  assert.equal(ss.getItem('argus_code'), 'ABCDEFGH');
+  assert.equal(ls.getItem('argus_code'), null, 'nativ darf kein Geheimnis in localStorage landen');
+  assert.deepEqual(S._calls.pop(), ['set', 'argus_code', 'ABCDEFGH']);
+  f.accessDel('argus_jwt');
+  assert.equal(ss.getItem('argus_jwt'), null);
+  assert.deepEqual(S._calls.pop(), ['remove', 'argus_jwt']);
+  /* Hülle ohne SecureStore-Plugin → localStorage (Zugang bleibt persistent) */
+  const ls2 = fakeStorage({ argus_jwt: 'LS' }), ss2 = fakeStorage();
+  const win2 = { Capacitor: { isNativePlatform: () => true, Plugins: {} }, localStorage: ls2, sessionStorage: ss2 };
+  const h = facadeIn({ window: win2, localStorage: ls2, sessionStorage: ss2 });
+  assert.equal(h.secureStore(), null);
+  assert.equal(h.accessGet('argus_jwt'), 'LS');
+});
+
+test('keychain: hydrateAccessFromKeychain — discard bei Neuinstallation, hydrate, migrate, none (Pitfall 9)', async () => {
+  /* discard: Keychain hat Reste, localStorage ist leer (frische Installation gewinnt) */
+  let S = fakeSecureStore({ argus_jwt: 'GHOST', argus_code: 'GHOSTCODE' });
+  let ls = fakeStorage(), ss = fakeStorage();
+  let f = facadeIn({ window: Object.assign(NATIVE_WIN(S), { localStorage: ls, sessionStorage: ss }), localStorage: ls, sessionStorage: ss });
+  await f.hydrateAccessFromKeychain();
+  assert.equal(ss.getItem('argus_jwt'), null, 'Geisterzugang darf nicht in den Cache');
+  assert.equal(S._kc.size, 0, 'Keychain-Reste müssen gelöscht werden');
+  assert.ok(S._calls.some(c => c[0] === 'remove' && c[1] === 'argus_jwt'));
+
+  /* hydrate: Keychain + argus_verified → Cache gefüllt; Alt-Wert nur für fehlende Schlüssel, danach aus localStorage entfernt */
+  S = fakeSecureStore({ argus_jwt: 'KC', argus_jwt_exp: '123' });
+  ls = fakeStorage({ argus_verified: 'true', argus_jwt: 'LEGACY', argus_code: 'LEGCODE' }); ss = fakeStorage();
+  f = facadeIn({ window: Object.assign(NATIVE_WIN(S), { localStorage: ls, sessionStorage: ss }), localStorage: ls, sessionStorage: ss });
+  await f.hydrateAccessFromKeychain();
+  assert.equal(ss.getItem('argus_jwt'), 'KC', 'Keychain gewinnt gegen Alt-Wert');
+  assert.equal(ss.getItem('argus_jwt_exp'), '123');
+  assert.equal(ss.getItem('argus_code'), 'LEGCODE', 'fehlender Schlüssel wird aus dem Alt-Wert ergänzt');
+  assert.equal(S._kc.get('argus_code'), 'LEGCODE', '… und in die Keychain geschrieben');
+  assert.equal(ls.getItem('argus_jwt'), null, 'Alt-Werte werden aus localStorage entfernt');
+  assert.equal(ls.getItem('argus_code'), null);
+  assert.equal(ls.getItem('argus_verified'), 'true', 'Marker bleibt in localStorage');
+
+  /* migrate: Keychain leer, Alt-Werte vorhanden → Cache + Keychain, localStorage bereinigt */
+  S = fakeSecureStore();
+  ls = fakeStorage({ argus_jwt: 'LEGACY', argus_is_master: 'true', argus_praesidium_id: 'P1' }); ss = fakeStorage();
+  f = facadeIn({ window: Object.assign(NATIVE_WIN(S), { localStorage: ls, sessionStorage: ss }), localStorage: ls, sessionStorage: ss });
+  await f.hydrateAccessFromKeychain();
+  assert.equal(ss.getItem('argus_jwt'), 'LEGACY');
+  assert.equal(S._kc.get('argus_jwt'), 'LEGACY');
+  assert.equal(S._kc.get('argus_is_master'), 'true');
+  assert.equal(ls.getItem('argus_jwt'), null);
+  assert.equal(ls.getItem('argus_praesidium_id'), 'P1', 'Nicht-Zugangsschlüssel bleiben unberührt');
+
+  /* none: alles leer → nichts passiert, keine Schreibzugriffe */
+  S = fakeSecureStore(); ls = fakeStorage({ argus_verified: 'true' }); ss = fakeStorage();
+  f = facadeIn({ window: Object.assign(NATIVE_WIN(S), { localStorage: ls, sessionStorage: ss }), localStorage: ls, sessionStorage: ss });
+  await f.hydrateAccessFromKeychain();
+  assert.equal(ss._map.size, 0);
+  assert.ok(S._calls.every(c => c[0] === 'get'), 'bei none nur Lesezugriffe');
+
+  /* PWA: sofort zurück, nichts angefasst */
+  ls = fakeStorage({ argus_jwt: 'PWA' }); ss = fakeStorage();
+  f = facadeIn({ window: { localStorage: ls, sessionStorage: ss }, localStorage: ls, sessionStorage: ss });
+  await f.hydrateAccessFromKeychain();
+  assert.equal(ls.getItem('argus_jwt'), 'PWA');
+  assert.equal(ss._map.size, 0);
+});
+
+test('keychain: hydrateAccessFromKeychain blockiert den Start nicht — hängendes Plugin läuft in den Timeout (T-06.6-22)', async () => {
+  const S = { get: () => new Promise(function(){}), set: () => Promise.resolve(), remove: () => Promise.resolve() };
+  const ls = fakeStorage({ argus_verified: 'true' }), ss = fakeStorage();
+  const f = facadeIn({ window: Object.assign(NATIVE_WIN(S), { localStorage: ls, sessionStorage: ss }), localStorage: ls, sessionStorage: ss });
+  const t0 = Date.now();
+  await f.hydrateAccessFromKeychain();
+  const dt = Date.now() - t0;
+  assert.ok(dt >= 1000 && dt < 3000, 'Timeout erwartet (~1200 ms), gemessen ' + dt + ' ms');
+  assert.equal(ss._map.size, 0);
 });

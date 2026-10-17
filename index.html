@@ -485,6 +485,74 @@ function withTimeout(p, ms){
     new Promise(function(res){ setTimeout(function(){ res(null); }, ms); })
   ]);
 }
+/* ── Zugangs-Fassade (D6.6-05) ─────────────────────────────────────────────
+ * Zugangsschlüssel (JWT, Ablauf, JWT-Karte je Präsidium, Dauercode, Master-Flag,
+ * Einladung) liegen in der Hülle AUSSCHLIESSLICH in der iOS-Keychain (Swift-Plugin
+ * SecureStore, Plan 04: get/set/remove mit {key,value}); sessionStorage dient als
+ * synchroner Laufzeit-Cache, damit sb()/jwtClaims u. a. weiter synchron lesen.
+ * In der PWA läuft derselbe Code unverändert über localStorage (gleiche
+ * Schlüsselnamen, kein Datenumzug). Fehlt das Plugin in der Hülle, fällt die App
+ * auf localStorage zurück — der Zugang bleibt persistent.
+ * Pitfall 9: Die Keychain überlebt eine Deinstallation → keychainStartDecision
+ * verwirft Reste, wenn localStorage weder argus_verified noch Alt-Werte kennt.
+ * Pitfall 10: Kein direkter localStorage-Zugriff auf ACCESS_KEYS außerhalb von
+ * hydrateAccessFromKeychain (Gate in tests/native.test.cjs). Werte werden nie
+ * geloggt (T-06.6-23). Patientendaten bleiben in sGet/sSet (CLAUDE.md-Naht). */
+var ACCESS_KEYS=['argus_jwt','argus_jwt_exp','argus_jwt_by_pid','argus_code','argus_is_master','argus_invite'];
+function secureStore(){ return isNativeShell() ? capPlugin('SecureStore') : null; }
+function accessStore(){ return secureStore() ? window.sessionStorage : window.localStorage; }
+function accessGet(k){ try{ return accessStore().getItem(k); }catch(e){ return null; } }
+function accessSet(k,v){ try{ accessStore().setItem(k,String(v)); }catch(e){} secureWrite(k,String(v)); }
+function accessDel(k){ try{ accessStore().removeItem(k); }catch(e){} secureWrite(k,null); }
+/* Keychain schreiben (nur Hülle mit Plugin); Promise-Fehler werden geschluckt. */
+function secureWrite(k,v){
+  var S=secureStore(); if(!S) return;   /* PWA: nichts zu tun */
+  try{
+    var p=(v===null) ? S.remove({key:k}) : S.set({key:k,value:v});
+    if(p && typeof p.catch==='function') p.catch(function(){});
+  }catch(e){}
+}
+/* Pure Entscheidung beim nativen Start (Pitfall 9):
+ *   discard = Keychain hat Werte, aber localStorage kennt weder argus_verified noch
+ *             Alt-Werte → Reste einer früheren Installation, frische Installation gewinnt
+ *   hydrate = Keychain → Cache (fehlende Schlüssel aus Alt-Werten ergänzen)
+ *   migrate = nur Alt-Werte in localStorage → Cache + Keychain
+ *   none    = nichts vorhanden */
+function keychainStartDecision(kcHasAny, lsVerified, lsLegacyAny){
+  if(kcHasAny && !lsVerified && !lsLegacyAny) return 'discard';
+  if(kcHasAny) return 'hydrate';
+  if(lsLegacyAny) return 'migrate';
+  return 'none';
+}
+/* Einmal beim nativen Start: Keychain → sessionStorage (parallel, begrenzt durch
+ * Timeout 1,2 s — Local-first), Alt-Werte localStorage → Keychain, danach aus
+ * localStorage entfernt (Secrets liegen nativ nicht mehr in der WebKit-Datei). */
+async function hydrateAccessFromKeychain(){
+  var S=secureStore(); if(!S) return;
+  var kc={}, kcHasAny=false, legacy={}, legacyAny=false, i, k;
+  try{
+    var reads=ACCESS_KEYS.map(function(key){
+      try{ return Promise.resolve(S.get({key:key})).catch(function(){ return null; }); }
+      catch(e){ return Promise.resolve(null); }
+    });
+    var res=await withTimeout(Promise.all(reads),1200);
+    if(res){ for(i=0;i<ACCESS_KEYS.length;i++){ var r=res[i]; if(r && r.value!=null){ kc[ACCESS_KEYS[i]]=String(r.value); kcHasAny=true; } } }
+  }catch(e){}
+  var lsVerified=false;
+  try{ lsVerified=!!localStorage.getItem('argus_verified'); }catch(e){}
+  for(i=0;i<ACCESS_KEYS.length;i++){
+    k=ACCESS_KEYS[i];
+    try{ var lv=localStorage.getItem(k); if(lv!=null){ legacy[k]=lv; legacyAny=true; } }catch(e){}
+  }
+  var d=keychainStartDecision(kcHasAny, lsVerified, legacyAny);
+  if(d==='discard'){ for(i=0;i<ACCESS_KEYS.length;i++) secureWrite(ACCESS_KEYS[i],null); return; }
+  if(d==='none') return;
+  if(d==='hydrate'){ for(k in kc){ try{ sessionStorage.setItem(k,kc[k]); }catch(e){} } }
+  for(k in legacy){
+    if(d==='migrate' || !(k in kc)){ try{ sessionStorage.setItem(k,legacy[k]); }catch(e){} secureWrite(k,legacy[k]); }
+    try{ localStorage.removeItem(k); }catch(e){}
+  }
+}
 /* Safe-Area-Regeln im CSS hängen an html.native-shell (nur in der Hülle). */
 try{ if(isNativeShell()) document.documentElement.classList.add('native-shell'); }catch(e){}
 
@@ -520,7 +588,7 @@ function sb(){
   /* JWT wird manuell verwaltet (Phase 4): bei jedem Aufruf prüfen, ob sich das
    * gespeicherte JWT geändert hat (z. B. nach Code-Eingabe oder stiller
    * Verlängerung). Wenn ja → Client neu erstellen, Realtime-Abo trennen. */
-  var currentJwt = localStorage.getItem('argus_jwt');
+  var currentJwt = accessGet('argus_jwt');
   if(_sb && currentJwt === _sbJwt) return _sb;
   if(!window.supabaseLib || !window.supabaseLib.createClient) return _sb;
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
@@ -681,7 +749,7 @@ async function openOrCreateCCP(){
     markCcpCreator(_ccpId);   /* dieses Gerät ist der Ersteller → Gerätenummer 1 (kein Offline-Suffix nötig als Erster) */
     _deviceNo=1; _deviceNoCcp=_ccpId; try{ await sSet('ccp_devno_'+_ccpId,1); }catch(e){}
     localStorage.setItem('argus_ccp_id',_ccpId);
-    localStorage.setItem('argus_invite',joinToken);
+    accessSet('argus_invite',joinToken);
     try{
       if(ortT){
         if(!checklist.hdr)checklist.hdr={};
@@ -812,11 +880,11 @@ function removeUnlock(pid){ var arr=getUnlocked().filter(function(u){return u.p!
  * praesidium_id nicht passte → RLS lehnte jeden CCP-Insert ab, die App zeigte
  * nur „Abgebrochen". Jetzt: pro Präsidium das JWT merken und beim Wechsel das
  * passende aktivieren; fehlt es, einmal den Code neu eingeben lassen. */
-function pidJwtMap(){ try{ var m=JSON.parse(localStorage.getItem('argus_jwt_by_pid')||'{}'); return (m&&typeof m==='object')?m:{}; }catch(e){ return {}; } }
-function storePidJwt(pid,jwt,expMs,code){ if(!pid||!jwt) return; var m=pidJwtMap(); m[pid]={jwt:jwt,exp:expMs||0,code:code||''}; try{ localStorage.setItem('argus_jwt_by_pid',JSON.stringify(m)); }catch(e){} }
+function pidJwtMap(){ try{ var m=JSON.parse(accessGet('argus_jwt_by_pid')||'{}'); return (m&&typeof m==='object')?m:{}; }catch(e){ return {}; } }
+function storePidJwt(pid,jwt,expMs,code){ if(!pid||!jwt) return; var m=pidJwtMap(); m[pid]={jwt:jwt,exp:expMs||0,code:code||''}; try{ accessSet('argus_jwt_by_pid',JSON.stringify(m)); }catch(e){} }
 function jwtClaims(jwt){
   try{
-    var p=(jwt||localStorage.getItem('argus_jwt')||'').split('.')[1]; if(!p) return null;
+    var p=(jwt||accessGet('argus_jwt')||'').split('.')[1]; if(!p) return null;
     p=p.replace(/-/g,'+').replace(/_/g,'/'); while(p.length%4) p+='=';
     var bin=atob(p), s=''; for(var i=0;i<bin.length;i++) s+='%'+('00'+bin.charCodeAt(i).toString(16)).slice(-2);
     return JSON.parse(decodeURIComponent(s));
@@ -844,8 +912,8 @@ function ensureJwtFor(pid){
   var e=pidJwtMap()[pid];
   if(e && e.jwt && (!e.exp || e.exp>nowMs())){
     try{
-      localStorage.setItem('argus_jwt',e.jwt); localStorage.setItem('argus_jwt_exp',String(e.exp||0));
-      if(e.code) localStorage.setItem('argus_code',e.code);
+      accessSet('argus_jwt',e.jwt); accessSet('argus_jwt_exp',String(e.exp||0));
+      if(e.code) accessSet('argus_code',e.code);
     }catch(x){}
     return true;
   }
@@ -926,9 +994,9 @@ async function exchangeCode(code, scope){
     var data=await resp.json();            /* ungültiger Code = HTTP 200 + {error:…} */
     if(data && data.error) _lastExchangeError=String(data.error);   /* Server-Klartext nicht schlucken */
     if(!data || !data.jwt) return null;
-    localStorage.setItem('argus_jwt', data.jwt);
-    localStorage.setItem('argus_jwt_exp', String(data.exp*1000)); /* ms */
-    localStorage.setItem('argus_code', clean);                    /* für stille Verlängerung */
+    accessSet('argus_jwt', data.jwt);
+    accessSet('argus_jwt_exp', String(data.exp*1000)); /* ms */
+    accessSet('argus_code', clean);                    /* für stille Verlängerung */
     storePidJwt(data.praesidium_id, data.jwt, data.exp*1000, clean);   /* je Präsidium merken (Picker-Wechsel) */
     if(data.scope==='schulung') localStorage.setItem('argus_twin_of_'+data.praesidium_id, '1');   /* Merker: Twin-JWT stammt aus Scope-Exchange → Verlängerung mit p_scope */
     return {
@@ -970,9 +1038,9 @@ async function exchangePersonCode(clean, scope){
     if(data && data.error) _lastExchangeError=String(data.error);
     if(!data || !data.jwt) return null;
     /* JWT + Standard-Felder (analog exchangeCode) */
-    localStorage.setItem('argus_jwt', data.jwt);
-    localStorage.setItem('argus_jwt_exp', String(data.exp*1000));
-    localStorage.setItem('argus_code', clean);
+    accessSet('argus_jwt', data.jwt);
+    accessSet('argus_jwt_exp', String(data.exp*1000));
+    accessSet('argus_code', clean);
     /* Stufe-1-Sitzungsfelder */
     localStorage.setItem('argus_usbnk',   data.usbnk||'');
     localStorage.setItem('argus_role',    data.argus_role||'');
@@ -1001,11 +1069,11 @@ async function exchangePersonCode(clean, scope){
  * das JWT läuft dann ab und der Nutzer gibt seinen Code neu ein. */
 async function refreshJwtIfNeeded(){
   if(!navigator.onLine) return;
-  var jwt=localStorage.getItem('argus_jwt');
-  var exp=parseInt(localStorage.getItem('argus_jwt_exp')||'0',10);
+  var jwt=accessGet('argus_jwt');
+  var exp=parseInt(accessGet('argus_jwt_exp')||'0',10);
   if(!jwt||!exp) return;
   if(exp-nowMs() > 7*24*3600*1000) return; /* noch frisch */
-  var storedCode=localStorage.getItem('argus_code')||'';
+  var storedCode=accessGet('argus_code')||'';
   if(!storedCode) return;
   /* Stufe-1 Person-Sitzung: argus_role ist gesetzt → exchangePersonCode nutzen.
    * argus_exchange_code würde Person-Codes über CR-02 abweisen.
@@ -1052,14 +1120,14 @@ async function applyRevokedLock(){
   if(_revokedLocked) return;
   _revokedLocked=true;
   try{
-    localStorage.removeItem('argus_jwt');
-    localStorage.removeItem('argus_jwt_exp');
-    localStorage.removeItem('argus_code');
+    accessDel('argus_jwt');
+    accessDel('argus_jwt_exp');
+    accessDel('argus_code');
     localStorage.setItem('argus_unlocked','[]');   /* Freischaltungen leeren */
     /* Zusätzlich Rollen-/Verified-Reste entfernen — sonst bliebe ein
      * Master-Gerät über argus_is_master trotz Sperrung freigeschaltet. */
     localStorage.removeItem('argus_verified');
-    localStorage.removeItem('argus_is_master');
+    accessDel('argus_is_master');
     localStorage.removeItem('argus_praesidium_id');
     localStorage.removeItem('argus_praesidium_name');
     /* Stufe-1 Person-Sitzungsfelder (Plan 05.1-03) */
@@ -1080,7 +1148,7 @@ async function applyRevokedLock(){
  * NIE darauf). Offline-Guard steht VOR dem fetch; kurzes Abort-Timeout, damit
  * ein hängender Request nichts aufhält. Kein Aufruf-Effekt im Training. */
 async function checkRevokedCode(){
-  var code=null; try{ code=localStorage.getItem('argus_code'); }catch(e){}
+  var code=null; try{ code=accessGet('argus_code'); }catch(e){}
   if(_configError) return;   /* ohne Config kein RPC (fetch liefe sonst gegen den eigenen Origin) */
   if(!code || navigator.onLine===false || _training) return;   /* NIE blockieren, NIE offline raten */
   var resp=null;
@@ -1123,9 +1191,9 @@ async function doUnlock(rawCode){
            * Im Feld höflich abweisen — kein _isMaster setzen. */
           /* Stufe-1-Felder wieder räumen (kein Halbzustand) */
           try{
-            localStorage.removeItem('argus_jwt');
-            localStorage.removeItem('argus_jwt_exp');
-            localStorage.removeItem('argus_code');
+            accessDel('argus_jwt');
+            accessDel('argus_jwt_exp');
+            accessDel('argus_code');
             localStorage.removeItem('argus_usbnk');
             localStorage.removeItem('argus_role');
             localStorage.removeItem('argus_person_praesidium');
@@ -1164,7 +1232,7 @@ async function doUnlock(rawCode){
   }
   localStorage.setItem('argus_verified','true');
   if(uv.is_master){
-    _isMaster=true; localStorage.setItem('argus_is_master','true');
+    _isMaster=true; accessSet('argus_is_master','true');
     toast("Master-Zugang freigeschaltet");
   } else if(uv.praesidium_id){
     addUnlock(uv.praesidium_id, uv.temporary?(uv.ttl_hours||24):null);
@@ -1195,7 +1263,7 @@ function codeFromText(t){
   return '';
 }
 function inviteUrl(){
-  var token=localStorage.getItem('argus_invite')||'';
+  var token=accessGet('argus_invite')||'';
   if(!token) return null;
   return window.location.origin+window.location.pathname+'#inv='+token;
 }
@@ -2319,8 +2387,8 @@ async function cleanupClosedEinsatz(info){
    * zum jetzt geschlossenen CCP) — NICHT den 8-stelligen Zugangs-Code
    * (Unterscheidung wie extractInviteToken vs. extractInviteCode). */
   try{
-    var inv=localStorage.getItem('argus_invite')||'';
-    if(/^[a-f0-9]{32}$/i.test(inv.trim())) localStorage.removeItem('argus_invite');
+    var inv=accessGet('argus_invite')||'';
+    if(/^[a-f0-9]{32}$/i.test(inv.trim())) accessDel('argus_invite');
   }catch(e){}
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
   _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; _ccpIdsKnown=null;
@@ -4684,7 +4752,7 @@ document.addEventListener("click",async function(e){
         toast("Moduswechsel braucht kurz Netz — bitte online gehen und erneut tippen");
         return;
       }
-      var storedPersonCode=localStorage.getItem('argus_code')||'';
+      var storedPersonCode=accessGet('argus_code')||'';
       if(storedPersonCode){
         var reex=await exchangePersonCode(storedPersonCode, newTab);
         if(!reex){
@@ -4765,12 +4833,12 @@ document.addEventListener("click",async function(e){
      * lehnt die RLS jeden Schreibzugriff ab (sah bisher aus wie „Abgebrochen").
      * Fehlt es (Gerät vor 0024 freigeschaltet): online mit dem gespeicherten Code
      * und passendem Scope nachholen (Twin → p_scope='schulung'). */
-    if(!isPersonSession2 && !ensureJwtFor(selPid) && navigator.onLine && localStorage.getItem('argus_code')){
-      var curJwt=localStorage.getItem('argus_jwt'), curExp=localStorage.getItem('argus_jwt_exp'), curCode=localStorage.getItem('argus_code');
+    if(!isPersonSession2 && !ensureJwtFor(selPid) && navigator.onLine && accessGet('argus_code')){
+      var curJwt=accessGet('argus_jwt'), curExp=accessGet('argus_jwt_exp'), curCode=accessGet('argus_code');
       var reex=null; try{ reex=await exchangeCode(curCode, selIsSchul?'schulung':'echt'); }catch(e){}
       if(!(reex && reex.praesidium_id===selPid)){
         /* nicht passend → vorherigen Zustand wiederherstellen (exchangeCode hat argus_jwt überschrieben) */
-        try{ if(curJwt){ localStorage.setItem('argus_jwt',curJwt); localStorage.setItem('argus_jwt_exp',curExp||'0'); localStorage.setItem('argus_code',curCode||''); } }catch(e){}
+        try{ if(curJwt){ accessSet('argus_jwt',curJwt); accessSet('argus_jwt_exp',curExp||'0'); accessSet('argus_code',curCode||''); } }catch(e){}
       }
     }
     if(!isPersonSession2 && !ensureJwtFor(selPid)){
@@ -4815,11 +4883,11 @@ document.addEventListener("click",async function(e){
     var valid=await exchangeCode(code);
     if(valid){
       localStorage.setItem('argus_verified','true');
-      localStorage.setItem('argus_invite',code);
+      accessSet('argus_invite',code);
       if(valid.is_master){
         /* MasterToken: Rolle setzen + Präsidienauswahl zeigen */
         _isMaster=true;
-        localStorage.setItem('argus_is_master','true');
+        accessSet('argus_is_master','true');
         localStorage.removeItem('argus_praesidium_id');
         localStorage.removeItem('argus_praesidium_name');
         _praesidiumId=null; _praesidiumName='';
@@ -5458,6 +5526,9 @@ setInterval(async function(){
 },5000);
 
 (async function init(){
+  /* Hülle: Zugangsschlüssel aus der Keychain, Migration localStorage→Keychain,
+   * Neuinstallation verwirft Reste; Timeout 1,2 s (Local-first) */
+  await hydrateAccessFromKeychain();
   await nativeStartup();   /* Hülle: Build-Nummer, Launch-URL — begrenzt durch withTimeout */
   operator=await getOperator();if(!operator)operator="";
   /* Fehlende/kaputte config.js nicht still schlucken: einmaliger Hinweis beim
@@ -5470,7 +5541,7 @@ setInterval(async function(){
    * KEIN Intro (nur stilles Markieren); nur eine echte Neuinstallation. Eine
    * spätere Freischaltung für ein weiteres Präsidium ändert das nicht. */
   var introSeen=localStorage.getItem('argus_intro_seen');
-  var hadData=!!(operator||localStorage.getItem('argus_verified')||localStorage.getItem('argus_unlocked')||localStorage.getItem('argus_jwt')||localStorage.getItem('argus_seen_version')||localStorage.getItem('argus_ccp_id'));
+  var hadData=!!(operator||localStorage.getItem('argus_verified')||localStorage.getItem('argus_unlocked')||accessGet('argus_jwt')||localStorage.getItem('argus_seen_version')||localStorage.getItem('argus_ccp_id'));
   window._pendingIntro = (!introSeen && !hadData);
   if(!introSeen && hadData){ try{localStorage.setItem('argus_intro_seen','1');}catch(e){} }
 
@@ -5478,7 +5549,7 @@ setInterval(async function(){
    * angezeigt (auch beim ersten Lauf mit sichtbarer Version), nicht für eine
    * brandneue Erstinstallation. Läuft unabhängig vom späteren View-Pfad. */
   var seenV=localStorage.getItem('argus_seen_version');
-  var existingUser=!!(localStorage.getItem('argus_jwt')||localStorage.getItem('argus_unlocked')||localStorage.getItem('argus_verified'));
+  var existingUser=!!(accessGet('argus_jwt')||localStorage.getItem('argus_unlocked')||localStorage.getItem('argus_verified'));
   localStorage.setItem('argus_seen_version',APP_VERSION);
   if(seenV ? (seenV!==APP_VERSION) : existingUser){ setTimeout(function(){ whatsNewModal(seenV); },700); }
 
@@ -5493,7 +5564,7 @@ setInterval(async function(){
   _praesidiumId   = localStorage.getItem('argus_praesidium_id')||null;
   _praesidiumSchulung = localStorage.getItem('argus_praesidium_schulung')==='1';
   _praesidiumName = localStorage.getItem('argus_praesidium_name')||'';
-  _isMaster       = localStorage.getItem('argus_is_master')==='true';
+  _isMaster       = accessGet('argus_is_master')==='true';
   /* Stufe-1 Person-Sitzung wiederherstellen (Plan 05.1-03) */
   _usbnk     = localStorage.getItem('argus_usbnk')||null;
   _argusRole = localStorage.getItem('argus_role')||null;
@@ -5516,7 +5587,7 @@ setInterval(async function(){
       if(cdata){
         localStorage.setItem('argus_verified','true'); verified='true';
         history.replaceState(null,'',window.location.pathname);
-        if(cdata.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
+        if(cdata.is_master){ accessSet('argus_is_master','true'); _isMaster=true; }
         else if(cdata.praesidium_id){
           addUnlock(cdata.praesidium_id, cdata.temporary?(cdata.ttl_hours||24):null);
           try{ await unlockTwinFor(urlCode, cdata); }catch(e){}   /* 0024: Schulungs-Zwilling mit freischalten */
@@ -5540,9 +5611,9 @@ setInterval(async function(){
         state.view='install'; render(); return;
       }
       localStorage.setItem('argus_verified','true'); verified='true';
-      localStorage.setItem('argus_invite',urlToken);
+      accessSet('argus_invite',urlToken);
       history.replaceState(null,'',window.location.pathname);
-      if(tokenData.is_master){ localStorage.setItem('argus_is_master','true'); _isMaster=true; }
+      if(tokenData.is_master){ accessSet('argus_is_master','true'); _isMaster=true; }
       else if(tokenData.praesidium_id){
         addUnlock(tokenData.praesidium_id, tokenData.temporary?(tokenData.ttl_hours||24):null);
         await consumeSingleUse(tokenData);
@@ -5578,13 +5649,13 @@ setInterval(async function(){
    * Geräte mit altem Zugang (verified / unlocked / master), aber ohne JWT
    * werden zur Code-Eingabe geführt. Danach 30 Tage Ruhe. URL-Links
    * (#code= / #inv=) umgehen die Migration (werden oben verarbeitet). */
-  var hasLegacyAccess = (verified==='true' || getUnlocked().length>0 || _isMaster) && !localStorage.getItem('argus_jwt');
+  var hasLegacyAccess = (verified==='true' || getUnlocked().length>0 || _isMaster) && !accessGet('argus_jwt');
   if(hasLegacyAccess && !urlCode && !urlToken){
     localStorage.removeItem('argus_verified');
     localStorage.removeItem('argus_unlocked');
     localStorage.removeItem('argus_praesidium_id');
     localStorage.removeItem('argus_praesidium_name');
-    localStorage.removeItem('argus_is_master');
+    accessDel('argus_is_master');
     _praesidiumId=null; _praesidiumName=''; _isMaster=false;
     $("clock").textContent=new Date().toLocaleTimeString("de-DE");
     state.view='praesidium'; render(); return;
@@ -5593,7 +5664,7 @@ setInterval(async function(){
   /* ── Zugriffsgate (strikt): Master ODER (gültiges JWT UND mind. ein
    *    freigeschaltetes Präsidium). Sonst → Landingpage mit Freischalt-
    *    Button (Fehlerfall ist „Code eingeben"). ──── */
-  var hasAccess = _isMaster || (!!localStorage.getItem('argus_jwt') && getUnlocked().length>0);
+  var hasAccess = _isMaster || (!!accessGet('argus_jwt') && getUnlocked().length>0);
   if(!hasAccess || !_praesidiumId || !isUnlocked(_praesidiumId)){
     $("clock").textContent=new Date().toLocaleTimeString("de-DE");
     state.view='praesidium'; render(); return;
@@ -5603,11 +5674,11 @@ setInterval(async function(){
    * letzten CCP wiederherstellen */
   /* JWT muss zum aktiven Präsidium passen (Sammelcode mit zwei Präsidien) —
    * sonst scheitert jeder Schreibzugriff still an der RLS. */
-  if(!ensureJwtFor(_praesidiumId) && navigator.onLine && localStorage.getItem('argus_code') && !(_argusRole&&_usbnk)){
+  if(!ensureJwtFor(_praesidiumId) && navigator.onLine && accessGet('argus_code') && !(_argusRole&&_usbnk)){
     /* 0024: fehlendes JWT online nachholen — Twin mit p_scope='schulung' */
-    var _sjwt=localStorage.getItem('argus_jwt'), _sexp=localStorage.getItem('argus_jwt_exp'), _scode=localStorage.getItem('argus_code');
+    var _sjwt=accessGet('argus_jwt'), _sexp=accessGet('argus_jwt_exp'), _scode=accessGet('argus_code');
     var _re=null; try{ _re=await Promise.race([exchangeCode(_scode, _praesidiumSchulung?'schulung':'echt'), new Promise(function(r){ setTimeout(function(){ r(null); }, 2500); })]); }catch(e){}
-    if(!(_re && _re.praesidium_id===_praesidiumId)){ try{ if(_sjwt){ localStorage.setItem('argus_jwt',_sjwt); localStorage.setItem('argus_jwt_exp',_sexp||'0'); localStorage.setItem('argus_code',_scode||''); } }catch(e){} }
+    if(!(_re && _re.praesidium_id===_praesidiumId)){ try{ if(_sjwt){ accessSet('argus_jwt',_sjwt); accessSet('argus_jwt_exp',_sexp||'0'); accessSet('argus_code',_scode||''); } }catch(e){} }
   }
   if(!ensureJwtFor(_praesidiumId)){
     removeUnlock(_praesidiumId);
@@ -5616,7 +5687,7 @@ setInterval(async function(){
     state.view='praesidium'; render(); return;
   }
   /* JWT still verlängern. B3: nur warten, wenn er schon abgelaufen ist — und dann höchstens 2,5 s; sonst im Hintergrund. */
-  var _jexp=parseInt(localStorage.getItem('argus_jwt_exp')||'0',10)||0;
+  var _jexp=parseInt(accessGet('argus_jwt_exp')||'0',10)||0;
   if(_jexp>nowMs()){ try{ refreshJwtIfNeeded(); }catch(e){} }
   else { await Promise.race([Promise.resolve(refreshJwtIfNeeded()).catch(function(){}), new Promise(function(r){ setTimeout(r, 2500); })]); }
   try{ probeSchema(3); }catch(e){}   /* Schema-/Uhr-Probe (D6.5-18/-07) — fire-and-forget, KEIN await */
@@ -5773,7 +5844,7 @@ setInterval(function(){ try{ deviceHeartbeat(); }catch(e){} }, HB_INTERVAL_MS);
 setInterval(function(){ try{ pollDevices(); }catch(e){} }, 10000);
 /* B7 (Plan 06.5-10): Schema-Re-Probe — wurde die Migration erst nach dem App-Start eingespielt (oder lief die Probe
  * im Funkloch ins Leere), bliebe _schemaV sonst bis zum nächsten Neustart zu niedrig. Alle 3 min, solange v<28 und Verbindung vermutet. */
-setInterval(function(){ try{ if(_schemaV<29 && netLikelyUp() && !document.hidden && !_revokedLocked && sb() && localStorage.getItem('argus_jwt')) probeSchema(1); }catch(e){} }, 180000);
+setInterval(function(){ try{ if(_schemaV<29 && netLikelyUp() && !document.hidden && !_revokedLocked && sb() && accessGet('argus_jwt')) probeSchema(1); }catch(e){} }, 180000);
 /* Nachzügler (Phase 6.5): nur solange fremde/abgeschlossene _dirty-Patienten lokal liegen (_lateN). */
 setInterval(function(){ try{ if(_lateN>0) flushLatePatients(); }catch(e){} }, 60000);
 /* Lokale Löschfristen (alle 5 min) + gebündeltes Herkunftsprotokoll (höchstens 1/min). */
