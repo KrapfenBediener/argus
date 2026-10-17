@@ -278,3 +278,102 @@ test('bridge: Safe-Area-CSS nur unter .native-shell — mindestens topbar/toast/
   assert.ok(script.includes("classList.add('native-shell')"), 'native-shell-Klasse wird nie gesetzt');
   assert.ok(script.indexOf("classList.add('native-shell')") < script.indexOf('function sb('), 'Klasse muss früh (vor dem Rendern) gesetzt werden');
 });
+
+/* ── Plan 06.6-02 — Deep-Link argus://unlock#code=… ──────────────────────────
+ * Parser mit optionalem Parameter (Default: window.location.hash), Kaltstart
+ * über getLaunchUrl, Warmstart über appUrlOpen → Hash setzen + Reload (EIN
+ * Einlösepfad in init(), T-06.6-10), Sitzungs-Guard gegen Reload-Schleifen
+ * (T-06.6-12), Install-Screen-Knopf im Browser (D6.6-06: bestehende Klasse). */
+
+const A32 = 'a'.repeat(32), B32 = 'b'.repeat(32);
+
+test('deeplink: extractInviteCode(src) parst argus://-URLs; ohne Argument weiterhin window.location.hash', () => {
+  const f = evalFunctions(script, ['extractInviteCode']);
+  assert.equal(f.extractInviteCode('argus://unlock#code=abcd-efgh'), 'ABCD-EFGH');
+  assert.equal(f.extractInviteCode('argus://unlock#code=ABCDEFGH'), 'ABCDEFGH');
+  assert.equal(f.extractInviteCode('argus://unlock'), null);
+  assert.equal(f.extractInviteCode('https://x/#inv=' + A32), null);
+  const src = extractFunction(script, 'extractInviteCode');
+  assert.equal(evalInScope(src, { window: { location: { hash: '#code=ABCD-EFGH' } } }).value(), 'ABCD-EFGH');
+  assert.equal(evalInScope(src, { window: { location: { hash: '' } } }).value(), null);
+});
+
+test('deeplink: extractInviteToken(src) parst argus://-URLs; ohne Argument weiterhin window.location.hash', () => {
+  const f = evalFunctions(script, ['extractInviteToken']);
+  assert.equal(f.extractInviteToken('argus://unlock#inv=' + A32), A32);
+  assert.equal(f.extractInviteToken('argus://unlock#code=ABCD-EFGH'), null);
+  const src = extractFunction(script, 'extractInviteToken');
+  assert.equal(evalInScope(src, { window: { location: { hash: '#inv=' + A32 } } }).value(), A32);
+  assert.equal(evalInScope(src, { window: { location: { hash: '#x' } } }).value(), null);
+});
+
+test('deeplink: launchHashFrom liefert nur validierte Fragmente (#code=/#inv=), sonst leer (T-06.6-10)', () => {
+  const f = evalFunctions(script, ['launchHashFrom', 'extractInviteCode', 'extractInviteToken']);
+  assert.equal(f.launchHashFrom('argus://unlock#code=ABCD-EFGH'), '#code=ABCD-EFGH');
+  assert.equal(f.launchHashFrom('argus://unlock#inv=' + B32), '#inv=' + B32);
+  assert.equal(f.launchHashFrom('argus://unlock#foo=1'), '');
+  assert.equal(f.launchHashFrom('argus://unlock'), '');
+  assert.equal(f.launchHashFrom(''), '');
+  assert.equal(f.launchHashFrom(null), '');
+  assert.equal(f.launchHashFrom(undefined), '');
+  /* Fremdinhalt im Fragment wird nie durchgereicht — nur der validierte Wert */
+  const h = f.launchHashFrom('argus://unlock#code=ABCD-EFGH&evil=<img onerror=1>');
+  assert.ok(h.startsWith('#code=ABCD-EFGH') && !h.includes('<'), 'Fragment muss auf den validierten Code reduziert werden: ' + h);
+});
+
+test('deeplink: consumeLaunchUrl — je Sitzung nur einmal pro URL, auch bei wechselnden URLs (T-06.6-12)', () => {
+  const store = new Map();
+  const fake = { getItem: k => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); } };
+  const consume = evalInScope(extractFunction(script, 'consumeLaunchUrl'), { sessionStorage: fake }).value;
+  assert.equal(consume(''), false);
+  assert.equal(consume(null), false);
+  assert.equal(consume('argus://unlock#code=ABCD-EFGH'), true);
+  assert.equal(consume('argus://unlock#code=ABCD-EFGH'), false, 'zweiter Aufruf derselben URL → false');
+  assert.equal(consume('argus://unlock#code=WXYZ-1234'), true, 'andere URL → true');
+  assert.equal(consume('argus://unlock#code=ABCD-EFGH'), false,
+    'Kaltstart-URL (getLaunchUrl) darf nach einem Warmstart-Reload nicht erneut greifen');
+  assert.ok(store.has('argus_launch_consumed'));
+  /* ohne sessionStorage (wirft) → kein Guard, aber kein Absturz */
+  const broken = { getItem(){ throw new Error('x'); }, setItem(){ throw new Error('x'); } };
+  assert.equal(evalInScope(extractFunction(script, 'consumeLaunchUrl'), { sessionStorage: broken }).value('argus://unlock#code=ABCD-EFGH'), true);
+});
+
+test('deeplink: nativeStartup übernimmt die Launch-URL (getLaunchUrl) und bindet appUrlOpen genau einmal', () => {
+  const src = extractFunction(script, 'nativeStartup');
+  for (const t of ['getLaunchUrl', 'launchHashFrom', 'consumeLaunchUrl', 'history.replaceState', "addListener('appUrlOpen'", '_urlOpenBound', 'withTimeout(']){
+    assert.ok(src.includes(t), 'nativeStartup fehlt: ' + t);
+  }
+  assert.ok(!src.includes('exchangeCode('), 'keine zweite Einlöse-Implementierung in nativeStartup');
+  assert.ok(src.indexOf('getInfo') < src.indexOf('getLaunchUrl'), 'getInfo-Block bleibt vor der Launch-URL');
+});
+
+test('deeplink: handleIncomingUrl (Warmstart) setzt den Hash und lädt neu — kein zweiter Einlösepfad, kein nativer Dialog', () => {
+  const src = extractFunction(script, 'handleIncomingUrl');
+  for (const t of ['launchHashFrom', 'consumeLaunchUrl', 'location.reload', 'toast(']){
+    assert.ok(src.includes(t), 'handleIncomingUrl fehlt: ' + t);
+  }
+  assert.ok(!src.includes('exchangeCode('), 'handleIncomingUrl darf nicht selbst einlösen (ein Pfad: init)');
+  assert.ok(!/innerHTML|insertAdjacentHTML/.test(src), 'URL darf nie ins DOM (T-06.6-10)');
+});
+
+test('deeplink: init() wartet auf nativeStartup(), bevor der Hash gelesen wird (Kaltstart-Pfad)', () => {
+  const src = extractFunction(script, 'init');
+  const a = src.indexOf('nativeStartup()'), b = src.indexOf('extractInviteCode()');
+  assert.ok(a >= 0 && b >= 0, 'nativeStartup()/extractInviteCode() in init nicht gefunden');
+  assert.ok(a < b, 'await nativeStartup() muss vor extractInviteCode() stehen');
+  assert.ok(src.includes('await nativeStartup()'));
+  assert.ok(src.indexOf('await nativeStartup()') < src.indexOf('getOperator()'), 'nativeStartup ist die erste Anweisung in init');
+});
+
+test('deeplink: Install-Screen bietet „In der ARGUS-App öffnen“ (Klasse ghost, Dispatcher openapp, D6.6-06)', () => {
+  const v = extractFunction(script, 'vInstall');
+  assert.ok(v.includes('data-action="openapp"'), 'Knopf fehlt im Install-Screen');
+  assert.ok(/class="ghost"[^>]*data-action="openapp"/.test(v), 'Knopf muss die bestehende Klasse ghost nutzen');
+  assert.ok(v.includes('bereits installiert'), 'Hinweistext „nur wenn bereits installiert“ fehlt');
+  assert.ok(script.includes('a==="openapp"'), 'Dispatcher-Zweig openapp fehlt');
+  assert.ok(script.includes("'argus://unlock#code='"), 'Scheme-Link argus://unlock#code= fehlt');
+  const i = script.indexOf('a==="openapp"');
+  const branch = script.slice(i, script.indexOf('return;', i));
+  assert.ok(branch.includes('installTokenFull') && branch.includes('/^[A-Z0-9]{8}$/'), 'openapp muss den Code aus state.installTokenFull validieren');
+  assert.ok(!branch.includes('exchangeCode('), 'openapp löst nicht selbst ein');
+});

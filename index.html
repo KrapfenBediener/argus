@@ -497,6 +497,20 @@ async function nativeStartup(){
     var info=await withTimeout(App.getInfo(),800);
     if(info && info.build) window._nativeBuild=String(info.build);
   }catch(e){}
+  /* Kaltstart per argus://-Link: Fragment in den Hash → init() liest es über
+   * extractInviteCode()/extractInviteToken() wie einen Web-Link (ein Pfad). */
+  try{
+    var r=await withTimeout(App.getLaunchUrl(),800);
+    var h=(r && r.url)?launchHashFrom(r.url):'';
+    if(h && consumeLaunchUrl(r.url)){
+      try{ history.replaceState(null,'',window.location.pathname+h); }catch(e2){ window.location.hash=h.slice(1); }
+    }
+  }catch(e){}
+  /* Warmstart: appUrlOpen (gepuffert, retainUntilConsumed) — Listener nur einmal. */
+  if(!window._urlOpenBound){
+    window._urlOpenBound=true;
+    try{ App.addListener('appUrlOpen', function(ev){ handleIncomingUrl(ev && ev.url); }); }catch(e){}
+  }
 }
 
 function sb(){
@@ -728,15 +742,56 @@ function subscribeRealtime(){
 }
 
 /* ── Einladungs-System ─────────────────────────────────────────────────── */
-function extractInviteToken(){
-  var hash=window.location.hash||'';
+/* src optional (Phase 6.6: argus://unlock#code=… aus getLaunchUrl/appUrlOpen);
+ * ohne Argument wie bisher window.location.hash. */
+function extractInviteToken(src){
+  var hash=(typeof src==='string')?src:(window.location.hash||'');
   var m=hash.match(/[#&]inv=([a-f0-9]{32})/i);
   return m?m[1]:null;
 }
-function extractInviteCode(){
-  var hash=window.location.hash||'';
+function extractInviteCode(src){
+  var hash=(typeof src==='string')?src:(window.location.hash||'');
   var m=hash.match(/[#&]code=([A-Za-z0-9]{4}-?[A-Za-z0-9]{4})/i);
   return m?m[1].toUpperCase():null;
+}
+/* ── Deep-Link argus://unlock#code=… (Phase 6.6, D6.6-04) ──────────────────
+ * launchHashFrom: kanonisches Fragment NUR aus dem validierten Wert
+ * (#code=XXXX-XXXX bzw. #inv=<32 hex>) — Fremdinhalt der URL wird verworfen
+ * und erreicht weder Hash noch DOM (T-06.6-10). Sonst ''. */
+function launchHashFrom(url){
+  if(!url || typeof url!=='string') return '';
+  var i=url.indexOf('#'); if(i<0) return '';
+  var frag=url.slice(i);
+  var code=extractInviteCode(frag); if(code) return '#code='+code;
+  var tok=extractInviteToken(frag); if(tok) return '#inv='+tok;
+  return '';
+}
+/* Sitzungs-Guard (T-06.6-12): getLaunchUrl() liefert nach einem Reload weiter
+ * die Kaltstart-URL und appUrlOpen puffert (retainUntilConsumed) → jede URL
+ * wird je Sitzung nur einmal verarbeitet, sonst Reload-Schleife / doppelter
+ * Exchange. Liste statt Einzelwert: nach einem Warmstart-Link darf die alte
+ * Kaltstart-URL nicht erneut greifen. Ohne sessionStorage: kein Guard, kein Absturz. */
+function consumeLaunchUrl(url){
+  if(!url) return false;
+  try{
+    var seen=(sessionStorage.getItem('argus_launch_consumed')||'').split('\n');
+    if(seen.indexOf(url)>=0) return false;
+    seen.push(url);
+    sessionStorage.setItem('argus_launch_consumed', seen.filter(function(x){ return !!x; }).slice(-20).join('\n'));
+  }catch(e){}
+  return true;
+}
+/* Warmstart (App läuft, Link kommt per appUrlOpen): Hash setzen + Reload.
+ * Bewusst KEIN zweiter Einlösepfad — init() behandelt #code=/#inv= vollständig
+ * (exchangeCode, Freischaltung, Schulungs-Zwilling, Master-Flag, Präsidium);
+ * ein Reload aus dem Bundle ist offline und sofort (Local-first, aller Zustand
+ * liegt persistent). Nur toast(), kein nativer Dialog (D6.6-06). */
+function handleIncomingUrl(url){
+  var h=launchHashFrom(url);
+  if(!h || !consumeLaunchUrl(url)) return;
+  try{ history.replaceState(null,'',window.location.pathname+h); }catch(e){ window.location.hash=h.slice(1); }
+  toast('Freischalt-Link erkannt — ARGUS lädt neu');
+  setTimeout(function(){ location.reload(); },700);
 }
 /* ── Geräte-Freischaltungen: welche Präsidien darf dieses Gerät sehen ──────
  * Liste {p:praesidium_id, exp:ms|0}. exp=0 = dauerhaft, sonst Ablaufzeitpunkt.
@@ -1186,6 +1241,11 @@ function vInstall(){
   h+='<div class="mono" style="font-size:32px;font-weight:700;letter-spacing:4px;color:var(--acc);margin:8px 0">'+esc(sc)+'</div>';
   h+='<div class="hint">Nach der Installation in der App eingeben</div>';
   h+='</div>';
+  /* Native Hülle (Phase 6.6): Link ans URL-Scheme argus:// — nur sinnvoll, wenn die
+   * App schon installiert ist (Safari meldet sonst selbst, dass nichts geöffnet
+   * werden kann). Bestehende Klasse ghost, kein neues Bauteil (D6.6-06). */
+  h+='<button class="ghost" data-action="openapp" style="margin-top:14px">In der ARGUS-App öffnen</button>';
+  h+='<p class="hint" style="text-align:center;font-size:11px">Nur, wenn die ARGUS-App (TestFlight) auf diesem iPhone bereits installiert ist.</p>';
   h+='<p class="hint" style="text-align:center;margin-top:14px;font-size:11px">Dieser Code ist dein persönlicher Zugang · nicht weitergeben</p>';
   return h;
 }
@@ -4739,6 +4799,12 @@ document.addEventListener("click",async function(e){
     var pr=await sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name');
     _praesidienList=pr.data||[];
     go("praesidium"); return;
+  }
+  if(a==="openapp"){
+    /* Install-Screen → installierte ARGUS-App (argus://unlock#code=XXXX-XXXX); nur Code-Pfad */
+    var oc=(state.installTokenFull||'').replace(/[\s\-]/g,'').toUpperCase();
+    if(/^[A-Z0-9]{8}$/.test(oc)) window.location.href='argus://unlock#code='+oc.slice(0,4)+'-'+oc.slice(4);
+    return;
   }
   if(a==="checkinvite"){
     var inp=document.getElementById('inv-input');
