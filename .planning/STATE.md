@@ -2,8 +2,8 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Executing Phase 06.5
-last_updated: "2026-10-17T11:54:00.809Z"
+status: Phase 06.5 abgeschlossen (UAT bestanden) — Phase 06.6 (Hülle) und 06.7 (Mesh MVP) in Planung
+last_updated: "2026-10-17T13:30:00.000Z"
 progress:
   total_phases: 13
   completed_phases: 9
@@ -13,6 +13,31 @@ progress:
 ---
 
 # Projekt-Status — Argus (CCP-App)
+
+> ## Stand 2026-10-17 nachmittags (Phase 6.5 abgeschlossen; 6.6/6.7 in Planung, aktuell)
+> **Phase 6.5 „Gerätestatus im CCP & Sync-Fundament" ist abgeschlossen:** 12 Pläne (00–11 + Direktfix
+> 0.34.5), Migrationen **0025–0029 live** (Probes 20/20, 14/14, 23/23, 8/8, 6/6), App **v0.34.5**
+> (sw ccp-shell-v92), Owner-UAT auf iPhone-Homescreen + Zweitgerät bestanden (alle 10 Schritte nach drei
+> Gap-Runden). Owner-Entscheide: 11a Nachfrist 24 h ✓ · 11b Heartbeat 15 s/30 s vorerst ✓ ·
+> **11c Funkspruch behalten? OFFEN** · 11d 72 h/60 Tage ✓ (DSB informieren) · 11e Late-Push-Schutz ✓.
+> Details: `06.5-08-SUMMARY.md`, `06.5-VERIFICATION.md`.
+>
+> **Roadmap-Reihenfolge (Owner 2026-10-17):** 6.5 ✅ → **6.6 Native Hülle & TestFlight („9a")** →
+> **6.7 Mesh MVP („9b")** → 7 Betriebsbereitschaft → 9 Native/MDM → 8 Übergabe. Phase 6 (FLZ Stufe b)
+> zurückgestellt.
+>
+> **Umgebung:** Auf dem Mac fehlt Xcode (nur CLT) → Owner installiert Xcode; Apple Developer Program
+> (Einzelperson) wird beantragt (Freigabe 24–48 h), nur für TestFlight nötig. Alles ohne Xcode Machbare
+> (Capacitor-Projekt, App-Brücke, Keychain-Fassade, Deep-Link, Doku, Tests, Mesh-Protokollschicht) wird
+> vorab gebaut; Build/Simulator/TestFlight sind Owner-Checkpoints.
+>
+> **Offen:** 11c Funkspruch-Entscheid (ggf. Migration „Funkmeldungen"); Token-Rotation (GitHub-Passwort,
+> Supabase-Token); „kleinere Funktionsbugs" der Einsatztrainer konkretisieren; Phase-7-Dokumente
+> (Entstehungs-Chronik, Nutzungsvereinbarung, Einseiter, Trainer-Leitfaden, Datenschutz-Dossier-Update)
+> ohne Code parallel möglich.
+>
+> **Nächster Schritt:** `/gsd-plan-phase 6.6` (Research läuft) → Pläne ausführen bis zum Xcode-Checkpoint;
+> `/gsd-plan-phase 6.7` (Research läuft) → Plan 1 (reine Protokollschicht + Tests) ohne Xcode ausführbar.
 
 > ## Stand 2026-06-28 (Phase 5 & 5.1 abgeschlossen + Security-Nachzug, aktuell)
 > **Phase 5 (Identitäten & Audit Stufe 1) und Phase 5.1 (Feld-App Pro-Person-Login

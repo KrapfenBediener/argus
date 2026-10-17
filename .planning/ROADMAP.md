@@ -530,7 +530,7 @@ oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
   Patientendaten/Protokolle/Fotos, jede Aktion protokolliert — damit ist
   die Leitstelle nachts handlungsfähig (einzige 24/7 besetzte Stelle).
 
-## Phase 6.5 — Gerätestatus im CCP & Sync-Fundament (Mesh-Vorstufe) ⬜
+## Phase 6.5 — Gerätestatus im CCP & Sync-Fundament (Mesh-Vorstufe) ✅ 2026-10-17
 
 **Ziel:** Vor der Übungs-Einführung beim PP Einsatz (Anfrage 2026-10-15) wird die
 Synchronisation so gehärtet, dass jedes Gerät seinen Zustand im CCP kennt und
@@ -576,7 +576,7 @@ heute (Server-Transport) nützlich und werden später vom Mesh (Phase 9) 1:1 üb
 **Nicht in dieser Phase:** Peer-to-Peer-Mesh (native App, Phase 9), TETRA-SDS-Kopplung
 (organisatorisch, Spur F), Fotos in der FLZ-Ansicht (Zweckänderung, DSB).
 
-**Plans:** 11/12 plans executed
+**Plans:** 12/12 plans executed ✅ (UAT auf iPhone + Zweitgerät bestanden 2026-10-17; Migrationen 0025–0029 live; App 0.34.5)
 
 Plans:
 
@@ -588,7 +588,77 @@ Plans:
 - [x] 06.5-05-PLAN.md — Gerätestatus (Heartbeat, Gerätezeile, Eingriffe) + CCP verlassen / wieder beitreten
 - [x] 06.5-06-PLAN.md — Abschluss-Vollständigkeit, Nachzügler-Nachfrist, lokale Löschfristen, Herkunft, Leitungs-Export
 - [x] 06.5-07-PLAN.md — Funkspruch-Modus + Trainings-Lektionen + Hilfe
-- [ ] 06.5-08-PLAN.md — Release 0.34.0, Phasen-Gate, Doku, iPhone-UAT (2 Geräte)
+- [x] 06.5-08-PLAN.md — Release 0.34.0, Phasen-Gate, Doku, iPhone-UAT (2 Geräte) ✅ 2026-10-17 (Owner-Entscheide 11a/b/d/e bestätigt, 11c Funkspruch offen)
+- [x] 06.5-09-PLAN.md — Gap: Grabstein behält Inhalt (D6.5-19), Migration 0027 ✅ 2026-10-17
+- [x] 06.5-10-PLAN.md — Gap: Funkspruch-Ort, MasterToken-Heartbeat, Verbindungs-Härtung, Release 0.34.2/0.34.3 ✅ 2026-10-17
+- [x] 06.5-11-PLAN.md — Gap: fortlaufende Nummern (D6.5-21), Migration 0028, Release 0.34.4 ✅ 2026-10-17
+- [x] Direktfix 0.34.5 — Online-Nummern ohne Gerätekennung, Migration 0029 (dokumentiert in 06.5-08-SUMMARY) ✅ 2026-10-17
+
+## Phase 6.6 — Native Hülle & TestFlight (Owner-Label „9a“) ⬜
+
+> **Owner-Entscheid 2026-10-17:** Vorstufe zu Phase 9, VOR Phase 7 eingeschoben. Apple-Developer-Account als
+> Einzelperson (eigene Apple-ID, Eigentumslinie). Kein Mesh in dieser Phase. Bedingungen von Phase 9 (MDM,
+> PTLS-Freigabe) gelten NICHT für die TestFlight-Erprobung.
+
+**Ziel:** Die unveränderte Web-App läuft als native iOS-App (Capacitor-Hülle) im Simulator, auf eigenen
+iPhones und über TestFlight bei Testern — Local-first, gleiche Bedienung, gleicher Backend-Stand. Die Hülle
+ist das technische Fundament für das Mesh (Phase 6.7) und die MDM-Verteilung (Phase 9).
+
+- **Projektstruktur:** eigener Ordner `native/` (Capacitor 8, Swift Package Manager, kein CocoaPods);
+  Web-Assets werden per Skript aus dem Repo-Stamm kopiert (`index.html`, `config.js`, `vendor/`, `fonts/`,
+  Icons) — die PWA bleibt buildfrei und unverändert ausgeliefert.
+- **Native-Erkennung in der App:** `isStandalone()` erkennt die Hülle (Capacitor-Plattform) als „installiert“;
+  Install-Screen, Service-Worker, Update-Banner (`version.json`) verhalten sich nativ sinnvoll (Hinweis
+  „neue Version über TestFlight“ statt Reload).
+- **Deep-Link `#code=…`:** Öffnen der App aus Freischalt-Link/QR mit automatischem Einlösen (Custom-URL-Scheme
+  als Minimum; Universal Link über die Pages-Domain, falls `apple-app-site-association` dort sauber
+  ausgeliefert werden kann).
+- **Speicher-Härtung:** JWTs/Codes in der Keychain (Capacitor-Plugin) statt nur `localStorage`; lokaler
+  Patientenbestand bleibt in der bestehenden Speicherschicht (Naht `sGet/sSet`), Persistenz der WKWebView-
+  Daten gegen iOS-Bereinigung abgesichert.
+- **Berechtigungstexte** (Kamera, Fotos, Standort) auf Deutsch in `Info.plist`; Portrait-Lock, Statusleiste,
+  Splash im ARGUS-Design, Icon aus `ARGUS_Icon.png`.
+- **Build-/Verteil-Doku:** `docs/NATIVE-HUELLE.md` — Xcode-Einrichtung, Signing mit persönlicher Apple-ID
+  (Simulator + eigenes iPhone ohne Developer-Account), TestFlight-Weg (mit Account), Versionskopplung an
+  `APP_VERSION`, Checkliste je Release.
+- **Tests:** Build-Skript idempotent; Konsistenztest „native Version = APP_VERSION“; manueller Smoke-Test
+  im Simulator (Code einlösen, CCP eröffnen, Patient mit Foto, offline/online).
+
+**Voraussetzungen beim Owner:** Xcode (App Store, kostenlos) installiert; Apple Developer Program nur für
+TestFlight. **Nicht in dieser Phase:** Mesh, MDM/Managed App Configuration, Android.
+
+**Plans:** TBD
+
+## Phase 6.7 — Mesh MVP: Abgleich im CCP ohne Netz (Owner-Label „9b“) ⬜
+
+> **Owner-Entscheid 2026-10-17:** Mesh wird jetzt begonnen (nach 6.5, auf der Hülle aus 6.6). MVP = ein
+> Stern (≤ 8 Geräte), Inventarabgleich, Gateway-Upload. Brücken zwischen Sternen, Kuriere und TETRA-SDS kommen
+> später (Phase 9 / Spur F).
+
+**Ziel:** Geräte eines CCP gleichen Patienten ohne Mobilfunk/WLAN direkt untereinander ab (Multipeer
+Connectivity, iOS), mit denselben Daten-Regeln wie der Server-Weg: feldweise Zeitstempel, Grabsteine,
+Konflikt-Marker, Gerätestatus, Herkunft. Jedes Gerät mit Netz lädt alles hoch, was es kennt (Gateway).
+
+- **Transport:** natives Capacitor-Plugin (Swift) um `MultipeerConnectivity`; Sitzung je CCP
+  (Dienstname aus CCP-ID), Nabe = niedrigste verbundene Gerätenummer, Nabenwechsel per Handshake/Timeout,
+  Verschlüsselung `.required`, Vordergrund-Pflicht sichtbar in der Gerätezeile.
+- **Protokoll:** Inventar (Patient-ID → Gruppenstempel `fts`) beim Verbinden, Delta-Austausch je Feldgruppe,
+  Grabsteine und Konflikt-Marker wie beim Server-Merge (`mergeGroups` wird wiederverwendet), Nachrichten-
+  Kennung gegen Doppelverarbeitung, Fotos nur auf Anforderung.
+- **Gateway:** jedes Gerät mit Netz lädt fremde Patienten mit Herkunft „für Gerät X“ hoch
+  (`argus_log_herkunft`), Bestätigungen (`confirmUpload`) wandern zurück ins Mesh; Nummernvergabe bleibt
+  serverseitig (`argus_reserve_num`), offline weiterhin Gerätekennung „A-n-dev“.
+- **Gerätestatus:** Zustände „verbunden (Mesh)“ / „verbunden (Server)“ in der Gerätezeile; Heartbeat auch
+  über das Mesh; Sperr-Ereignisse im Mesh verteilt.
+- **Grenzen & Einweisung:** Hinweis bei > 8 Geräten („zweiten CCP eröffnen“ erst in Phase 9 mit Brücken),
+  Akku-Hinweis, Lektion „Abgleich ohne Netz“ im Training.
+- **Tests:** reine Protokoll-Funktionen in `node:test` (Inventar-Diff, Delta-Anwendung, Nabenwahl);
+  Simulator-Mehrfachinstanz oder zwei eigene iPhones für den Transport.
+
+**Nicht in dieser Phase:** Brücken/mehrere Sterne, Kuriere/Hysterese, TETRA-SDS, Android, Fotos im Mesh
+automatisch. **Voraussetzung:** Phase 6.6 baut und läuft auf einem Gerät.
+
+**Plans:** TBD
 
 ## Phase 7 — Betriebsbereitschaft & Open Beta ⬜
 
@@ -612,6 +682,7 @@ einen erweiterten Testkreis und perspektivisch echten Einsatz.
 
 ## Phase 9 — Native App für PTLS Pol 🔒 *Conditional*
 
+> **Vorstufe 9a/9b sind als Phase 6.6 (Hülle) und 6.7 (Mesh MVP) eingeplant (2026-10-17).** Ursprüngliche Notiz:
 > **Vorstufe 9a — Native Hülle + TestFlight (Owner-Entscheid 2026-10-17):** Apple-Developer-Account als
 > Einzelperson (eigene Apple-ID, Eigentumslinie), Capacitor-Hülle um die unveränderte Web-App, Deep-Link
 > `#code=…`, Keychain für JWTs, TestFlight für Tester. Klein (1–2 Tage), VOR Phase 7 einschiebbar, ohne

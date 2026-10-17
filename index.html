@@ -1670,7 +1670,7 @@ function nachfristOk(closedAt, now, purgeAfter){
  * wenn die Abschlussmeldung nie ankam): synchronisierte Daten 72 h, nicht synchronisierte 60 Tage
  * nach dem letzten Serverkontakt. Ohne beides: nichts löschen. */
 function localPurgeDecision(ctx, now){
-  /* Werte = DATENSCHUTZ-SPEC 72 h; Auffangnetz-Schwellen (72 h / 60 Tage ohne Kontakt) = Annahme A4 — Owner/DSB bestätigen */
+  /* Werte = DATENSCHUTZ-SPEC 72 h; Auffangnetz-Schwellen (72 h / 60 Tage ohne Kontakt) = A4, Owner bestätigt 2026-10-17 (UAT 11d; 60 Tage als dokumentierte Ausnahme, DSB informieren) */
   var H=3600000, r={dropPhoto:false, dropRecord:false, dropLate:false};
   if(ctx.closedAt){
     r.dropPhoto = !!ctx.hasPhoto && now>=ctx.closedAt+72*H;
