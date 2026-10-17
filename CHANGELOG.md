@@ -6,6 +6,12 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## Vorgemerkt für v0.34.2 (noch nicht veröffentlicht)
+**Grabstein behält Inhalt (Owner-Entscheid nach der UAT)**
+- **Benötigt Migration 0027** (ohne sie bleibt der Server-Grabstein bei der alten Hülle; die App läuft weiter).
+- Verwerfen setzt nur noch den Grabstein; Eingaben, Foto und der laufende Tourniquet-Timer bleiben erhalten. „Rückholen“ stellt den Patienten mit allen Eingaben wieder her. Der Patient bleibt bis dahin aus allen Listen, Zählern, der Lageansicht und dem Protokoll ausgeblendet; ein veralteter Stand kann ihn nicht wiederbeleben.
+- Grabsteine aus 0.34.0/0.34.1 (leerer Inhalt) kommen beim Rückholen als aktiver Patient zurück; ihre früheren Eingaben sind nicht mehr vorhanden.
+
 ## v0.34.1 — 2026-10-17
 **Funkspruch-Wortlaut (Owner-Vorgabe)**
 - Kennung in der deutschen Buchstabiertafel („CCP Anton“), Ort ohne Zusatz, Tourniquets nicht mehr in der Funkmeldung und nicht in der SDS-Kurzzeile.

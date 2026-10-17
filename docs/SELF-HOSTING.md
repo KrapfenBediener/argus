@@ -97,6 +97,7 @@ supabase/migrations/0023_flz_zugang_dauercode.sql               Rollen zusammeng
 supabase/migrations/0024_sammelcode_twin_scope.sql             Ein Geräte-Code (Dauercode/24-h) schaltet auch den Schulungs-Zwilling frei: argus_exchange_code(code, p_scope default 'echt') — bei p_scope='schulung' wird der Twin SERVER-SEITIG über praesidien.schulungs_zwilling_id aufgelöst; jti bleibt der short_code (Sperre wirkt für beide). Alte 1-Parameter-Signatur wird ersetzt. Einmal-Codes: nur Echtbetrieb. Keine RLS-Änderung. Idempotent.
 supabase/migrations/0025_sync_patienten.sql                   Sync-Fundament Patienten (Phase 6.5): Spalten patients.fts (Feldgruppen-Stempel), deleted_at/by/dev (Grabsteine), conf (Konflikt-Marker); BEFORE-Trigger argus_patients_merge (je Feldgruppe gewinnt der jüngere Stempel, Grabstein-Schutz, Klemmen von Zukunftsstempeln); Audit Verwerfen/Rückholen (patient_discard/patient_restore); Grabstein-Filter in argus_lage/argus_governance_einsaetze/argus_governance_protokoll; RPC argus_server_time (→ {now, v:25}, Capability-Probe der App). Keine RLS-Änderung, idempotent, unabhängig von 0024.
 supabase/migrations/0026_geraete_nachfrist_herkunft.sql    Gerätestatus, Nachfrist, Herkunft (Phase 6.5): Geräteregister ccp_devices (nur per RPC beschreibbar, Lesen nur eigenes Präsidium/Master) mit argus_device_heartbeat/-leave/-mark; Nachfrist-RPC argus_late_push (Nachzügler bis 24 h nach Abschluss, ohne RLS-Lockerung, über den Merge-Trigger); Herkunft in governance_log.detail (argus_log_herkunft); argus_governance_protokoll liefert zusätzlich devices und herkunft (Export-Abschnitt Datenherkunft); argus_run_purge neu gefasst (enthält wieder die Token-Hygiene aus 0006 und löscht ccp_devices); argus_server_time → v:26. Benötigt 0025, idempotent.
+supabase/migrations/0027_grabstein_behaelt_inhalt.sql      Grabstein behält Inhalt (Phase 6.5, Owner-Entscheid D6.5-19): argus_patients_merge ohne Grabstein-Hülle — Verwerfen setzt nur deleted_at/by/dev (fts.del), Name, Foto, Tourniquet, Prio und Status bleiben; Rückholen stellt alles wieder her; Grabstein-Schutz unverändert (nur ein jüngeres fts.del hebt ihn auf); argus_server_time → v:27. Benötigt 0025, keine RLS-Änderung, idempotent.
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -176,12 +177,12 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023 → 0024 → 0025 → 0026`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023 → 0024 → 0025 → 0026 → 0027`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).
 
-**Prüfskripte:** Dateien unter `supabase/probes/` (z. B. `0025_sync_probe.sql`, `0026_geraete_probe.sql`) sind
+**Prüfskripte:** Dateien unter `supabase/probes/` (z. B. `0025_sync_probe.sql`, `0026_geraete_probe.sql`, `0027_sync_probe.sql`) sind
 KEINE Migrationen. Sie werden nach dem Einspielen der zugehörigen Migration einmal im
 SQL-Editor ausgeführt, rollen sich selbst zurück (sie enden immer mit einer
 Fehlermeldung `PROBE … ERGEBNIS: N von N ok`) und hinterlassen keine Daten.

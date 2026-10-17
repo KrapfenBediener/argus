@@ -148,13 +148,40 @@ test('mergeGroups: Eingabe-Objekte bleiben unverändert (reine Funktion)', { ski
   assert.equal(JSON.stringify(C), c0);
 });
 
-test('Probe-Konsistenz: jede Vektor-ID kommt in supabase/probes/0025_sync_probe.sql vor', {
-  skip: !fs.existsSync(path.join(ROOT, 'supabase/probes/0025_sync_probe.sql')) && 'kommt mit Plan 06.5-01'
+/* jüngste vorhandene Probe: 0027 (Grabstein behält Inhalt, D6.5-19), sonst 0025 */
+const PROBE_REL = ['supabase/probes/0027_sync_probe.sql', 'supabase/probes/0025_sync_probe.sql']
+  .find(function(rel){ return fs.existsSync(path.join(ROOT, rel)); });
+
+test('Probe-Konsistenz: jede Vektor-ID kommt in der jüngsten SQL-Probe vor, die Vektoren sind eingebettet', {
+  skip: !PROBE_REL && 'kommt mit Plan 06.5-01'
 }, () => {
-  const sql = fs.readFileSync(path.join(ROOT, 'supabase/probes/0025_sync_probe.sql'), 'utf8');
+  const sql = fs.readFileSync(path.join(ROOT, PROBE_REL), 'utf8');
   vectors.forEach(function(v){
-    assert.ok(sql.includes(v.id.split('-')[0]), 'SQL-Probe kennt ' + v.id + ' nicht');
+    assert.ok(sql.includes(v.id), 'SQL-Probe ' + PROBE_REL + ' kennt ' + v.id + ' nicht (Vektoren 1:1 einbetten)');
   });
+});
+
+const MIG27 = 'supabase/migrations/0027_grabstein_behaelt_inhalt.sql';
+
+test('Migration 0027: Merge-Funktion ohne Grabstein-Hülle, mit search_path, argus_server_time v:27', {
+  skip: !fs.existsSync(path.join(ROOT, MIG27)) && 'kommt mit Plan 06.5-09'
+}, () => {
+  const sql = fs.readFileSync(path.join(ROOT, MIG27), 'utf8');
+  assert.ok(sql.includes('create or replace function public.argus_patients_merge()'));
+  assert.ok(/set search_path to 'public'/.test(sql), 'search_path fehlt');
+  assert.ok(!/v_hull|jsonb_populate_record\(NEW, v_hull\)/.test(sql), 'Grabstein-Hülle darf nicht mehr vorkommen');
+  assert.ok(!/NEW\.photo\s*:=\s*null/.test(sql), 'Grabstein darf das Foto nicht leeren');
+  assert.ok(/'v',\s+27/.test(sql), "argus_server_time muss v:27 liefern");
+  assert.ok(!/alter table|create policy|drop policy/i.test(sql), 'keine Schema-/RLS-Änderung');
+});
+
+test('Probe 0027 bettet merge-vectors.json 1:1 ein', {
+  skip: !fs.existsSync(path.join(ROOT, 'supabase/probes/0027_sync_probe.sql')) && 'kommt mit Plan 06.5-09'
+}, () => {
+  const sql = fs.readFileSync(path.join(ROOT, 'supabase/probes/0027_sync_probe.sql'), 'utf8');
+  const raw = fs.readFileSync(path.join(ROOT, 'tests/fixtures/merge-vectors.json'), 'utf8').trim();
+  assert.ok(sql.includes(raw), 'Vektoren in der Probe weichen von tests/fixtures/merge-vectors.json ab');
+  assert.ok(sql.includes('PROBE 0027 ERGEBNIS'));
 });
 
 /* ---------- Grabstein (Plan 06.5-04) ---------- */
