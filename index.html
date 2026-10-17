@@ -3000,7 +3000,9 @@ function funkText(c){
   /* Tourniquets bewusst NICHT in der Funkmeldung (Owner 2026-10-17: für die Lagemeldung irrelevant). */
   var teile=[z(c.t1)+' '+FARBE.T1, z(c.t2)+' '+FARBE.T2, z(c.t3)+' '+FARBE.T3, z(c.t5)+' '+FARBE.T5,
     z(c.prio)+' Prio', z(c.gpa)+' abtransportiert'];
-  return 'CCP '+ken+(c.ort?', '+c.ort:'')+', '+c.hhmm+' — '+teile.join(', ')+'.';
+  /* Ort normalisieren: führendes „CCP“ (z. B. „CCP Marktplatz“, „ccp: Bahnhof“) entfällt — die Meldung beginnt schon mit „CCP <Kennung>“. */
+  var ort=String(c.ort||'').replace(/^\s*ccp(?![A-Za-zÄÖÜäöüß0-9])[\s:·\-–]*/i,'').trim();
+  return 'CCP '+ken+(ort?', '+ort:'')+', '+c.hhmm+' — '+teile.join(', ')+'.';
 }
 function funkSds(c){
   var hm=String(c.hhmm||'').replace(/:/g,'');
@@ -4846,7 +4848,7 @@ document.addEventListener("click",async function(e){
      * geführter CCP), je mit zufälligen Patienten (genDemoRows). Identisch zur früheren
      * Refill-Hälfte des alten „Zurücksetzen". */
     var bnames=DEMO_MEDICS;
-    var borte=['CCP Marktplatz','CCP Bahnhof','CCP Schulhof','CCP Stadthalle','CCP Sportplatz','CCP Parkhaus'];
+    var borte=['Marktplatz','Bahnhof','Schulhof','Stadthalle','Sportplatz','Parkhaus'];
     var bkenn=['A','B','C','D','E','F'];
     var made=0;
     for(var bi=0;bi<6;bi++){

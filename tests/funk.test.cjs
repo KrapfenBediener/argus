@@ -23,6 +23,18 @@ test('funkText: Wortlaut mit Ort, Zahlwörter, Singular/Plural', { skip: skipUnl
     'CCP Anton, Marktplatz, 14:32 — drei Rot, fünf Gelb, sieben Grün, ein Schwarz, zwei Prio, vier abtransportiert.');
 });
 
+test('funkText: führendes „CCP“ im Ort entfällt (Demo-Orte, Tippvarianten)', { skip: skipUnless('06.5-10', 'funkText') }, () => {
+  const f = load(['funkText']);
+  const base = {kennung: 'A', hhmm: '14:32', t1: 3, t2: 5, t3: 7, t5: 1, prio: 2, gpa: 4, tq: 1};
+  const rest = ' — drei Rot, fünf Gelb, sieben Grün, ein Schwarz, zwei Prio, vier abtransportiert.';
+  assert.equal(f.funkText(Object.assign({}, base, {ort: 'CCP Marktplatz'})), 'CCP Anton, Marktplatz, 14:32' + rest);
+  assert.equal(f.funkText(Object.assign({}, base, {ort: 'ccp: Bahnhof'})), 'CCP Anton, Bahnhof, 14:32' + rest);
+  assert.equal(f.funkText(Object.assign({}, base, {ort: 'CCP'})), 'CCP Anton, 14:32' + rest);
+  assert.equal(f.funkText(Object.assign({}, base, {ort: 'CCP - Schulhof'})), 'CCP Anton, Schulhof, 14:32' + rest);
+  /* Wörter, die nur mit „ccp“ beginnen, bleiben unverändert */
+  assert.equal(f.funkText(Object.assign({}, base, {ort: 'Ccpark'})), 'CCP Anton, Ccpark, 14:32' + rest);
+});
+
 test('funkText: ohne Ort, Nullen, große Zahlen als Ziffern, keine Tourniquets', { skip: skipUnless('06.5-07', 'funkText') }, () => {
   const f = load(['funkText']);
   const base = {kennung: 'B', ort: '', hhmm: '09:05', t1: 0, t2: 1, t3: 12, t5: 0, prio: 0, gpa: 13, tq: 0};
