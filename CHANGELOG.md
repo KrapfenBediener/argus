@@ -6,9 +6,13 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
-## Vorgemerkt für v0.34.4
+## v0.34.4 — 2026-10-17
 **Fortlaufende Patientennummern (Owner-UAT: 10 Patienten, angezeigte Nr. 63)**
-- Migration 0028 (`argus_reserve_num`, `ccp_devices.reserved_num`): Die vorab reservierte Nummer wird je Gerät auf dem Server gemerkt und bei Wiederholung derselben Anfrage erneut geliefert; der Zähler steigt erst, wenn ein Patient die Nummer trägt.
+- **Benötigt Migration 0028** (`argus_reserve_num`, `ccp_devices.reserved_num`); ohne sie verhält sich die App wie 0.34.3, nur mit Backoff.
+- **Ursache:** Die vorab geholte Nummer wurde bei jedem Versuch unwiderruflich vom Server-Zähler vergeben, die Reservierung lag aber nur im Arbeitsspeicher. App-Neustart, Update, CCP-Wechsel und vor allem ein Abbruch nach 2,5 s bei zähem Netz (der Server hatte schon vergeben, die App wiederholte alle 3,5 s) verbrannten laufend Nummern.
+- **Fix:** Der Server merkt die Reservierung je Gerät; dieselbe Anfrage liefert dieselbe Nummer, bis ein Patient sie trägt. Erst dann folgt die nächste. Lücken entstehen höchstens, wenn ein Gerät den CCP mit offener Reservierung dauerhaft verlässt.
+- **Client:** Nach Fehler oder Abbruch frühestens nach 15 s ein neuer Versuch (kein Stapeln im zähen Netz); die Reservierung wird zusätzlich lokal gemerkt und nach einem Neustart weiterverwendet. Die nächste Nummer wird erst geholt, wenn der Patient hochgeladen ist.
+- Schema-Re-Probe läuft bis Server-Stand 28.
 
 ## v0.34.3 — 2026-10-17
 **UAT-Nachbesserung (Owner)**

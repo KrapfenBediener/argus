@@ -415,7 +415,7 @@ test('Verbindungs-Härtung: CCP-Guard, Flush-Prüfung, Start-Timeouts, Schema-Re
   assert.ok(/qt\(client\.rpc\('argus_close_einsatz'/.test(extractFunction(script, 'flushPendingClose')), 'B3: flushPendingClose mit qt');
   assert.ok(/qt\(client\.rpc\('argus_claim_device'/.test(extractFunction(script, 'ensureDeviceNo')), 'B3: Geräte-Claim mit qt');
   assert.ok(/qt\(client\.rpc\('argus_late_push'/.test(extractFunction(script, 'flushLatePatients')), 'B3: Nachzügler-RPC mit qt');
-  assert.ok(/setInterval\(function\(\)\{[^]*?_schemaV<27[^]*?probeSchema\(1\)[^]*?\},\s*180000\)/.test(script), 'B7: Schema-Re-Probe alle 3 min bis v>=27');
+  assert.ok(/setInterval\(function\(\)\{[^]*?_schemaV<28[^]*?probeSchema\(1\)[^]*?\},\s*180000\)/.test(script), 'B7: Schema-Re-Probe alle 3 min bis v>=28');
 });
 
 test('leaveText: Dialogtext mit Gerätenummer, offenen Patienten und MasterMedic-Hinweis', { skip: skipUnless('06.5-05', 'leaveText') }, () => {
@@ -501,4 +501,38 @@ test('Phase 6.5: alle Vertragsfunktionen vorhanden (keine Skips beim Release)', 
   const fehlend = FUNKTIONEN.filter(function(n){ return !hasFunction(script, n); });
   if (!/var\s+FGROUPS\s*=/.test(script)) fehlend.push('FGROUPS');
   assert.deepEqual(fehlend, [], 'Vertragsfunktionen fehlen in index.html: ' + fehlend.join(', '));
+});
+
+/* ---------- Nummern-Reservierung je Gerät (Plan 06.5-11, D6.5-21) ---------- */
+
+test('prefetchAllowed: Backoff und Hänger-Schutz (Grenzfälle)', () => {
+  const f = load(['prefetchAllowed']);
+  assert.equal(typeof f.prefetchAllowed, 'function');
+  assert.equal(f.prefetchAllowed(1000, 0, 0), true, 'ohne Backoff und ohne laufenden Versuch erlaubt');
+  assert.equal(f.prefetchAllowed(1000, 16000, 0), false, 'Backoff aktiv');
+  assert.equal(f.prefetchAllowed(15999, 16000, 0), false, 'knapp vor Ablauf');
+  assert.equal(f.prefetchAllowed(16000, 16000, 0), true, 'genau am Ablauf erlaubt');
+  assert.equal(f.prefetchAllowed(20000, 16000, 0), true, 'nach Ablauf erlaubt');
+  assert.equal(f.prefetchAllowed(1000, 0, 500), false, 'laufender Versuch (500 ms alt)');
+  assert.equal(f.prefetchAllowed(6499, 0, 500), false, 'laufender Versuch knapp unter 6 s');
+  assert.equal(f.prefetchAllowed(6500, 0, 500), true, 'laufender Versuch gilt nach 6 s als tot');
+  assert.equal(f.prefetchAllowed(1000, 16000, 500), false, 'beides aktiv');
+  assert.equal(f.prefetchAllowed(20000, 16000, 19000), false, 'Backoff vorbei, aber Versuch läuft');
+});
+
+test('prefetchNum: argus_reserve_num nur hinter _schemaV>=28 und bekannter Gerätenummer, sonst argus_claim_nums', () => {
+  const src = extractFunction(script, 'prefetchNum');
+  const iRes = src.indexOf("argus_reserve_num");
+  assert.ok(iRes > 0, 'argus_reserve_num fehlt');
+  assert.ok(/_schemaV\s*>=\s*28\s*&&\s*devAt\s*>=\s*1[^]*argus_reserve_num/.test(src), 'argus_reserve_num muss hinter _schemaV>=28 und Gerätenummer stehen');
+  assert.ok(src.lastIndexOf("argus_claim_nums") > iRes, 'argus_claim_nums bleibt als Rückfall für Schema < 28');
+  assert.ok(/prefetchAllowed\(/.test(src), 'Backoff-Entscheid muss genutzt werden');
+  assert.ok(/PREFETCH_BACKOFF_MS/.test(src) && /var PREFETCH_BACKOFF_MS = 15000;/.test(script), '15-s-Backoff');
+});
+
+test('Reservierungs-Spiegel argus_resnum_<ccpId>: gespeichert, beim Anlegen gelöscht', () => {
+  assert.ok(/argus_resnum_/.test(script));
+  const add = extractFunction(script, 'addPatient');
+  assert.ok(/resNumClear\(/.test(add), 'addPatient muss den Spiegel löschen');
+  assert.ok(/_schemaV\s*<\s*28/.test(add) && /prefetchNum\(true\)/.test(add), 'ab Schema 28: nächste Nummer erst nach dem Upload');
 });

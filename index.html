@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.34.3';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.34.4';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.34.4': [
+    'Laufende Patientennummern bleiben fortlaufend — Neustarts und schwaches Netz verbrauchen keine Nummern mehr.'
+  ],
   '0.34.3': [
     'Schnellmenü nach dem Anlegen bleibt offen: Prio, TQ und Foto lassen sich nacheinander setzen; geschlossen wird mit „Nächsten Patienten erfassen“.',
     'Verwerfen und Zurückholen werden jetzt immer bestätigt.'
@@ -2851,29 +2854,70 @@ function nextNum(){ var m=0; patients.forEach(function(p){ if(ccpBase(p.ccp)===_
  * Tippen zu warten: Solange online, hält die App genau EINE nächste Nummer bereit
  * (argus_claim_nums, p_count=1 → keine Blöcke, keine Sprünge). Beim Anlegen wird
  * sie sofort verwendet und die nächste nachgeladen. Ungenutzt (Gerät verlässt
- * den CCP) bleibt höchstens eine einzelne Lücke. */
+ * den CCP) bleibt höchstens eine einzelne Lücke.
+ * Ab Migration 0028 (D6.5-21) ist die Reservierung idempotent je Gerät (argus_reserve_num):
+ * Neustart, Timeout und schwaches Netz verbrauchen keine Nummern mehr. */
 var _nextReserved = null;     /* {ccp, num} — vorab reservierte Server-Nummer */
 var _prefetching = false, _prefetchingSince = 0;
+var PREFETCH_BACKOFF_MS = 15000;
+var _prefetchRetryAt = 0, _prefetchRetryCcp = null;   /* Backoff: frühester nächster Versuch (ms) und zugehöriger CCP */
+/* Backoff-Entscheid (rein, getestet): erlaubt einen neuen Reservierungsversuch? retryAt = frühester
+ * nächster Versuch nach Fehler/Abbruch (0 = kein Backoff), busySince = Start eines noch laufenden
+ * Versuchs (0 = keiner); ein laufender Versuch gilt nach 6 s als tot (Hänger-Schutz). */
+function prefetchAllowed(now, retryAt, busySince){
+  if(retryAt && now<retryAt) return false;
+  if(busySince && (now-busySince)<6000) return false;
+  return true;
+}
+/* Spiegel der Reservierung in localStorage (argus_resnum_<ccpId>) — NUR Anzeige-/Startbeschleunigung;
+ * maßgeblich bleibt der Server (ab Migration 0028 hält er die Reservierung je Gerät). Beim Verwenden gelöscht. */
+function resNumSave(ccpId, n){ try{ if(ccpId) localStorage.setItem('argus_resnum_'+ccpId, String(n)); }catch(e){} }
+function resNumClear(ccpId){ try{ if(ccpId) localStorage.removeItem('argus_resnum_'+ccpId); }catch(e){} }
+/* Trägt schon ein lokaler Patient mit Online-Label diese Nummer (noch nicht beim Server angekommen)? */
+function reservedTaken(n){ return patients.some(function(p){ return p.ccp===_ccpKennung && p.num===n; }); }
+function resNumRestore(){
+  try{
+    var n=parseInt(localStorage.getItem('argus_resnum_'+_ccpId),10);
+    if(!(n>=1)) return;
+    if(reservedTaken(n)) resNumClear(_ccpId);                 /* veraltet: Nummer ist schon vergeben */
+    else _nextReserved={ccp:_ccpId,num:n};
+  }catch(e){}
+}
 function prefetchNum(force){
   if(_training || !_ccpId) return;
+  if(!_nextReserved || _nextReserved.ccp!==_ccpId) resNumRestore();   /* App-Neustart: gemerkte Reservierung weiterverwenden */
   if(_nextReserved && _nextReserved.ccp===_ccpId) return;
   /* Hänger-Schutz (Bugfix 2026-10-14): Geht das Gerät offline, WÄHREND ein
    * Reservierungs-RPC läuft, hängt der Aufruf (iOS) — ohne diesen Schutz bliebe
    * _prefetching dauerhaft gesetzt und ALLE späteren Online-Patienten bekämen
    * fälschlich das Offline-Suffix. Daher: RPC mit 2,5-s-Abbruch (qt) und ein
-   * laufender Versuch gilt nach 6 s als tot. */
-  if(_prefetching && (nowMs()-_prefetchingSince)<6000) return;
+   * laufender Versuch gilt nach 6 s als tot. Backoff (0.34.4): nach Fehler/Abbruch
+   * frühestens nach 15 s erneut (kein Stapeln im zähen Netz); das 'online'-Event
+   * (force) darf den Backoff überspringen. */
+  if(_prefetchRetryCcp!==_ccpId) _prefetchRetryAt=0;
+  if(!prefetchAllowed(nowMs(), force?0:_prefetchRetryAt, _prefetching?_prefetchingSince:0)) return;
   var client=sb(); if(!client) return;
   if(!force && !netLikelyUp()) return;   /* force: 'online'-Event darf sofort versuchen */
   _prefetching=true; _prefetchingSince=nowMs();
   var ccpAt=_ccpId, mySince=_prefetchingSince;
+  function backoff(ms){ _prefetchRetryAt=nowMs()+ms; _prefetchRetryCcp=ccpAt; }
   try{
-    qt(client.rpc('argus_claim_nums',{p_ccp_id:ccpAt,p_count:1})).then(function(r){
+    /* Ab Migration 0028 (Schema 28) idempotent je Gerät: dieselbe Nummer erneut, bis ein Patient sie trägt.
+     * Sonst wie 0.34.3 (argus_claim_nums, verbraucht bei jedem erfolgreichen Aufruf eine Nummer). */
+    var devAt=deviceNoSync();
+    var call = (_schemaV>=28 && devAt>=1)
+      ? client.rpc('argus_reserve_num',{p_ccp_id:ccpAt,p_dev:devAt})
+      : client.rpc('argus_claim_nums',{p_ccp_id:ccpAt,p_count:1});
+    qt(call).then(function(r){
       if(_prefetchingSince===mySince) _prefetching=false;
       var d=r?r.data:null;
-      if(d && !d.error && d.start && _ccpId===ccpAt && !_nextReserved){ _nextReserved={ccp:ccpAt,num:d.start}; try{ render(); }catch(e){} }
-    }, function(){ if(_prefetchingSince===mySince) _prefetching=false; });
-  }catch(e){ _prefetching=false; }
+      if(!(d && !d.error && d.start)){ backoff(PREFETCH_BACKOFF_MS); return; }
+      if(_ccpId!==ccpAt) return;
+      if(d.reused && reservedTaken(d.start)){ backoff(1500); return; }   /* Patient mit dieser Nummer ist lokal da, aber noch nicht hochgeladen → gleich erneut fragen */
+      _prefetchRetryAt=0;
+      if(!_nextReserved){ _nextReserved={ccp:ccpAt,num:d.start}; resNumSave(ccpAt,d.start); try{ render(); }catch(e){} }
+    }, function(){ if(_prefetchingSince===mySince) _prefetching=false; backoff(PREFETCH_BACKOFF_MS); });
+  }catch(e){ _prefetching=false; backoff(PREFETCH_BACKOFF_MS); }
 }
 /* ── Nummernvergabe: fortlaufend online, Gerätenummer NUR offline (2026-10-14, Rev. 3) ──
  * Spec (Owner): Die Nummer läuft regulär fortlaufend über alle Geräte („A-7");
@@ -2927,6 +2971,7 @@ async function addPatient(cat){
   state.lastDiscardedId=null;
   if(!_training && _nextReserved && _nextReserved.ccp===_ccpId){
     num=_nextReserved.num; _nextReserved=null; ccpLabel=_ccpKennung;          /* fortlaufende Online-Nummer, kein Suffix */
+    resNumClear(_ccpId);                                                     /* Spiegel löschen: Nummer ist verbraucht */
   }else{
     var dev=_training?0:deviceNoSync();
     num=nextNum(); ccpLabel=(dev>=1) ? (_ccpKennung+"~"+dev) : _ccpKennung;  /* offline: Gerätenummer anhängen */
@@ -2944,9 +2989,10 @@ async function addPatient(cat){
   patients.push(normalize(p));          /* sofort im Bestand sichtbar, ohne Netz */
   if(!p.training && _ccpId){            /* Hintergrund-Upload — bewusst NICHT awaiten */
     var cl=sb();
-    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error) confirmUpload(p.id, irow.updated, !!irow.fts); else if(r && r.error) noteSchemaError(r.error); }, function(){}); }catch(e){} }
+    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error){ confirmUpload(p.id, irow.updated, !!irow.fts); if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } } else if(r && r.error) noteSchemaError(r.error); }, function(){}); }catch(e){} }
   }
-  try{ prefetchNum(); }catch(e){}      /* nächste Online-Nummer gleich wieder vorab holen */
+  /* nächste Online-Nummer vorab holen: ab Schema 28 erst NACH dem Upload (Server-Reservierung gilt als verbraucht, sobald der Patient dort liegt) */
+  if(_schemaV<28){ try{ prefetchNum(); }catch(e){} }
   return p;
 }
 /* Upload-Bestätigung (Bugfix 2026-10-16, Feedback PP Einsatz „Sofort-Optionen
@@ -5588,8 +5634,8 @@ setInterval(function(){
 setInterval(function(){ try{ deviceHeartbeat(); }catch(e){} }, HB_INTERVAL_MS);
 setInterval(function(){ try{ pollDevices(); }catch(e){} }, 10000);
 /* B7 (Plan 06.5-10): Schema-Re-Probe — wurde die Migration erst nach dem App-Start eingespielt (oder lief die Probe
- * im Funkloch ins Leere), bliebe _schemaV sonst bis zum nächsten Neustart zu niedrig. Alle 3 min, solange v<27 und Verbindung vermutet. */
-setInterval(function(){ try{ if(_schemaV<27 && netLikelyUp() && !document.hidden && !_revokedLocked && sb() && localStorage.getItem('argus_jwt')) probeSchema(1); }catch(e){} }, 180000);
+ * im Funkloch ins Leere), bliebe _schemaV sonst bis zum nächsten Neustart zu niedrig. Alle 3 min, solange v<28 und Verbindung vermutet. */
+setInterval(function(){ try{ if(_schemaV<28 && netLikelyUp() && !document.hidden && !_revokedLocked && sb() && localStorage.getItem('argus_jwt')) probeSchema(1); }catch(e){} }, 180000);
 /* Nachzügler (Phase 6.5): nur solange fremde/abgeschlossene _dirty-Patienten lokal liegen (_lateN). */
 setInterval(function(){ try{ if(_lateN>0) flushLatePatients(); }catch(e){} }, 60000);
 /* Lokale Löschfristen (alle 5 min) + gebündeltes Herkunftsprotokoll (höchstens 1/min). */
