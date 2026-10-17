@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.34.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.34.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.34.1': [
+    'Funkspruch: Kennung jetzt in der deutschen Buchstabiertafel (CCP Anton), Ort ohne Zusatz, Tourniquets nicht mehr Teil der Meldung.'
+  ],
   '0.34.0': [
     'Gerätestatus im CCP: Der MasterMedic sieht im Hauptmenü, welche Geräte verbunden, außer Reichweite, abgemeldet oder verlassen sind und wie viele Patienten dort noch offen sind.',
     'CCP bewusst verlassen und wieder beitreten: Beim Zurückgehen aus dem Hauptmenü fragt ARGUS nach; wer wieder beitritt, behält seine Gerätenummer.',
@@ -3002,24 +3005,24 @@ function countTq(){ return patients.filter(function(p){return p.status==="active
  * niemals Patientendaten. Alle Tabellen liegen innerhalb der Funktionen, damit
  * sie einzeln testbar bleiben (tests/funk.test.cjs). */
 function funkText(c){
-  var NATO={A:'Alpha',B:'Bravo',C:'Charlie',D:'Delta',E:'Echo',F:'Foxtrot',G:'Golf',H:'Hotel',I:'India',J:'Juliett',K:'Kilo',L:'Lima',M:'Mike',N:'November',O:'Oscar',P:'Papa',Q:'Quebec',R:'Romeo',S:'Sierra',T:'Tango',U:'Uniform',V:'Victor',W:'Whiskey',X:'X-Ray',Y:'Yankee',Z:'Zulu'};
+  /* Deutsche Buchstabiertafel (Polizei-Funk), Owner-Vorgabe 2026-10-17: „CCP Anton“ statt NATO. */
+  var TAFEL={A:'Anton',B:'Berta',C:'Cäsar',D:'Dora',E:'Emil',F:'Friedrich',G:'Gustav',H:'Heinrich',I:'Ida',J:'Julius',K:'Kaufmann',L:'Ludwig',M:'Martha',N:'Nordpol',O:'Otto',P:'Paula',Q:'Quelle',R:'Richard',S:'Samuel',T:'Theodor',U:'Ulrich',V:'Viktor',W:'Wilhelm',X:'Xanthippe',Y:'Ypsilon',Z:'Zacharias'};
   var ZAHL=['null','ein','zwei','drei','vier','fünf','sechs','sieben','acht','neun','zehn','elf','zwölf'];
   /* Trainer-Abstimmung offen: Farbwörter vs. T-Kategorien — nur diese Zeile ändern */
   var FARBE={T1:'Rot',T2:'Gelb',T3:'Grün',T5:'Schwarz'};
   function z(n){ n=+n||0; return (n>=0&&n<=12)?ZAHL[n]:String(n); }
   var ken=String(c.kennung||'A').split('/').map(function(k){
     var u=k.trim().toUpperCase();
-    return NATO[u]||k.trim();
+    return TAFEL[u]||k.trim();
   }).join('/');
-  var tq=+c.tq||0;
-  var tqTeil=(tq===0)?'kein Tourniquet läuft':(tq===1?'ein Tourniquet läuft':z(tq)+' Tourniquets laufen');
+  /* Tourniquets bewusst NICHT in der Funkmeldung (Owner 2026-10-17: für die Lagemeldung irrelevant). */
   var teile=[z(c.t1)+' '+FARBE.T1, z(c.t2)+' '+FARBE.T2, z(c.t3)+' '+FARBE.T3, z(c.t5)+' '+FARBE.T5,
-    z(c.prio)+' Prio', z(c.gpa)+' abtransportiert', tqTeil];
+    z(c.prio)+' Prio', z(c.gpa)+' abtransportiert'];
   return 'CCP '+ken+(c.ort?', '+c.ort:'')+', '+c.hhmm+' — '+teile.join(', ')+'.';
 }
 function funkSds(c){
   var hm=String(c.hhmm||'').replace(/:/g,'');
-  return 'ARG1|'+String(c.kennung||'A').replace(/\//g,'+')+'|'+hm+'|'+c.nr+'|T1='+c.t1+',T2='+c.t2+',T3='+c.t3+',T5='+c.t5+',P='+c.prio+',G='+c.gpa+',TQ='+c.tq;
+  return 'ARG1|'+String(c.kennung||'A').replace(/\//g,'+')+'|'+hm+'|'+c.nr+'|T1='+c.t1+',T2='+c.t2+',T3='+c.t3+',T5='+c.t5+',P='+c.prio+',G='+c.gpa;
 }
 /* Eingaben für den Funkspruch: nur Zähler, Kennung, Ort, korrigierte Uhrzeit, nächste Meldungsnummer. */
 function funkCtx(){
@@ -3034,7 +3037,7 @@ function funkCtx(){
   var last=0; try{ last=parseInt(localStorage.getItem('argus_funk_n_'+_ccpId),10)||0; }catch(e){}
   return {kennung:ken, ort:_ccpOrt||'', hhmm:hhmm,
     t1:countCat('T1'), t2:countCat('T2'), t3:countCat('T3'), t5:countCat('T5'),
-    prio:countPrio(), gpa:countGpa(), tq:countTq(), nr:last+1};
+    prio:countPrio(), gpa:countGpa(), nr:last+1};
 }
 function vFunk(){
   var c=funkCtx();
@@ -3969,7 +3972,7 @@ var TRAIN_LESSONS=[
   {t:'Karte: T — Maßnahmen', mode:'explain', x:'T wie Treatment: die durchgeführten Maßnahmen — ein Tourniquet steht hier vollständig: Anlageort, Anlagezeit und wie lange es schon liegt (rot, weil zeitkritisch). Alles in fester Reihenfolge zum flüssigen Vorlesen — und die Karte ist gesperrt (eingefrorener Stand), damit sich beim Vorlesen nichts mehr ändert.', sel:'[data-am="TT"]'},
   {t:'Korrigieren: „Zurückholen"', mode:'explain', x:'Stimmt doch etwas nicht? Mit „↩ Zurückholen → aktiv" holst du den Patienten kurz in den aktiven Bestand zurück, korrigierst und checkst erneut aus. So bleibt die Übergabe immer korrekt — nichts geht verloren.', sel:'[data-action="reactivate"]'},
 
-  {t:'Funkspruch', mode:'explain', home:true, sel:'[data-action="funk"]', x:'Als MasterMedic hast du hier den Funkspruch: eine fertige Lagemeldung zum Vorlesen über Funk — Kennung, Ort, Uhrzeit und nur Zahlen (Rot, Gelb, Grün, Schwarz, Prio, abtransportiert, laufende Tourniquets). Keine Namen, keine Nummern. Nach dem Durchsagen „Meldung abgesetzt" tippen — dann zählt die Meldungsnummer weiter.'},
+  {t:'Funkspruch', mode:'explain', home:true, sel:'[data-action="funk"]', x:'Als MasterMedic hast du hier den Funkspruch: eine fertige Lagemeldung zum Vorlesen über Funk — Kennung (deutsche Buchstabiertafel: CCP Anton), Ort, Uhrzeit und nur Zahlen (Rot, Gelb, Grün, Schwarz, Prio, abtransportiert). Keine Namen, keine Nummern. Nach dem Durchsagen „Meldung abgesetzt" tippen — dann zählt die Meldungsnummer weiter.'},
   {t:'CCP verlassen / wieder beitreten', mode:'explain', home:true, sel:'#backbtn', x:'Mit ‹ im Hauptmenü verlässt du den CCP bewusst. Die App fragt nach und zeigt deine Gerätenummer und ob noch etwas nicht synchronisiert ist. Danach steht auf der Startseite „CCP A wieder beitreten" — gleiche Gerätenummer, kein Code. Innerhalb des CCP fragt die App nie nach. (Nur zeigen — jetzt nicht tippen.)'},
 
   /* Einsatz-Lebenszyklus: nur erklären — der echte Abschluss läuft nie im

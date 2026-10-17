@@ -484,7 +484,9 @@ Context: `.planning/phases/05.1-feldapp-login-picker/05.1-CONTEXT.md`.
 - [x] 05.1-03-PLAN.md — Feld-App: Ein-Feld-Person-Login (Auto-Erkennung) + Echt/Schulung-Zwei-Reiter-Picker + verstärkter SCHULUNG-Banner + USBNK-Sitzung + twin-scope Re-Exchange (Migration 0019, LIVE) [Welle 2] ✅ 2026-06-28
 - [x] 05.1-04-PLAN.md — Release v0.32.0 (APP_VERSION/SW v59/version.json/CHANGELOG/WHATS_NEW/UPDATE_v0.32.html) + Trainings-Drehbuch + SELF-HOSTING.md 0019; Deploy Owner-Gate [Welle 3] ✅ 2026-06-28
 
-## Phase 6 — Lageübersicht für FLZ / ILS, Stufe b (read-only Dashboard) ⬜
+## Phase 6 — Lageübersicht für FLZ / ILS, Stufe b (read-only Dashboard) ⬜ *(zurückgestellt, Owner 2026-10-17)*
+
+> **Zurückgestellt (Owner, 2026-10-17):** Stufe b und der Trainer-Wunsch „Fotoabgleich in der FLZ-Ansicht" (Zweckänderung → DSB) werden gemerkt, aber vorerst nicht bearbeitet.
 
 **Ziel:** Browserbasierte Leseansicht für Führungs- und Lagezentrum (FLZ)
 oder Integrierte Leitstelle (ILS): aktive CCPs, Patientenzahlen je Kategorie
@@ -566,7 +568,7 @@ heute (Server-Transport) nützlich und werden später vom Mesh (Phase 9) 1:1 üb
 - **Herkunftsprotokoll:** jeder Upload (Gerät, Zeit, Patienten, Weg: direkt / für Gerät X)
   ins Governance-Log; Abschnitt „Datenherkunft" im Abschlussprotokoll.
 
-- **Funkspruch-Modus:** standardisierte, vorlesbare CCP-Lagemeldung für den MasterMedic
+- **Funkspruch-Modus** *(Beibehaltung offen — Owner entscheidet nach UAT; Wortlaut 2026-10-17: „CCP Anton" (deutsche Buchstabiertafel), Ort ohne Zusatz, Zahlen ohne Tourniquets)*: standardisierte, vorlesbare CCP-Lagemeldung für den MasterMedic
   (groß, mit Uhrzeit und Meldungsnummer) — der TETRA-Sprechfunk-Weg, der heute funktioniert.
 
 - Trainings-Drehbuch nachziehen (Lektion „CCP verlassen / wieder beitreten", „Funkspruch").
@@ -608,25 +610,12 @@ einen erweiterten Testkreis und perspektivisch echten Einsatz.
 - ✅ **Vorbereitet (2026-06-04):** DSB-Gesprächsvorlage `docs/DSB-BRIEFING.md`
   und `docs/TESTER-ANLEITUNG.md` (nützt schon dem laufenden Testkreis).
 
-## Phase 8 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
-
-**Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
-M1-Entscheid (2026-06-11).
-
-- Übergabe-/Deployment-Paket auf Basis von `docs/SELF-HOSTING.md` (Phase 4.11)
-  + `docs/PROD-SETUP.md` (vorhanden, anzupassen).
-- **Repo-Schnitt** (privates Repo, Git-History, Lizenz-/IP-Schutz) bleibt
-  relevant — unabhängig vom Hosting.
-
-- Daten-Hygiene der Dev-Instanz (verwaiste CCPs, frische Codes inkl. neuem
-  MasterToken — der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
-
-- Backup-/Löschkonzept im **Betrieb der Polizei** = Sache des Verantwortlichen;
-  ARGUS liefert die technische Grundlage (Migrationen, Purge-Jobs, Doku).
-
-- ~~Supabase Pro-Tier / separates Prod-Projekt beim Eigentümer~~ — entfallen (M1).
-
 ## Phase 9 — Native App für PTLS Pol 🔒 *Conditional*
+
+> **Vorstufe 9a — Native Hülle + TestFlight (Owner-Entscheid 2026-10-17):** Apple-Developer-Account als
+> Einzelperson (eigene Apple-ID, Eigentumslinie), Capacitor-Hülle um die unveränderte Web-App, Deep-Link
+> `#code=…`, Keychain für JWTs, TestFlight für Tester. Klein (1–2 Tage), VOR Phase 7 einschiebbar, ohne
+> Mesh. Die Bedingungen unten gelten für die MDM-Verteilung auf Dienstgeräte, nicht für TestFlight-Erprobung.
 
 **Ziel:** PWA via Capacitor in native iOS-App (.ipa), verteilt über den
 dienstlichen App-Store von PTLS Pol (MDM, kein öffentlicher App Store).
@@ -669,6 +658,26 @@ Einweisung. Praktische Grenze: zwei Sterne (14 Geräte) je CCP, darüber Hinweis
 CCP eröffnen". Fundament (Grabsteine, feldweise Zeitstempel, Uhrabgleich, Gerätestatus,
 Herkunftsprotokoll) wird in **Phase 6.5** vorgezogen gebaut.
 ---
+
+## Phase 8 — Übergabe-Paket & Betriebsübergabe (M1) ⬜
+
+> **Reihenfolge geändert (Owner, 2026-10-17):** Phase 8 folgt NACH Phase 9 — die Übergabe soll die native App einschließen.
+
+**Ziel:** Geordnete Übergabe an den Lizenznehmer — neu zugeschnitten nach dem
+M1-Entscheid (2026-06-11).
+
+- Übergabe-/Deployment-Paket auf Basis von `docs/SELF-HOSTING.md` (Phase 4.11)
+  + `docs/PROD-SETUP.md` (vorhanden, anzupassen).
+- **Repo-Schnitt** (privates Repo, Git-History, Lizenz-/IP-Schutz) bleibt
+  relevant — unabhängig vom Hosting.
+
+- Daten-Hygiene der Dev-Instanz (verwaiste CCPs, frische Codes inkl. neuem
+  MasterToken — der alte war zeitweise per Anon-Key lesbar, siehe Phase 4).
+
+- Backup-/Löschkonzept im **Betrieb der Polizei** = Sache des Verantwortlichen;
+  ARGUS liefert die technische Grundlage (Migrationen, Purge-Jobs, Doku).
+
+- ~~Supabase Pro-Tier / separates Prod-Projekt beim Eigentümer~~ — entfallen (M1).
 
 ## Technische Schuld (geparkt, kein aktiver Meilenstein)
 

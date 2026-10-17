@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.34.1 — 2026-10-17
+**Funkspruch-Wortlaut (Owner-Vorgabe)**
+- Kennung in der deutschen Buchstabiertafel („CCP Anton“), Ort ohne Zusatz, Tourniquets nicht mehr in der Funkmeldung und nicht in der SDS-Kurzzeile.
+- Beibehaltung des Funkspruch-Modus insgesamt: Owner-Entscheid nach der UAT.
+
 ## v0.34.0 — 2026-10-17
 **Gerätestatus im CCP & Sync-Fundament (Mesh-Vorstufe)**
 - **Benötigt Migrationen 0025 + 0026** (ohne sie läuft die App wie 0.33.22 weiter: die Capability-Probe `argus_server_time` schaltet die neuen Funktionen dann ab).
