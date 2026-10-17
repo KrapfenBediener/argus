@@ -6,11 +6,15 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
-## Vorgemerkt für v0.34.2 (noch nicht veröffentlicht)
-**Grabstein behält Inhalt (Owner-Entscheid nach der UAT)**
-- **Benötigt Migration 0027** (ohne sie bleibt der Server-Grabstein bei der alten Hülle; die App läuft weiter).
-- Verwerfen setzt nur noch den Grabstein; Eingaben, Foto und der laufende Tourniquet-Timer bleiben erhalten. „Rückholen“ stellt den Patienten mit allen Eingaben wieder her. Der Patient bleibt bis dahin aus allen Listen, Zählern, der Lageansicht und dem Protokoll ausgeblendet; ein veralteter Stand kann ihn nicht wiederbeleben.
-- Grabsteine aus 0.34.0/0.34.1 (leerer Inhalt) kommen beim Rückholen als aktiver Patient zurück; ihre früheren Eingaben sind nicht mehr vorhanden.
+## v0.34.2 — 2026-10-17
+**Grabstein behält Inhalt, Funkspruch-Ort, Gerätezeile, Verbindungs-Härtung (Owner-UAT)**
+- **Benötigt Migration 0027** für den Grabstein-Teil (ohne sie bleibt der Server-Grabstein bei der alten Hülle; die App läuft weiter, auch bei Schema 0/25/26).
+- **Grabstein behält Inhalt:** Verwerfen setzt nur noch den Grabstein; Eingaben, Foto und der laufende Tourniquet-Timer bleiben erhalten. „Rückholen“ stellt den Patienten mit allen Eingaben wieder her. Der Patient bleibt bis dahin aus allen Listen, Zählern, der Lageansicht und dem Protokoll ausgeblendet; ein veralteter Stand kann ihn nicht wiederbeleben. Grabsteine aus 0.34.0/0.34.1 (leerer Inhalt) kommen beim Rückholen als aktiver Patient zurück; ihre früheren Eingaben sind nicht mehr vorhanden.
+- **Funkspruch-Ort:** „CCP Anton, Marktplatz, 14:32 — …“. Ein führendes „CCP“ im gespeicherten Ort entfällt in der Meldung; die Demo-CCPs der Schulung heißen ohne „CCP “-Präfix.
+- **Gerätezeile:** Geräte mit MasterToken melden sich jetzt ebenfalls (`deviceHeartbeat` übersprang sie bisher; Ursache dafür, dass ein neuer MasterMedic nach der Übernahme nur sein eigenes Gerät sah). Das eigene Gerät trägt „(dieses Gerät)“. Ist der Gerätestand älter als 30 s oder besteht keine Verbindung, steht „Gerätestand unbekannt (keine Verbindung)“ statt aller Geräte als außer Reichweite. Die MasterMedic-Übernahme holt die Geräteliste sofort.
+- **Start bei schwachem Netz (B3):** Die Netz-Schritte des Starts laufen als Kette im Hintergrund; nach höchstens 2 s erscheint die App mit dem lokalen Stand und rendert nach. Präsidien-Liste mit lokalem Cache; alle genannten Abfragen mit Zeitlimit (Uploads großzügiger).
+- **Abgleich (B4/B5):** Ein verspätet zurückkehrender Upload überschreibt keine neuere lokale Bearbeitung (`_dirty` bleibt, bis die neuere Bearbeitung hochgeladen ist); `loadPatients` läuft nie doppelt (gemeinsamer Folgelauf) und übernimmt keine Ergebnisse in einen inzwischen gewechselten CCP; nach dem ersten Netzfehler eines Laufs entfallen weitere Upload-Versuche desselben Laufs.
+- **Schema-Re-Probe (B7):** Die Fähigkeits-Probe wird alle 3 min wiederholt, solange der Server-Stand unter 27 liegt — eine nach dem App-Start eingespielte Migration wird ohne Neustart erkannt.
 
 ## v0.34.1 — 2026-10-17
 **Funkspruch-Wortlaut (Owner-Vorgabe)**

@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.34.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.34.2';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,12 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.34.2': [
+    'Rückholen stellt einen verworfenen Patienten jetzt mit allen Eingaben wieder her — auch Foto und laufenden Tourniquet-Timer.',
+    'Funkspruch: „CCP Anton, Marktplatz, 14:32 — …“ — der Ort steht ohne doppeltes „CCP“ in der Meldung; die Demo-CCPs der Schulung heißen jetzt Marktplatz, Bahnhof usw.',
+    'Gerätezeile: Nach einem MasterMedic-Wechsel sieht der neue MasterMedic alle Geräte des CCP (auch ein mit MasterToken angemeldetes). Das eigene Gerät ist mit „(dieses Gerät)“ gekennzeichnet. Ohne Verbindung steht dort „Gerätestand unbekannt“, statt alle Geräte als außer Reichweite zu zeigen.',
+    'Stabilerer Start und Abgleich bei schwachem Netz: Die App erscheint im Funkloch nach wenigen Sekunden mit dem lokalen Stand; ein verspäteter Upload überschreibt keine neuere Bearbeitung.'
+  ],
   '0.34.1': [
     'Funkspruch: Kennung jetzt in der deutschen Buchstabiertafel (CCP Anton), Ort ohne Zusatz, Tourniquets nicht mehr Teil der Meldung.'
   ],
