@@ -6,6 +6,10 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## Vorgemerkt für v0.34.4
+**Fortlaufende Patientennummern (Owner-UAT: 10 Patienten, angezeigte Nr. 63)**
+- Migration 0028 (`argus_reserve_num`, `ccp_devices.reserved_num`): Die vorab reservierte Nummer wird je Gerät auf dem Server gemerkt und bei Wiederholung derselben Anfrage erneut geliefert; der Zähler steigt erst, wenn ein Patient die Nummer trägt.
+
 ## v0.34.3 — 2026-10-17
 **UAT-Nachbesserung (Owner)**
 - Schnellmenü nach dem Anlegen bleibt nach Prio/TQ/Foto offen; Schließen über „Nächsten Patienten erfassen“, „öffnen“, Verwerfen oder Tipp daneben.

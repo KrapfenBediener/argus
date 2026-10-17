@@ -175,6 +175,33 @@ test('Migration 0027: Merge-Funktion ohne Grabstein-Hülle, mit search_path, arg
   assert.ok(!/alter table|create policy|drop policy/i.test(sql), 'keine Schema-/RLS-Änderung');
 });
 
+const MIG28 = 'supabase/migrations/0028_nummer_reservierung_je_geraet.sql';
+const PROBE28 = 'supabase/probes/0028_nummer_probe.sql';
+
+test('Migration 0028: idempotente Nummern-Reservierung (D6.5-21), search_path, Row-Lock, v:28, keine RLS-Änderung', () => {
+  const sql = fs.readFileSync(path.join(ROOT, MIG28), 'utf8');
+  const code = sql.replace(/--[^\n]*/g, '');
+  assert.ok(code.includes('create or replace function public.argus_reserve_num('));
+  assert.ok(/security definer/i.test(code) && /set search_path to 'public'/.test(code), 'search_path/definer fehlt');
+  assert.ok(/for update/i.test(code), 'Row-Lock (for update) fehlt');
+  assert.ok(/add column if not exists reserved_num int/i.test(code), 'Spalte reserved_num fehlt');
+  assert.ok(/grant execute on function public\.argus_reserve_num\(uuid, int\) to anon/.test(code));
+  assert.ok(/'reused',\s*true/.test(code) && /'reused',\s*false/.test(code), 'reused-Kennzeichen fehlt');
+  assert.ok(/first_seen, last_seen/.test(code), 'Gerätezeile braucht first_seen/last_seen (NOT NULL)');
+  assert.ok(/'v',\s+28/.test(code), 'argus_server_time muss v:28 liefern');
+  assert.ok(!/create policy|drop policy|grant\s+(insert|update|delete|all)/i.test(code), 'keine RLS-/Schreib-Grant-Änderung');
+  assert.ok(!/create or replace function public\.argus_claim_nums/.test(code), 'argus_claim_nums bleibt unverändert');
+});
+
+test('Probe 0028 deckt R1-R8 ab und rollt sich selbst zurück', () => {
+  const sql = fs.readFileSync(path.join(ROOT, PROBE28), 'utf8');
+  assert.ok(sql.includes('PROBE 0028 ERGEBNIS'));
+  ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8'].forEach(function(r){
+    assert.ok(sql.includes('-- ── ' + r + ':'), 'Prüfung ' + r + ' fehlt');
+  });
+  assert.ok(/raise exception 'PROBE 0028 ERGEBNIS/.test(sql));
+});
+
 test('Probe 0027 bettet merge-vectors.json 1:1 ein', {
   skip: !fs.existsSync(path.join(ROOT, 'supabase/probes/0027_sync_probe.sql')) && 'kommt mit Plan 06.5-09'
 }, () => {
