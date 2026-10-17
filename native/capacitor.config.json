@@ -1,0 +1,10 @@
+{
+  "appId": "de.gaborszeman.argus",
+  "appName": "ARGUS",
+  "webDir": "www",
+  "loggingBehavior": "production",
+  "ios": {
+    "contentInset": "never",
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

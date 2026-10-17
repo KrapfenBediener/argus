@@ -1,0 +1,24 @@
+{
+  "name": "argus-native",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Capacitor-iOS-Hülle um die unveränderte Single-File-PWA (ARGUS). Die Web-App im Repo-Stamm bleibt buildfrei; die Assets werden per scripts/sync-web.mjs nach www/ kopiert. Die sichtbare App-Version ist APP_VERSION aus index.html, nicht dieses Feld.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "sync": "node scripts/sync-web.mjs",
+    "version:set": "node scripts/set-version.mjs",
+    "version:bump": "node scripts/set-version.mjs --bump",
+    "ios:sync": "node scripts/sync-web.mjs && cap sync ios",
+    "ios:open": "cap open ios",
+    "ios:doctor": "cap doctor ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "8.1.2",
+    "@capacitor/cli": "8.5.3",
+    "@capacitor/core": "8.5.3",
+    "@capacitor/ios": "8.5.3"
+  }
+}
