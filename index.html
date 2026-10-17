@@ -115,7 +115,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.34.5';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.35.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -145,6 +145,11 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.35.0': [
+    'ARGUS gibt es bald als App für das iPhone (TestFlight). Die Web-App bleibt wie gewohnt — Freischalt-Links können künftig die installierte App direkt öffnen.',
+    'Neu im Browser: Auf dem Install-Bildschirm gibt es den Knopf „In der ARGUS-App öffnen“ — nur sinnvoll, wenn die App auf dem iPhone bereits installiert ist.',
+    'Technische Vorbereitung: Erkennung der App-Hülle, Zugangsschlüssel in der sicheren Geräteablage, Anpassung an Statusleiste und Home-Indikator.'
+  ],
   '0.34.5': [
     'Online bekommen neue Patienten wieder die fortlaufende Nummer ohne Gerätekennung — auch wenn direkt nach dem Anlegen Prio, TQ oder Foto gesetzt werden.'
   ],

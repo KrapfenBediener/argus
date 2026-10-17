@@ -6,6 +6,17 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.35.0 — 2026-10-17
+**Native Hülle vorbereitet (Phase 6.6 — Capacitor-iOS-App, TestFlight-Vorstufe)**
+- **PWA unverändert ausgeliefert.** Einzige sichtbare Änderung im Browser: Knopf „In der ARGUS-App öffnen“ auf dem Install-Screen (nur sinnvoll, wenn die TestFlight-App bereits installiert ist); alles Weitere ist über `isNativeShell()` gegatet.
+- **Hüllen-Erkennung `isNativeShell()`:** in der App kein Install-Screen, kein Service Worker, kein Update-Banner (Updates kommen über TestFlight/App Store; Build-Nummer in der Fußzeile), Hilfetext entsprechend.
+- **Deep-Link `argus://unlock#code=…`** (Kalt- und Warmstart) läuft über den bestehenden Einlösepfad in `init()` — kein zweiter Pfad; `#inv=`-Links ebenso.
+- **Zugangsschlüssel in der iOS-Keychain:** Fassade `accessGet/accessSet/accessDel` (JWT, Ablauf, JWT-Karte je Präsidium, Dauercode, Master-Flag, Einladung); in der App Keychain + Sitzungs-Cache, in der PWA weiterhin `localStorage` (gleiche Schlüssel, kein Datenumzug). Einmalige Migration beim ersten App-Start; nach einer Neuinstallation werden Keychain-Reste verworfen statt einen Geisterzugang zu erzeugen. Test-Gate gegen direkte `localStorage`-Zugriffe.
+- **Safe-Area in der Hülle** (Statusleiste, Home-Indikator) nur unter `html.native-shell`; **Export-Hinweis** in der Hülle statt wirkungslosem Download (Export bitte über die Leitungs-Seite).
+- **`native/`-Unterprojekt:** Capacitor 8.5.3 (SPM, exakt gepinnt), Bundle-ID im Namensraum des Eigentümers, Kopierskript `sync-web.mjs` (Positivliste aus `sw.js`), Versionskopplung `set-version.mjs` (MARKETING_VERSION = APP_VERSION), `tests/native.test.cjs` in `npm run ci`.
+- SW-Cache `ccp-shell-v93`.
+- Hinweis: Die iOS-Seite (Info.plist, Keychain-Plugin, Icons) und die Doku folgen in den nächsten Plänen dieser Phase als Spiegelstriche unter diesem Eintrag — ohne neuen Versions-Bump.
+
 ## v0.34.5 — 2026-10-17
 **Online-Nummern ohne Gerätekennung (UAT-Befund zu 0.34.4)**
 - **Benötigt Migration 0029** (`argus_reserve_num` mit `p_used`): Das Gerät meldet die soeben verbrauchte Nummer und bekommt sofort die nächste — auch bevor der Patient hochgeladen ist. Ohne 0029 bleibt das 0.34.4-Verhalten, ergänzt um echte Neuversuche.
