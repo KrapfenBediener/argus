@@ -80,6 +80,12 @@
   .delx{width:30px;height:30px;border-radius:7px;background:var(--surf2);color:var(--mut);font-size:16px;flex:none}
   .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--acc);color:#fff;font-weight:600;padding:12px 20px;border-radius:30px;font-size:15px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:20;max-width:90%}
   .toast.show{opacity:1}
+  /* Native Hülle (Capacitor): WebView füllt den Bildschirm (contentInset never)
+   * → Insets nur unter .native-shell; PWA unverändert (Phase 6.6, Pitfall 8). */
+  .native-shell .topbar{padding-top:calc(12px + env(safe-area-inset-top))}
+  .native-shell .toast{bottom:calc(22px + env(safe-area-inset-bottom))}
+  .native-shell body{padding-bottom:env(safe-area-inset-bottom)}
+  .native-shell #train-coach{padding-bottom:env(safe-area-inset-bottom)}
   .banner{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-size:13px;color:var(--mut);margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
   .qbtn{flex:1;border-radius:12px;padding:18px;font-size:18px;font-weight:600;border:1px solid var(--line);background:var(--surf2)}
   .helpa{color:var(--mut);font-size:14px}
@@ -452,10 +458,45 @@ var _closeTyp=null;                     /* Einsatz-Abschluss: gewählter Typ wä
 var _selfClosing=false;                 /* eigenes Gerät schließt gerade ab → Realtime-Echo nicht doppelt behandeln */
 var _remoteCloseHandling=false;         /* Guard gegen Mehrfach-Auslösung der Fremd-Erkennung (applyMeta läuft auch im Refresh) */
 
-/* iOS: Erkennt ob App als installierte PWA läuft oder im Browser */
+/* iOS: Erkennt ob App als installierte PWA läuft oder im Browser.
+ * In der nativen Hülle (Capacitor, Phase 6.6) gilt „installiert“ — sonst zeigte
+ * #code=/#inv= dort den Install-Screen statt den Code einzulösen (Pitfall 4). */
 function isStandalone(){
-  return window.navigator.standalone===true ||
+  return isNativeShell() ||
+         window.navigator.standalone===true ||
          window.matchMedia('(display-mode: standalone)').matches;
+}
+/* ── Native Hülle (Capacitor, Phase 6.6) — reine Brückenfunktionen ─────────
+ * Die iOS-Seite injiziert window.Capacitor (isNativePlatform, Plugins.*) per
+ * WKUserScript vor dem Dokument; in Safari/PWA fehlt das Objekt → alle Pfade
+ * unten sind damit gegatet, die PWA bleibt byte-identisch (D6.6-03). */
+function isNativeShell(){
+  try{ return !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()); }
+  catch(e){ return false; }
+}
+function capPlugin(name){
+  try{ var P=window.Capacitor && window.Capacitor.Plugins; return (P && P[name]) ? P[name] : null; }
+  catch(e){ return null; }
+}
+/* Local-first: kein Start wartet auf die Bridge — nach ms Millisekunden null. */
+function withTimeout(p, ms){
+  return Promise.race([
+    Promise.resolve(p),
+    new Promise(function(res){ setTimeout(function(){ res(null); }, ms); })
+  ]);
+}
+/* Safe-Area-Regeln im CSS hängen an html.native-shell (nur in der Hülle). */
+try{ if(isNativeShell()) document.documentElement.classList.add('native-shell'); }catch(e){}
+
+/* Hülle: Build-Nummer, Launch-URL — begrenzt durch withTimeout (T-06.6-13).
+ * Außerhalb der Hülle oder ohne App-Plugin kehrt die Funktion sofort zurück. */
+async function nativeStartup(){
+  if(!isNativeShell()) return;
+  var App=capPlugin('App'); if(!App) return;
+  try{
+    var info=await withTimeout(App.getInfo(),800);
+    if(info && info.build) window._nativeBuild=String(info.build);
+  }catch(e){}
 }
 
 function sb(){
@@ -3752,6 +3793,10 @@ async function exportEinsatzJson(){
         if(navigator.canShare({files:[file]})){ await navigator.share({files:[file]}); toast("Export geteilt"); return; }
       }catch(eSh){ if(eSh && eSh.name==='AbortError') return; /* Nutzer hat abgebrochen */ }
     }
+    /* Hülle: WKWebView hat keinen Download-Manager — ein stiller „Export
+     * gespeichert“-Toast wäre falsch (RESEARCH Frage 2; Plan B @capacitor/share
+     * nur bei Befund in Checkpoint A). */
+    if(isNativeShell()){ toast("Teilen nicht verfügbar — Export bitte über die Leitungs-Seite"); return; }
     var a=document.createElement('a'); var url=URL.createObjectURL(blob);
     a.href=url; a.download=fname; document.body.appendChild(a); a.click();
     setTimeout(function(){ URL.revokeObjectURL(url); if(a.parentNode)a.parentNode.removeChild(a); },800);
@@ -3845,7 +3890,7 @@ function vHelp(){
     kb('Mehrere Geräte','Wer einen Patienten bearbeitet, <b>sperrt</b> ihn kurz für andere. Beim Verlassen / nach 45 s gibt die Sperre automatisch frei. <b>MasterMedic</b> kann übernehmen.')+
     kb('Gerätestatus & CCP verlassen','Der <b>MasterMedic</b> sieht auf der Startseite die <b>Geräte im CCP</b> mit drei Zuständen (aktiv · außer Reichweite · abgemeldet). App im <b>Vordergrund</b> halten — ein gesperrtes Display erscheint als „außer Reichweite". <b>‹ im Hauptmenü</b> = CCP bewusst verlassen (mit Rückfrage). Wiederbeitreten über die Startseite mit der <b>gleichen Gerätenummer</b> — kein neuer Code.')+
     kb('Funkspruch','Nur <b>MasterMedic</b>: Hauptmenü → <b>📻 Funkspruch</b>. Fertige Lagemeldung zum Vorlesen (Kennung, Ort, Uhrzeit, Zahlen — keine Patientendaten) plus Kurzzeile fürs spätere SDS. Nach dem Durchsagen <b>„Meldung abgesetzt"</b> tippen — erst dann zählt die Meldungsnummer weiter.')+
-    kb('Offline & Updates','Offline läuft alles weiter und gleicht später ab („⏳ nicht synchronisiert" zeigt Offenes). Bei neuer Version „<b>Jetzt aktualisieren</b>" tippen. Version steht unten auf der Startseite.')+
+    kb('Offline & Updates',updateHintText(isNativeShell()))+
     '</div>';
   h+='<div class="card"><div class="sech" style="margin-top:0">tacSTART – Entscheidungslogik</div>'+
     '<div class="helpa">Gehfähig → T-3. Sonst Atmung prüfen: keine Spontanatmung auch nach Freimachen → keine Auto-Kategorie (Einzelfall). Atmung nur nach Freimachen → T-1. Bei Spontanatmung: AF außerhalb 10–30 → T-1; kein Radialispuls → T-1; folgt nicht Befehlen → T-1. Alle vier ok (Atmung, AF, Puls, Befehle) → T-2.</div>'+
@@ -4307,8 +4352,14 @@ if(typeof window!=='undefined'){
   window.addEventListener('scroll',function(){ if(_training){ try{renderCoach();}catch(e){} } },{passive:true});
   window.addEventListener('resize',function(){ if(_training){ try{renderCoach();}catch(e){} } });
 }
+/* Hilfetext „Offline & Updates“: PWA-Text zeichengleich zum Stand 0.34.5;
+ * in der Hülle kommen Updates über TestFlight/App Store (kein Banner). */
+function updateHintText(native){
+  if(native) return 'Offline läuft alles weiter und gleicht später ab („⏳ nicht synchronisiert" zeigt Offenes). In der ARGUS-App kommen neue Versionen über TestFlight bzw. den App Store — die App meldet keine neue Version selbst. Version und Build stehen unten auf der Startseite.';
+  return 'Offline läuft alles weiter und gleicht später ab („⏳ nicht synchronisiert" zeigt Offenes). Bei neuer Version „<b>Jetzt aktualisieren</b>" tippen. Version steht unten auf der Startseite.';
+}
 function appFooter(extra){
-  return '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+' · <a href="#" data-action="whatsnew" style="color:var(--mut)">Neuerungen</a> · © 2026 Gabor Szeman</p>'+
+  return '<p class="hint" style="text-align:center;margin-top:28px;font-size:11px">ARGUS Beta v'+APP_VERSION+((isNativeShell()&&window._nativeBuild)?(' · Build '+esc(String(window._nativeBuild))):'')+' · <a href="#" data-action="whatsnew" style="color:var(--mut)">Neuerungen</a> · © 2026 Gabor Szeman</p>'+
     (extra?'<p class="hint" style="text-align:center;margin-top:4px;font-size:11px">'+extra+'</p>':'');
 }
 function whatsNewModal(sinceV, recentCap){
@@ -4411,6 +4462,9 @@ async function updateNow(){
   location.reload();
 }
 async function checkForUpdate(){
+  /* Hülle: version.json liegt gebündelt und ist nie neuer; Updates kommen über
+   * TestFlight/App Store (Plan 02). */
+  if(isNativeShell()) return;
   if(!navigator.onLine) return;
   try{
     var r=await fetch('./version.json?ts='+Date.now(),{cache:'no-store'});
@@ -5338,6 +5392,7 @@ setInterval(async function(){
 },5000);
 
 (async function init(){
+  await nativeStartup();   /* Hülle: Build-Nummer, Launch-URL — begrenzt durch withTimeout */
   operator=await getOperator();if(!operator)operator="";
   /* Fehlende/kaputte config.js nicht still schlucken: einmaliger Hinweis beim
    * Start (kein natives alert — In-App-Toast). Banner zeigt es dauerhaft. */
@@ -5543,7 +5598,9 @@ setInterval(async function(){
   maybeShowIntro();
 })();
 
-if ('serviceWorker' in navigator) {
+/* Hülle: WKWebView kennt keinen Service Worker unter capacitor://; sw.js ist
+ * nicht gebündelt (Plan 06.6-02). PWA: unverändert. */
+if ('serviceWorker' in navigator && !isNativeShell()) {
   navigator.serviceWorker.register('./sw.js').then(function(reg){
     try{ reg.update(); }catch(e){}
   }).catch(function(e) {});

@@ -20,9 +20,10 @@ const os = require('node:os');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const { ROOT, app, readFileText, extractVarLiteral } = require('./_extract.cjs');
+const { ROOT, app, readFileText, extractVarLiteral, extractFunction, evalFunction, evalFunctions, evalInScope } = require('./_extract.cjs');
 
 const script = app().script;
+const html = app().html;
 const APP_VERSION = (script.match(/var APP_VERSION = '([^']+)'/) || [])[1];
 const NATIVE = path.join(ROOT, 'native');
 const SYNC_SCRIPT = path.join(NATIVE, 'scripts', 'sync-web.mjs');
@@ -168,4 +169,112 @@ test('native: Package.swift nicht von Hand geändert — CLI-Marker und @capacit
     '@capacitor/app fehlt in Package.swift — `cap sync ios` nicht gelaufen?');
   assert.ok(!fs.existsSync(path.join(NATIVE, 'ios', 'App', 'App', 'public', 'sw.js')),
     'sw.js darf nicht in ios/App/App/public liegen (Kopierskript umgangen?)');
+});
+
+/* ── Plan 06.6-02 — App-Brücke I ─────────────────────────────────────────────
+ * Hüllen-Erkennung (reine Funktion), PWA-Mechaniken gegatet (Install-Screen,
+ * Service Worker, Update-Banner, Hilfe, Fußzeile), Safe-Area nur unter
+ * html.native-shell, Export-Hinweis statt wirkungslosem Download.
+ * Leitgedanke (T-06.6-14): außerhalb der Hülle bleibt alles byte-identisch. */
+
+function stripComments(src){
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+}
+function fnBody(name){
+  const src = extractFunction(script, name);
+  return stripComments(src.slice(src.indexOf('{') + 1)).trim();
+}
+function firstStyleBlock(){
+  const m = html.match(/<style>([\s\S]*?)<\/style>/);
+  assert.ok(m, 'kein <style>-Block in index.html');
+  return m[1];
+}
+
+test('bridge: isNativeShell ist pur — false ohne Capacitor, true mit isNativePlatform, false bei Exception', () => {
+  const src = extractFunction(script, 'isNativeShell');
+  assert.equal(evalInScope(src, { window: {} }).value(), false);
+  assert.equal(evalInScope(src, { window: { Capacitor: { isNativePlatform: function(){ return true; } } } }).value(), true);
+  assert.equal(evalInScope(src, { window: { Capacitor: { isNativePlatform: function(){ throw new Error('x'); } } } }).value(), false);
+  assert.equal(evalInScope(src, { window: { Capacitor: {} } }).value(), false, 'Capacitor ohne isNativePlatform → false');
+});
+
+test('bridge: isStandalone fragt zuerst isNativeShell(), dann navigator.standalone (Pitfall 4)', () => {
+  const src = extractFunction(script, 'isStandalone');
+  const a = src.indexOf('isNativeShell()'), b = src.indexOf('navigator.standalone');
+  assert.ok(a >= 0, 'isStandalone ruft isNativeShell() nicht');
+  assert.ok(b >= 0, 'navigator.standalone-Prüfung fehlt (PWA-Pfad)');
+  assert.ok(a < b, 'isNativeShell() muss VOR navigator.standalone stehen');
+  assert.ok(src.includes("matchMedia('(display-mode: standalone)')"), 'display-mode-Prüfung fehlt (PWA-Pfad)');
+});
+
+test('bridge: capPlugin liefert null ohne Capacitor und das Plugin-Objekt mit Capacitor.Plugins', () => {
+  const src = extractFunction(script, 'capPlugin');
+  assert.equal(evalInScope(src, { window: {} }).value('App'), null);
+  assert.equal(evalInScope(src, { window: { Capacitor: {} } }).value('App'), null);
+  assert.equal(evalInScope(src, { window: { Capacitor: { Plugins: { App: { x: 1 } } } } }).value('App').x, 1);
+  assert.equal(evalInScope(src, { window: { Capacitor: { Plugins: { App: { x: 1 } } } } }).value('Share'), null);
+});
+
+test('bridge: withTimeout — Wert bei Auflösung, null bei Zeitüberschreitung (Local-first, T-06.6-13)', async () => {
+  const withTimeout = evalFunction(extractFunction(script, 'withTimeout'));
+  assert.equal(await withTimeout(Promise.resolve(7), 50), 7);
+  assert.equal(await withTimeout(new Promise(function(){}), 20), null);
+});
+
+test('bridge: Service Worker wird nur außerhalb der Hülle registriert (SW-Guard genau einmal)', () => {
+  const guard = "'serviceWorker' in navigator && !isNativeShell()";
+  assert.equal(script.split(guard).length - 1, 1, 'SW-Guard muss genau einmal vorkommen');
+  assert.equal(script.split('serviceWorker.register').length - 1, 1, 'genau eine serviceWorker.register-Stelle');
+  assert.ok(script.indexOf(guard) < script.indexOf('serviceWorker.register'), 'Registrierung muss innerhalb des Guards liegen');
+});
+
+test('bridge: checkForUpdate kehrt in der Hülle sofort zurück (Pitfall 5)', () => {
+  assert.ok(fnBody('checkForUpdate').startsWith('if(isNativeShell()) return;'),
+    'checkForUpdate muss mit `if(isNativeShell()) return;` beginnen');
+  /* PWA-Pfad bleibt: version.json-Abfrage und Banner */
+  const src = extractFunction(script, 'checkForUpdate');
+  assert.ok(src.includes("fetch('./version.json?ts='") && src.includes('showUpdateBanner('));
+});
+
+test('bridge: updateHintText — PWA-Text exakt wie bisher, Hüllen-Text nennt TestFlight; vHelp nutzt die Funktion', () => {
+  const updateHintText = evalFunction(extractFunction(script, 'updateHintText'));
+  const pwa = updateHintText(false), nat = updateHintText(true);
+  assert.equal(pwa, 'Offline läuft alles weiter und gleicht später ab („⏳ nicht synchronisiert" zeigt Offenes). Bei neuer Version „<b>Jetzt aktualisieren</b>" tippen. Version steht unten auf der Startseite.',
+    'PWA-Hilfetext muss zeichengleich zum Stand 0.34.5 bleiben (T-06.6-14)');
+  assert.ok(pwa.includes('Jetzt aktualisieren') && !pwa.includes('TestFlight'));
+  assert.ok(nat.includes('TestFlight') && !nat.includes('Jetzt aktualisieren'));
+  assert.ok(nat.includes('App Store') && nat.includes('Build'));
+  assert.ok(extractFunction(script, 'vHelp').includes('updateHintText(isNativeShell())'), 'vHelp muss updateHintText(isNativeShell()) aufrufen');
+});
+
+test('bridge: appFooter zeigt die Build-Nummer nur in der Hülle (_nativeBuild gegatet)', () => {
+  const src = extractFunction(script, 'appFooter');
+  assert.ok(src.includes('_nativeBuild') && src.includes('isNativeShell()'));
+  assert.ok(src.indexOf('isNativeShell()') < src.indexOf('_nativeBuild'), 'Gate muss vor dem Build-Zugriff stehen');
+  assert.ok(src.includes("ARGUS Beta v'+APP_VERSION+"), 'Fußzeilen-Grundtext unverändert');
+});
+
+test('bridge: exportEinsatzJson meldet in der Hülle statt <a download>-Fallback (RESEARCH Frage 2)', () => {
+  const src = extractFunction(script, 'exportEinsatzJson');
+  const g = src.indexOf('isNativeShell()'), d = src.indexOf('a.download');
+  assert.ok(g >= 0 && d >= 0, 'Gate oder Download-Fallback fehlt');
+  assert.ok(g < d, 'Hüllen-Hinweis muss vor dem Download-Fallback stehen');
+  assert.ok(src.indexOf('navigator.share(') < g, 'Web-Share-Zweig bleibt vor dem Gate (unverändert)');
+  assert.ok(src.includes('toast('), 'Hinweis nur per toast (D6.6-06)');
+});
+
+test('bridge: Safe-Area-CSS nur unter .native-shell — mindestens topbar/toast/body, nirgends sonst (T-06.6-14)', () => {
+  const css = stripComments(firstStyleBlock());
+  const rules = css.split('}').filter(r => r.includes('env(safe-area-inset'));
+  assert.ok(rules.length >= 3, 'mindestens 3 Safe-Area-Regeln erwartet, gefunden: ' + rules.length);
+  const sels = rules.map(r => r.slice(0, r.indexOf('{')).trim());
+  for (const s of sels) assert.ok(s.startsWith('.native-shell'), 'Safe-Area-Regel nicht gegatet: ' + s);
+  for (const want of ['.native-shell .topbar', '.native-shell .toast', '.native-shell body']){
+    assert.ok(sels.includes(want), 'Regel fehlt: ' + want);
+  }
+  const inStyle = (firstStyleBlock().match(/env\(safe-area-inset/g) || []).length;
+  const inHtml = (html.match(/env\(safe-area-inset/g) || []).length;
+  assert.equal(inHtml, inStyle, 'env(safe-area-inset) außerhalb des <style>-Blocks (z. B. Inline-Style) gefunden');
+  assert.ok(script.includes("classList.add('native-shell')"), 'native-shell-Klasse wird nie gesetzt');
+  assert.ok(script.indexOf("classList.add('native-shell')") < script.indexOf('function sb('), 'Klasse muss früh (vor dem Rendern) gesetzt werden');
 });
