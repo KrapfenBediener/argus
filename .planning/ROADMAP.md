@@ -627,7 +627,16 @@ ist das technische Fundament für das Mesh (Phase 6.7) und die MDM-Verteilung (P
 **Voraussetzungen beim Owner:** Xcode (App Store, kostenlos) installiert; Apple Developer Program nur für
 TestFlight. **Nicht in dieser Phase:** Mesh, MDM/Managed App Configuration, Android.
 
-**Plans:** TBD
+**Plans:** 7 plans (Stand 2026-10-17 — Pläne 01–05 ohne Xcode ausführbar, 06/07 Owner-Checkpoints)
+
+Plans:
+- [ ] 06.6-01-PLAN.md — Scaffold `native/` (Capacitor 8.5.3 exakt, SPM, Bundle-ID de.gaborszeman.argus, sync-web/set-version, tests/native.test.cjs)
+- [ ] 06.6-02-PLAN.md — App-Brücke I: isNativeShell/isStandalone, SW/Update nativ, Safe-Area-Klasse, Deep-Link argus://unlock#code= (Kalt-/Warmstart), Export-Hinweis
+- [ ] 06.6-03-PLAN.md — App-Brücke II: Zugangs-Fassade (Keychain in der Hülle, localStorage in der PWA, Migration/Reinstall) + Release 0.35.0
+- [ ] 06.6-04-PLAN.md — iOS-Seite: Info.plist (Scheme, DE-Texte, Portrait, Export-Compliance, Statusleiste), Keychain-Plugin Swift + Registrierung, Icon/Splash
+- [ ] 06.6-05-PLAN.md — Doku: docs/NATIVE-HUELLE.md (Pfade A/B/C, Release-Checkliste, Troubleshooting), Smoke-Checkliste, READMEs
+- [ ] 06.6-06-PLAN.md — Checkpoint A: Xcode installieren (Owner) → Simulator-Build/Deep-Link/Screenshots (Executor) → Owner-Smoke-Test A
+- [ ] 06.6-07-PLAN.md — Checkpoints B/C: eigenes iPhone (Personal Team), Build 2, TestFlight (Developer Program)
 
 ## Phase 6.7 — Mesh MVP: Abgleich im CCP ohne Netz (Owner-Label „9b“) ⬜
 
