@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v0.19.5
 milestone_name: Iterative Feature-/Schulungsarbeit im Test-/Härtungsfenster
-status: Phase 06.5 abgeschlossen (UAT bestanden) — Phase 06.6 (Hülle) und 06.7 (Mesh MVP) in Planung
-last_updated: "2026-10-17T13:30:00.000Z"
+status: Phase 06.6 (Hülle) in Ausführung — Plan 01 (Scaffold native/) abgeschlossen; 06.7 (Mesh MVP) geplant
+last_updated: "2026-10-17T15:36:51.170Z"
 progress:
-  total_phases: 13
-  completed_phases: 9
-  total_plans: 47
-  completed_plans: 40
-  percent: 69
+  total_phases: 15
+  completed_phases: 10
+  total_plans: 59
+  completed_plans: 42
+  percent: 67
 ---
 
 # Projekt-Status — Argus (CCP-App)
@@ -973,6 +973,7 @@ bereits existiert).
 | Phase 06.5 P07 | 25min | 2 tasks | 2 files |
 | Phase 06.5 P09 | 2 Code-Tasks + Owner-Checkpoint | 3 tasks | 7 files |
 | Phase 06.5 P10 | 1 Sitzung | 4 tasks | 7 files |
+| Phase 06.6 P01 | 7min | 3 tasks | 29 files |
 
 ## Decisions
 
@@ -993,3 +994,4 @@ bereits existiert).
 - [Phase 06.5-09]: D6.5-19: Grabstein behält Inhalt, Rückholen stellt alles wieder her (Server v27, Probe 23/23)
 - [Phase 06.5-10]: D6.5-20: Geräte mit MasterToken melden sich im Geräteregister (kein _isMaster-Abbruch im Heartbeat); Gerätestand älter als 30 s oder offline gilt als unbekannt
 - [Phase 06.5-10]: Start wartet höchstens 2 s auf die Netzkette und zeigt dann den lokalen Stand; Flush und loadPatients mit Neuer-lokal-Prüfung, Busy-Guard (gemeinsamer Folgelauf) und CCP-Guard
+- [Phase 06.6]: 06.6-01: Bundle-ID de.gaborszeman.argus vor cap add gesetzt; Package.swift-Gate prüft die reale CLI-Ausgabe (CapacitorApp, @capacitor/app); DEVELOPMENT_TEAM-Gate in tests/native.test.cjs ab sofort aktiv — cap add schreibt die ID in die pbxproj (Pitfall 11); CLI 8.5.3 schreibt kein Literal capacitor-app; T-06.6-07 (öffentliches Repo)
