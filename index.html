@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.34.2';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.34.3';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.34.3': [
+    'Schnellmenü nach dem Anlegen bleibt offen: Prio, TQ und Foto lassen sich nacheinander setzen; geschlossen wird mit „Nächsten Patienten erfassen“.',
+    'Verwerfen und Zurückholen werden jetzt immer bestätigt.'
+  ],
   '0.34.2': [
     'Rückholen stellt einen verworfenen Patienten jetzt mit allen Eingaben wieder her — auch Foto und laufenden Tourniquet-Timer.',
     'Funkspruch: „CCP Anton, Marktplatz, 14:32 — …“ — der Ort steht ohne doppeltes „CCP“ in der Meldung; die Demo-CCPs der Schulung heißen jetzt Marktplatz, Bahnhof usw.',
@@ -4977,28 +4981,21 @@ document.addEventListener("click",async function(e){
   if(a==="noop"){ return; }   /* fängt Klicks auf den Pop-up-Korpus ab (kein Schließen) */
   if(a==="capprio"){
     var lcp=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
-    if(lcp){ lcp.prio=!lcp.prio; state.capPopup=false; await savePatient(lcp); await loadPatients(); render(); toast(pno(lcp)+(lcp.prio?" als Prio markiert":" Prio entfernt")); }
+    if(lcp){ lcp.prio=!lcp.prio; await savePatient(lcp); await loadPatients(); render(); toast(pno(lcp)+(lcp.prio?" als Prio markiert":" Prio entfernt")); }
     return;
   }
   if(a==="captq"){
     var lct=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
-    if(lct){ lct.tqStart=lct.tqStart?null:nowMs(); state.capPopup=false; await savePatient(lct); await loadPatients(); render(); toast(pno(lct)+(lct.tqStart?" — TQ-Timer gestartet":" — TQ-Timer gestoppt")); }
+    if(lct){ lct.tqStart=lct.tqStart?null:nowMs(); await savePatient(lct); await loadPatients(); render(); toast(pno(lct)+(lct.tqStart?" — TQ-Timer gestartet":" — TQ-Timer gestoppt")); }
     return;
   }
   if(a==="capdiscard"){
-    state.capPopup=false;
     var lcd=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
     if(!lcd){ toast("Kein Patient zum Verwerfen"); render(); return; }
-    /* Hat der Patient schon Eingaben? Dann sicherheitshalber bestätigen lassen.
-     * Frisch & leer (typischer Fehltipp) → sofort verwerfen. */
-    var hasData = lcd.name||lcd.notes||lcd.moi||lcd.injury||lcd.photo||lcd.tqStart||lcd.ready||
-      (lcd.inj&&lcd.inj.length)||
-      (lcd.vit&&(lcd.vit.af||lcd.vit.spo2||lcd.vit.hf||lcd.vit.rr||lcd.vit.avpu||lcd.vit.pain))||
-      (lcd.tx&&Object.keys(lcd.tx).length);
-    if(hasData){
-      var okv=await confirmModal("Patient "+pno(lcd)+" verwerfen?\n\nEr verschwindet aus allen Listen. Der MasterMedic kann ihn mit allen Eingaben zurückholen (Hauptmenü → Abgleich).","Verwerfen");
-      if(!okv) return;
-    }
+    /* Verwerfen IMMER bestätigen (Owner 2026-10-17) — auch frisch angelegte Patienten. */
+    var okv=await confirmModal("Patient "+pno(lcd)+" verwerfen?\n\nEr verschwindet aus allen Listen. Der MasterMedic kann ihn mit allen Eingaben zurückholen (Hauptmenü → Abgleich).","Verwerfen");
+    if(!okv) return;   /* Abbrechen: Schnellmenü bleibt offen */
+    state.capPopup=false;
     /* Phase 6.5 (D6.5-05): Grabstein statt Löschen — wandert über die normale Speicher-Naht
      * (lokal sofort, Upload im Hintergrund/Flush) und kann offline nicht wiederauferstehen. */
     var dt=stampNow(), ddev=deviceNoSync();
@@ -5012,6 +5009,8 @@ document.addEventListener("click",async function(e){
     var ud=state.lastDiscardedId?_tombs.find(function(p){return p.id===state.lastDiscardedId;}):null;
     if(!ud && state.lastDiscardedId){ try{ ud=await sGet("ccp_pat_"+state.lastDiscardedId); }catch(e){} }
     if(!ud){ state.lastDiscardedId=null; render(); return; }
+    var oku=await confirmModal("Patient "+pno(ud)+" zurückholen?\n\nEr kommt mit allen Eingaben zurück.","Zurückholen");
+    if(!oku) return;
     await restoreTomb(ud);
     state.lastDiscardedId=null; state.lastCreatedId=ud.id;
     await loadPatients(); render(); toast("Patient "+pno(ud)+" mit allen Eingaben zurückgeholt");
@@ -5181,8 +5180,7 @@ document.addEventListener("change",async function(e){
     toast("Foto wird verarbeitet…");
     try{
       var d2=await resizePhoto(f2,640,0.5);
-      lcp.photo=d2;
-      state.capPopup=false;   /* Option gewählt → Pop-up schließen */
+      lcp.photo=d2;   /* Schnellmenü bleibt offen (Owner 2026-10-17): mehrere Sofort-Optionen nacheinander */
       await savePatient(lcp);
       render();toast("Foto gespeichert ✓");
     }catch(err){toast("Foto fehlgeschlagen");}

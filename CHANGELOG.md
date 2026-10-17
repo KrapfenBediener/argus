@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.34.3 — 2026-10-17
+**UAT-Nachbesserung (Owner)**
+- Schnellmenü nach dem Anlegen bleibt nach Prio/TQ/Foto offen; Schließen über „Nächsten Patienten erfassen“, „öffnen“, Verwerfen oder Tipp daneben.
+- Verwerfen wird immer bestätigt (auch frisch angelegte Patienten); Zurückholen in der Erfassung wird bestätigt.
+
 ## v0.34.2 — 2026-10-17
 **Grabstein behält Inhalt, Funkspruch-Ort, Gerätezeile, Verbindungs-Härtung (Owner-UAT)**
 - **Benötigt Migration 0027** für den Grabstein-Teil (ohne sie bleibt der Server-Grabstein bei der alten Hülle; die App läuft weiter, auch bei Schema 0/25/26).
