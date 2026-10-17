@@ -109,7 +109,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.34.4';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.34.5';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -139,6 +139,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.34.5': [
+    'Online bekommen neue Patienten wieder die fortlaufende Nummer ohne Gerätekennung — auch wenn direkt nach dem Anlegen Prio, TQ oder Foto gesetzt werden.'
+  ],
   '0.34.4': [
     'Laufende Patientennummern bleiben fortlaufend — Neustarts und schwaches Netz verbrauchen keine Nummern mehr.'
   ],
@@ -2883,7 +2886,13 @@ function resNumRestore(){
     else _nextReserved={ccp:_ccpId,num:n};
   }catch(e){}
 }
-function prefetchNum(force){
+/* Einmaliger, nicht stapelnder Neuversuch der Reservierung (0.34.5). */
+var _prefetchTimer = null;
+function prefetchRetryLater(ms){
+  if(_prefetchTimer) return;
+  _prefetchTimer=setTimeout(function(){ _prefetchTimer=null; try{ prefetchNum(true); }catch(e){} }, ms);
+}
+function prefetchNum(force, used){
   if(_training || !_ccpId) return;
   if(!_nextReserved || _nextReserved.ccp!==_ccpId) resNumRestore();   /* App-Neustart: gemerkte Reservierung weiterverwenden */
   if(_nextReserved && _nextReserved.ccp===_ccpId) return;
@@ -2905,18 +2914,24 @@ function prefetchNum(force){
     /* Ab Migration 0028 (Schema 28) idempotent je Gerät: dieselbe Nummer erneut, bis ein Patient sie trägt.
      * Sonst wie 0.34.3 (argus_claim_nums, verbraucht bei jedem erfolgreichen Aufruf eine Nummer). */
     var devAt=deviceNoSync();
+    var rargs={p_ccp_id:ccpAt,p_dev:devAt};
+    if(_schemaV>=29 && used>=1) rargs.p_used=used;   /* 0029: soeben verbrauchte Nummer melden → sofort die nächste, auch vor dem Upload */
     var call = (_schemaV>=28 && devAt>=1)
-      ? client.rpc('argus_reserve_num',{p_ccp_id:ccpAt,p_dev:devAt})
+      ? client.rpc('argus_reserve_num',rargs)
       : client.rpc('argus_claim_nums',{p_ccp_id:ccpAt,p_count:1});
     qt(call).then(function(r){
       if(_prefetchingSince===mySince) _prefetching=false;
       var d=r?r.data:null;
-      if(!(d && !d.error && d.start)){ backoff(PREFETCH_BACKOFF_MS); return; }
+      if(!(d && !d.error && d.start)){ backoff(PREFETCH_BACKOFF_MS); prefetchRetryLater(PREFETCH_BACKOFF_MS+200); return; }
       if(_ccpId!==ccpAt) return;
-      if(d.reused && reservedTaken(d.start)){ backoff(1500); return; }   /* Patient mit dieser Nummer ist lokal da, aber noch nicht hochgeladen → gleich erneut fragen */
+      if(d.reused && reservedTaken(d.start)){ backoff(1500); prefetchRetryLater(1600); return; }   /* echter Neuversuch statt nur Vormerkung (0.34.5) */   /* Patient mit dieser Nummer ist lokal da, aber noch nicht hochgeladen → gleich erneut fragen */
       _prefetchRetryAt=0;
-      if(!_nextReserved){ _nextReserved={ccp:ccpAt,num:d.start}; resNumSave(ccpAt,d.start); try{ render(); }catch(e){} }
-    }, function(){ if(_prefetchingSince===mySince) _prefetching=false; backoff(PREFETCH_BACKOFF_MS); });
+      if(!_nextReserved){
+        _nextReserved={ccp:ccpAt,num:d.start}; resNumSave(ccpAt,d.start);
+        /* Kein Neuaufbau, solange Kamera/Dateiauswahl offen ist (sonst geht das Foto verloren). */
+        if(!(_filePickerOpen && nowMs()-_filePickerOpen<180000)){ try{ render(); }catch(e){} }
+      }
+    }, function(){ if(_prefetchingSince===mySince) _prefetching=false; backoff(PREFETCH_BACKOFF_MS); prefetchRetryLater(PREFETCH_BACKOFF_MS+200); });
   }catch(e){ _prefetching=false; backoff(PREFETCH_BACKOFF_MS); }
 }
 /* ── Nummernvergabe: fortlaufend online, Gerätenummer NUR offline (2026-10-14, Rev. 3) ──
@@ -2970,7 +2985,7 @@ async function addPatient(cat){
   var num, ccpLabel;
   state.lastDiscardedId=null;
   if(!_training && _nextReserved && _nextReserved.ccp===_ccpId){
-    num=_nextReserved.num; _nextReserved=null; ccpLabel=_ccpKennung;          /* fortlaufende Online-Nummer, kein Suffix */
+    num=_nextReserved.num; _nextReserved=null; ccpLabel=_ccpKennung; var _usedNum=num;          /* fortlaufende Online-Nummer, kein Suffix */
     resNumClear(_ccpId);                                                     /* Spiegel löschen: Nummer ist verbraucht */
   }else{
     var dev=_training?0:deviceNoSync();
@@ -2989,10 +3004,10 @@ async function addPatient(cat){
   patients.push(normalize(p));          /* sofort im Bestand sichtbar, ohne Netz */
   if(!p.training && _ccpId){            /* Hintergrund-Upload — bewusst NICHT awaiten */
     var cl=sb();
-    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error){ confirmUpload(p.id, irow.updated, !!irow.fts); if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } } else if(r && r.error) noteSchemaError(r.error); }, function(){}); }catch(e){} }
+    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error){ confirmUpload(p.id, irow.updated, !!irow.fts); } else if(r && r.error) noteSchemaError(r.error); if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } }, function(){ if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } }); }catch(e){} }
   }
   /* nächste Online-Nummer vorab holen: ab Schema 28 erst NACH dem Upload (Server-Reservierung gilt als verbraucht, sobald der Patient dort liegt) */
-  if(_schemaV<28){ try{ prefetchNum(); }catch(e){} }
+  if(_schemaV<28 || _schemaV>=29){ try{ prefetchNum(true, (typeof _usedNum!=='undefined')?_usedNum:0); }catch(e){} }   /* ab 0029: sofort, mit verbrauchter Nummer */
   return p;
 }
 /* Upload-Bestätigung (Bugfix 2026-10-16, Feedback PP Einsatz „Sofort-Optionen
@@ -5023,7 +5038,7 @@ document.addEventListener("click",async function(e){
     return;
   }
   if(a==="capdirecttoggle"){ state.capDirect=!state.capDirect; render(); return; }
-  if(a==="capnext"){ state.capPopup=false; render(); return; }
+  if(a==="capnext"){ state.capPopup=false; try{ prefetchNum(true); }catch(e){} render(); return; }
   if(a==="noop"){ return; }   /* fängt Klicks auf den Pop-up-Korpus ab (kein Schließen) */
   if(a==="capprio"){
     var lcp=state.lastCreatedId?patients.find(function(p){return p.id===state.lastCreatedId;}):null;
@@ -5635,7 +5650,7 @@ setInterval(function(){ try{ deviceHeartbeat(); }catch(e){} }, HB_INTERVAL_MS);
 setInterval(function(){ try{ pollDevices(); }catch(e){} }, 10000);
 /* B7 (Plan 06.5-10): Schema-Re-Probe — wurde die Migration erst nach dem App-Start eingespielt (oder lief die Probe
  * im Funkloch ins Leere), bliebe _schemaV sonst bis zum nächsten Neustart zu niedrig. Alle 3 min, solange v<28 und Verbindung vermutet. */
-setInterval(function(){ try{ if(_schemaV<28 && netLikelyUp() && !document.hidden && !_revokedLocked && sb() && localStorage.getItem('argus_jwt')) probeSchema(1); }catch(e){} }, 180000);
+setInterval(function(){ try{ if(_schemaV<29 && netLikelyUp() && !document.hidden && !_revokedLocked && sb() && localStorage.getItem('argus_jwt')) probeSchema(1); }catch(e){} }, 180000);
 /* Nachzügler (Phase 6.5): nur solange fremde/abgeschlossene _dirty-Patienten lokal liegen (_lateN). */
 setInterval(function(){ try{ if(_lateN>0) flushLatePatients(); }catch(e){} }, 60000);
 /* Lokale Löschfristen (alle 5 min) + gebündeltes Herkunftsprotokoll (höchstens 1/min). */

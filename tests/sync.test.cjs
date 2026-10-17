@@ -415,7 +415,7 @@ test('Verbindungs-Härtung: CCP-Guard, Flush-Prüfung, Start-Timeouts, Schema-Re
   assert.ok(/qt\(client\.rpc\('argus_close_einsatz'/.test(extractFunction(script, 'flushPendingClose')), 'B3: flushPendingClose mit qt');
   assert.ok(/qt\(client\.rpc\('argus_claim_device'/.test(extractFunction(script, 'ensureDeviceNo')), 'B3: Geräte-Claim mit qt');
   assert.ok(/qt\(client\.rpc\('argus_late_push'/.test(extractFunction(script, 'flushLatePatients')), 'B3: Nachzügler-RPC mit qt');
-  assert.ok(/setInterval\(function\(\)\{[^]*?_schemaV<28[^]*?probeSchema\(1\)[^]*?\},\s*180000\)/.test(script), 'B7: Schema-Re-Probe alle 3 min bis v>=28');
+  assert.ok(/setInterval\(function\(\)\{[^]*?_schemaV<29[^]*?probeSchema\(1\)[^]*?\},\s*180000\)/.test(script), 'B7: Schema-Re-Probe alle 3 min bis v>=29 (0029)');
 });
 
 test('leaveText: Dialogtext mit Gerätenummer, offenen Patienten und MasterMedic-Hinweis', { skip: skipUnless('06.5-05', 'leaveText') }, () => {
@@ -535,4 +535,21 @@ test('Reservierungs-Spiegel argus_resnum_<ccpId>: gespeichert, beim Anlegen gel�
   const add = extractFunction(script, 'addPatient');
   assert.ok(/resNumClear\(/.test(add), 'addPatient muss den Spiegel löschen');
   assert.ok(/_schemaV\s*<\s*28/.test(add) && /prefetchNum\(true\)/.test(add), 'ab Schema 28: nächste Nummer erst nach dem Upload');
+});
+
+/* ---------- 0.34.5: Nummern-Reservierung mit verbrauchter Nummer (Migration 0029) ---------- */
+test('Migration 0029: argus_reserve_num mit p_used, search_path, Row-Lock, v:29', () => {
+  const sql = fs.readFileSync(path.join(ROOT, 'supabase/migrations/0029_nummer_reservierung_verbraucht.sql'), 'utf8');
+  assert.ok(/create or replace function public\.argus_reserve_num\(p_ccp_id uuid, p_dev int, p_used int default null\)/.test(sql));
+  assert.ok(/set search_path to 'public'/.test(sql));
+  assert.ok(/for update/.test(sql));
+  assert.ok(/p_used is null or p_used <> v_res/.test(sql), 'verbrauchte Reservierung wird nicht wiederverwendet');
+  assert.ok(/'v',\s*29/.test(sql));
+  assert.ok(!/create policy|alter policy|drop policy/i.test(sql), 'keine RLS-Änderung');
+});
+test('Client 0.34.5: Reservierung sofort mit verbrauchter Nummer, echter Neuversuch, kein Render bei offener Kamera', () => {
+  assert.ok(/rargs\.p_used=used/.test(script), 'p_used wird ab Schema 29 gesendet');
+  assert.ok(/function prefetchRetryLater\(/.test(script), 'Neuversuch per Timer');
+  assert.ok(/prefetchNum\(true, \(typeof _usedNum!=='undefined'\)\?_usedNum:0\)/.test(script), 'addPatient lädt sofort nach');
+  assert.ok(/a==="capnext"\)\{ state\.capPopup=false; try\{ prefetchNum\(true\); \}/.test(script), 'Schließen des Schnellmenüs lädt nach');
 });

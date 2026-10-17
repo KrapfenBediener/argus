@@ -99,6 +99,7 @@ supabase/migrations/0025_sync_patienten.sql                   Sync-Fundament Pat
 supabase/migrations/0026_geraete_nachfrist_herkunft.sql    Gerätestatus, Nachfrist, Herkunft (Phase 6.5): Geräteregister ccp_devices (nur per RPC beschreibbar, Lesen nur eigenes Präsidium/Master) mit argus_device_heartbeat/-leave/-mark; Nachfrist-RPC argus_late_push (Nachzügler bis 24 h nach Abschluss, ohne RLS-Lockerung, über den Merge-Trigger); Herkunft in governance_log.detail (argus_log_herkunft); argus_governance_protokoll liefert zusätzlich devices und herkunft (Export-Abschnitt Datenherkunft); argus_run_purge neu gefasst (enthält wieder die Token-Hygiene aus 0006 und löscht ccp_devices); argus_server_time → v:26. Benötigt 0025, idempotent.
 supabase/migrations/0027_grabstein_behaelt_inhalt.sql      Grabstein behält Inhalt (Phase 6.5, Owner-Entscheid D6.5-19): argus_patients_merge ohne Grabstein-Hülle — Verwerfen setzt nur deleted_at/by/dev (fts.del), Name, Foto, Tourniquet, Prio und Status bleiben; Rückholen stellt alles wieder her; Grabstein-Schutz unverändert (nur ein jüngeres fts.del hebt ihn auf); argus_server_time → v:27. Benötigt 0025, keine RLS-Änderung, idempotent.
 supabase/migrations/0028_nummer_reservierung_je_geraet.sql Idempotente Nummern-Reservierung je Gerät (Phase 6.5, D6.5-21): Spalte ccp_devices.reserved_num + RPC argus_reserve_num(p_ccp_id, p_dev) — dasselbe Gerät bekommt dieselbe Nummer erneut, solange kein Patient sie trägt (Neustart, Timeout und schwaches Netz verbrauchen keine Nummern mehr); argus_claim_nums bleibt für ältere App-Stände; argus_server_time → v:28. Benötigt 0022 und 0026, keine RLS-Änderung, idempotent.
+supabase/migrations/0029_nummer_reservierung_verbraucht.sql  Nachbesserung zu 0028: argus_reserve_num(p_ccp_id, p_dev, p_used default null) — das Gerät meldet die soeben verbrauchte Nummer und erhält sofort die nächste (auch vor dem Upload des Patienten); argus_server_time → v:29. Ersetzt die 2-Parameter-Fassung, keine RLS-Änderung, idempotent.
 ```
 
 Audit über alle Dateien — jede Server-Abhängigkeit, wo sie vorkommt,
@@ -178,7 +179,7 @@ done
 ```
 
 Alternativ jede Datei einzeln im SQL-Editor (Supabase Studio) ausführen —
-gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023 → 0024 → 0025 → 0026 → 0027 → 0028`. **Hinweis 0009/0011:**
+gleiche Reihenfolge: `0000 → 0001 → … → 0011 → 0012 → 0013 → 0014 → 0015 → 0016 → 0017 → 0018 → 0019 → 0020 → 0021 → 0022 → 0023 → 0024 → 0025 → 0026 → 0027 → 0028 → 0029`. **Hinweis 0009/0011:**
 Schulungs-Schwester-Präsidien werden nicht mehr von Hand angelegt — nach dem
 Anlegen der echten Präsidien (Abschnitt 8) einmalig die Provisionierung
 aufrufen (siehe dort).

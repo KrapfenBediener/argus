@@ -6,6 +6,11 @@ Frühere Stände vor Einführung der sichtbaren Version liegen in der Git-Histor
 
 ---
 
+## v0.34.5 — 2026-10-17
+**Online-Nummern ohne Gerätekennung (UAT-Befund zu 0.34.4)**
+- **Benötigt Migration 0029** (`argus_reserve_num` mit `p_used`): Das Gerät meldet die soeben verbrauchte Nummer und bekommt sofort die nächste — auch bevor der Patient hochgeladen ist. Ohne 0029 bleibt das 0.34.4-Verhalten, ergänzt um echte Neuversuche.
+- Neuversuch der Reservierung per Timer statt nur Vormerkung; Nachladen beim Schließen des Schnellmenüs; kein Neuaufbau der Ansicht bei offener Kamera.
+
 ## v0.34.4 — 2026-10-17
 **Fortlaufende Patientennummern (Owner-UAT: 10 Patienten, angezeigte Nr. 63)**
 - **Benötigt Migration 0028** (`argus_reserve_num`, `ccp_devices.reserved_num`); ohne sie verhält sich die App wie 0.34.3, nur mit Backoff.
