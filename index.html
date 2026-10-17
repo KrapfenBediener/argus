@@ -1692,7 +1692,7 @@ async function probeSchema(n){
       }
     }
   }catch(e){}
-  _schemaProbing=false;
+  finally{ _schemaProbing=false; }
 }
 /* ── Heartbeat + Geräteliste (Phase 6.5, S1, D6.5-01/-11) ──────────────────
  * Jedes Gerät im aktiven CCP meldet sich im Vordergrund alle HB_INTERVAL_MS
@@ -1749,7 +1749,7 @@ async function pollDevices(){
     var d=await fetchDevices();
     if(d){ _devices=d; _devicesAt=nowMs(); }
   }catch(e){}
-  _devPollBusy=false;
+  finally{ _devPollBusy=false; }
 }
 function two(n){return (n<10?"0":"")+n;}
 /* ── Local-First-Netzhelfer (2026-10-14) ──
@@ -1760,7 +1760,8 @@ function two(n){return (n<10?"0":"")+n;}
 function netLikelyUp(){ try{ return navigator.onLine!==false && _netUp!==false; }catch(e){ return true; } }
 function netSignal(ms){ try{ var c=new AbortController(); setTimeout(function(){ try{c.abort();}catch(e){} }, ms||2500); return c.signal; }catch(e){ return undefined; } }
 /* Query-Builder mit Abbruch-Timeout versehen (no-op, falls die Lib das nicht kann). */
-function qt(b){ try{ var s=netSignal(); return (b && s && typeof b.abortSignal==='function') ? b.abortSignal(s) : b; }catch(e){ return b; } }
+/* ms: Standard 2,5 s (Lesen/kleine RPCs). Schreibende Aufrufe mit Nutzlast (Patientenzeile mit Foto, Nachzügler-Block) bekommen mehr, sonst bräche der Upload auf schwachem Netz dauerhaft ab. */
+function qt(b, ms){ try{ var s=netSignal(ms); return (b && s && typeof b.abortSignal==='function') ? b.abortSignal(s) : b; }catch(e){ return b; } }
 /* Patienten-Nummer IMMER mit CCP-Kennung (Owner 2026-06-13): „A-12" wird so
  * auch auf die Haut geschrieben — beim späteren Zusammenführen muss niemand
  * nachträglich Buchstaben ergänzen (Arbeitsaufwand + Fehlerquelle). */
@@ -2080,7 +2081,7 @@ async function loadOpenCcpCount(){
   var c=sb();
   if(!c||!_praesidiumId){ _openCcpCount=0; return; }
   try{
-    var r=await c.from('ccps').select('id',{count:'exact',head:true}).eq('praesidium_id',_praesidiumId).is('closed_at',null);
+    var r=await qt(c.from('ccps').select('id',{count:'exact',head:true}).eq('praesidium_id',_praesidiumId).is('closed_at',null));
     _openCcpCount=(typeof r.count==='number')?r.count:-1;
   }catch(e){ _openCcpCount=-1; }
 }
@@ -2239,7 +2240,7 @@ async function checkClosedEinsatz(){
   if(!_ccpId || _training) return false;
   var client=sb(); if(!client || navigator.onLine===false) return false;
   try{
-    var r=await client.from('ccps').select('*').eq('id',_ccpId).maybeSingle();
+    var r=await qt(client.from('ccps').select('*').eq('id',_ccpId).maybeSingle());
     if(r && r.data && isCcpClosedRow(r.data)){ handleRemoteClose(r.data); return true; }
   }catch(e){}
   return false;
@@ -2391,7 +2392,7 @@ async function flushPendingClose(){
   if(pc.drop){ try{ localStorage.removeItem('argus_pending_close'); }catch(e){} return; }
   var client=sb(); if(!client || navigator.onLine===false) return;
   try{
-    var r=await client.rpc('argus_close_einsatz',{p_ccp_id:pc.ccpId,p_typ:pc.typ});
+    var r=await qt(client.rpc('argus_close_einsatz',{p_ccp_id:pc.ccpId,p_typ:pc.typ}));
     if(r && !r.error){
       try{ localStorage.removeItem('argus_pending_close'); }catch(e2){}
       if(r.data && !r.data.error) toast("Einsatz-Abschluss übertragen");
@@ -2469,7 +2470,7 @@ async function flushLatePatients(){
         var up=0;
         for(var a=0;a<list.length;a++){
           var pa=list[a], arow=null, pushed=false;
-          try{ arow=patToRow(pa); delete arow.locked_by; delete arow.locked_at; var ur=await client.from('patients').upsert(arow); if(!ur.error) pushed=true; else noteSchemaError(ur.error); }catch(e){}
+          try{ arow=patToRow(pa); delete arow.locked_by; delete arow.locked_at; var ur=await qt(client.from('patients').upsert(arow), 12000); if(!ur.error) pushed=true; else noteSchemaError(ur.error); }catch(e){}
           if(pushed){ await confirmUpload(pa.id, arow.updated, !!arow.fts, 'nachgereicht'); up++; handled++; }
         }
         if(up>0) toast(up===1 ? "1 Patient nachgereicht" : (up+" Patienten nachgereicht"));
@@ -2495,7 +2496,7 @@ async function flushLatePatients(){
         var sent=0, stop=false;
         for(var c=0;c<chunks.length && !stop;c++){
           var cn=chunks[c], res=null;
-          try{ res=await client.rpc('argus_late_push',{p_ccp_id:ccpId, p_dev:dev, p_rows:cn.map(function(x){return x.row;}), p_kuerzel:operator||''}); }catch(e){ stop=true; break; }
+          try{ res=await qt(client.rpc('argus_late_push',{p_ccp_id:ccpId, p_dev:dev, p_rows:cn.map(function(x){return x.row;}), p_kuerzel:operator||''}), 15000); }catch(e){ stop=true; break; }
           var d=res?res.data:null;
           if(!d || res.error || d.error){ stop=true; break; }   /* Netz/„Gerät unbekannt"/„Nachfrist abgelaufen" → behalten, später erneut */
           var okN=d.ok|0, skN=d.skipped|0, one=[];
@@ -2503,7 +2504,7 @@ async function flushLatePatients(){
           else if(cn.length===1) one=[okN>=1];
           else{   /* gemischtes Ergebnis → einzeln nachprüfen, damit nur wirklich Übertragene lokal entfallen */
             for(var e1=0;e1<cn.length;e1++){
-              var r1=null; try{ r1=await client.rpc('argus_late_push',{p_ccp_id:ccpId, p_dev:dev, p_rows:[cn[e1].row], p_kuerzel:operator||''}); }catch(e){ r1=null; }
+              var r1=null; try{ r1=await qt(client.rpc('argus_late_push',{p_ccp_id:ccpId, p_dev:dev, p_rows:[cn[e1].row], p_kuerzel:operator||''}), 15000); }catch(e){ r1=null; }
               var d1=r1?r1.data:null;
               one.push(!!(d1 && !d1.error && (d1.ok|0)>=1));
             }
@@ -2581,7 +2582,7 @@ async function runLocalPurge(){
       if(!_ccpId && !_training) patients=patients.filter(function(q){return q.demo||q.training;});   /* ohne CCP lädt der Offline-Pfad alles Lokale */
     }
   }catch(e){}
-  _purgeBusy=false;
+  finally{ _purgeBusy=false; }
   try{ await showLateLostNotice(); }catch(e){}
 }
 /* ── Herkunftsprotokoll (Phase 6.5, S7, D6.5-09) ───────────────────────────
@@ -2635,15 +2636,24 @@ async function flushHerkunft(){
       try{ localStorage.setItem('argus_herkunft_q', JSON.stringify(q1)); }catch(e){}
     }
   }catch(e){}
-  _herkBusy=false;
+  finally{ _herkBusy=false; }
 }
 /* Offline-Robustheit: lokal noch nicht synchronisierte Patienten in die
  * Cloud-Liste einmischen und — wenn online — nachschieben. Konfliktlösung per
  * 'updated'-Zeitstempel (jüngere Version gewinnt). So überschreibt ein Reconnect
  * keine offline erfassten/bearbeiteten Patienten mehr. */
+/* B4 (Plan 06.5-10): Wurde der Patient seit dem Lesen (updated=baseline) lokal weiterbearbeitet, liefert
+ * dies den neueren lokalen Datensatz — der gelesene/zusammengeführte Stand darf ihn nie überschreiben,
+ * und die _dirty-Markierung bleibt, bis die neuere Bearbeitung hochgeladen ist. Sonst null. */
+async function localNewerThan(id, baseline){
+  try{ var cur=await sGet("ccp_pat_"+id); if(cur && (cur.updated||0)>(baseline||0)) return cur; }catch(e){}
+  return null;
+}
 async function flushPendingPatients(arr, client, ccpIds){
   var byId={}; arr.forEach(function(p){byId[p.id]=p;});
   var keys=await sList("ccp_pat_");
+  var dead=false;   /* Netz tot (Timeout/Abbruch): restliche Uploads dieses Laufs auslassen — bleiben _dirty, nächster Lauf */
+  function netDead(r){ return !!(r && r.error && (r.status===0 || !r.error.code)); }
   for(var i=0;i<keys.length;i++){
     var lp=await sGet(keys[i]);
     if(!lp || lp.demo || lp.training || !lp._dirty) continue;
@@ -2655,85 +2665,59 @@ async function flushPendingPatients(arr, client, ccpIds){
       var m=mergeGroups(lp, cloudP, FGROUPS); m.ccpId=lp.ccpId||cloudP.ccpId;
       var won=Object.keys(FGROUPS).some(function(g){return groupSig(m,FGROUPS[g])!==groupSig(cloudP,FGROUPS[g]);}) || (m.deletedAt||null)!==(cloudP.deletedAt||null) || ((m.fts.ack&&m.fts.ack.t)||0)>((cloudP.fts&&cloudP.fts.ack&&cloudP.fts.ack.t)||0);
       if(!won){   /* lokal hat nichts Neues → Serverstand übernehmen, nichts hochladen */
+        var nw0=await localNewerThan(lp.id, lp.updated);
+        if(nw0){ byId[lp.id]=normalize(nw0); continue; }   /* inzwischen weiterbearbeitet → bleibt dirty */
         delete m._dirty; m._sig=groupSigs(m, FGROUPS); await sSet("ccp_pat_"+m.id, m);
         byId[m.id]=normalize(m);
         continue;
       }
       var mpushed=false, mrow=null;
-      try{
-        mrow=patToRow(m); delete mrow.locked_by; delete mrow.locked_at;
-        var mr=await client.from('patients').upsert(mrow);
-        if(!mr.error) mpushed=true; else noteSchemaError(mr.error);
-      }catch(e){}
+      if(!dead){
+        try{
+          mrow=patToRow(m); delete mrow.locked_by; delete mrow.locked_at;
+          var mr=await qt(client.from('patients').upsert(mrow), 12000);
+          if(!mr.error) mpushed=true; else { noteSchemaError(mr.error); if(netDead(mr)) dead=true; }
+        }catch(e){ dead=true; }
+      }
       m._sig=groupSigs(m, FGROUPS);
+      var nw1=await localNewerThan(m.id, lp.updated);
+      if(nw1){ byId[m.id]=normalize(nw1); continue; }   /* während des Hochladens weiterbearbeitet: neuere Bearbeitung nicht überschreiben */
       if(mpushed){ queueHerkunft(m.ccpId, herkWeg(lp), [m.id]); delete m._dirty; if(mrow.fts) clearPending(m.fts, mrow.updated); } else { m._dirty=true; }
       await sSet("ccp_pat_"+m.id, m);
       byId[m.id]=normalize(m);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
       continue;
     }
     var pushed=false, lrow=null;
-    try{ lrow=patToRow(lp); delete lrow.locked_by; delete lrow.locked_at; var r=await client.from('patients').upsert(lrow); if(!r.error) pushed=true; else noteSchemaError(r.error); }catch(e){}
+    if(!dead){
+      try{ lrow=patToRow(lp); delete lrow.locked_by; delete lrow.locked_at; var r=await qt(client.from('patients').upsert(lrow), 12000); if(!r.error) pushed=true; else { noteSchemaError(r.error); if(netDead(r)) dead=true; } }catch(e){ dead=true; }
+    }
+    var nw2=await localNewerThan(lp.id, lp.updated);
+    if(nw2){ byId[lp.id]=normalize(nw2); continue; }   /* während des Hochladens weiterbearbeitet */
     if(pushed){ queueHerkunft(lp.ccpId||_ccpId, herkWeg(lp), [lp.id]); delete lp._dirty; if(lrow.fts) clearPending(lp.fts||{}, lrow.updated); await sSet("ccp_pat_"+lp.id, lp); }
     byId[lp.id]=normalize(lp);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
   }
   arr.length=0;
   Object.keys(byId).forEach(function(k){ arr.push(byId[k]); });
 }
-async function loadPatients(){
-  var client=sb();
-  if(client && _ccpId && !_training && netLikelyUp()){   /* Training: rein lokal. Bekannt offline → sofort lokal (kein Netz-Hänger). */
-    try{ await ensureDeviceNo(client); }catch(e){}   /* eigene Gerätenummer sichern, SOLANGE online (für offline danach) */
-    try{
-      var ccpIds=[_ccpId];
-      if(_mergeGroupId){
-        var g=await qt(client.from('ccps').select('id').eq('merge_group_id',_mergeGroupId));
-        if(g.data && g.data.length>1){ ccpIds=g.data.map(function(c){return c.id;}); }
-        else { /* allein in der Gruppe → Gruppe selbstheilend verlassen */
-          _mergeGroupId=null;
-          try{await client.from('ccps').update({merge_group_id:null,merged:false}).eq('id',_ccpId);}catch(e2){}
-        }
-      }
-      var realMerged = ccpIds.length>1;
-      var q = realMerged
-        ? await qt(client.from('patients').select('*').in('ccp_id',ccpIds))
-        : await qt(client.from('patients').select('*').eq('ccp_id',_ccpId));
-      if(!q.error && q.data){
-        var arr=q.data.map(patFromRow);
-        await flushPendingPatients(arr, client, ccpIds);
-        /* Phase 6.5: Grabsteine (verworfene Patienten) nie in die Patientenliste;
-         * CCP-Verbund für den Offline-Filter merken. */
-        _tombs=arr.filter(function(p){return p.deletedAt||p.status==='verworfen';});
-        arr=arr.filter(function(p){return !(p.deletedAt||p.status==='verworfen');});
-        _tombs.forEach(function(tq){ tq._sig=groupSigs(tq, FGROUPS); });   /* Rückholen stempelt nur, was sich wirklich ändert */
-        /* Eine lokale, nicht-dirty Kopie eines (fremd) verworfenen Patienten mit dem Grabstein-Stand
-         * überschreiben — der Patient bleibt offline unsichtbar (Inhalt bleibt für das Rückholen, D6.5-19). */
-        for(var it=0;it<_tombs.length;it++){
-          try{
-            var tb=_tombs[it], lcp0=await sGet("ccp_pat_"+tb.id);
-            if(lcp0 && !lcp0._dirty && !lcp0.demo && !lcp0.training && !lcp0.deletedAt && lcp0.status!=='verworfen'){
-              var tcopy=JSON.parse(JSON.stringify(tb)); delete tcopy._dirty; tcopy._sig=groupSigs(tcopy, FGROUPS);
-              await sSet("ccp_pat_"+tb.id, tcopy);
-            }
-          }catch(e4){}
-        }
-        _ccpIdsKnown=ccpIds;
-        try{ var lcn=String(nowMs()); ccpIds.forEach(function(cid){ localStorage.setItem('argus_last_contact_'+cid, lcn); }); }catch(elc){}   /* Serverkontakt für die lokale Auffangfrist */
-        try{ localStorage.setItem('argus_ccp_ids_'+_ccpId, JSON.stringify(ccpIds)); }catch(e3){}
-        ccpMerged = realMerged || _demoMerged;
-        if(_demoMerged){
-          var keys2=await sList("ccp_pat_");
-          for(var i=0;i<keys2.length;i++){var pd=await sGet(keys2[i]);if(pd&&pd.demo)arr.push(normalize(pd));}
-        }
-        if(_training){
-          var keysT=await sList("ccp_pat_");
-          for(var iT=0;iT<keysT.length;iT++){var pt=await sGet(keysT[iT]);if(pt&&pt.training)arr.push(normalize(pt));}
-        }
-        arr.forEach(function(p){ p._sig=groupSigs(p, FGROUPS); });   /* sonst stempelt die erste Speicherung alle Gruppen */
-        arr.sort(function(a,b){var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);if(ca!==cb)return ca<cb?-1:1;if(a.num!==b.num)return a.num-b.num;return ccpDev(a.ccp)-ccpDev(b.ccp);});
-        patients=arr; return;
-      }
-    }catch(e){}
+/* Busy-Guard (B4, Plan 06.5-10): loadPatients läuft nie doppelt. Wer während eines Laufs aufruft, bekommt
+ * EINEN gemeinsamen Folgelauf (startet erst nach dem laufenden) — so sieht jeder Aufrufer einen Lauf, der nach
+ * seinem Aufruf begann (Aufrufer speichern oft erst und laden dann), ohne dass zwei Läufe gleichzeitig
+ * dieselben Datensätze hochladen oder überschreiben. */
+var _lpRun=null, _lpNext=null;
+function loadPatients(){
+  if(!_lpRun && !_lpNext) return _lpStart();
+  if(!_lpNext){
+    _lpNext=_lpRun.then(function(){},function(){}).then(function(){ _lpNext=null; return _lpStart(); });
   }
+  return _lpNext;
+}
+function _lpStart(){
+  var pr=_loadPatientsRun();
+  _lpRun=pr.then(function(){ _lpRun=null; }, function(e){ _lpRun=null; throw e; });
+  return _lpRun;
+}
+/* Lokaler Bestand des aktuellen CCP(-Verbunds) ohne Netz (Offline-Fallback + Start-Notfall-Anzeige). */
+async function readLocalPatients(){
   var keys=await sList("ccp_pat_");var arr=[];var tombsOff=[];
   /* Pitfall 7: Offline-Fallback zeigt nur Patienten des aktuellen CCP(-Verbunds) —
    * lokal liegen auch Nachzügler/Reste anderer CCPs. Ohne _ccpId: wie bisher. */
@@ -2748,9 +2732,76 @@ async function loadPatients(){
     if(p.deletedAt||p.status==='verworfen'){ tombsOff.push(p); continue; }
     if(!p._sig) p._sig=groupSigs(p, FGROUPS);
     arr.push(p);}}
-  _tombs=tombsOff;
   arr.sort(function(a,b){var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);if(ca!==cb)return ca<cb?-1:1;if(a.num!==b.num)return a.num-b.num;return ccpDev(a.ccp)-ccpDev(b.ccp);});
-  patients=arr;
+  return {arr:arr, tombs:tombsOff};
+}
+async function _loadPatientsRun(){
+  var client=sb();
+  /* B5: Ergebnisse gehören zu dem CCP, der beim Start galt — wechselt er währenddessen, wird nichts übernommen. */
+  var ccpAt=_ccpId, trainAt=_training;
+  function stale(){ return _ccpId!==ccpAt || _training!==trainAt; }
+  if(client && _ccpId && !_training && netLikelyUp()){   /* Training: rein lokal. Bekannt offline → sofort lokal (kein Netz-Hänger). */
+    try{ await ensureDeviceNo(client); }catch(e){}   /* eigene Gerätenummer sichern, SOLANGE online (für offline danach) */
+    if(stale()) return;
+    try{
+      var ccpIds=[ccpAt];
+      if(_mergeGroupId){
+        var g=await qt(client.from('ccps').select('id').eq('merge_group_id',_mergeGroupId));
+        if(g.data && g.data.length>1){ ccpIds=g.data.map(function(c){return c.id;}); }
+        else { /* allein in der Gruppe → Gruppe selbstheilend verlassen */
+          if(!stale()) _mergeGroupId=null;
+          try{await client.from('ccps').update({merge_group_id:null,merged:false}).eq('id',ccpAt);}catch(e2){}
+        }
+      }
+      var realMerged = ccpIds.length>1;
+      var q = realMerged
+        ? await qt(client.from('patients').select('*').in('ccp_id',ccpIds))
+        : await qt(client.from('patients').select('*').eq('ccp_id',ccpAt));
+      if(!q.error && q.data){
+        var arr=q.data.map(patFromRow);
+        await flushPendingPatients(arr, client, ccpIds);
+        if(stale()) return;   /* B5: CCP/Modus inzwischen gewechselt → Ergebnis verwerfen (kein patients/_ccpIdsKnown/argus_ccp_ids_* des alten CCP) */
+        /* Phase 6.5: Grabsteine (verworfene Patienten) nie in die Patientenliste;
+         * CCP-Verbund für den Offline-Filter merken. */
+        var tombsNew=arr.filter(function(p){return p.deletedAt||p.status==='verworfen';});
+        arr=arr.filter(function(p){return !(p.deletedAt||p.status==='verworfen');});
+        tombsNew.forEach(function(tq){ tq._sig=groupSigs(tq, FGROUPS); });   /* Rückholen stempelt nur, was sich wirklich ändert */
+        /* Eine lokale, nicht-dirty Kopie eines (fremd) verworfenen Patienten mit dem Grabstein-Stand
+         * überschreiben — der Patient bleibt offline unsichtbar (Inhalt bleibt für das Rückholen, D6.5-19). */
+        for(var it=0;it<tombsNew.length;it++){
+          try{
+            var tb=tombsNew[it], lcp0=await sGet("ccp_pat_"+tb.id);
+            if(lcp0 && !lcp0._dirty && !lcp0.demo && !lcp0.training && !lcp0.deletedAt && lcp0.status!=='verworfen'){
+              var tcopy=JSON.parse(JSON.stringify(tb)); delete tcopy._dirty; tcopy._sig=groupSigs(tcopy, FGROUPS);
+              await sSet("ccp_pat_"+tb.id, tcopy);
+            }
+          }catch(e4){}
+        }
+        if(stale()) return;
+        _tombs=tombsNew;
+        _ccpIdsKnown=ccpIds;
+        try{ var lcn=String(nowMs()); ccpIds.forEach(function(cid){ localStorage.setItem('argus_last_contact_'+cid, lcn); }); }catch(elc){}   /* Serverkontakt für die lokale Auffangfrist */
+        try{ localStorage.setItem('argus_ccp_ids_'+ccpAt, JSON.stringify(ccpIds)); }catch(e3){}
+        ccpMerged = realMerged || _demoMerged;
+        if(_demoMerged){
+          var keys2=await sList("ccp_pat_");
+          for(var i=0;i<keys2.length;i++){var pd=await sGet(keys2[i]);if(pd&&pd.demo)arr.push(normalize(pd));}
+        }
+        if(_training){
+          var keysT=await sList("ccp_pat_");
+          for(var iT=0;iT<keysT.length;iT++){var pt=await sGet(keysT[iT]);if(pt&&pt.training)arr.push(normalize(pt));}
+        }
+        if(stale()) return;   /* nach den Demo-/Trainings-Lesevorgängen erneut prüfen */
+        arr.forEach(function(p){ p._sig=groupSigs(p, FGROUPS); });   /* sonst stempelt die erste Speicherung alle Gruppen */
+        arr.sort(function(a,b){var ca=ccpBase(a.ccp),cb=ccpBase(b.ccp);if(ca!==cb)return ca<cb?-1:1;if(a.num!==b.num)return a.num-b.num;return ccpDev(a.ccp)-ccpDev(b.ccp);});
+        patients=arr; return;
+      }
+    }catch(e){}
+  }
+  var lr=await readLocalPatients();
+  if(stale()) return;
+  _tombs=lr.tombs;
+  patients=lr.arr;
 }
 function normalize(p){
   if(!p.vit)p.vit={};if(!p.tx)p.tx={};if(!p.inj)p.inj=[];
@@ -2840,7 +2891,7 @@ async function ensureDeviceNo(client){
   if(client && navigator.onLine!==false && !_deviceNoClaiming){
     _deviceNoClaiming=true;
     try{
-      var r=await client.rpc('argus_claim_device',{p_ccp_id:_ccpId});
+      var r=await qt(client.rpc('argus_claim_device',{p_ccp_id:_ccpId}));
       var d=r?r.data:null;
       if(d && !d.error && d.device){ _deviceNo=d.device; _deviceNoCcp=_ccpId; try{ await sSet('ccp_devno_'+_ccpId,d.device); }catch(e){} return _deviceNo; }
     }catch(e){}
@@ -5318,10 +5369,23 @@ setInterval(async function(){
     }
   }
 
-  /* Präsidienliste laden (für die Landingpage; schulungs_zwilling_id für Picker) */
-  if(sb()){
-    var prlAll=await sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name');
-    _praesidienList=prlAll.data||[];
+  /* Präsidienliste (für die Landingpage; schulungs_zwilling_id für Picker). B3: nie unbegrenzt warten —
+   * mit lokalem Cache vom letzten erfolgreichen Abruf: Cache sofort, Abruf im Hintergrund; ohne Cache
+   * (Erststart) nur bei vermuteter Verbindung und mit hartem Timeout. */
+  var _prlCached=false;
+  try{ var _prc=JSON.parse(localStorage.getItem('argus_praesidien_cache')||'null'); if(Array.isArray(_prc) && _prc.length){ _praesidienList=_prc; _prlCached=true; } }catch(e){}
+  if(sb() && netLikelyUp()){
+    var _prlP=(async function(){
+      try{
+        var prlAll=await qt(sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name'));
+        if(prlAll && !prlAll.error && Array.isArray(prlAll.data)){
+          _praesidienList=prlAll.data;
+          try{ localStorage.setItem('argus_praesidien_cache', JSON.stringify(prlAll.data)); }catch(e){}
+        }
+      }catch(e){}
+    })();
+    if(_prlCached){ _prlP.then(function(){ if(state.view==='praesidium'){ try{ render(); }catch(e){} } }); }
+    else await _prlP;
   }
 
   /* ── Phase-4-Migration: Altgerät ohne JWT → einmalige Code-Neueingabe ────
@@ -5356,7 +5420,7 @@ setInterval(async function(){
   if(!ensureJwtFor(_praesidiumId) && navigator.onLine && localStorage.getItem('argus_code') && !(_argusRole&&_usbnk)){
     /* 0024: fehlendes JWT online nachholen — Twin mit p_scope='schulung' */
     var _sjwt=localStorage.getItem('argus_jwt'), _sexp=localStorage.getItem('argus_jwt_exp'), _scode=localStorage.getItem('argus_code');
-    var _re=null; try{ _re=await exchangeCode(_scode, _praesidiumSchulung?'schulung':'echt'); }catch(e){}
+    var _re=null; try{ _re=await Promise.race([exchangeCode(_scode, _praesidiumSchulung?'schulung':'echt'), new Promise(function(r){ setTimeout(function(){ r(null); }, 2500); })]); }catch(e){}
     if(!(_re && _re.praesidium_id===_praesidiumId)){ try{ if(_sjwt){ localStorage.setItem('argus_jwt',_sjwt); localStorage.setItem('argus_jwt_exp',_sexp||'0'); localStorage.setItem('argus_code',_scode||''); } }catch(e){} }
   }
   if(!ensureJwtFor(_praesidiumId)){
@@ -5365,31 +5429,48 @@ setInterval(async function(){
     $("clock").textContent=new Date().toLocaleTimeString("de-DE");
     state.view='praesidium'; render(); return;
   }
-  await refreshJwtIfNeeded();
+  /* JWT still verlängern. B3: nur warten, wenn er schon abgelaufen ist — und dann höchstens 2,5 s; sonst im Hintergrund. */
+  var _jexp=parseInt(localStorage.getItem('argus_jwt_exp')||'0',10)||0;
+  if(_jexp>nowMs()){ try{ refreshJwtIfNeeded(); }catch(e){} }
+  else { await Promise.race([Promise.resolve(refreshJwtIfNeeded()).catch(function(){}), new Promise(function(r){ setTimeout(r, 2500); })]); }
   try{ probeSchema(3); }catch(e){}   /* Schema-/Uhr-Probe (D6.5-18/-07) — fire-and-forget, KEIN await */
   if(_revokedLocked) return;   /* Re-Exchange hat die Code-Sperre erkannt → init hier beenden */
   checkRevokedCode();          /* fire-and-forget (KEIN await) — der Start wartet nie auf den Re-Check */
   var storedCcp=localStorage.getItem('argus_ccp_id');
   if(storedCcp) _ccpId=storedCcp;
 
-  /* Offline gequeueter Einsatz-Abschluss? Jetzt (online) nachziehen. */
-  await flushPendingClose();
   try{ flushLatePatients(); }catch(e){}   /* Nachzügler verlassener/abgeschlossener CCPs (Hintergrund, nie blockierend) */
   /* Opportunistischer Purge-Lauf — Fallback zu pg_cron (z. B. pausiertes
    * Free-Tier-Projekt, das erst durch App-Traffic aufwacht). Fire-and-forget. */
   try{ if(sb()) sb().rpc('argus_run_purge').then(function(){},function(){}); }catch(e){}
 
-  await loadMeta();
-  refreshSchulungFlag();   /* fire-and-forget — localStorage-Wert trägt bis dahin */
-  /* Abschluss-Erkennung (a) App-Start: wurde der Einsatz abgeschlossen, während
-   * dieses Gerät weg war? → Hinweis-Modal + cleanupClosedEinsatz() (über
-   * handleRemoteClose; loadMeta()→applyMeta() prüft denselben Zustand). */
-  await checkClosedEinsatz();
-  await loadPatients();
-  try{ await ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer früh aus Speicher/Server holen → instantes Anlegen hat sie parat */
+  /* B3 (Plan 06.5-10): Die Netz-Schritte des Starts laufen als EINE Kette im Hintergrund, auf die der Start
+   * höchstens ~3 s wartet (jeder Schritt ist zusätzlich per qt() begrenzt). Im Funkloch erscheint die App
+   * dadurch mit dem lokalen Stand; die Kette rendert nach ihrem Ende nach. */
+  var _bootChain=(async function(){
+    /* Offline gequeueter Einsatz-Abschluss? Jetzt (online) nachziehen. */
+    await flushPendingClose();
+    await loadMeta();
+    refreshSchulungFlag();   /* fire-and-forget — localStorage-Wert trägt bis dahin */
+    /* Abschluss-Erkennung (a) App-Start: wurde der Einsatz abgeschlossen, während
+     * dieses Gerät weg war? → Hinweis-Modal + cleanupClosedEinsatz() (über
+     * handleRemoteClose; loadMeta()→applyMeta() prüft denselben Zustand). */
+    await checkClosedEinsatz();
+    await loadPatients();
+  })().catch(function(){});
+  var _bootCount=loadOpenCcpCount().catch(function(){});
+  var _bootDone=false;
+  await Promise.race([Promise.all([_bootChain,_bootCount]).then(function(){ _bootDone=true; }), new Promise(function(r){ setTimeout(r, 2000); })]);
+  if(!_bootDone){
+    /* Funkloch/langsames Netz: nach 2 s die App mit dem lokalen Stand zeigen (kein leerer Bildschirm),
+     * die Kette läuft weiter und rendert nach ihrem Ende nach. */
+    if(!patients.length){ try{ var _lr=await readLocalPatients(); if(!patients.length){ _tombs=_lr.tombs; patients=_lr.arr; } }catch(e){} }
+    try{ $("clock").textContent=new Date().toLocaleTimeString("de-DE"); render(); }catch(e){}
+    Promise.all([_bootChain,_bootCount]).then(function(){ try{ render(); }catch(e){} });
+  }
+  try{ await ensureDeviceNo(sb()); }catch(e){}   /* Gerätenummer früh aus Speicher/Server holen → instantes Anlegen hat sie parat (Claim: qt-begrenzt) */
   try{ prefetchNum(); }catch(e){}                /* erste Online-Nummer vorab reservieren */
   await loadChecklist();
-  await loadOpenCcpCount();
   if(_ccpId && sb()) subscribeRealtime();
   $("clock").textContent=new Date().toLocaleTimeString("de-DE");
   render();
@@ -5502,6 +5583,9 @@ setInterval(function(){
  * MasterMedic holt zusätzlich alle 10 s die Geräteliste (Anzeige übernimmt das 3,5-s-Render). */
 setInterval(function(){ try{ deviceHeartbeat(); }catch(e){} }, HB_INTERVAL_MS);
 setInterval(function(){ try{ pollDevices(); }catch(e){} }, 10000);
+/* B7 (Plan 06.5-10): Schema-Re-Probe — wurde die Migration erst nach dem App-Start eingespielt (oder lief die Probe
+ * im Funkloch ins Leere), bliebe _schemaV sonst bis zum nächsten Neustart zu niedrig. Alle 3 min, solange v<27 und Verbindung vermutet. */
+setInterval(function(){ try{ if(_schemaV<27 && netLikelyUp() && !document.hidden && !_revokedLocked && sb() && localStorage.getItem('argus_jwt')) probeSchema(1); }catch(e){} }, 180000);
 /* Nachzügler (Phase 6.5): nur solange fremde/abgeschlossene _dirty-Patienten lokal liegen (_lateN). */
 setInterval(function(){ try{ if(_lateN>0) flushLatePatients(); }catch(e){} }, 60000);
 /* Lokale Löschfristen (alle 5 min) + gebündeltes Herkunftsprotokoll (höchstens 1/min). */

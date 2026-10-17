@@ -357,6 +357,40 @@ test('deviceHeartbeat: MasterToken-Geräte melden sich (kein _isMaster-Abbruch);
   assert.ok(/devStale\(/.test(card));
 });
 
+/* ---------- Verbindungs-Härtung (Plan 06.5-10, B3–B7) ---------- */
+
+test('loadPatients: nie zwei Läufe gleichzeitig; Wartende teilen genau einen Folgelauf (B4)', async () => {
+  const body = 'var _lpRun=null,_lpNext=null; var running=0, maxRunning=0, starts=0;\n' +
+    'async function _loadPatientsRun(){ starts++; running++; maxRunning=Math.max(maxRunning,running); await new Promise(function(r){ setTimeout(r,20); }); running--; }\n' +
+    extractFunction(script, 'loadPatients') + '\n' + extractFunction(script, '_lpStart') + '\n' +
+    'return {loadPatients:loadPatients, stats:function(){ return {starts:starts,maxRunning:maxRunning,running:running}; }};';
+  const m = new Function(body)();
+  await Promise.all([m.loadPatients(), m.loadPatients(), m.loadPatients(), m.loadPatients()]);
+  assert.equal(m.stats().maxRunning, 1, 'zwei Läufe überlappten');
+  assert.equal(m.stats().starts, 2, 'erster Lauf + ein gemeinsamer Folgelauf');
+  await m.loadPatients();
+  assert.equal(m.stats().starts, 3);
+  assert.equal(m.stats().running, 0);
+});
+
+test('Verbindungs-Härtung: CCP-Guard, Flush-Prüfung, Start-Timeouts, Schema-Re-Probe (B3–B7)', () => {
+  const run = extractFunction(script, '_loadPatientsRun');
+  assert.ok(/var ccpAt\s*=\s*_ccpId/.test(run) && /_ccpId\s*!==\s*ccpAt/.test(run), 'B5: _loadPatientsRun merkt sich den CCP zu Beginn und vergleicht');
+  assert.ok(!/localStorage\.setItem\('argus_ccp_ids_'\+_ccpId/.test(run), 'B5: argus_ccp_ids_ nur für den gemerkten CCP');
+  const fl = extractFunction(script, 'flushPendingPatients');
+  assert.ok((fl.match(/localNewerThan\(/g) || []).length >= 3, 'B4: jeder Rückschreibpfad prüft auf neuere lokale Bearbeitung');
+  fl.split('delete lp._dirty').slice(0, -1).forEach(function(part){
+    assert.ok(part.lastIndexOf('localNewerThan(') > part.lastIndexOf('upsert('), 'B4: vor delete lp._dirty muss die Prüfung nach dem Upsert stehen');
+  });
+  assert.ok(/qt\(client\.from\('patients'\)\.upsert\(/.test(fl), 'B3: Uploads mit Zeitlimit');
+  assert.ok(/qt\(c\.from\('ccps'\)/.test(extractFunction(script, 'loadOpenCcpCount')), 'B3: loadOpenCcpCount mit qt');
+  assert.ok(/qt\(client\.from\('ccps'\)/.test(extractFunction(script, 'checkClosedEinsatz')), 'B3: checkClosedEinsatz mit qt');
+  assert.ok(/qt\(client\.rpc\('argus_close_einsatz'/.test(extractFunction(script, 'flushPendingClose')), 'B3: flushPendingClose mit qt');
+  assert.ok(/qt\(client\.rpc\('argus_claim_device'/.test(extractFunction(script, 'ensureDeviceNo')), 'B3: Geräte-Claim mit qt');
+  assert.ok(/qt\(client\.rpc\('argus_late_push'/.test(extractFunction(script, 'flushLatePatients')), 'B3: Nachzügler-RPC mit qt');
+  assert.ok(/setInterval\(function\(\)\{[^]*?_schemaV<27[^]*?probeSchema\(1\)[^]*?\},\s*180000\)/.test(script), 'B7: Schema-Re-Probe alle 3 min bis v>=27');
+});
+
 test('leaveText: Dialogtext mit Gerätenummer, offenen Patienten und MasterMedic-Hinweis', { skip: skipUnless('06.5-05', 'leaveText') }, () => {
   const f = load(['leaveText']);
   assert.equal(f.leaveText('A', 3, 2, false), 'CCP A verlassen?\n\nDu bist Gerät 3 · 2 Patienten noch nicht synchronisiert');
