@@ -1,0 +1,172 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Internes Design-Mockup, nicht funktional. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ARGUS · Interaktives Training (Mockup)</title>
+<style>
+  @font-face{font-family:'IBM Plex Sans';font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --acc:#1f2530; --train:#6A1B9A;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;padding:22px 14px 60px}
+  .wrap{max-width:960px;margin:0 auto}
+  header{text-align:center;margin-bottom:6px}
+  .badge{display:inline-block;background:var(--acc);color:#fff;font-weight:700;letter-spacing:1px;border-radius:12px;padding:9px 16px;font-size:18px}
+  h1{font-size:20px;margin:14px 0 2px}
+  .sub{font-family:var(--mono);font-size:13px;color:var(--mut)}
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--train);border-radius:10px;padding:11px 14px;margin:16px auto;font-size:13px;max-width:780px}
+  .note b{color:var(--train)}
+  .stage{display:flex;gap:30px;justify-content:center;flex-wrap:wrap;align-items:flex-start;margin-top:24px}
+  .col{width:330px;max-width:100%}
+  .cap{text-align:center;font-size:12.5px;color:var(--mut);font-weight:600;margin-bottom:9px}
+
+  .device{border:2px solid var(--line);border-radius:18px;background:var(--surf);overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.10)}
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;gap:8px;padding:10px 13px;font-size:13px;font-weight:600}
+  .topbar .tr{margin-left:auto;font-size:11px;background:var(--train);border-radius:20px;padding:3px 9px;font-weight:700}
+  .screen{padding:11px;position:relative;min-height:540px}
+
+  .countbar{display:flex;gap:5px;margin-bottom:9px}
+  .cnt{flex:1;border-radius:9px;padding:6px 2px;text-align:center;color:#fff}
+  .cnt .n{display:block;font-family:var(--mono);font-weight:700;font-size:17px;line-height:1}
+  .cnt .l{font-size:9.5px;opacity:.95}
+  .nav{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin-bottom:7px;font-size:13px}
+  .nav .ic{width:26px;height:26px;border-radius:7px;background:var(--surf2);display:flex;align-items:center;justify-content:center}
+  .nav b{font-weight:600}.nav small{display:block;color:var(--mut);font-size:11px}
+
+  /* Dim-Layer + Spotlight */
+  .dim{position:absolute;inset:0;background:rgba(16,20,26,.60);z-index:5;border-radius:0}
+  .spot{position:absolute;left:11px;right:11px;top:64px;z-index:6}
+  .spot .nav{margin:0;box-shadow:0 0 0 3px var(--train),0 0 0 7px rgba(106,27,154,.35),0 8px 22px rgba(0,0,0,.3);border-color:var(--train)}
+  .spot .ic{background:var(--train);color:#fff}
+  .finger{position:absolute;right:18px;top:104px;z-index:7;font-size:26px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}
+
+  /* Großes Anweisungs-Panel */
+  .panel{position:absolute;left:10px;right:10px;bottom:10px;z-index:7;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 -2px 30px rgba(0,0,0,.35)}
+  .panel .bar{height:6px;background:var(--surf2)}
+  .panel .bar i{display:block;height:100%;width:40%;background:var(--train)}
+  .panel .pin{padding:15px 16px 0}
+  .panel .meta{display:flex;align-items:center;gap:8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--train)}
+  .panel .meta .loc{margin-left:auto;color:var(--mut);font-weight:600;text-transform:none;letter-spacing:0;font-size:10.5px}
+  .panel h3{margin:9px 0 0;font-size:20px;font-weight:700;letter-spacing:-.01em}
+  .panel p{margin:6px 0 0;font-size:14.5px;color:#33373b;line-height:1.45}
+  .panel .doit{margin-top:11px;background:#f3ecfa;border:1px solid #e3d4f3;border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;color:var(--train);display:flex;align-items:center;gap:8px}
+  .panel .row{display:flex;gap:9px;padding:14px 16px 16px}
+  .btn{border-radius:11px;padding:13px;font-size:15px;font-weight:700;text-align:center}
+  .btn-p{flex:1;background:var(--train);color:#fff}
+  .btn-g{background:#fff;border:1px solid var(--line);color:var(--mut);font-weight:600;padding:13px 15px}
+  .arrowup{position:absolute;left:50%;transform:translateX(-50%);z-index:7;color:#fff;font-size:22px}
+
+  .exp{max-width:780px;margin:30px auto 0}
+  .exp .k{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--acc);margin:18px 0 8px}
+  .exp ul{margin:0;padding-left:0;list-style:none}
+  .exp li{position:relative;padding:8px 0 8px 26px;font-size:13.5px;border-bottom:1px solid var(--line);line-height:1.45}
+  .exp li::before{content:"✓";position:absolute;left:2px;top:8px;color:var(--t3);font-weight:700}
+  .exp li b{color:var(--tx)}
+  .exp li.q::before{content:"?";color:var(--train)}
+  .small{font-size:12px;color:var(--mut);text-align:center;margin-top:8px}
+  footer{margin-top:30px;text-align:center;font-size:11.5px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">ARGUS</div>
+    <h1>Interaktives Training · Mockup</h1>
+    <div class="sub">größer · Spotlight auf das Ziel-Element · nicht funktional</div>
+  </header>
+
+  <div class="note"><b>Neu gegenüber jetzt:</b> Statt nur eines kleinen Textfelds unten wird der Rest des Screens
+  <b>abgedunkelt</b>, das Ziel-Element <b>hervorgehoben (Spotlight)</b>, und die Anweisung steht in einem <b>großen Panel</b>.
+  Optional: die App geht von selbst zum nächsten Schritt, sobald du die Aktion ausführst.</div>
+
+  <div class="stage">
+
+    <!-- Phone: interaktiver Schritt -->
+    <div class="col">
+      <div class="cap">Spotlight + großes Panel</div>
+      <div class="device">
+        <div class="topbar"><span>ARGUS</span><span class="tr">🎓 Übungsmodus</span></div>
+        <div class="screen">
+          <!-- App-Inhalt (abgedunkelt) -->
+          <div class="countbar">
+            <div class="cnt" style="background:var(--t1)"><span class="n">0</span><span class="l">T-1</span></div>
+            <div class="cnt" style="background:var(--t2);color:#3A2C00"><span class="n">0</span><span class="l">T-2</span></div>
+            <div class="cnt" style="background:var(--t3)"><span class="n">0</span><span class="l">T-3</span></div>
+            <div class="cnt" style="background:var(--t5)"><span class="n">0</span><span class="l">T-5</span></div>
+          </div>
+          <div class="nav"><span class="ic">＋</span><span><b>Patient erfassen</b><small>tacSTART oder direkt</small></span></div>
+          <div class="nav"><span class="ic">▦</span><span><b>Patientenübersicht</b><small>Kategorien, Listen</small></span></div>
+          <div class="nav"><span class="ic">☑</span><span><b>Checkliste CCP</b><small>Aufbau &amp; Leitung</small></span></div>
+
+          <!-- Abdunkeln -->
+          <div class="dim"></div>
+
+          <!-- Spotlight auf das Ziel (popt aus dem Dunkel) -->
+          <div class="spot">
+            <div class="nav"><span class="ic">＋</span><span><b>Patient erfassen</b><small>tacSTART oder direkt</small></span></div>
+          </div>
+          <div class="finger">👆</div>
+          <div class="arrowup" style="bottom:214px">▼</div>
+
+          <!-- Großes Anweisungs-Panel -->
+          <div class="panel">
+            <div class="bar"><i></i></div>
+            <div class="pin">
+              <div class="meta">🎓 Lektion 4 / 10<span class="loc">nur dieses Gerät</span></div>
+              <h3>Ersten Patienten erfassen</h3>
+              <p>Lege einen Verletzten an — direkt in einer Kategorie oder geführt per tacSTART. Die Nummer vergibt ARGUS automatisch.</p>
+              <div class="doit">👆 Tippe auf das hervorgehobene Feld „Patient erfassen"</div>
+            </div>
+            <div class="row">
+              <div class="btn btn-g">Beenden</div>
+              <div class="btn btn-g">‹</div>
+              <div class="btn btn-p">Weiter ›</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="small">Der Rest ist abgedunkelt &amp; nicht antippbar — nur das markierte Feld.</div>
+    </div>
+
+    <!-- Erklärung -->
+    <div class="col" style="width:420px">
+      <div class="exp" style="margin-top:0">
+        <div class="k">Was „interaktiv" hier bedeutet</div>
+        <ul>
+          <li><b>Abdunkeln + Spotlight:</b> der Blick wird auf genau das Element gelenkt, das als Nächstes dran ist.</li>
+          <li><b>Großes Panel</b> statt Mini-Textfeld: klare Überschrift, Anweisung, „👆 tippe hier".</li>
+          <li><b>Fortschrittsbalken</b> oben am Panel (Lektion x/10).</li>
+          <li><b>Robust gebaut:</b> das Spotlight zielt über das vorhandene <b>data-action</b> der Buttons (stabile Kennung), nicht über Pixel-Positionen — bricht also nicht bei jeder UI-Änderung.</li>
+        </ul>
+        <div class="k">Eine Entscheidung für dich</div>
+        <ul>
+          <li class="q"><b>Auto-Weiter</b> (empfohlen): tippt der Nutzer das markierte Feld, springt das Training <b>von selbst</b> zur nächsten Lektion — fühlt sich am „echtesten" an.</li>
+          <li class="q"><b>Oder manuell</b>: Nutzer tut die Aktion und tippt dann selbst „Weiter ›" (einfacher, aber weniger „magisch").</li>
+        </ul>
+        <div class="k">Bleibt wie gehabt</div>
+        <ul>
+          <li>Geräte-lokaler Übungs-Sandbox (nichts wird synchronisiert), Einstieg über die Schulungsumgebung, „Beenden" löscht die Übungsdaten.</li>
+          <li>Manche Lektionen ohne klares Ziel-Element (z. B. „Übersicht lesen") zeigen das große Panel <b>ohne</b> Spotlight.</li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>Mockup · ARGUS · © 2026 Gabor Szeman · Endgültige Gestaltung kann abweichen</footer>
+
+</div>
+</body>
+</html>

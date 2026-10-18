@@ -1,0 +1,2614 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · Leitung</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/png" href="../ARGUS_Icon.png">
+<style>
+  /* Selbst gehostete Schriften (kein externes CDN) */
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --t5b:#3a3d41;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;font-size:14px}
+  button{font-family:var(--sans);cursor:pointer;border:0}
+  input,textarea{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
+  input:focus,textarea:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
+  select{font-family:var(--sans);font-size:13px;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:#fff;color:var(--tx)}
+  select:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
+  .mono{font-family:var(--mono)}
+  /* Topbar (Schiefer = Chrome) */
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 18px;position:sticky;top:0;z-index:50}
+  .topbar .brand{font-weight:700;letter-spacing:1px;font-size:16px}
+  .topbar .brand small{font-weight:400;letter-spacing:0;opacity:.75;margin-left:8px;font-size:12px}
+  .topbar button{background:#ffffff1d;color:#fff;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600}
+  .topbar button:hover{background:#ffffff30}
+  /* Layout: Seitennavigation + Inhalt */
+  .layout{display:grid;grid-template-columns:212px minmax(0,1fr);min-height:calc(100vh - 46px)}
+  .side{background:#fff;border-right:1px solid var(--line);padding:14px 12px}
+  .side .sh{font-size:11px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:4px 2px 8px}
+  .side .it{padding:9px 11px;border-radius:8px;font-size:13.5px;margin-bottom:3px;cursor:pointer;user-select:none}
+  .side .it:hover{background:var(--surf2)}
+  .side .it.on{background:var(--acc);color:#fff}
+  .side .it.on:hover{background:var(--acc)}
+  .side .lockedsec{margin-top:18px;padding-top:12px;border-top:1px dashed var(--line)}
+  .side .lockedsec .sh{color:var(--mut)}
+  .side .locked{padding:9px 11px;border-radius:8px;font-size:13.5px;margin-bottom:3px;color:var(--mut);opacity:.5;cursor:not-allowed;user-select:none;display:flex;justify-content:space-between;align-items:center}
+  .side .locked:hover{background:none}
+  .main{padding:20px 22px 60px;max-width:1100px;width:100%}
+  .mh{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+  .mh h2{margin:0;font-size:18px}
+  /* Bausteine */
+  .card{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px;margin-bottom:12px}
+  .hint{font-size:12px;color:var(--mut)}
+  .sech{font-size:12px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin:18px 0 8px}
+  /* Einklappbare Karten/Blöcke (Owner-Wunsch 2026-06-12: weniger Scrollen) */
+  .cardhead{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+  .cardhead .chev{flex:0 0 auto;color:var(--mut);font-size:10px;display:inline-block;transition:transform .15s}
+  .cardhead.open .chev{transform:rotate(90deg)}
+  .cardhead .ctitle{font-weight:600;font-size:15px}
+  .cardhead .csum{color:var(--mut);font-size:12px;font-weight:400;margin-left:auto;white-space:nowrap}
+  .sech.fold{cursor:pointer;user-select:none}
+  .sech.fold .chev{display:inline-block;font-size:9px;margin-right:5px;transition:transform .15s}
+  .sech.fold.open .chev{transform:rotate(90deg)}
+  /* Druck (Übergabe-Export): nur den Inhalt, keine Navigation/Buttons */
+  @media print{
+    .side,.topbar,.btn,.mh button{display:none!important}
+    body{background:#fff}
+    .layout{display:block}
+    /* AT-MIST-Druckmodus (Paket 3): nur das Karten-Overlay drucken */
+    body[data-atmist-print] .layout{display:none!important}
+    body[data-atmist-print] #atmist-print-overlay{display:block!important}
+  }
+  /* AT-MIST-Overlay nur im Druckmodus sichtbar */
+  #atmist-print-overlay{display:none}
+  .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
+  .btn:hover{filter:brightness(1.25)}
+  .btn.ghost{background:var(--surf2);color:var(--tx)}
+  .btn.ghost:hover{filter:none;background:var(--line)}
+  .btn.warn{background:var(--t1)}
+  .btn[disabled]{opacity:.5;cursor:default}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;background:#fff}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--surf2);color:var(--mut);font-size:11px;text-transform:uppercase;letter-spacing:.4px;white-space:nowrap}
+  tr:last-child td{border-bottom:0}
+  .tablewrap{border:1px solid var(--line);border-radius:10px;overflow:auto;background:#fff}
+  .pill{display:inline-block;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:700;color:#fff;white-space:nowrap}
+  .pill.gray{background:var(--surf2);color:var(--mut)}
+  .pill.red{background:var(--t1)}
+  .pill.green{background:var(--t3)}
+  /* Login */
+  .loginwrap{min-height:calc(100vh - 46px);display:flex;align-items:flex-start;justify-content:center;padding:60px 14px}
+  .loginbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 24px;max-width:380px;width:100%;box-shadow:0 6px 22px rgba(0,0,0,.06)}
+  .loginbox h1{font-size:18px;margin:0 0 4px}
+  .arg-logo{width:52px;height:52px;border-radius:13px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;margin:0 auto 14px;letter-spacing:1px}
+  .fieldlab{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;font-weight:600}
+  .lerr{color:var(--t1);font-size:12.5px;font-weight:600;margin-top:10px;min-height:18px}
+  /* Modal */
+  .modalov{position:fixed;inset:0;background:rgba(15,21,28,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:1000}
+  .modalbx{background:#fff;border-radius:13px;padding:20px 18px;max-width:440px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+  .modalmsg{font-size:14px;margin-bottom:14px;white-space:pre-wrap}
+  .modalrow{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+  /* Toast */
+  .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:22px;background:var(--acc);color:#fff;font-weight:600;padding:11px 20px;border-radius:30px;font-size:14px;opacity:0;transition:opacity .25s;pointer-events:none;z-index:2000;max-width:90%}
+  .toast.show{opacity:1}
+  /* Wiedervorlage */
+  .wieder{border:1px solid var(--t1);border-left:5px solid var(--t1);border-radius:11px;background:#fff;padding:14px;margin-bottom:14px}
+  .wieder .wt{color:var(--t1);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  @media(max-width:760px){
+    .layout{grid-template-columns:1fr}
+    .side{border-right:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+    .side .sh{width:100%;margin:2px}
+    .side .it,.side .locked{margin-bottom:0}
+    .side .lockedsec{margin-top:0;padding-top:0;border-top:0;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+    .main{padding:14px}
+  }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="brand">ARGUS<small>· Leitung</small></span>
+  <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
+</div>
+<div id="app"></div>
+<div class="hint" style="text-align:center;padding:14px 16px 18px">Datenschutzhinweis: in der ARGUS-App unter Hilfestellungen → Datenschutz.</div>
+<div class="toast" id="toast"></div>
+<script src="../vendor/supabase.js"></script>
+<script src="../config.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+ * ARGUS · Leitung — Governance-Oberfläche (Desktop)
+ * Alle Inhalte ausschließlich nach Anmeldung mit MasterToken
+ * (is_master-JWT). Die Seite selbst enthält keine Daten.
+ * Sitzung bewusst flüchtig: sessionStorage, kein Verlauf.
+ * ============================================================ */
+
+/* ── Inline-QR-Generator (Plan 04.14-03, Task 1; ersetzt 04.14-03) ───
+ * Erprobter, breit eingesetzter QR-Encoder INLINE (kein externes CDN, kein npm).
+ * Library: qrcode-generator von Kazuhiko Arase
+ *   Quelle: https://github.com/kazuhikoarase/qrcode-generator
+ *   Lizenz: MIT (frei verwendbar; Copyright (c) 2009 Kazuhiko Arase)
+ * Supply-Chain-Sichtung (T-0414-11): kompakte, unveränderte Portierung des
+ *   bekannten qrcode-generator-Kerns (Byte-Modus, automatische Versions-/
+ *   Maskenwahl) — keine Netz-Requests, keine eval/Function-Konstrukte.
+ *
+ * Öffentliche API (unverändert für Task 2):
+ *   drawQR(targetEl, text)  — rendert einen scannbaren QR als <canvas>.
+ * ──────────────────────────────────────────────────────────────────── */
+(function(){
+/* === qrcode-generator (Kazuhiko Arase, MIT) — kompakter Kern === */
+var qrcode=function(){
+  var qrcode=function(typeNumber,errorCorrectionLevel){
+    var PAD0=0xEC,PAD1=0x11;
+    var _typeNumber=typeNumber;
+    var _errorCorrectionLevel=QRErrorCorrectionLevel[errorCorrectionLevel];
+    var _modules=null,_moduleCount=0,_dataCache=null,_dataList=[];
+    var _this={};
+    var makeImpl=function(test,maskPattern){
+      _moduleCount=_typeNumber*4+17;
+      _modules=function(moduleCount){
+        var modules=new Array(moduleCount);
+        for(var row=0;row<moduleCount;row+=1){
+          modules[row]=new Array(moduleCount);
+          for(var col=0;col<moduleCount;col+=1){ modules[row][col]=null; }
+        }
+        return modules;
+      }(_moduleCount);
+      setupPositionProbePattern(0,0);
+      setupPositionProbePattern(_moduleCount-7,0);
+      setupPositionProbePattern(0,_moduleCount-7);
+      setupPositionAdjustPattern();
+      setupTimingPattern();
+      setupTypeInfo(test,maskPattern);
+      if(_typeNumber>=7){ setupTypeNumber(test); }
+      if(_dataCache==null){ _dataCache=createData(_typeNumber,_errorCorrectionLevel,_dataList); }
+      mapData(_dataCache,maskPattern);
+    };
+    var setupPositionProbePattern=function(row,col){
+      for(var r=-1;r<=7;r+=1){
+        if(row+r<=-1||_moduleCount<=row+r) continue;
+        for(var c=-1;c<=7;c+=1){
+          if(col+c<=-1||_moduleCount<=col+c) continue;
+          if((0<=r&&r<=6&&(c==0||c==6))||(0<=c&&c<=6&&(r==0||r==6))||(2<=r&&r<=4&&2<=c&&c<=4)){
+            _modules[row+r][col+c]=true;
+          }else{ _modules[row+r][col+c]=false; }
+        }
+      }
+    };
+    var getBestMaskPattern=function(){
+      var minLostPoint=0,pattern=0;
+      for(var i=0;i<8;i+=1){
+        makeImpl(true,i);
+        var lostPoint=QRUtil.getLostPoint(_this);
+        if(i==0||minLostPoint>lostPoint){ minLostPoint=lostPoint; pattern=i; }
+      }
+      return pattern;
+    };
+    var setupTimingPattern=function(){
+      for(var r=8;r<_moduleCount-8;r+=1){ if(_modules[r][6]!=null) continue; _modules[r][6]=(r%2==0); }
+      for(var c=8;c<_moduleCount-8;c+=1){ if(_modules[6][c]!=null) continue; _modules[6][c]=(c%2==0); }
+    };
+    var setupPositionAdjustPattern=function(){
+      var pos=QRUtil.getPatternPosition(_typeNumber);
+      for(var i=0;i<pos.length;i+=1){
+        for(var j=0;j<pos.length;j+=1){
+          var row=pos[i],col=pos[j];
+          if(_modules[row][col]!=null) continue;
+          for(var r=-2;r<=2;r+=1){
+            for(var c=-2;c<=2;c+=1){
+              if(r==-2||r==2||c==-2||c==2||(r==0&&c==0)){ _modules[row+r][col+c]=true; }
+              else{ _modules[row+r][col+c]=false; }
+            }
+          }
+        }
+      }
+    };
+    var setupTypeNumber=function(test){
+      var bits=QRUtil.getBCHTypeNumber(_typeNumber);
+      for(var i=0;i<18;i+=1){ var mod=(!test&&((bits>>i)&1)==1); _modules[Math.floor(i/3)][i%3+_moduleCount-8-3]=mod; }
+      for(var i=0;i<18;i+=1){ var mod=(!test&&((bits>>i)&1)==1); _modules[i%3+_moduleCount-8-3][Math.floor(i/3)]=mod; }
+    };
+    var setupTypeInfo=function(test,maskPattern){
+      var data=(_errorCorrectionLevel<<3)|maskPattern;
+      var bits=QRUtil.getBCHTypeInfo(data);
+      for(var i=0;i<15;i+=1){
+        var mod=(!test&&((bits>>i)&1)==1);
+        if(i<6){ _modules[i][8]=mod; }else if(i<8){ _modules[i+1][8]=mod; }else{ _modules[_moduleCount-15+i][8]=mod; }
+      }
+      for(var i=0;i<15;i+=1){
+        var mod=(!test&&((bits>>i)&1)==1);
+        if(i<8){ _modules[8][_moduleCount-i-1]=mod; }else if(i<9){ _modules[8][15-i-1+1]=mod; }else{ _modules[8][15-i-1]=mod; }
+      }
+      _modules[_moduleCount-8][8]=(!test);
+    };
+    var mapData=function(data,maskPattern){
+      var inc=-1,row=_moduleCount-1,bitIndex=7,byteIndex=0;
+      var maskFunc=QRUtil.getMaskFunction(maskPattern);
+      for(var col=_moduleCount-1;col>0;col-=2){
+        if(col==6) col-=1;
+        while(true){
+          for(var c=0;c<2;c+=1){
+            if(_modules[row][col-c]==null){
+              var dark=false;
+              if(byteIndex<data.length){ dark=(((data[byteIndex]>>>bitIndex)&1)==1); }
+              var mask=maskFunc(row,col-c);
+              if(mask){ dark=!dark; }
+              _modules[row][col-c]=dark;
+              bitIndex-=1;
+              if(bitIndex==-1){ byteIndex+=1; bitIndex=7; }
+            }
+          }
+          row+=inc;
+          if(row<0||_moduleCount<=row){ row-=inc; inc=-inc; break; }
+        }
+      }
+    };
+    var createBytes=function(buffer,rsBlocks){
+      var offset=0,maxDcCount=0,maxEcCount=0;
+      var dcdata=new Array(rsBlocks.length),ecdata=new Array(rsBlocks.length);
+      for(var r=0;r<rsBlocks.length;r+=1){
+        var dcCount=rsBlocks[r].dataCount,ecCount=rsBlocks[r].totalCount-dcCount;
+        maxDcCount=Math.max(maxDcCount,dcCount);
+        maxEcCount=Math.max(maxEcCount,ecCount);
+        dcdata[r]=new Array(dcCount);
+        for(var i=0;i<dcdata[r].length;i+=1){ dcdata[r][i]=0xff&buffer.getBuffer()[i+offset]; }
+        offset+=dcCount;
+        var rsPoly=QRUtil.getErrorCorrectPolynomial(ecCount);
+        var rawPoly=qrPolynomial(dcdata[r],rsPoly.getLength()-1);
+        var modPoly=rawPoly.mod(rsPoly);
+        ecdata[r]=new Array(rsPoly.getLength()-1);
+        for(var i=0;i<ecdata[r].length;i+=1){ var modIndex=i+modPoly.getLength()-ecdata[r].length; ecdata[r][i]=(modIndex>=0)?modPoly.getAt(modIndex):0; }
+      }
+      var totalCodeCount=0;
+      for(var i=0;i<rsBlocks.length;i+=1){ totalCodeCount+=rsBlocks[i].totalCount; }
+      var data=new Array(totalCodeCount),index=0;
+      for(var i=0;i<maxDcCount;i+=1){ for(var r=0;r<rsBlocks.length;r+=1){ if(i<dcdata[r].length){ data[index]=dcdata[r][i]; index+=1; } } }
+      for(var i=0;i<maxEcCount;i+=1){ for(var r=0;r<rsBlocks.length;r+=1){ if(i<ecdata[r].length){ data[index]=ecdata[r][i]; index+=1; } } }
+      return data;
+    };
+    var createData=function(typeNumber,errorCorrectionLevel,dataList){
+      var rsBlocks=QRRSBlock.getRSBlocks(typeNumber,errorCorrectionLevel);
+      var buffer=qrBitBuffer();
+      for(var i=0;i<dataList.length;i+=1){ var data=dataList[i]; buffer.put(data.getMode(),4); buffer.put(data.getLength(),QRUtil.getLengthInBits(data.getMode(),typeNumber)); data.write(buffer); }
+      var totalDataCount=0;
+      for(var i=0;i<rsBlocks.length;i+=1){ totalDataCount+=rsBlocks[i].dataCount; }
+      if(buffer.getLengthInBits()>totalDataCount*8){ throw 'code length overflow. ('+buffer.getLengthInBits()+'>'+totalDataCount*8+')'; }
+      if(buffer.getLengthInBits()+4<=totalDataCount*8){ buffer.put(0,4); }
+      while(buffer.getLengthInBits()%8!=0){ buffer.putBit(false); }
+      while(true){ if(buffer.getLengthInBits()>=totalDataCount*8) break; buffer.put(PAD0,8); if(buffer.getLengthInBits()>=totalDataCount*8) break; buffer.put(PAD1,8); }
+      return createBytes(buffer,rsBlocks);
+    };
+    _this.addData=function(data,mode){
+      mode=mode||'Byte';
+      var newData=null;
+      switch(mode){ case 'Byte': newData=qr8BitByte(data); break; default: throw 'mode:'+mode; }
+      _dataList.push(newData); _dataCache=null;
+    };
+    _this.isDark=function(row,col){ if(row<0||_moduleCount<=row||col<0||_moduleCount<=col){ throw row+','+col; } return _modules[row][col]; };
+    _this.getModuleCount=function(){ return _moduleCount; };
+    _this.make=function(){
+      if(_typeNumber<1){
+        var typeNumber=1;
+        for(;typeNumber<40;typeNumber++){
+          var rsBlocks=QRRSBlock.getRSBlocks(typeNumber,_errorCorrectionLevel);
+          var buffer=qrBitBuffer();
+          for(var i=0;i<_dataList.length;i++){ var data=_dataList[i]; buffer.put(data.getMode(),4); buffer.put(data.getLength(),QRUtil.getLengthInBits(data.getMode(),typeNumber)); data.write(buffer); }
+          var totalDataCount=0;
+          for(var i=0;i<rsBlocks.length;i++){ totalDataCount+=rsBlocks[i].dataCount; }
+          if(buffer.getLengthInBits()<=totalDataCount*8) break;
+        }
+        _typeNumber=typeNumber;
+      }
+      makeImpl(false,getBestMaskPattern());
+    };
+    return _this;
+  };
+  // ---------------------------------------------------------------------
+  var qr8BitByte=function(data){
+    var _mode=1<<2,_bytes=qrcode.stringToBytes(data),_this={};
+    _this.getMode=function(){ return _mode; };
+    _this.getLength=function(){ return _bytes.length; };
+    _this.write=function(buffer){ for(var i=0;i<_bytes.length;i+=1){ buffer.put(_bytes[i],8); } };
+    return _this;
+  };
+  var QRMode={MODE_8BIT_BYTE:1<<2};
+  var QRErrorCorrectionLevel={L:1,M:0,Q:3,H:2};
+  var QRMaskPattern={PATTERN000:0,PATTERN001:1,PATTERN010:2,PATTERN011:3,PATTERN100:4,PATTERN101:5,PATTERN110:6,PATTERN111:7};
+  var QRUtil=function(){
+    var PATTERN_POSITION_TABLE=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]];
+    var G15=(1<<10)|(1<<8)|(1<<5)|(1<<4)|(1<<2)|(1<<1)|(1<<0);
+    var G18=(1<<12)|(1<<11)|(1<<10)|(1<<9)|(1<<8)|(1<<5)|(1<<2)|(1<<0);
+    var G15_MASK=(1<<14)|(1<<12)|(1<<10)|(1<<4)|(1<<1);
+    var _this={};
+    var getBCHDigit=function(data){ var digit=0; while(data!=0){ digit+=1; data>>>=1; } return digit; };
+    _this.getBCHTypeInfo=function(data){ var d=data<<10; while(getBCHDigit(d)-getBCHDigit(G15)>=0){ d^=(G15<<(getBCHDigit(d)-getBCHDigit(G15))); } return ((data<<10)|d)^G15_MASK; };
+    _this.getBCHTypeNumber=function(data){ var d=data<<12; while(getBCHDigit(d)-getBCHDigit(G18)>=0){ d^=(G18<<(getBCHDigit(d)-getBCHDigit(G18))); } return (data<<12)|d; };
+    _this.getPatternPosition=function(typeNumber){ return PATTERN_POSITION_TABLE[typeNumber-1]; };
+    _this.getMaskFunction=function(maskPattern){
+      switch(maskPattern){
+        case QRMaskPattern.PATTERN000: return function(i,j){ return (i+j)%2==0; };
+        case QRMaskPattern.PATTERN001: return function(i,j){ return i%2==0; };
+        case QRMaskPattern.PATTERN010: return function(i,j){ return j%3==0; };
+        case QRMaskPattern.PATTERN011: return function(i,j){ return (i+j)%3==0; };
+        case QRMaskPattern.PATTERN100: return function(i,j){ return (Math.floor(i/2)+Math.floor(j/3))%2==0; };
+        case QRMaskPattern.PATTERN101: return function(i,j){ return (i*j)%2+(i*j)%3==0; };
+        case QRMaskPattern.PATTERN110: return function(i,j){ return ((i*j)%2+(i*j)%3)%2==0; };
+        case QRMaskPattern.PATTERN111: return function(i,j){ return ((i*j)%3+(i+j)%2)%2==0; };
+        default: throw 'bad maskPattern:'+maskPattern;
+      }
+    };
+    _this.getErrorCorrectPolynomial=function(errorCorrectLength){ var a=qrPolynomial([1],0); for(var i=0;i<errorCorrectLength;i+=1){ a=a.multiply(qrPolynomial([1,QRMath.gexp(i)],0)); } return a; };
+    _this.getLengthInBits=function(mode,type){
+      if(1<=type&&type<10){ switch(mode){ case QRMode.MODE_8BIT_BYTE: return 8; default: throw 'mode:'+mode; } }
+      else if(type<27){ switch(mode){ case QRMode.MODE_8BIT_BYTE: return 16; default: throw 'mode:'+mode; } }
+      else if(type<41){ switch(mode){ case QRMode.MODE_8BIT_BYTE: return 16; default: throw 'mode:'+mode; } }
+      else{ throw 'type:'+type; }
+    };
+    _this.getLostPoint=function(qrcode){
+      var moduleCount=qrcode.getModuleCount(),lostPoint=0;
+      for(var row=0;row<moduleCount;row+=1){
+        for(var col=0;col<moduleCount;col+=1){
+          var sameCount=0,dark=qrcode.isDark(row,col);
+          for(var r=-1;r<=1;r+=1){ if(row+r<0||moduleCount<=row+r) continue;
+            for(var c=-1;c<=1;c+=1){ if(col+c<0||moduleCount<=col+c) continue; if(r==0&&c==0) continue; if(dark==qrcode.isDark(row+r,col+c)){ sameCount+=1; } } }
+          if(sameCount>5){ lostPoint+=(3+sameCount-5); }
+        }
+      }
+      for(var row=0;row<moduleCount-1;row+=1){ for(var col=0;col<moduleCount-1;col+=1){ var count=0; if(qrcode.isDark(row,col)) count+=1; if(qrcode.isDark(row+1,col)) count+=1; if(qrcode.isDark(row,col+1)) count+=1; if(qrcode.isDark(row+1,col+1)) count+=1; if(count==0||count==4){ lostPoint+=3; } } }
+      for(var row=0;row<moduleCount;row+=1){ for(var col=0;col<moduleCount-6;col+=1){ if(qrcode.isDark(row,col)&&!qrcode.isDark(row,col+1)&&qrcode.isDark(row,col+2)&&qrcode.isDark(row,col+3)&&qrcode.isDark(row,col+4)&&!qrcode.isDark(row,col+5)&&qrcode.isDark(row,col+6)){ lostPoint+=40; } } }
+      for(var col=0;col<moduleCount;col+=1){ for(var row=0;row<moduleCount-6;row+=1){ if(qrcode.isDark(row,col)&&!qrcode.isDark(row+1,col)&&qrcode.isDark(row+2,col)&&qrcode.isDark(row+3,col)&&qrcode.isDark(row+4,col)&&!qrcode.isDark(row+5,col)&&qrcode.isDark(row+6,col)){ lostPoint+=40; } } }
+      var darkCount=0;
+      for(var col=0;col<moduleCount;col+=1){ for(var row=0;row<moduleCount;row+=1){ if(qrcode.isDark(row,col)){ darkCount+=1; } } }
+      var ratio=Math.abs(100*darkCount/moduleCount/moduleCount-50)/5;
+      lostPoint+=ratio*10;
+      return lostPoint;
+    };
+    return _this;
+  }();
+  var QRMath=function(){
+    var EXP_TABLE=new Array(256),LOG_TABLE=new Array(256);
+    for(var i=0;i<8;i+=1){ EXP_TABLE[i]=1<<i; }
+    for(var i=8;i<256;i+=1){ EXP_TABLE[i]=EXP_TABLE[i-4]^EXP_TABLE[i-5]^EXP_TABLE[i-6]^EXP_TABLE[i-8]; }
+    for(var i=0;i<255;i+=1){ LOG_TABLE[EXP_TABLE[i]]=i; }
+    var _this={};
+    _this.glog=function(n){ if(n<1){ throw 'glog('+n+')'; } return LOG_TABLE[n]; };
+    _this.gexp=function(n){ while(n<0){ n+=255; } while(n>=256){ n-=255; } return EXP_TABLE[n]; };
+    return _this;
+  }();
+  function qrPolynomial(num,shift){
+    if(typeof num.length=='undefined'){ throw num.length+'/'+shift; }
+    var _num=function(){ var offset=0; while(offset<num.length&&num[offset]==0){ offset+=1; } var n=new Array(num.length-offset+shift); for(var i=0;i<num.length-offset;i+=1){ n[i]=num[i+offset]; } return n; }();
+    var _this={};
+    _this.getAt=function(index){ return _num[index]; };
+    _this.getLength=function(){ return _num.length; };
+    _this.multiply=function(e){ var num=new Array(_this.getLength()+e.getLength()-1); for(var i=0;i<_this.getLength();i+=1){ for(var j=0;j<e.getLength();j+=1){ num[i+j]^=QRMath.gexp(QRMath.glog(_this.getAt(i))+QRMath.glog(e.getAt(j))); } } return qrPolynomial(num,0); };
+    _this.mod=function(e){ if(_this.getLength()-e.getLength()<0){ return _this; } var ratio=QRMath.glog(_this.getAt(0))-QRMath.glog(e.getAt(0)); var num=new Array(_this.getLength()); for(var i=0;i<_this.getLength();i+=1){ num[i]=_this.getAt(i); } for(var i=0;i<e.getLength();i+=1){ num[i]^=QRMath.gexp(QRMath.glog(e.getAt(i))+ratio); } return qrPolynomial(num,0).mod(e); };
+    return _this;
+  }
+  var QRRSBlock=function(){
+    var RS_BLOCK_TABLE=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]];
+    var qrRSBlock=function(totalCount,dataCount){ var _this={}; _this.totalCount=totalCount; _this.dataCount=dataCount; return _this; };
+    var _this={};
+    var getRsBlockTable=function(typeNumber,errorCorrectionLevel){
+      switch(errorCorrectionLevel){
+        case QRErrorCorrectionLevel.L: return RS_BLOCK_TABLE[(typeNumber-1)*4+0];
+        case QRErrorCorrectionLevel.M: return RS_BLOCK_TABLE[(typeNumber-1)*4+1];
+        case QRErrorCorrectionLevel.Q: return RS_BLOCK_TABLE[(typeNumber-1)*4+2];
+        case QRErrorCorrectionLevel.H: return RS_BLOCK_TABLE[(typeNumber-1)*4+3];
+        default: return undefined;
+      }
+    };
+    _this.getRSBlocks=function(typeNumber,errorCorrectionLevel){
+      var rsBlock=getRsBlockTable(typeNumber,errorCorrectionLevel);
+      if(typeof rsBlock=='undefined'){ throw 'bad rs block @ typeNumber:'+typeNumber+'/errorCorrectionLevel:'+errorCorrectionLevel; }
+      var length=rsBlock.length/3,list=[];
+      for(var i=0;i<length;i+=1){ var count=rsBlock[i*3+0],totalCount=rsBlock[i*3+1],dataCount=rsBlock[i*3+2]; for(var j=0;j<count;j+=1){ list.push(qrRSBlock(totalCount,dataCount)); } }
+      return list;
+    };
+    return _this;
+  }();
+  var qrBitBuffer=function(){
+    var _buffer=[],_length=0,_this={};
+    _this.getBuffer=function(){ return _buffer; };
+    _this.getAt=function(index){ var bufIndex=Math.floor(index/8); return ((_buffer[bufIndex]>>>(7-index%8))&1)==1; };
+    _this.put=function(num,length){ for(var i=0;i<length;i+=1){ _this.putBit(((num>>>(length-i-1))&1)==1); } };
+    _this.getLengthInBits=function(){ return _length; };
+    _this.putBit=function(bit){ var bufIndex=Math.floor(_length/8); if(_buffer.length<=bufIndex){ _buffer.push(0); } if(bit){ _buffer[bufIndex]|=(0x80>>>(_length%8)); } _length+=1; };
+    return _this;
+  };
+  qrcode.stringToBytes=function(s){
+    var bytes=[];
+    for(var i=0;i<s.length;i+=1){
+      var c=s.charCodeAt(i);
+      if(c<0x80){ bytes.push(c); }
+      else if(c<0x800){ bytes.push(0xc0|(c>>6),0x80|(c&0x3f)); }
+      else if(c<0xd800||c>=0xe000){ bytes.push(0xe0|(c>>12),0x80|((c>>6)&0x3f),0x80|(c&0x3f)); }
+      else{ i+=1; c=0x10000+(((c&0x3ff)<<10)|(s.charCodeAt(i)&0x3ff)); bytes.push(0xf0|(c>>18),0x80|((c>>12)&0x3f),0x80|((c>>6)&0x3f),0x80|(c&0x3f)); }
+    }
+    return bytes;
+  };
+  return qrcode;
+}();
+/* === Ende qrcode-generator-Kern === */
+
+/* ---- drawQR: rendert einen scannbaren QR als <canvas> in targetEl ---- */
+window.drawQR=function(targetEl, text){
+  try{
+    var qr=qrcode(0,'M');          /* Typ 0 = automatische Versionswahl, ECC Level M */
+    qr.addData(String(text),'Byte');
+    qr.make();
+    var count=qr.getModuleCount();
+    var quiet=4;                   /* Quiet-Zone: 4 Module (Spec-konform) */
+    var target=Math.min(256, (targetEl&&targetEl.offsetWidth)||256);
+    var msize=Math.max(3, Math.floor(target/(count+2*quiet)));
+    var cw=(count+2*quiet)*msize;
+    var cv=document.createElement('canvas');
+    cv.width=cw; cv.height=cw;
+    cv.style.cssText='display:block;image-rendering:pixelated;max-width:100%;height:auto';
+    var ctx=cv.getContext('2d');
+    ctx.fillStyle='#fff'; ctx.fillRect(0,0,cw,cw);
+    ctx.fillStyle='#000';
+    for(var r=0;r<count;r+=1){ for(var c=0;c<count;c+=1){ if(qr.isDark(r,c)){ ctx.fillRect((c+quiet)*msize,(r+quiet)*msize,msize,msize); } } }
+    if(targetEl){ targetEl.innerHTML=''; targetEl.appendChild(cv); }
+    return cv;
+  }catch(e){
+    if(targetEl){ targetEl.textContent='QR konnte nicht erzeugt werden'; }
+    return null;
+  }
+};
+})();
+/* ── Ende Inline-QR-Generator ─────────────────────────────────────── */
+
+/* ── APP_INSTALL_URL: öffentliche Feld-App-Installadresse (Plan 04.14-03, Task 2)
+ * PFLEGE: diese Konstante auf die öffentliche Installadresse der ARGUS-Feld-App
+ * setzen (z. B. "https://argus.example.de"). Bewusst NICHT die geheime
+ * Leitungs-URL (D-06). Leer lassen = QR zeigt Hinweis statt Link. */
+var APP_INSTALL_URL = 'https://krapfenbediener.github.io/argus';
+
+/* buildGastDeepLink(short_code) → <APP_INSTALL_URL>/index.html#code=<sc>
+ * Der Feld-App unterstützt #code= BEREITS (index.html, wird hier NICHT geändert). */
+function buildGastDeepLink(sc){
+  if(!APP_INSTALL_URL) return '';
+  return APP_INSTALL_URL.replace(/\/+$/,'')+'/index.html#code='+encodeURIComponent(sc);
+}
+
+/* showGastQrModal(sc, label) — zeigt QR + Klartext-Code nach Gast-Code-Ausgabe.
+ * Kein natives alert/confirm/prompt — In-App-Modal (Projektkonvention). */
+function showGastQrModal(sc, label){
+  var link=buildGastDeepLink(sc);
+  var qrHtml='';
+  if(link){
+    qrHtml='<div id="gast-qr-canvas" style="display:flex;justify-content:center;margin:10px 0"></div>';
+  }else{
+    qrHtml='<div class="hint" style="margin:8px 0;color:var(--t1)">App-Adresse nicht hinterlegt — QR nicht verfügbar. Bitte APP_INSTALL_URL in der Leitungs-Seite setzen.</div>';
+  }
+  var ov=document.createElement('div'); ov.className='modalov';
+  ov.innerHTML='<div class="modalbx" style="max-width:380px">'
+    +'<div style="font-weight:700;font-size:15px;margin-bottom:6px">Code als QR</div>'
+    +(label?'<div class="hint" style="margin-bottom:8px">'+esc(label)+'</div>':'')
+    +qrHtml
+    +'<div style="text-align:center;font-family:var(--mono);font-size:20px;font-weight:700;letter-spacing:3px;margin:8px 0">'+esc(sc)+'</div>'
+    +(link?'<div class="hint" style="word-break:break-all;margin-bottom:6px">'+esc(link)+'</div>':'')
+    +'<div class="hint" style="margin-bottom:12px">Scannen öffnet die ARGUS-App mit vorausgefülltem Code.</div>'
+    +'<div class="modalrow"><button class="btn" data-m="close">Schließen</button></div>'
+    +'</div>';
+  document.body.appendChild(ov);
+  if(link){
+    var cel=ov.querySelector('#gast-qr-canvas');
+    if(cel) drawQR(cel, link);
+  }
+  ov.addEventListener('click',function(e){
+    var b=e.target.closest('[data-m]');
+    if(b||e.target===ov) ov.remove();
+  });
+}
+
+/* Backend-Konfiguration kommt zentral aus ../config.js (window.ARGUS_CONFIG) —
+ * einzige Stelle für den Instanz-Tausch beim Self-Hosting (Phase 4.11, D-01). */
+var _cfg = window.ARGUS_CONFIG || null;
+var _configError = !(_cfg && typeof _cfg.url==='string' && _cfg.url.indexOf('https://')===0 && _cfg.anonKey);
+var SUPA_URL = _configError ? '' : _cfg.url;
+var SUPA_KEY = _configError ? '' : _cfg.anonKey;
+
+var _sb = null;
+var _sbJwt = null;
+var state = { section:'zugaenge' };   /* Direkteinstieg: Zugänge — keine Übersichtsseite */
+
+/* ── Rollen-Helfer (Plan 04.14-02) ──────────────────────────────
+ * sessionRole() liefert 'admin' oder Default 'master'.
+ * Abwärtskompatibel: Altsitzungen ohne argusl_role → 'master'. */
+function sessionRole(){ return sessionStorage.getItem('argusl_role')||'master'; }
+
+/* ── Hilfsfunktionen ─────────────────────────────────────────── */
+function $(id){ return document.getElementById(id); }
+function nowMs(){ return Date.now(); }
+/* HTML-Escaping JEDES dynamischen Werts — Daten kommen aus gemeinsam
+ * beschreibbaren Tabellen (Kennungen, Labels, Begründungen von Feld-Geräten). */
+function esc(s){
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+/* Kennung-Anzeige: offline erfasste Patienten tragen die Gerätenummer kodiert als
+ * „A~2" (Feld-App 2026-10-14) → hier als „A · Gerät 2" lesbar machen. */
+function ccpDisp(c){ c=(c==null?'':String(c)); var i=c.indexOf('~'); if(i<0) return esc(c); var base=c.slice(0,i), dev=parseInt(c.slice(i+1),10)||0; return esc(base)+(dev?(' · Gerät '+dev):''); }
+/* de-DE-Datumsformat für bigint-Millisekunden (Muster govFmt der Feld-App) */
+function fmtMs(ms){
+  if(ms==null) return '—';
+  return new Date(+ms).toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr';
+}
+/* timestamptz (ISO-String, z. B. purge_log.at) ebenfalls de-DE */
+function fmtIso(s){
+  if(!s) return '—';
+  var d=new Date(s);
+  if(isNaN(d.getTime())) return esc(String(s));
+  return d.toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr';
+}
+function toast(msg){
+  var t=$('toast'); t.textContent=msg; t.classList.add('show');
+  setTimeout(function(){ t.classList.remove('show'); },2200);
+}
+
+/* ── In-Page-Modals (keine nativen Dialoge — Projektkonvention) ── */
+function modalBase(innerHtml){
+  var ov=document.createElement('div'); ov.className='modalov';
+  ov.innerHTML='<div class="modalbx">'+innerHtml+'</div>';
+  document.body.appendChild(ov);
+  return ov;
+}
+function confirmModal(msg, okLabel){
+  return new Promise(function(resolve){
+    var ov=modalBase('<div class="modalmsg">'+esc(msg)+'</div>'+
+      '<div class="modalrow"><button class="btn ghost" data-m="no">Abbrechen</button>'+
+      '<button class="btn" data-m="yes">'+esc(okLabel||'OK')+'</button></div>');
+    ov.addEventListener('click',function(e){
+      var b=e.target.closest('[data-m]');
+      if(b){ ov.remove(); resolve(b.getAttribute('data-m')==='yes'); }
+      else if(e.target===ov){ ov.remove(); resolve(false); }
+    });
+  });
+}
+function promptModal(msg, def){
+  return new Promise(function(resolve){
+    var ov=modalBase('<div class="modalmsg">'+esc(msg)+'</div>'+
+      '<input id="modalinp" value="'+esc(def||'')+'">'+
+      '<div class="modalrow"><button class="btn ghost" data-m="no">Abbrechen</button>'+
+      '<button class="btn" data-m="yes">OK</button></div>');
+    var inp=ov.querySelector('#modalinp'); inp.focus(); inp.select();
+    function done(ok){ var v=inp.value; ov.remove(); resolve(ok?v:null); }
+    ov.addEventListener('click',function(e){
+      var b=e.target.closest('[data-m]');
+      if(b){ done(b.getAttribute('data-m')==='yes'); }
+      else if(e.target===ov){ done(false); }
+    });
+    inp.addEventListener('keydown',function(e){ if(e.key==='Enter') done(true); });
+  });
+}
+
+/* ── Sitzung (D-07): sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
+ * Schlüssel argusl_jwt / argusl_jwt_exp / argusl_role / argusl_padmin /
+ * argusl_padmin_name / argusl_kuerzel. Standard: Tab zu = Sitzung weg.
+ * Opt-in (Owner 2026-10-14): mit gesetztem argusl_keep werden die Schlüssel
+ * zusätzlich in localStorage gespiegelt und beim nächsten Öffnen wiederhergestellt
+ * — bis zum Ablauf des JWT (Master: 30 Tage), bis „Abmelden" oder bis der Server
+ * mit 401 ablehnt (Sofortsperre greift also weiterhin). Explizite Schlüsselliste
+ * statt Präfix-Scan: gleicher Origin wie die Lage-Seite (argusl_ ⊂ arguslg_). */
+var SESS_KEYS=['argusl_jwt','argusl_jwt_exp','argusl_role','argusl_padmin','argusl_padmin_name','argusl_kuerzel','argusl_keep'];
+function sessWipeLocal(){ try{ SESS_KEYS.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){} }
+function sessRestore(){
+  try{
+    if(sessionStorage.getItem('argusl_jwt')) return;
+    if(localStorage.getItem('argusl_keep')!=='1' || !localStorage.getItem('argusl_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=localStorage.getItem(k); if(v!=null) sessionStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessMirror(){
+  try{
+    if(sessionStorage.getItem('argusl_keep')!=='1') return;
+    if(localStorage.getItem('argusl_jwt')===sessionStorage.getItem('argusl_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=sessionStorage.getItem(k); if(v!=null) localStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessionJwt(){
+  sessRestore();
+  var jwt=sessionStorage.getItem('argusl_jwt');
+  var exp=parseInt(sessionStorage.getItem('argusl_jwt_exp')||'0',10);
+  if(!jwt||!exp) return null;
+  if(exp<=nowMs()){ sessionStorage.clear(); sessWipeLocal(); return null; }
+  sessMirror();
+  return jwt;
+}
+function sb(){
+  var jwt=sessionJwt();
+  if(!jwt) return null;
+  if(_sb && jwt===_sbJwt) return _sb;
+  var lib=window.supabase;
+  if(!lib || !lib.createClient) return null;
+  _sbJwt=jwt;
+  _sb=lib.createClient(SUPA_URL, SUPA_KEY, {
+    auth:{persistSession:false, autoRefreshToken:false, detectSessionInUrl:false},
+    global:{ headers:{ Authorization:'Bearer '+jwt } }
+  });
+  return _sb;
+}
+
+/* ── Login (D-07): MasterToken oder Admin-Token ──────────────────
+ * Ablauf: zuerst argus_exchange_code versuchen (Master-Strecke).
+ * Liefert sie kein JWT oder keinen Master, zweiten Versuch gegen
+ * argus_exchange_admin_code mit demselben Code. Erst wenn auch das
+ * scheitert, wird die Abweisung gezeigt.
+ * Wichtig: argus_exchange_admin_code NUR aufrufen, wenn Master-Versuch
+ * wirklich keinen Master ergab — Doppel-Log vermeiden.
+ * NICHTS wird im Abweisungspfad in sessionStorage gespeichert. */
+async function doLogin(raw){
+  /* Ohne Config liefe der fetch relativ gegen den eigenen Origin (kryptischer
+   * 404) — daher hier hart abfangen, Hinweis steht auch in der Login-Ansicht. */
+  if(_configError){ setLoginError('Konfiguration fehlt (config.js) — kein Backend verbunden.'); return; }
+  var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
+  if(clean.length<8){ setLoginError('Bitte vollständigen Zugangs-Token eingeben.'); return; }
+  setLoginError('');
+  /* Opt-in „Angemeldet bleiben": Flag in der Sitzung; sessionJwt() spiegelt dann
+   * nach localStorage (gilt für alle drei Login-Pfade). Ohne Häkchen: evtl. alte
+   * persistierte Sitzung löschen. */
+  var keep=!!($('keepme') && $('keepme').checked);
+  try{ sessionStorage.setItem('argusl_keep', keep?'1':''); }catch(e){}
+  if(!keep) sessWipeLocal();
+  var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
+  try{
+    /* ── 1. Master-Versuch (argus_exchange_code) ── */
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data=await resp.json();   /* ungültiger Code = HTTP 200 + {error:…} */
+
+    if(data && data.jwt && data.is_master===true){
+      /* ── Master-Pfad: alles wie bisher ── */
+      sessionStorage.setItem('argusl_jwt', data.jwt);
+      sessionStorage.setItem('argusl_jwt_exp', String(data.exp*1000));
+      sessionStorage.setItem('argusl_role', 'master');
+      state.section='zugaenge';     /* D-10: direkt in den ersten Bereich */
+      render();
+      loadSection();
+      return;
+    }
+
+    /* ── 2. Admin-Versuch (argus_exchange_admin_code) ──
+     * Nur wenn Master-Versuch kein Master-JWT geliefert hat —
+     * vermeidet Doppel-Log im governance_log. */
+    var resp2=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_admin_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data2=await resp2.json();
+
+    if(data2 && data2.jwt){
+      /* ── Admin-Pfad ── */
+      sessionStorage.setItem('argusl_jwt', data2.jwt);
+      sessionStorage.setItem('argusl_jwt_exp', String(data2.exp*1000));
+      sessionStorage.setItem('argusl_role', 'admin');
+      sessionStorage.setItem('argusl_padmin', data2.praesidium_id||'');
+      sessionStorage.setItem('argusl_padmin_name', data2.praesidium_name||'');
+      state.section='admin-zugang'; /* Direkteinstieg für Admin */
+      render();
+      loadSection();
+      return;
+    }
+
+    /* ── 3. Pro-Person-Versuch (argus_exchange_person_code, Plan 05-03) ──
+     * Erst NACHDEM Master- und Admin-Versuch fehlgeschlagen sind. Ein
+     * Person-Code an argus_exchange_code liefert dank CR-02-Härtung (Plan 01)
+     * bereits einen Fehler statt eines is_master-JWT — der Master-Versuch
+     * scheitert also korrekt zuerst. Der Person-Token trägt die USBNK, damit
+     * Leitungs-Seiten-Aktionen personenscharf protokolliert werden (D-08). */
+    var resp3=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_person_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data3=await resp3.json();
+
+    if(data3 && data3.jwt){
+      var prole=(data3.argus_role||'').toLowerCase();
+      sessionStorage.setItem('argusl_jwt', data3.jwt);
+      sessionStorage.setItem('argusl_jwt_exp', String(data3.exp*1000));
+      /* USBNK als Sitzungs-Kürzel (Actor) — erscheint in Governance-/Audit-Aktionen */
+      sessionStorage.setItem('argusl_kuerzel', data3.usbnk||'');
+      if(prole==='master'){
+        sessionStorage.setItem('argusl_role', 'master');
+        state.section='zugaenge';     /* volle Master-Ansicht */
+      }else if(prole==='admin'){
+        sessionStorage.setItem('argusl_role', 'admin');
+        sessionStorage.setItem('argusl_padmin', data3.praesidium_id||'');
+        sessionStorage.setItem('argusl_padmin_name', data3.praesidium_name||'');
+        state.section='admin-zugang'; /* reduzierte Admin-Ansicht */
+      }else{
+        /* flz / normal: in Phase 5 (noch) keine Leitungs-Seiten-Ansicht.
+         * Anmeldung akzeptieren, aber freundlichen Hinweis zeigen — KEINE
+         * kaputte/leere Master-Ansicht rendern. */
+        sessionStorage.setItem('argusl_role', prole||'normal');
+        state.section='noview';
+      }
+      render();
+      loadSection();
+      return;
+    }
+
+    /* ── Abweisung — KEIN sessionStorage-Schreiben ── */
+    setLoginError('Nur mit Master-, Admin- oder Pro-Person-Token — dieser Code hat keine Leitungs-Berechtigung.');
+  }catch(e){
+    setLoginError('Keine Verbindung — bitte erneut versuchen.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Anmelden'; }
+  }
+}
+function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
+function doLogout(){ sessionStorage.clear(); sessWipeLocal(); location.reload(); }
+
+/* ── Navigation / Router ───────────────────────────────────────── */
+/* Master-Bereiche (volle Governance) */
+var SECTIONS_MASTER=[
+  { id:'zugaenge',      label:'Zugänge' },
+  { id:'einsaetze',     label:'Einsatzprotokolle' },
+  { id:'protokoll',     label:'Protokoll' },
+  { id:'identitaeten',  label:'Identitäten' },
+  { id:'audit',         label:'Audit-Log' }
+];
+/* Admin-Bereiche (reduziert: nur eigenes Präsidium) */
+var SECTIONS_ADMIN=[
+  { id:'admin-zugang', label:'Dauercodes' },
+  { id:'admin-lage',   label:'Lage' }
+];
+function sideNav(){
+  var role=sessionRole();
+  /* Rollen ohne Leitungs-Seiten-Ansicht (flz/normal, Phase 5): keine
+   * privilegierten Bereiche anbieten — die Navigation bleibt leer. */
+  var secs=(role==='admin') ? SECTIONS_ADMIN
+         : (role==='master') ? SECTIONS_MASTER
+         : [];
+  var h='<nav class="side"><div class="sh">Bereiche</div>';
+  secs.forEach(function(s){
+    h+='<div class="it'+(state.section===s.id?' on':'')+'" data-nav="'+s.id+'">'+esc(s.label)+'</div>';
+  });
+  h+='</nav>';
+  return h;
+}
+function render(){
+  var app=$('app');
+  var logged=!!sessionJwt();
+  $('logoutbtn').style.display = logged ? '' : 'none';
+  if(!logged){
+    app.innerHTML=vLogin();
+    return;
+  }
+  var h='<div class="layout">'+sideNav()+'<main class="main">';
+  if(state.section==='zugaenge')          h+=secZugaenge();
+  else if(state.section==='einsaetze')    h+=secEinsaetze();
+  else if(state.section==='protokoll')    h+=secProtokoll();
+  else if(state.section==='identitaeten') h+=secIdentitaeten();
+  else if(state.section==='audit')        h+=secAudit();
+  else if(state.section==='admin-zugang') h+=secAdminZugang();
+  else if(state.section==='admin-lage')   h+=secAdminLage();
+  else if(state.section==='noview')       h+=secNoView();
+  h+='</main></div>';
+  app.innerHTML=h;
+}
+function loadSection(){
+  if(state.section==='zugaenge')          loadZugaenge();
+  else if(state.section==='einsaetze')    loadEinsaetze();
+  else if(state.section==='protokoll')    loadProtokoll();
+  else if(state.section==='identitaeten') loadIdentitaeten();
+  else if(state.section==='audit')        loadAudit();
+  else if(state.section==='admin-zugang') loadAdminZugang();
+  else if(state.section==='admin-lage')   loadAdminLage();
+}
+
+/* ── Hinweis-Ansicht für Rollen ohne Leitungs-Seiten-Bereich ──────
+ * flz/normal sind in Phase 5 gültige Anmeldungen (Person-Token), haben
+ * aber noch keine eigene Ansicht — FLZ-Lage/Feld-App folgen in einer
+ * Folgephase. Statt einer kaputten/leeren Master-Ansicht: klarer Hinweis. */
+function secNoView(){
+  var usbnk=esc(sessionStorage.getItem('argusl_kuerzel')||'');
+  var role=esc(sessionRole());
+  var h='<div class="mh"><h2>Angemeldet</h2></div>';
+  h+='<div class="card">';
+  h+='<div class="hint" style="margin:0 0 6px">USBNK: <b>'+(usbnk||'—')+'</b> · Rolle: <b>'+role+'</b></div>';
+  h+='<p style="margin:8px 0 0">Für diese Rolle ist auf der Leitungs-Seite noch keine Ansicht verfügbar.</p>';
+  h+='<p class="hint" style="margin-top:6px">FLZ-Lage und Feld-App-Funktionen kommen in einer Folgephase. Die Anmeldung ist gültig und wurde personenscharf protokolliert.</p>';
+  h+='</div>';
+  return h;
+}
+
+/* ── Login-View ────────────────────────────────────────────────── */
+function vLogin(){
+  var h='<div class="loginwrap"><div class="loginbox">';
+  h+='<div class="arg-logo">ARGUS</div>';
+  h+='<h1 style="text-align:center">Leitung</h1>';
+  h+='<div class="hint" style="text-align:center">Anmeldung mit MasterToken oder FLZ-Zugang.<br>Die Sitzung endet mit dem Schließen des Tabs — außer du wählst „Angemeldet bleiben".</div>';
+  if(_configError){ h+='<div class="lerr" style="text-align:center">⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden.</div>'; }
+  h+='<label class="fieldlab" for="logininp">Zugangs-Token</label>';
+  h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
+  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)"><input type="checkbox" id="keepme" style="width:18px;height:18px;margin:0"> Angemeldet bleiben — nur auf diesem Gerät (bis zum Ablauf des Zugangs, max. 30 Tage; „Abmelden" beendet es)</label>';
+  h+='<div class="modalrow" style="justify-content:stretch;gap:8px">';
+  h+='<button class="btn ghost" data-action="pastetoken" style="flex:1">📋 Einfügen</button>';
+  h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
+  h+='</div>';
+  h+='<div class="lerr" id="loginerr"></div>';
+  h+='</div></div>';
+  return h;
+}
+
+/* ── Bereich „Zugänge" (D-11) ───────────────────────────────────
+ * Portierung der Admin-Panel-Logik der Feld-App, erweitert um
+ * 24-h-Codes und die Code-Sperre (revoked-Flag, Migration 0003). */
+var _praes=null, _tokens=null, _zugErr=null;
+
+/* Einklapp-Zustand je Karte/Block (Owner-Wunsch 2026-06-12). Persistenz in
+ * sessionStorage — überlebt Bereichswechsel, endet mit der Sitzung. */
+var _collapsed={};
+try{ _collapsed=JSON.parse(sessionStorage.getItem('arguslt_collapsed')||'{}')||{}; }catch(e){ _collapsed={}; }
+function isCollapsed(key, defCollapsed){ return (key in _collapsed) ? !!_collapsed[key] : !!defCollapsed; }
+function toggleCard(key, defCollapsed){
+  _collapsed[key]=!isCollapsed(key, defCollapsed);
+  try{ sessionStorage.setItem('arguslt_collapsed', JSON.stringify(_collapsed)); }catch(e){}
+  render();
+}
+/* Filter/Sortierung für die Zugänge-Tabellen (Owner-Wunsch 2026-06-12).
+ * Rein clientseitig auf den geladenen _tokens; bei aktivem Filter werden
+ * die Karten zwangsweise aufgeklappt, sonst wäre das Ergebnis unsichtbar. */
+var _zugFilter={art:'alle',status:'alle',sort:'neu'};
+function zugFilterActive(){ return _zugFilter.art!=='alle' || _zugFilter.status!=='alle'; }
+function tokenArtKey(t){
+  if(t.observer) return 'beobachter';
+  if(t.is_admin) return 'admin';
+  if(t.is_master) return 'master';
+  if(t.gast) return 'gast';
+  if(t.single_use) return 'einmal';
+  return 'dauerhaft';
+}
+function tokenStatusKey(t){
+  if(t.revoked) return 'gesperrt';
+  if(t.single_use && t.used_at) return 'verbraucht';
+  if(t.gast && t.expires_at && t.expires_at<=Date.now()) return 'abgelaufen';
+  return 'aktiv';
+}
+function tokenMatches(t){
+  if(_zugFilter.art!=='alle'    && tokenArtKey(t)!==_zugFilter.art) return false;
+  if(_zugFilter.status!=='alle' && tokenStatusKey(t)!==_zugFilter.status) return false;
+  return true;
+}
+function sortTokens(list){
+  var l=list.slice();
+  l.sort(function(a,b){
+    var ta=Date.parse(a.created_at||'')||0, tb=Date.parse(b.created_at||'')||0;
+    return _zugFilter.sort==='alt' ? ta-tb : tb-ta;
+  });
+  return l;
+}
+function zugSel(field, opts){
+  var h='<select data-action="zugfilter" data-field="'+field+'">';
+  opts.forEach(function(o){
+    h+='<option value="'+o[0]+'"'+(_zugFilter[field]===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  });
+  return h+'</select>';
+}
+
+/* Klickbarer Karten-Kopf; def=1 → standardmäßig zugeklappt.
+ * forceOpen überstimmt den Merker (aktiver Filter klappt alles auf). */
+function foldHead(key, defCollapsed, title, summary, forceOpen){
+  var open=(forceOpen!==undefined) ? !!forceOpen : !isCollapsed(key, defCollapsed);
+  return '<div class="cardhead'+(open?' open':'')+'" data-action="togglecard" data-key="'+esc(key)+'" data-def="'+(defCollapsed?'1':'0')+'">'
+       + '<span class="chev">▶</span><span class="ctitle">'+title+'</span>'
+       + (summary?'<span class="csum">'+summary+'</span>':'')
+       + '</div>';
+}
+
+/* Code-/Token-Erzeugung — 1:1 aus der Feld-App portiert */
+function genShortCode(){
+  /* WR-02 (04.14 Code-Review): kryptografisch statt Math.random. Das Alphabet hat
+     32 Zeichen (Zweierpotenz) → b%32 ist bias-frei (256/32=8). Konsistent zu genToken. */
+  var AL="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  var a=new Uint8Array(8); crypto.getRandomValues(a);
+  var s='';for(var i=0;i<8;i++){ if(i===4)s+='-'; s+=AL[a[i]%32]; }
+  return s;
+}
+function genToken(){ var a=new Uint8Array(16); crypto.getRandomValues(a); return Array.from(a,function(b){return b.toString(16).padStart(2,'0');}).join(''); }
+
+/* Wurzel-URL der Feld-App: das Segment „docs/<datei>" aus dem eigenen
+ * Pfad entfernen — die Leitungs-Seite liegt selbst unter docs/. */
+function feldAppRoot(){
+  return location.origin + location.pathname.replace(/docs\/[^\/]*$/,'');
+}
+
+async function loadZugaenge(){
+  _praes=null; _tokens=null; _zugErr=null;
+  if(state.section==='zugaenge') render();
+  var cl=sb();
+  if(!cl){ _zugErr='Sitzung abgelaufen — bitte neu anmelden.'; if(state.section==='zugaenge') render(); return; }
+  try{
+    var pr=await cl.from('praesidien').select('id,name,schulung').order('name');
+    if(pr.error){ _zugErr=pr.error.message||'Präsidien nicht lesbar'; }
+    else{
+      _praes=pr.data||[];
+      var tk=await cl.from('access_tokens').select('short_code,label,is_master,is_admin,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer,created_at,gast,expires_at');
+      if(tk.error){ _zugErr=tk.error.message||'Zugänge nicht lesbar'; }
+      else{ _tokens=tk.data||[]; }
+    }
+  }catch(e){ _zugErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='zugaenge') render();
+}
+
+function tokenArt(t){
+  if(t.observer) return 'Beobachter (alt)';
+  if(t.is_admin) return 'FLZ-Zugang';
+  if(t.is_master) return 'MasterToken';
+  if(t.gast) return 'Gast (alt, 24 h)';
+  if(t.single_use) return 'Einmalig';
+  if(t.temporary) return '24 h';
+  return 'Dauerhaft';
+}
+function tokenStatus(t){
+  if(t.revoked) return '<span class="pill red">GESPERRT</span>';
+  if(t.single_use && t.used_at) return '<span class="pill gray">verbraucht</span>';
+  if(t.gast && t.expires_at && t.expires_at<=Date.now()) return '<span class="pill gray">abgelaufen</span>';
+  if(t.gast && t.expires_at){
+    var hrs=Math.max(0,Math.ceil((t.expires_at-Date.now())/3600000));
+    return '<span class="pill green">aktiv · noch '+hrs+' h</span>';
+  }
+  return '<span class="pill green">aktiv</span>';
+}
+function tokenRows(list){
+  var h='<div class="tablewrap"><table><thead><tr><th>Code</th><th>Art</th><th>Bezeichnung</th><th>Status</th><th></th></tr></thead><tbody>';
+  list.forEach(function(t){
+    h+='<tr>';
+    h+='<td class="mono" style="font-weight:600;white-space:nowrap">'+esc(t.short_code||'—')+'</td>';
+    h+='<td>'+esc(tokenArt(t))+'</td>';
+    h+='<td>'+esc(t.label||'')+'</td>';
+    h+='<td>'+tokenStatus(t)+'</td>';
+    if(t.is_master){
+      /* Selbstaussperrung verhindern: MasterToken-Zeilen sind hier NICHT sperrbar. */
+      h+='<td class="hint">MasterToken — Sperrung nur direkt in der Datenbank</td>';
+    }else if(!t.short_code){
+      h+='<td></td>';
+    }else if(t.revoked){
+      h+='<td><button class="btn ghost" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="1">Entsperren</button></td>';
+    }else{
+      var btnHtml='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      if(t.gast && !t.revoked){
+        btnHtml+='<button class="btn ghost" data-action="showgastqr" data-sc="'+esc(t.short_code)+'" data-lbl="'+esc(t.label||'')+'" title="QR anzeigen">QR</button>';
+      }
+      btnHtml+='<button class="btn warn" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="0">Sperren</button>';
+      btnHtml+='</div>';
+      h+='<td>'+btnHtml+'</td>';
+    }
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  return h;
+}
+
+function secZugaenge(){
+  var h='<div class="mh"><h2>Zugänge</h2><span style="display:flex;gap:8px;flex-wrap:wrap">'+
+    '<button class="btn ghost" data-action="provision">Schulungs-Präsidien anlegen/prüfen</button>'+
+    '<button class="btn ghost" data-action="zugreload">↻ Aktualisieren</button></span></div>';
+  /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) */
+  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
+  h+='<span class="hint" style="margin:0">Filter:</span>';
+  h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['admin','FLZ-Zugang'],['master','MasterToken'],['gast','Gast (alt)'],['beobachter','Beobachter (alt)']]);
+  h+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht'],['abgelaufen','abgelaufen']]);
+  h+='<span class="hint" style="margin:0 0 0 8px">Sortierung:</span>';
+  h+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst']]);
+  if(zugFilterActive()) h+='<button class="btn ghost" data-action="zugfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
+  h+='</div>';
+  if(_zugErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_zugErr)+'</div></div>';
+    return h;
+  }
+  if(_praes===null || _tokens===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+    return h;
+  }
+  if(!_praes.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Präsidien angelegt.</p></div>';
+  }
+  var used={};
+  _praes.forEach(function(p){
+    var list=_tokens.filter(function(t){ return t.praesidium_id===p.id; });
+    list.forEach(function(t){ used[t.short_code||('tok'+Math.random())]=true; });
+    var shown=sortTokens(list.filter(tokenMatches));
+    var nRev=list.filter(function(t){return t.revoked;}).length;
+    var sum=zugFilterActive()
+      ? shown.length+' von '+list.length+' Code'+(list.length===1?'':'s')
+      : list.length+' Code'+(list.length===1?'':'s')+(nRev?' · '+nRev+' gesperrt':'');
+    var key='zug-'+p.id;
+    var open=zugFilterActive() || !isCollapsed(key, true);
+    h+='<div class="card">';
+    h+=foldHead(key, true, esc(p.name), sum, open);
+    if(open){
+      h+='<div class="hint" style="margin:8px 0 8px">Zugangs-Link erstellen &amp; kopieren:</div>';
+      h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">';
+      h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="perm">Dauerhaft-Link</button>';
+      h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
+      /* Owner 2026-10-14: nur noch Dauerhaft · Einmal · FLZ-Zugang. Gast-Code und
+       * Beobachter-Code werden nicht mehr angelegt (bestehende bleiben in der
+       * Liste sichtbar und sperrbar). FLZ-Zugang = bisherige Admin-Rolle. */
+      h+='<button class="btn ghost" data-action="mkadmin" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">FLZ-Zugang</button>';
+      if(p.schulung){
+        h+='<button class="btn warn" data-action="mkreset" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" style="margin-left:auto">Übungs-Präsidium leeren</button>';
+      }
+      h+='</div>';
+      h+= shown.length ? tokenRows(shown)
+        : '<div class="hint">'+(list.length?'Keine Codes passend zum Filter.':'Noch keine Codes für dieses Präsidium.')+'</div>';
+    }
+    h+='</div>';
+  });
+  var rest=_tokens.filter(function(t){ return !_praes.some(function(p){return p.id===t.praesidium_id;}); });
+  if(rest.length){
+    var restShown=sortTokens(rest.filter(tokenMatches));
+    var restOpen=zugFilterActive() || !isCollapsed('zug-rest', true);
+    h+='<div class="card">';
+    h+=foldHead('zug-rest', true, 'Weitere Zugänge',
+      (zugFilterActive()? restShown.length+' von ':'')+rest.length+' Code'+(rest.length===1?'':'s'), restOpen);
+    if(restOpen) h+='<div style="margin-top:8px">'+(restShown.length?tokenRows(restShown):'<div class="hint">Keine Codes passend zum Filter.</div>')+'</div>';
+    h+='</div>';
+  }
+  h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Bei der Erstellung kann eine Zuteilung (Name/Dienstnr./Funktion) erfasst werden — sie erscheint als Bezeichnung und macht gezieltes Sperren möglich. Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
+  h+='<p class="hint">Sperren wirkt <b>sofort serverseitig</b> — auch bereits angemeldete Geräte verlieren den Zugriff umgehend (die App zeigt die Abmeldung spätestens beim nächsten Start/Reconnect an). Einzige Ausnahme: Anmeldungen aus der Zeit vor dem 12.06.2026 laufen noch bis zum Ablauf ihrer alten Anmeldung (max. 30 Tage) weiter.</p>';
+  h+='<p class="hint">„FLZ-Zugang" = Code für den Sachbearbeiter der FLZ: öffnet die anonyme Lageansicht des Präsidiums (Lage-Seite und hier) und erlaubt, <b>Dauercodes</b> für das Präsidium auszugeben und zu sperren — auch für präsidiumsfremde Kräfte. Kein Zugriff auf Patientendaten. Funktioniert NICHT als Anmeldung in der Feld-App.</p>';
+  return h;
+}
+
+/* Gast-Code (Paket 2, 2026-06-13): Mehrfach-Code für den Gastkräfte-Zustrom —
+ * über Funk durchsagbar, an der Einsatztafel anschreibbar. Serverseitig echt
+ * auf 24 h befristet (expires_at; wirkt über die jti-Prüfung auch auf bereits
+ * ausgestellte Tickets); jede Einlösung wird protokolliert (gast_join).
+ * Bewusst je Anlass ein FRISCHER Code (keine Wiederverwendung). */
+async function makeGast(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var zut=await promptModal('Anlass/Einsatz für den Gast-Code? (erscheint in der Liste; leer = ohne Angabe)','');
+  if(zut===null) return;   /* Abbrechen = nicht anlegen */
+  zut=(zut||'').trim();
+  var exp=Date.now()+24*3600000;
+  var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,gast:true,expires_at:exp,label:pname+' Gast-Code'+(zut?' — '+zut:''),short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
+  if(ins.error||!ins.data){ toast('Konnte Gast-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
+  var sc=ins.data.short_code;
+  try{ await navigator.clipboard.writeText(sc); }catch(e){}
+  await promptModal('Gast-Code (24 h gültig, mehrfach einlösbar — zum Durchsagen/Anschreiben; jede Einlösung wird protokolliert):', sc);
+  showGastQrModal(sc, ins.data.label||('Gast-Code — '+pname+(zut?' — '+zut:'')));
+  loadZugaenge();
+}
+
+/* Schulungs-Provisionierung (Paket 3, Migration 0011): legt für jedes echte
+ * Präsidium ein Schwester-Präsidium „<Name> — Schulung" an (master-only,
+ * idempotent — der RPC meldet nur tatsächlich neu angelegte Namen). */
+async function makeProvision(){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r; try{ r=await cl.rpc('argus_provision_schulung'); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Provisionierung fehlgeschlagen: '+(r.error.message||'unbekannt')); return; }
+  var neu=(r.data && Array.isArray(r.data.angelegte)) ? r.data.angelegte : [];
+  /* toast() setzt textContent — kein esc() nötig (würde doppelt kodieren) */
+  toast(neu.length
+    ? 'Schulungs-Präsidien angelegt: '+neu.map(function(n){return String(n);}).join(', ')
+    : 'Keine neuen Schulungs-Präsidien nötig.');
+  loadZugaenge();
+}
+
+/* Schulungs-Präsidium leeren (Plan 04.14-03, Task 3A, master-only):
+ * Ruft argus_schulung_reset auf — tombstont alle offenen CCPs des Schulungs-
+ * Präsidiums (patients+checklists gelöscht). Nur bei schulung=true.
+ * Muster: makeProvision (master-only RPC-Aktion). */
+async function makeReset(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var ok=await confirmModal(
+    'Alle offenen Übungs-CCPs von „'+pname+'“ leeren?\nPatienten und Checklisten dieser CCPs werden gelöscht. Nur Schulungsdaten.',
+    'Leeren'
+  );
+  if(!ok) return;
+  var r; try{ r=await cl.rpc('argus_schulung_reset',{p_praesidium_id:pid}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error||!r.data){ toast('Leeren fehlgeschlagen: '+(r.error?r.error.message:'kein Ergebnis')); return; }
+  if(r.data.error){ toast('Leeren nicht möglich: '+r.data.error); return; }
+  var res=r.data.reset!=null?r.data.reset:0;
+  var hyg=r.data.hygiene!=null?r.data.hygiene:0;
+  toast('Präsidium geleert — '+res+' CCP(s) zurückgesetzt, '+hyg+' alte(r) Tombstone(s) bereinigt.');
+  loadZugaenge();
+}
+
+/* Beobachter-Zugang (FLZ, Phase 4.12): vorhandenen aktiven Beobachter-Code des
+ * Präsidiums wiederverwenden, sonst neu anlegen. Bewusst NUR der CODE in die
+ * Zwischenablage — die Adresse der Lageansicht wird hier NICHT konstruiert
+ * (D-06 analog: ihr Name gehört nicht in diese committete Datei). */
+async function makeObserver(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var sc=null;
+  var rows=(_tokens||[]).filter(function(t){
+    return t.praesidium_id===pid && t.observer && !t.revoked;
+  });
+  if(rows.length && rows[0].short_code){
+    sc=rows[0].short_code;
+  }else{
+    /* Zuteilung (Nachverfolgbarkeit) — analog Einmal-Link */
+    var zut=await promptModal('Empfangsstelle des Beobachter-Zugangs? (z. B. FLZ, Name — erscheint in der Liste; leer = ohne Zuteilung)','');
+    if(zut===null) return;   /* Abbrechen = nicht anlegen */
+    zut=(zut||'').trim();
+    var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,observer:true,label:pname+' FLZ-Beobachter'+(zut?' — '+zut:''),short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
+    if(ins.error||!ins.data){ toast('Konnte Beobachter-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
+    sc=ins.data.short_code;
+  }
+  try{ await navigator.clipboard.writeText(sc); toast('Beobachter-Code kopiert ✓ — Adresse der Lageansicht separat übermitteln'); }
+  catch(e){ await promptModal('Beobachter-Code (FLZ) — '+pname+' (kopieren; Adresse der Lageansicht separat übermitteln):', sc); }
+  loadZugaenge();
+}
+
+/* Admin-Token ausgeben (Plan 04.14-02): Master-Pfad, direkter Insert
+ * mit is_admin:true (RLS argus_tokens_insert erlaubt nur dem Master).
+ * Muster: makeObserver, aber mit is_admin statt observer. */
+async function makeAdmin(pid, pname){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var zut=await promptModal('Empfangsstelle/Person des FLZ-Zugangs? (z. B. FLZ, Sachbearbeiter — erscheint in der Liste; leer = ohne Angabe)','');
+  if(zut===null) return;   /* Abbrechen = nicht anlegen */
+  zut=(zut||'').trim();
+  var ins=await cl.from('access_tokens').insert({
+    token:genToken(), praesidium_id:pid,
+    is_admin:true, is_master:false, observer:false, gast:false,
+    single_use:false, temporary:false, ttl_hours:null, used_at:null,
+    label:pname+' FLZ-Zugang'+(zut?' — '+zut:''),
+    short_code:genShortCode()
+  }).select('short_code').single();
+  if(ins.error||!ins.data){ toast('Konnte FLZ-Zugang nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
+  var sc=ins.data.short_code;
+  try{ await navigator.clipboard.writeText(sc); }catch(e){}
+  await promptModal('FLZ-Zugang — sieht NUR die Lage des Präsidiums „'+pname+'“ (Lage-Seite und Leitung) und gibt dafür Dauercodes aus. Kein Patientendaten-Zugriff. Adressen der Lage-/Leitungs-Seite separat übermitteln. (Code kopieren)', sc);
+  loadZugaenge();
+}
+
+/* Link erstellen (Portierung adminlink-Handler der Feld-App):
+ * Einmalig = immer neuer Insert; Dauerhaft/24 h = vorhandenen passenden,
+ * NICHT gesperrten Code anbieten, sonst neu anlegen. */
+async function makeLink(pid, pname, kind){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var sc=null;
+  if(kind==='once'){
+    /* Zuteilung (Nachverfolgbarkeit): wer bekommt den Code? Erscheint als
+     * Bezeichnung in der Zugänge-Tabelle — Kette Aktion → Code → Zuteilung
+     * → Person; die Auflösung zur Person bleibt organisatorisch. */
+    var zut=await promptModal('Für wen ist der Einmal-Link? (Name/Dienstnr./Funktion — erscheint in der Liste; leer = ohne Zuteilung)','');
+    if(zut===null) return;   /* Abbrechen = nicht anlegen */
+    zut=(zut||'').trim();
+    sc=genShortCode();
+    var ins=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+' Einmal-Link'+(zut?' — '+zut:''),short_code:sc,temporary:true,ttl_hours:24,single_use:true,used_at:null}).select('short_code').single();
+    if(ins.error||!ins.data){ toast('Konnte Einmal-Code nicht anlegen'+(ins.error?' · '+ins.error.message:'')); return; }
+    sc=ins.data.short_code;   /* bestätigter Code aus der DB */
+  }else{
+    /* Dauerhaft — Code-Art „24 h" wurde 2026-06-12 abgeschafft (Migration 0006) */
+    var rows=(_tokens||[]).filter(function(t){
+      return t.praesidium_id===pid && !t.single_use && !t.is_master && !t.observer && !t.gast && !t.revoked && !t.temporary;
+    });
+    if(rows.length && rows[0].short_code){
+      sc=rows[0].short_code;
+    }else{
+      var ins2=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+' Dauerhaft-Code',short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
+      if(ins2.error||!ins2.data){ toast('Konnte Code nicht anlegen'+(ins2.error?' · '+ins2.error.message:'')); return; }
+      sc=ins2.data.short_code;
+    }
+  }
+  var url=feldAppRoot()+'#code='+sc;
+  var lbl=kind==='once'?'Einmal-Link (24 h)':'Dauerhaft-Link';
+  try{ await navigator.clipboard.writeText(url); toast(lbl+' kopiert ✓'); }
+  catch(e){ await promptModal(lbl+' — '+pname+' (kopieren):', url); }
+  loadZugaenge();
+}
+
+/* Code sperren/entsperren (D-11): revoked-Flag direkt per Master-JWT. */
+async function toggleRevoke(sc, isRevoked){
+  var msg=isRevoked
+    ? 'Code '+sc+' wieder entsperren? Er ist danach am Feldgerät wieder einlösbar.'
+    : 'Code '+sc+' sperren? Geräte mit diesem Code verlieren den Zugang beim nächsten Start bzw. bei Wiederverbindung (ab App-Version 0.23).';
+  var ok=await confirmModal(msg, isRevoked?'Entsperren':'Sperren');
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r=await cl.from('access_tokens').update({revoked:!isRevoked}).eq('short_code',sc);
+  if(r.error){ toast('Änderung fehlgeschlagen: '+(r.error.message||'unbekannt')); return; }
+  toast(isRevoked?'Code entsperrt':'Code gesperrt');
+  loadZugaenge();
+}
+
+/* ── Bereich „Dauercodes" (FLZ-Zugang = bisherige Admin-Rolle, 0023) ─────
+ * Der FLZ-Zugang gibt unbefristete Dauercodes fürs eigene Präsidium aus (via
+ * argus_admin_issue_dauerhaft) und sperrt Geräte-Codes des eigenen Präsidiums
+ * (via argus_admin_revoke_code). Da der FLZ-/Admin-JWT kein access_tokens-Select
+ * darf (kein praesidium_id-Claim), werden die in DIESER Sitzung ausgegebenen
+ * Codes clientseitig im Speicher vorgehalten (_adminGastCodes — Name historisch). */
+var _adminGastCodes=[];   /* {short_code, label, expires_at, revoked} — diese Sitzung */
+
+function secAdminZugang(){
+  var pname=esc(sessionStorage.getItem('argusl_padmin_name')||'');
+  var h='<div class="mh"><h2>Dauercodes</h2></div>';
+  h+='<div class="card"><div class="hint" style="margin:0 0 6px">Präsidium: <b>'+pname+'</b></div>';
+  h+='<button class="btn" data-action="mkadmingast">Dauercode ausgeben</button></div>';
+  if(_adminGastCodes.length){
+    h+='<div class="sech">Ausgegebene Codes dieser Sitzung</div>';
+    h+='<div class="tablewrap"><table><thead><tr><th>Code</th><th>Bezeichnung</th><th>Gültig</th><th>Status</th><th></th></tr></thead><tbody>';
+    _adminGastCodes.forEach(function(c){
+      var exp=c.expires_at ? ('bis '+fmtMs(c.expires_at)) : 'unbefristet';
+      h+='<tr>';
+      h+='<td class="mono" style="font-weight:600;white-space:nowrap">'+esc(c.short_code)+'</td>';
+      h+='<td>'+esc(c.label||'')+'</td>';
+      h+='<td class="hint">'+exp+'</td>';
+      h+='<td>'+(c.revoked ? '<span class="pill red">GESPERRT</span>' : '<span class="pill green">aktiv</span>')+'</td>';
+      if(!c.revoked){
+        h+='<td><div style="display:flex;gap:6px;flex-wrap:wrap">'
+          +'<button class="btn ghost" data-action="showgastqr" data-sc="'+esc(c.short_code)+'" data-lbl="'+esc(c.label||'')+'" title="QR anzeigen">QR</button>'
+          +'<button class="btn warn" data-action="adminrevoke" data-sc="'+esc(c.short_code)+'">Sperren</button>'
+          +'</div></td>';
+      }else{
+        h+='<td></td>';
+      }
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  h+='<p class="hint">Dauercodes sind unbefristet, beliebig oft einlösbar und gelten als normaler Geräte-Code des Präsidiums — damit können sich auch präsidiumsfremde Kräfte einwählen. Sperren wirkt sofort serverseitig, auch auf bereits angemeldete Geräte.</p>';
+  h+='<p class="hint">Nur Codes dieser Anmelde-Sitzung werden hier angezeigt — nach Abmeldung ist die Liste leer (Datenhaltung serverseitig; die vollständige Liste sieht der MasterToken unter „Zugänge").</p>';
+  return h;
+}
+async function loadAdminZugang(){
+  /* Kein DB-Abruf nötig — Admin-JWT darf access_tokens nicht lesen.
+   * Sitzungsliste ist bereits in _adminGastCodes. Nur rendern. */
+  if(state.section==='admin-zugang') render();
+}
+async function makeAdminGast(){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var pid=sessionStorage.getItem('argusl_padmin');
+  if(!pid){ toast('Admin-Präsidium nicht gesetzt — bitte neu anmelden.'); return; }
+  var zut=await promptModal('Anlass/Einsatz? (erscheint in der Liste; leer = ohne Angabe)','');
+  if(zut===null) return;
+  zut=(zut||'').trim();
+  var pname=sessionStorage.getItem('argusl_padmin_name')||'';
+  var lbl=(pname ? pname+' Dauercode' : 'Dauercode')+(zut?' — '+zut:'');
+  var r;
+  try{ r=await cl.rpc('argus_admin_issue_dauerhaft',{p_praesidium_id:pid, p_label:lbl}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error||!r.data||!r.data.short_code){
+    toast('Konnte Dauercode nicht anlegen'+(r.error?' · '+r.error.message:''));
+    return;
+  }
+  var sc=r.data.short_code;
+  var exp=r.data.expires_at||null;
+  _adminGastCodes.unshift({short_code:sc, label:lbl, expires_at:exp, revoked:false});
+  try{ await navigator.clipboard.writeText(sc); }catch(e){}
+  await promptModal('Dauercode (unbefristet, beliebig oft einlösbar — in der Feld-App eingeben; gilt als Geräte-Code dieses Präsidiums):', sc);
+  showGastQrModal(sc, lbl);
+  if(state.section==='admin-zugang') render();
+}
+async function makeAdminRevoke(sc){
+  var ok=await confirmModal('Code '+sc+' sperren? Einlösungen sind sofort nicht mehr möglich, auch bereits angemeldete Geräte verlieren den Zugriff.','Sperren');
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_admin_revoke_code',{p_short_code:sc}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Sperren fehlgeschlagen: '+(r.error.message||'unbekannt')); return; }
+  /* Sitzungsliste aktualisieren */
+  _adminGastCodes.forEach(function(c){ if(c.short_code===sc) c.revoked=true; });
+  toast('Code gesperrt');
+  if(state.section==='admin-zugang') render();
+}
+
+/* ── Bereich „Einsatzprotokolle" (D-12, D-01, D-02, D-03) ──────── */
+var _eins=null, _einsErr=null;
+var _detail=null;   /* {ccpId, data:{ccps,patients,checklists}} — geöffnetes Protokoll */
+
+/* Frist-Einstufung — 1:1 aus der Feld-App portiert (04.8-05, JSC 10/10):
+ * 'abgelaufen' (Frist <= jetzt) · 'bald' (< 24 h entfernt) · 'ok' ·
+ * null (keine Frist gesetzt). */
+function fristStatus(purgeAfter, now){
+  if(purgeAfter==null) return null;
+  if(now==null) now=nowMs();
+  if(+purgeAfter <= now) return 'abgelaufen';
+  if(+purgeAfter - now < 86400000) return 'bald';
+  return 'ok';
+}
+
+/* Triage-Kategorien (nur funktionale Farben — Anzeige im Protokoll) */
+var CATS={
+  T1:{label:'T-1',bg:'var(--t1)',fg:'#fff'},
+  T2:{label:'T-2',bg:'var(--t2)',fg:'#3A2C00'},
+  T3:{label:'T-3',bg:'var(--t3)',fg:'#fff'},
+  T5:{label:'T-5',bg:'var(--t5)',fg:'#fff'}
+};
+/* Checklisten-Punkte der Feld-App (Labels für die Protokoll-Anzeige) */
+var CHK=[
+  ['sec','AUFBAU'],
+  ['a1','Geeignete Örtlichkeit?'],['a3','Sicherung?'],['a4','Bereiche eingeteilt & markiert?'],
+  ['a5','Rollen besetzt & allen bekannt?'],['a6','Materialplatz zentral & genug Material?'],['a7','Genug Personal?'],
+  ['sec','BETRIEB – Schleife'],
+  ['b1','Durchatmen'],['b2','Lagebild aktuell?'],['b3','Abgleich Patientenliste?'],
+  ['b4','Re-Triage läuft?'],['b5','Örtlichkeit noch geeignet?'],['b6','Check again!']
+];
+
+/* Kürzel-Pflicht (D-01): einmal je Sitzung abfragen, danach aus sessionStorage. */
+async function ensureKuerzel(){
+  var k=sessionStorage.getItem('argusl_kuerzel');
+  if(k && k.trim()) return k.trim();
+  var inp=await promptModal('Bediener-Kürzel (z. B. Streife / Name) — für das Zugriffs-Protokoll erforderlich:','');
+  if(inp===null || !inp.trim()) return null;
+  k=inp.trim();
+  sessionStorage.setItem('argusl_kuerzel', k);
+  return k;
+}
+
+async function loadEinsaetze(){
+  _eins=null; _einsErr=null;
+  if(state.section==='einsaetze') render();
+  var cl=sb();
+  if(!cl){ _einsErr='Sitzung abgelaufen — bitte neu anmelden.'; if(state.section==='einsaetze') render(); return; }
+  try{
+    var r=await cl.rpc('argus_governance_einsaetze');
+    if(r.error){ _einsErr=r.error.message||'Abruf fehlgeschlagen'; }
+    else{ _eins=Array.isArray(r.data)?r.data:[]; }
+  }catch(e){ _einsErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='einsaetze') render();
+}
+
+/* Gruppierung: ein Verbund (merge_group_id) = ein Einsatz. */
+function einsatzGroups(){
+  var groups={}, order=[];
+  (_eins||[]).forEach(function(e){
+    var k=e.merge_group_id || e.ccp_id || '?';
+    if(!groups[k]){
+      groups[k]={ key:k, ccp_id:e.ccp_id, kennungen:[], einsatz_typ:e.einsatz_typ,
+        closed_at:e.closed_at, purge_after:e.purge_after, photo_purge_after:e.photo_purge_after,
+        exported_at:e.exported_at||null,
+        patient_count:0, photo_count:0, checklist_count:0 };
+      order.push(k);
+    }
+    var g=groups[k];
+    if(e.kennung && g.kennungen.indexOf(e.kennung)<0) g.kennungen.push(e.kennung);
+    if(e.exported_at && (!g.exported_at || e.exported_at>g.exported_at)) g.exported_at=e.exported_at;
+    g.patient_count+=(+e.patient_count||0);
+    g.photo_count+=(+e.photo_count||0);
+    g.checklist_count+=(+e.checklist_count||0);
+    if(e.closed_at!=null && (g.closed_at==null || +e.closed_at>+g.closed_at)) g.closed_at=e.closed_at;
+    if(e.purge_after!=null && (g.purge_after==null || +e.purge_after>+g.purge_after)) g.purge_after=e.purge_after;
+    if(e.photo_purge_after!=null && (g.photo_purge_after==null || +e.photo_purge_after>+g.photo_purge_after)) g.photo_purge_after=e.photo_purge_after;
+  });
+  return { groups:groups, order:order };
+}
+
+function typLabel(t){
+  if(t==='einsatz') return 'Einsatz';
+  if(t==='uebung') return 'Übung';
+  return t ? esc(t) : '—';
+}
+
+function einsatzCard(g, now, isWieder){
+  var st=fristStatus(g.purge_after, now);
+  var fst=fristStatus(g.photo_purge_after, now);
+  var h='<div class="card"'+(isWieder?' style="border-color:var(--t1)"':'')+'>';
+  h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+  h+='<span class="mono" style="font-size:16px;font-weight:600">CCP '+esc(g.kennungen.join(' + ')||'?')+'</span>';
+  h+='<span class="pill gray">'+typLabel(g.einsatz_typ)+'</span>';
+  h+=(g.exported_at
+    ? '<span class="pill green">exportiert '+fmtMs(g.exported_at)+'</span>'
+    : '<span class="pill" style="background:var(--prio)">noch nicht exportiert</span>');
+  h+='<span class="hint">abgeschlossen: '+fmtMs(g.closed_at)+'</span>';
+  h+='</div>';
+  h+='<div class="hint" style="margin-top:6px">'+g.patient_count+' Patient(en) · '+g.photo_count+' Foto(s) · '+g.checklist_count+' Checkliste(n)</div>';
+  if(st==='abgelaufen'){
+    h+='<div class="hint" style="margin-top:6px;color:var(--t1);font-weight:600">Protokoll-Frist abgelaufen ('+fmtMs(g.purge_after)+') — Löschung steht an.</div>';
+  }else if(st==='bald'){
+    h+='<div class="hint" style="margin-top:6px;color:var(--t1);font-weight:600">Protokoll-Frist läuft ab: '+fmtMs(g.purge_after)+'</div>';
+  }else{
+    h+='<div class="hint" style="margin-top:6px">Protokoll-Frist (Löschung): '+fmtMs(g.purge_after)+'</div>';
+  }
+  if(fst==='abgelaufen'){
+    h+='<div class="hint">Foto-Frist: abgelaufen ('+fmtMs(g.photo_purge_after)+') — Fotos sind endgültig gelöscht.</div>';
+  }else{
+    h+='<div class="hint">Foto-Frist (endgültige Löschung): '+fmtMs(g.photo_purge_after)+'</div>';
+  }
+  /* D-02: Fotos hart — bewusst KEINE Verlängerungs-UI für die Foto-Frist. */
+  h+='<div class="hint" style="margin-top:4px">Fotos werden 72 Std nach Abschluss endgültig gelöscht — KEINE Verlängerung. Beweisbedarf: Sicherung durch die zuständige Stelle innerhalb der 72 Std.</div>';
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">';
+  h+='<button class="btn" data-action="openproto" data-ccpid="'+esc(g.ccp_id)+'">Protokoll öffnen</button>';
+  h+='<button class="btn ghost" data-action="extendfrist" data-ccpid="'+esc(g.ccp_id)+'" data-kennung="'+esc(g.kennungen.join(' + ')||'?')+'" data-frist="'+(+g.purge_after||0)+'">⏱ Protokoll-Frist +72 h verlängern (mit Begründung)</button>';
+  h+='</div>';
+  h+='</div>';
+  return h;
+}
+
+function secEinsaetze(){
+  if(_detail) return vProtokollDetail();
+  var h='<div class="mh"><h2>Einsatzprotokolle</h2><button class="btn ghost" data-action="einsreload">↻ Aktualisieren</button></div>';
+  h+='<div class="card"><div class="hint" style="margin:0">Jeder Aufruf eines Einsatzprotokolls wird mit Kürzel und Zeitpunkt protokolliert. Der Übergabe-Export beim Abschluss ist der dauerhafte Weg in die Trägerdokumentation — die Protokolle hier sind ein Durchgangsspeicher mit Löschfrist.</div></div>';
+  if(_einsErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_einsErr)+'</div></div>';
+    return h;
+  }
+  if(_eins===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+    return h;
+  }
+  var gg=einsatzGroups();
+  if(!gg.order.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Einsatzprotokolle vorhanden.<br>Hier erscheinen Einsätze, sobald sie am Feldgerät abgeschlossen wurden (bis zum Ablauf ihrer Löschfrist).</p></div>';
+    return h;
+  }
+  /* Wiedervorlage (D-09): abgelaufene oder < 24 h laufende Protokoll-Fristen oben. */
+  var now=nowMs();
+  var wieder=gg.order.filter(function(k){ var s=fristStatus(gg.groups[k].purge_after, now); return s==='abgelaufen'||s==='bald'; });
+  var normal=gg.order.filter(function(k){ return wieder.indexOf(k)<0; });
+  if(wieder.length){
+    h+='<div class="wieder"><div class="wt">Wiedervorlage — Frist abgelaufen / läuft ab</div>';
+    h+='<div class="hint" style="margin-bottom:10px">Frist nur mit Begründung verlängern oder Löschung geschehen lassen — der Übergabe-Export beim Abschluss ist der dauerhafte Weg.</div>';
+    wieder.forEach(function(k){ h+=einsatzCard(gg.groups[k], now, true); });
+    h+='</div>';
+  }
+  if(normal.length){
+    if(wieder.length) h+='<div class="sech">Weitere Einsätze</div>';
+    normal.forEach(function(k){ h+=einsatzCard(gg.groups[k], now, false); });
+  }
+  return h;
+}
+
+/* Protokoll öffnen (D-01): Hinweis-Modal → Kürzel-Pflicht → protokollierter RPC. */
+/* Übergabe-Export über die Leitung (Paket 2, 2026-06-13): JSON-Download der
+ * Protokolldaten + Status exported_at (argus_mark_export, protokolliert als
+ * 'protokoll_export'). Ersetzt den entfallenen Export-Schritt der Feld-App;
+ * das Badge „noch nicht exportiert" in der Liste ist das Sicherheitsnetz
+ * vor der 72-h-Löschung. */
+async function exportProtokoll(){
+  if(!_detail) return;
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel kein Export'); return; }
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var d=_detail.data||{};
+  var kenn=(Array.isArray(d.ccps)?d.ccps:[]).map(function(c){return c.kennung||'?';}).join('+')||'CCP';
+  var payload={ exportiert:new Date().toISOString(), quelle:'ARGUS Leitungs-Oberfläche',
+    ccps:d.ccps||[], patients:activePats(d), checklists:d.checklists||[],
+    datenherkunft:{ devices:Array.isArray(d.devices)?d.devices:[], herkunft:Array.isArray(d.herkunft)?d.herkunft:[], verworfen_n:(+d.verworfen_n)||0 } };
+  try{
+    var blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='argus-uebergabe-CCP-'+kenn+'-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.json';
+    document.body.appendChild(a); a.click(); a.remove();
+  }catch(e){ toast('Export fehlgeschlagen'); return; }
+  try{
+    var r=await cl.rpc('argus_mark_export',{p_ccp_id:_detail.ccpId,p_kuerzel:k});
+    if(!r.error){ toast('Übergabe-Export erstellt ✓ (protokolliert)'); loadEinsaetze(); }
+    else toast('Export erstellt — Status konnte nicht gespeichert werden');
+  }catch(e){ toast('Export erstellt — Status konnte nicht gespeichert werden'); }
+}
+
+async function openProtokoll(ccpId){
+  var ok=await confirmModal('Jeder Aufruf eines Einsatzprotokolls wird protokolliert (Kürzel + Zeitpunkt). Fortfahren?','Fortfahren');
+  if(!ok) return;
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel kein Protokoll-Abruf'); return; }
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  toast('Lade Einsatzprotokoll…');
+  var r;
+  try{ r=await cl.rpc('argus_governance_protokoll',{p_ccp_id:ccpId,p_kuerzel:k}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Abruf fehlgeschlagen: '+(r.error.message||'keine Verbindung')); return; }
+  _detail={ ccpId:ccpId, data:r.data||{} };
+  render();
+}
+
+function vitCompact(v){
+  if(!v || typeof v!=='object') return '—';
+  var parts=[];
+  [['af','AF'],['hf','HF'],['rr','RR'],['spo2','SpO2'],['avpu','AVPU'],['pain','Schmerz']].forEach(function(f){
+    var val=v[f[0]];
+    if(val!=null && String(val).trim()!=='') parts.push(f[1]+' '+esc(String(val)));
+  });
+  return parts.length ? parts.join(' · ') : '—';
+}
+function injCompact(p){
+  var parts=[];
+  if(Array.isArray(p.inj)) p.inj.forEach(function(i){ if(i && (i.r||i.a)) parts.push(esc(String(i.r||'?'))+': '+esc(String(i.a||'?'))); });
+  if(p.injury && String(p.injury).trim()!=='') parts.push(esc(String(p.injury)));
+  return parts.length ? parts.join(' · ') : '—';
+}
+function patStatusLabel(s){
+  if(s==='gpa') return 'abtransportiert (gPA)';
+  if(s==='active') return 'aktiv';
+  return s ? esc(String(s)) : '—';
+}
+
+/* Grabstein-Filter (Phase 6.5, defensiv): der Server liefert verworfene Patienten ohnehin nicht
+ * (0025), die Oberfläche zeigt/exportiert/druckt sie unter keinen Umständen als Patienten. */
+function activePats(d){
+  var a=(d && Array.isArray(d.patients)) ? d.patients : [];
+  return a.filter(function(p){ return p && !p.deleted_at && p.status!=='verworfen'; });
+}
+function hhmmMs(ms){
+  if(ms==null) return '—';
+  var t=new Date(+ms);
+  return isNaN(t.getTime()) ? '—' : t.toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+/* Patienten-Anzeigename "A-7" (Kennung ohne Gerätesuffix + Nummer) */
+function patLabelPlain(p){
+  var c=(p.ccp==null ? '' : String(p.ccp)), i=c.indexOf('~');
+  if(i>=0) c=c.slice(0,i);
+  return c+'-'+(p.num!=null ? p.num : '?');
+}
+var HERK_EV={ geraet_verlassen:'verlassen', geraet_abgemeldet:'abgemeldet durch MasterMedic',
+  geraet_abmeldung_aufgehoben:'Abmeldung aufgehoben', geraet_wieder_beigetreten:'wieder beigetreten' };
+/* Datenherkunft (Phase 6.5, S7, D6.5-09/-15): Geräte, Wege und Ereignisse aus
+ * argus_governance_protokoll.devices/.herkunft. Fehlen beide Schlüssel (Server ohne 0026) → null.
+ * Alle Werte stammen von Feld-Geräten: die Ausgabe in vDatenherkunft läuft ausschließlich über esc(). */
+function herkunftModel(d, pats){
+  var devs=(d && Array.isArray(d.devices)) ? d.devices : null;
+  var ev=(d && Array.isArray(d.herkunft)) ? d.herkunft : null;
+  if(!devs && !ev) return null;
+  devs=devs||[]; ev=ev||[];
+  var kenn={}; devs.forEach(function(x){ if(x && x.kennung) kenn[x.kennung]=true; });
+  var merged=Object.keys(kenn).length>1;
+  var byId={}; (pats||[]).forEach(function(p){ if(p && p.id!=null) byId[String(p.id)]=patLabelPlain(p); });
+  var rows=devs.filter(Boolean).map(function(x){
+    var st;
+    if(x.left_at) st='verlassen '+hhmmMs(x.left_at);
+    else if(x.lost_at && +x.lost_at>=(+x.last_seen||0)) st='abgemeldet durch MasterMedic '+(x.lost_by||'?')+' '+hhmmMs(x.lost_at);
+    else st='zuletzt gesehen '+hhmmMs(x.last_seen);
+    return { label:(merged && x.kennung ? (x.kennung+'·'+x.device_no) : String(x.device_no)),
+      op:x.operator||'', first:x.first_seen, last:x.last_seen, status:st, open:(x.open_n|0) };
+  });
+  var herk={}, events=[];
+  ev.forEach(function(e){
+    if(!e || typeof e!=='object') return;
+    var det=(e.detail && typeof e.detail==='object') ? e.detail : {};
+    var dev=parseInt(det.dev,10)||0;
+    if(e.action==='herkunft'){
+      var h=herk[dev]||(herk[dev]={direkt:{}, nachgereicht:{}, nachfrist:{}, mesh:{}});
+      if(det.weg==='mesh'){
+        /* Phase 6.7 (D6.7-04): Gateway-Upload aus dem Mesh — Ursprungsgerät je Satz unter mesh[fuer] sammeln */
+        var fuer=parseInt(det.fuer,10)||dev;
+        var ms=h.mesh[fuer]||(h.mesh[fuer]={});
+        (Array.isArray(det.ids)?det.ids:[]).forEach(function(id){ ms[String(id)]=true; });
+      }else{
+        var w=(det.weg==='nachgereicht'||det.weg==='nachfrist') ? det.weg : 'direkt';
+        (Array.isArray(det.ids)?det.ids:[]).forEach(function(id){ h[w][String(id)]=true; });
+      }
+    }else if(HERK_EV[e.action]){
+      events.push({at:e.at, label:HERK_EV[e.action], dev:dev, kuerzel:e.kuerzel||'', open:(det.open_n!=null ? (det.open_n|0) : null)});
+    }
+  });
+  function names(set){
+    var known=[], more=0;
+    Object.keys(set).forEach(function(id){ if(byId[id]) known.push(byId[id]); else more++; });
+    known.sort(function(a,b){ return a<b?-1:a>b?1:0; });
+    return {known:known, more:more};
+  }
+  var herkRows=Object.keys(herk).map(Number).sort(function(a,b){return a-b;}).map(function(dev){
+    var h=herk[dev];
+    var mesh=Object.keys(h.mesh).map(Number).sort(function(a,b){return a-b;}).map(function(f){
+      var nm=names(h.mesh[f]); return {fuer:f, known:nm.known, more:nm.more, n:Object.keys(h.mesh[f]).length};
+    });
+    return {dev:dev, direktN:Object.keys(h.direkt).length, nach:names(h.nachgereicht), nf:names(h.nachfrist), mesh:mesh};
+  });
+  events.sort(function(a,b){ return (+a.at||0)-(+b.at||0); });
+  return {rows:rows, herk:herkRows, events:events};
+}
+function vDatenherkunft(d, pats){
+  var m=herkunftModel(d, pats);
+  var h='<div class="sech">Datenherkunft</div>';
+  if(!m){
+    return h+'<div class="card"><p class="hint" style="margin:0">Keine Herkunftsdaten (Server-Migration 0026 fehlt).</p></div>';
+  }
+  if(!m.rows.length && !m.herk.length && !m.events.length){
+    return h+'<div class="card"><p class="hint" style="margin:0">Keine Geräte- oder Herkunftsdaten erfasst.</p></div>';
+  }
+  if(m.rows.length){
+    h+='<div class="tablewrap"><table><thead><tr><th>Gerät</th><th>Bediener</th><th>Erstes Signal</th><th>Letztes Signal</th><th>Status</th><th>Offen beim letzten Signal</th></tr></thead><tbody>';
+    m.rows.forEach(function(r){
+      h+='<tr><td class="mono" style="font-weight:600">'+esc(r.label)+'</td><td>'+(r.op?esc(r.op):'—')+'</td>'+
+        '<td class="hint" style="white-space:nowrap">'+esc(fmtMs(r.first))+'</td><td class="mono">'+esc(hhmmMs(r.last))+'</td>'+
+        '<td>'+esc(r.status)+'</td><td>'+esc(String(r.open))+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  if(m.herk.length){
+    h+='<div class="card" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Herkunft der Patienten je Gerät</div>';
+    m.herk.forEach(function(r){
+      var parts=[];
+      if(r.direktN) parts.push('direkt '+r.direktN+' '+(r.direktN===1?'Patient':'Patienten'));
+      function lst(o){ return o.known.map(esc).join(', ')+(o.more ? (o.known.length?' ':'')+'+'+o.more+' weitere' : ''); }
+      if(r.nach.known.length||r.nach.more) parts.push('nachgereicht: '+lst(r.nach));
+      if(r.nf.known.length||r.nf.more) parts.push('nach Abschluss (Nachfrist): '+lst(r.nf));
+      /* Phase 6.7 (D6.7-04): Gateway — dieses Gerät hat Patienten eines anderen Geräts aus dem Mesh hochgeladen */
+      (r.mesh||[]).forEach(function(mm){
+        if(mm.known.length||mm.more) parts.push('für Gerät '+esc(String(mm.fuer))+' (Mesh): '+mm.n+' '+(mm.n===1?'Patient':'Patienten')+' — '+lst(mm));
+      });
+      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)">Gerät '+esc(String(r.dev||'?'))+': '+(parts.length?parts.join(' · '):'—')+'</div>';
+    });
+    h+='</div>';
+  }
+  if(m.events.length){
+    h+='<div class="card" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Ereignisse</div>';
+    m.events.forEach(function(e){
+      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)"><span class="mono">'+esc(fmtMs(e.at))+'</span> · Gerät '+esc(String(e.dev||'?'))+' '+esc(e.label)+
+        (e.kuerzel?(' · '+esc(e.kuerzel)):'')+(e.open!=null?(' · offen: '+esc(String(e.open))):'')+'</div>';
+    });
+    h+='</div>';
+  }
+  return h;
+}
+
+function vProtokollDetail(){
+  var d=_detail.data||{};
+  var ccps=Array.isArray(d.ccps)?d.ccps:[];
+  var pats=activePats(d);   /* Grabsteine nie als Patienten */
+  var cls=Array.isArray(d.checklists)?d.checklists:[];
+  var now=nowMs();
+  var h='<div class="mh"><h2>Einsatzprotokoll</h2><span style="display:flex;gap:8px;flex-wrap:wrap">'+
+    '<button class="btn" data-action="protoexport">⬇ Übergabe-Export (JSON)</button>'+
+    '<button class="btn ghost" data-action="protoprint">🖨 Drucken</button>'+
+    '<button class="btn ghost" data-action="atmistprint">🖨 AT-MIST drucken</button>'+
+    '<button class="btn ghost" data-action="closeproto">← Zurück zur Liste</button></span></div>';
+  /* Einsatz-Kopf */
+  ccps.forEach(function(c){
+    var fst=fristStatus(c.photo_purge_after, now);
+    h+='<div class="card">';
+    h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
+    h+='<span class="mono" style="font-size:16px;font-weight:600">CCP '+esc(c.kennung||'?')+'</span>';
+    h+='<span class="pill gray">'+typLabel(c.einsatz_typ)+'</span>';
+    h+='</div>';
+    if(c.ort) h+='<div class="hint" style="margin-top:4px">Einsatzort: '+esc(c.ort)+'</div>';
+    h+='<div class="hint" style="margin-top:4px">Abgeschlossen: '+fmtMs(c.closed_at)+' · Protokoll-Frist: '+fmtMs(c.purge_after)+' · Foto-Frist: '+(fst==='abgelaufen'?'abgelaufen — Fotos endgültig gelöscht':fmtMs(c.photo_purge_after))+'</div>';
+    h+='</div>';
+  });
+  /* Patiententabelle — alle Werte defensiv + esc() (XSS: Daten stammen von Feld-Geräten) */
+  h+='<div class="sech">Patienten ('+pats.length+')'+((+d.verworfen_n>0)?' <span class="hint" style="font-weight:400">· verworfen: '+esc(String(+d.verworfen_n))+'</span>':'')+'</div>';
+  if(!pats.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Patientendaten (mehr) vorhanden.</p></div>';
+  }else{
+    var anyName=pats.some(function(p){ return p.name && String(p.name).trim()!==''; });
+    var fotoErlaubt = ccps.some(function(c){ return fristStatus(c.photo_purge_after, now)!=='abgelaufen' && c.photo_purge_after!=null; });
+    h+='<div class="tablewrap"><table><thead><tr><th>Nr.</th><th>Kat.</th><th>Status</th>'+(anyName?'<th>Name</th>':'')+'<th>Sichtung</th><th>Vitalwerte</th><th>Verletzungen</th><th>Foto</th></tr></thead><tbody>';
+    pats.sort(function(a,b){ return (+a.num||0)-(+b.num||0); }).forEach(function(p){
+      var c=CATS[p.cat]||null;
+      h+='<tr>';
+      h+='<td class="mono" style="font-weight:600">'+esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span class="hint">('+ccpDisp(p.ccp)+')</span>':'')+'</td>';
+      h+='<td>'+(c?'<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+c.label+'</span>':esc(String(p.cat||'—')))+'</td>';
+      h+='<td>'+patStatusLabel(p.status)+(p.prio?' <span class="pill" style="background:var(--prio)">PRIO</span>':'')+'</td>';
+      if(anyName) h+='<td>'+(p.name&&String(p.name).trim()!==''?esc(String(p.name)):'—')+'</td>';
+      h+='<td class="hint" style="white-space:nowrap">'+fmtMs(p.last_triage)+'</td>';
+      h+='<td>'+vitCompact(p.vit)+'</td>';
+      h+='<td>'+injCompact(p)+'</td>';
+      h+='<td>'+((p.has_photo===true && fotoErlaubt)?'<button class="btn ghost" data-action="protophoto" data-pid="'+esc(String(p.id))+'" data-num="'+esc(String(p.num!=null?p.num:''))+'">Foto anzeigen</button>':'—')+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+    h+='<p class="hint" style="margin-top:6px">Jeder Foto-Abruf wird einzeln protokolliert. Fotos nur bis zur 72-Std-Frist — danach endgültig gelöscht.</p>';
+  }
+  /* Datenherkunft (Phase 6.5): Geräte, Wege, Ereignisse */
+  h+=vDatenherkunft(d, pats);
+  /* Checklisten */
+  h+='<div class="sech">Checkliste CCP ('+cls.length+')</div>';
+  if(!cls.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Checklisten-Daten (mehr) vorhanden.</p></div>';
+  }else{
+    cls.forEach(function(cle){
+      var data=(cle&&cle.data&&typeof cle.data==='object')?cle.data:{};
+      var hd=(data.hdr&&typeof data.hdr==='object')?data.hdr:{};
+      var items=(data.items&&typeof data.items==='object')?data.items:{};
+      h+='<div class="card">';
+      h+='<div class="hint">Einsatzort: '+(hd.ort?esc(String(hd.ort)):'—')+' · MasterMedic: '+(hd.mm?esc(String(hd.mm)):'—')+' · Doorman: '+(hd.door?esc(String(hd.door)):'—')+' · Assistent: '+(hd.ass?esc(String(hd.ass)):'—')+'</div>';
+      h+='<div style="margin-top:8px">';
+      CHK.forEach(function(it){
+        if(it[0]==='sec'){ h+='<div class="sech" style="margin:10px 0 4px">'+esc(it[1])+'</div>'; return; }
+        var st=items[it[0]]||{};
+        h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)">';
+        h+=(st.done?'<span style="color:var(--t3);font-weight:700">✓</span>':'<span class="hint">○</span>')+' '+esc(it[1]);
+        if(st.note && String(st.note).trim()!=='') h+='<div class="hint" style="margin-left:18px">Notiz: '+esc(String(st.note))+'</div>';
+        h+='</div>';
+      });
+      h+='</div></div>';
+    });
+  }
+  return h;
+}
+
+/* AT-MIST-Druckansicht (Paket 3): druckbare Karten je Patient aus dem bereits
+ * geladenen Protokoll (_detail.data.patients) — KEIN API-Aufruf, KEINE Fotos
+ * (argus_governance_protokoll liefert ohnehin kein photo-Feld, nur has_photo).
+ * Vorlage: exportPrintCard der Feld-App; fehlende Helper (fmtDur/ageStr/pno/
+ * Maßnahmen-Labels) als Inline-Varianten portiert. */
+function vAtmistPrint(){
+  var d=_detail && _detail.data;
+  if(!d) return;
+  var pats=activePats(d);   /* Grabsteine nie als Patienten */
+  if(!pats.length){ toast('Keine Patientendaten (mehr) vorhanden.'); return; }
+  var ccps=Array.isArray(d.ccps)?d.ccps:[];
+  var kenn=ccps.map(function(c){return c.kennung||'?';}).sort().join(', ')||'?';
+  /* row()-Helper — 1:1 aus exportPrintCard der Feld-App */
+  function row(letter,label,val){
+    return '<div style="display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line)">'+
+      '<span class="mono" style="width:22px;height:22px;border-radius:6px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+letter+'</span>'+
+      '<div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700">'+label+'</div>'+
+      '<div style="font-size:13.5px;line-height:1.4">'+val+'</div></div></div>';
+  }
+  /* Inline-Helper (in der Leitungs-Seite nicht vorhanden — bewusst lokal) */
+  function pno(p){ return esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span style="font-size:13px;color:var(--mut)">('+ccpDisp(p.ccp)+')</span>':''); }
+  function fmtDur(ms){
+    if(ms==null||ms<0) return '—';
+    var m=Math.floor(ms/60000);
+    return (m>=60?Math.floor(m/60)+' h ':'')+(m%60)+' min';
+  }
+  function ageStr(ms){
+    if(!ms) return '—';
+    return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'})+' Uhr';
+  }
+  /* Maßnahmen-Labels der Feld-App (TXG flach): p.tx ist ein Objekt {feldId:true} */
+  var TXL={seiten:'Seitenlage',wendl:'Wendl/Güdel',larynx:'Larynxtubus',intub:'ET-Intubation',konio:'Koniotomie',
+    chest:'Chest Seal',entlast:'Entlastungspkt.',drainage:'Thoraxdrainage',
+    druck:'Druckverband',tampon:'Tamponade',haemo:'Hämostatikum',becken:'Beckenschlinge',zugang:'i.v./i.o.',
+    txa:'TXA',medo:'Meds andere',waerme:'Wärmeerhalt',schiene:'Schienung',hws:'HWS-Immo.'};
+  var now=nowMs();
+  /* TQ-Referenzzeitpunkt je CCP: das Protokoll existiert nur für ABGESCHLOSSENE
+   * Einsätze und kann Tage später gedruckt werden — "now - tq_start" wäre dann
+   * medizinisch irreführend ("TQ seit 53 h"). Referenz ist daher closed_at des
+   * zugehörigen CCP (Fallback now, falls die Row unerwartet offen wäre). */
+  var ccpClose={}; ccps.forEach(function(c){ if(c&&c.id&&c.closed_at)ccpClose[c.id]=+c.closed_at; });
+  var h='<div style="padding:12px"><div style="font-weight:700;font-size:15px;margin-bottom:2px">AT-MIST · CCP '+esc(kenn)+'</div>';
+  h+='<div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">Einsatzprotokoll · gedruckt '+new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr · '+pats.length+' Patient(en) · ohne Fotos</div>';
+  pats.slice().sort(function(a,b){ return (+a.num||0)-(+b.num||0); }).forEach(function(p){
+    var c=CATS[p.cat]||null;
+    var dim='<span style="color:#9aa0a6;font-style:italic">— nicht erfasst</span>';
+    var ap=[]; if(p.age)ap.push(esc(String(p.age))+' J');
+    var g=p.gender==='m'?'männl.':(p.gender==='w'?'weibl.':''); if(g)ap.push(g);
+    var tp=[];
+    /* tq_start: snake_case — Protokoll-Rows kommen roh aus der DB (to_jsonb),
+     * NICHT aus dem normalisierten Feld-App-Modell (dort hieße es tqStart).
+     * Dauer bis Einsatzende (closed_at), plus absolute Anlagezeit. */
+    var tqRef=ccpClose[p.ccp_id]||now;
+    /* TQ nicht mehr unter „Zeiten" (AT-MIST: das Tourniquet ist eine Maßnahme → tl unten). */
+    if(p.created)tp.push('erfasst '+ageStr(p.created));
+    var il=[];
+    if(Array.isArray(p.inj))p.inj.forEach(function(it){ if(it)il.push(esc(String(it.r||'?'))+' – '+esc(String(it.a||'?'))); });
+    if(p.injury&&String(p.injury).trim())il.push(esc(String(p.injury)));
+    var v=(p.vit&&typeof p.vit==='object')?p.vit:{};
+    var vp=[['WASB',v.avpu],['AF',v.af],['SpO₂',v.spo2],['HF',v.hf],['RR',v.rr],['Schmerz',v.pain]]
+      .filter(function(x){return x[1]!=null&&String(x[1]).trim()!=='';});
+    var sVal=vp.length?('<span class="mono">'+vp.map(function(x){return x[0]+' '+esc(String(x[1]));}).join(' · ')+'</span>'):dim;
+    if(p.allergies)sVal+='<br><b style="color:var(--t1)">⚠ Allergien: '+esc(String(p.allergies))+'</b>';
+    var vlog=Array.isArray(v.log)?v.log:[];
+    if(vlog.length){
+      /* filter(Boolean): ein null-Eintrag im gemeinsam geschriebenen jsonb-Log
+       * darf nicht den gesamten Druck per TypeError abbrechen. */
+      sVal+='<div style="margin-top:4px;font-size:11.5px;color:var(--mut)">Verlauf:'+vlog.filter(Boolean).map(function(m){
+        var tm=(m&&m.t)?new Date(+m.t).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}):'—';
+        var parts=[]; if(m.af)parts.push('AF '+esc(String(m.af))); if(m.spo2)parts.push('SpO₂ '+esc(String(m.spo2)));
+        if(m.hf)parts.push('HF '+esc(String(m.hf))); if(m.rr)parts.push('RR '+esc(String(m.rr)));
+        if(m.avpu)parts.push('WASB '+esc(String(m.avpu))); if(m.pain)parts.push('Schmerz '+esc(String(m.pain)));
+        return '<br>'+tm+': '+(parts.join(' · ')||'—');
+      }).join('')+'</div>';
+    }
+    var tl=[]; if(p.tq_start)tl.push('<b style="color:var(--t1)">Tourniquet'+(p.tq_site?' ('+esc(String(p.tq_site))+')':'')+' · angelegt '+ageStr(p.tq_start)+' · '+fmtDur(tqRef-p.tq_start)+' bis Einsatzende</b>');
+    if(p.tx&&typeof p.tx==='object'){
+      Object.keys(TXL).forEach(function(k){ if(p.tx[k])tl.push(esc(TXL[k])); });
+    }
+    h+='<div class="card" style="padding:10px 13px;margin-bottom:10px;page-break-inside:avoid">';
+    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+       '<span class="mono" style="font-size:18px;font-weight:700">'+pno(p)+'</span>'+
+       (c?'<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+c.label+'</span>':'<span class="pill gray">'+esc(String(p.cat||'—'))+'</span>')+
+       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
+       (p.status==='gpa'?'<span class="pill gray">gPA</span>':'')+
+       (p.name&&String(p.name).trim()!==''?'<span style="font-size:12.5px;color:var(--mut)">Name: '+esc(String(p.name))+'</span>':'')+
+       '</div>';
+    h+='<div style="margin-top:6px">';
+    h+=row('A','Alter / Geschlecht', ap.length?ap.join(' · '):dim);
+    h+=row('T','Zeiten', tp.length?tp.join(' · '):dim);
+    h+=row('M','Mechanismus', (p.moi&&String(p.moi).trim()!=='')?esc(String(p.moi)):dim);
+    h+=row('I','Verletzungen', il.length?il.join('<br>'):dim);
+    h+=row('S','Befund / Vitalwerte', sVal);
+    h+=row('T','Maßnahmen', tl.length?tl.map(function(x){return '▸ '+x;}).join('<br>'):dim);
+    h+='</div></div>';
+  });
+  h+='</div>';
+  var overlay=document.getElementById('atmist-print-overlay');
+  if(!overlay){ overlay=document.createElement('div'); overlay.id='atmist-print-overlay'; document.body.appendChild(overlay); }
+  overlay.innerHTML=h;
+  document.body.setAttribute('data-atmist-print','1');
+  /* Cleanup erst NACH dem Druck-Snapshot: auf nicht-blockierenden Browsern
+   * (iOS/iPadOS Safari) laeuft das Skript hinter window.print() sofort weiter —
+   * direktes Entfernen des Attributs druckte die normale Protokollansicht.
+   * Daher einmaliger afterprint-Listener; Fallback-Timeout fuer Browser ohne
+   * afterprint; try/catch, damit das Attribut bei werfendem print() nicht
+   * dauerhaft gesetzt bleibt. */
+  var cleaned=false;
+  function atmistCleanup(){
+    if(cleaned)return; cleaned=true;
+    try{ window.removeEventListener('afterprint',atmistCleanup); }catch(e){}
+    document.body.removeAttribute('data-atmist-print');
+    overlay.innerHTML='';
+  }
+  window.addEventListener('afterprint',atmistCleanup);
+  setTimeout(atmistCleanup,60000);
+  try{ window.print(); }
+  catch(e){ atmistCleanup(); }
+}
+
+/* Foto-Einzelabruf (Lazy-Load, eigener Protokoll-Eintrag foto_view) */
+async function showFoto(pid, num){
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel kein Foto-Abruf'); return; }
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_governance_photo',{p_patient_id:pid,p_kuerzel:k}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Foto-Abruf fehlgeschlagen: '+(r.error.message||'keine Verbindung')); return; }
+  var photo=r.data && r.data.photo;
+  if(!photo){ toast('Kein Foto vorhanden — bereits endgültig gelöscht?'); return; }
+  /* Sicherheit (Stored-XSS-Härtung): photo ist ein von Feldgeräten geschriebener
+   * DB-Wert. Nur strikte data:image-Base64-URIs zulassen und NIE per innerHTML
+   * einsetzen (Attribut-Breakout) — Element per DOM bauen, src als Property. */
+  if(typeof photo!=='string' || !/^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/i.test(photo)){
+    toast('Ungültiges Bildformat — Anzeige abgebrochen.'); return;
+  }
+  var ts=new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  var ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,.93);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;gap:12px;cursor:pointer';
+  var img=document.createElement('img');
+  img.alt='Patientenfoto';
+  img.style.cssText='max-width:100%;max-height:78%;object-fit:contain;border-radius:8px';
+  img.src=photo;   /* validiert; als Property gesetzt → kein HTML-Parsing */
+  ov.appendChild(img);
+  var cap=document.createElement('div');
+  cap.style.cssText='color:#cfd6df;font-size:12.5px;text-align:center;max-width:480px';
+  cap.textContent='Patient Nr. '+(num||'?')+' · Dieser Abruf wurde protokolliert ('+k+', '+ts+' Uhr).';
+  ov.appendChild(cap);
+  var xbtn=document.createElement('div');
+  xbtn.style.cssText='position:absolute;top:12px;right:16px;color:#fff;font-size:30px;line-height:1;font-weight:300';
+  xbtn.textContent='✕';
+  ov.appendChild(xbtn);
+  document.body.appendChild(ov);
+  ov.addEventListener('click',function(){ if(ov.parentNode) ov.parentNode.removeChild(ov); });
+}
+
+/* Protokoll-Frist +72 h (D-03): Pflicht-Begründung mit Leer-Abweisung,
+ * Bestätigung mit Frist-Vorschau + Export-Hinweis, wirkt auf den Verbund. */
+async function extendFrist(ccpId, kennung, frist){
+  var k=await ensureKuerzel();
+  if(!k){ toast('Ohne Kürzel keine Verlängerung'); return; }
+  var grund=null, msg='Begründung (Pflicht): Warum muss das Einsatzprotokoll über die Frist hinaus aufbewahrt werden?';
+  for(;;){
+    var inp=await promptModal(msg,'');
+    if(inp===null) return;   /* abgebrochen */
+    if(inp.trim()){ grund=inp.trim(); break; }
+    msg='Begründung darf nicht leer sein — bitte den Grund angeben (Pflichtfeld):';
+  }
+  var neu=Math.max(nowMs(), +frist||0)+72*3600000;   /* Vorschau — verbindlich rechnet der Server identisch */
+  var ok=await confirmModal('Protokoll-Frist für CCP '+kennung+' um 72 Std verlängern — neue Frist: '+fmtMs(neu)+'. Die Foto-Frist bleibt unverändert (Fotos werden nicht verlängert). Bei dauerhaftem Bedarf: Export an die zuständige Stelle statt wiederholter Verlängerung.','+72 h verlängern');
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_extend_protokoll_frist',{p_ccp_id:ccpId,p_kuerzel:k,p_grund:grund,p_stunden:72}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Verlängerung fehlgeschlagen: '+(r.error.message||'keine Verbindung')); return; }
+  var nf=r.data && r.data.purge_after;
+  toast('Frist verlängert'+(nf?' — bis '+fmtMs(nf):''));
+  loadEinsaetze();
+}
+
+/* ── Bereich „Identitäten" (Plan 05-03) — Pro-Person-Token-Verwaltung ──
+ * Nur Master: Einzel-Ausgabe (USBNK + Rolle), USBNK-Suche, Sperre.
+ * Rollenwechsel = sperren (alt) + neu ausgeben (kein dedizierter RPC in Plan 01).
+ * KEINE Token-Secrets in der UI (argus_master_search_usbnk gibt keins zurück).
+ * D-02: nur USBNK — keine Klarnamen. D-03/D-10: Einzel-Ausgabe, keine Batch-CSV. */
+var _persResults=null, _persErr=null;
+
+function rolleLabel(r){
+  if(r==='master') return 'Master';
+  if(r==='flz')    return 'FLZ';
+  if(r==='admin')  return 'Admin';
+  if(r==='normal') return 'Normal';
+  return r ? esc(String(r)) : '—';
+}
+function rolleColor(r){
+  if(r==='master') return 'background:var(--acc)';
+  if(r==='flz')    return 'background:var(--t3)';
+  if(r==='admin')  return 'background:var(--t2);color:#3A2C00';
+  return 'background:var(--surf2);color:var(--mut)';
+}
+
+async function loadIdentitaeten(){
+  _persResults=null; _persErr=null;
+  if(state.section==='identitaeten') render();
+  /* Präsidien für Admin-Rolle-Select laden (falls noch nicht vorhanden) */
+  if(!_praes){
+    var cl=sb();
+    if(cl){
+      var pr=await cl.from('praesidien').select('id,name,schulung').order('name');
+      if(!pr.error) _praes=pr.data||[];
+    }
+  }
+  if(state.section==='identitaeten') render();
+}
+
+function secIdentitaeten(){
+  var h='<div class="mh"><h2>Identitäten</h2></div>';
+
+  /* ── Block 1: Pro-Person-Token ausgeben (Einzel-Ausgabe, D-03/D-10) ── */
+  h+='<div class="sech">Pro-Person-Token ausgeben</div>';
+  h+='<div class="card">';
+  h+='<div class="hint" style="margin:0 0 10px">Einzel-Ausgabe (Master/FLZ/Admin/Normal) — pro Präsidium, geringe Menge. Massen-Provisionierung normaler Nutzer bleibt SSO-gated (D-10).</div>';
+  h+='<div style="display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end;flex-wrap:wrap">';
+  h+='<div><label class="fieldlab" for="pers-usbnk">USBNK (D-02)</label>';
+  h+='<input id="pers-usbnk" placeholder="z.B. MUSTER-BA1234" autocomplete="off" spellcheck="false" style="text-transform:uppercase"></div>';
+  h+='<div><label class="fieldlab" for="pers-rolle">Rolle</label>';
+  h+='<select id="pers-rolle" style="width:100%;padding:9px 11px;font-size:14px">';
+  h+='<option value="master">Master</option>';
+  h+='<option value="flz" selected>FLZ</option>';
+  h+='<option value="admin">Admin</option>';
+  h+='<option value="normal">Normal</option>';
+  h+='</select></div>';
+  h+='<button class="btn" data-action="mkperson" style="white-space:nowrap;align-self:end;margin-bottom:1px">Token ausgeben</button>';
+  h+='</div>';
+  /* Präsidiums-Select für Admin- und Normal-Rolle (immer gerendert, JS-Sichtbarkeit) */
+  h+='<div id="pers-praes-wrap" style="margin-top:8px;display:none">';
+  h+='<label class="fieldlab" for="pers-praes">Präsidium (für Admin-/Normal-Rolle)</label>';
+  h+='<select id="pers-praes" style="width:100%;padding:9px 11px;font-size:14px">';
+  h+='<option value="">— bitte wählen —</option>';
+  (_praes||[]).forEach(function(p){
+    h+='<option value="'+esc(p.id)+'">'+esc(p.name)+'</option>';
+  });
+  h+='</select></div>';
+  h+='<div style="margin-top:8px"><label class="fieldlab" for="pers-label">Bezeichnung (optional)</label>';
+  h+='<input id="pers-label" placeholder="z.B. BA Musterstadt Einsatz 2026" autocomplete="off"></div>';
+  h+='</div>';
+
+  /* ── Block 2: USBNK-Suche ── */
+  h+='<div class="sech">USBNK-Suche</div>';
+  h+='<div class="card">';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+  h+='<input id="pers-search" placeholder="USBNK-Fragment eingeben…" autocomplete="off" spellcheck="false" style="text-transform:uppercase;flex:1">';
+  h+='<button class="btn ghost" data-action="usbnksearch" style="white-space:nowrap">Suchen</button>';
+  h+='</div>';
+
+  if(_persErr){
+    h+='<div style="color:var(--t1);font-weight:600;margin-top:10px">'+esc(_persErr)+'</div>';
+  }else if(_persResults===null){
+    /* noch keine Suche */
+  }else if(!_persResults.length){
+    h+='<div class="hint" style="margin-top:10px">Keine Treffer.</div>';
+  }else{
+    h+='<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>USBNK</th><th>Rolle</th><th>Code</th><th>Status</th><th>Präsidium</th><th></th></tr></thead><tbody>';
+    _persResults.forEach(function(r){
+      var statusPill=r.revoked
+        ? '<span class="pill red">GESPERRT</span>'
+        : '<span class="pill green">aktiv</span>';
+      var praesName=r.praesidium_name ? esc(r.praesidium_name) : (r.praesidium_id ? esc(String(r.praesidium_id).slice(0,8))+'…' : '—');
+      h+='<tr>';
+      h+='<td><b>'+esc(r.usbnk||'—')+'</b></td>';
+      h+='<td><span class="pill" style="'+rolleColor(r.role)+'">'+rolleLabel(r.role)+'</span></td>';
+      h+='<td class="mono" style="font-size:12px;white-space:nowrap">'+esc(r.short_code||'—')+'</td>';
+      h+='<td>'+statusPill+'</td>';
+      h+='<td class="hint">'+praesName+'</td>';
+      h+='<td><div style="display:flex;gap:6px;flex-wrap:wrap">';
+      if(!r.revoked){
+        h+='<button class="btn ghost" data-action="personrole" data-sc="'+esc(r.short_code)+'" data-usbnk="'+esc(r.usbnk)+'" data-role="'+esc(r.role)+'" data-pid="'+esc(r.praesidium_id||'')+'">Rolle ändern</button>';
+        h+='<button class="btn warn" data-action="personrevoke" data-sc="'+esc(r.short_code)+'" data-usbnk="'+esc(r.usbnk)+'">Sperren</button>';
+      }
+      h+='</div></td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+    h+='<div class="hint" style="margin-top:6px">Token-Secret wird nicht angezeigt (D-02 / T-0503-01).</div>';
+  }
+  h+='</div>';
+  return h;
+}
+
+/* ── Identitäten-Aktionen ── */
+async function doMkPerson(){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var usbnkEl=document.getElementById('pers-usbnk');
+  var rolleEl=document.getElementById('pers-rolle');
+  var praesEl=document.getElementById('pers-praes');
+  var labelEl=document.getElementById('pers-label');
+  var usbnk=(usbnkEl?usbnkEl.value:'').trim().toUpperCase();
+  var rolle=(rolleEl?rolleEl.value:'flz');
+  var praesId=(praesEl?praesEl.value:'')||null;
+  var lbl=(labelEl?labelEl.value:'').trim();
+  if(!usbnk){ toast('USBNK ist erforderlich (D-02).'); return; }
+  if((rolle==='admin' || rolle==='normal') && !praesId){ toast('Für diese Rolle ist ein Präsidium erforderlich.'); return; }
+  var r;
+  try{
+    r=await cl.rpc('argus_master_issue_person',{
+      p_usbnk: usbnk,
+      p_role: rolle,
+      p_praesidium_id: praesId||null,
+      p_label: lbl||null
+    });
+  }catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error||!r.data||!r.data.short_code){
+    toast('Fehler: '+(r.error?r.error.message:(r.data&&r.data.error?r.data.error:'unbekannt')));
+    return;
+  }
+  var sc=r.data.short_code;
+  try{ await navigator.clipboard.writeText(sc); }catch(e){}
+  await promptModal('Token ausgegeben (protokolliert in Audit-Log).\nUSBNK: '+usbnk+'\nRolle: '+rolleLabel(rolle)+'\n\nKurz-Code zum Weitergeben (kopieren):', sc);
+  toast('Token ausgegeben — Audit-Log-Eintrag person_issue erstellt.');
+  /* Felder zurücksetzen */
+  if(usbnkEl) usbnkEl.value='';
+  if(labelEl) labelEl.value='';
+}
+async function doUsbnkSearch(){
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var inp=document.getElementById('pers-search');
+  var q=(inp?inp.value:'').trim().toUpperCase();
+  if(!q){ toast('Bitte USBNK-Fragment eingeben.'); return; }
+  _persResults=null; _persErr=null;
+  if(state.section==='identitaeten') render();
+  var r;
+  try{ r=await cl.rpc('argus_master_search_usbnk',{p_usbnk:q}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ _persErr=r.error.message||'Suche fehlgeschlagen'; }
+  else{ _persResults=Array.isArray(r.data)?r.data:(r.data?[r.data]:[]); }
+  if(state.section==='identitaeten') render();
+}
+async function doPersonRole(sc, usbnk, oldRole, oldPid){
+  /* CR-01+WR-03 (0017): atomarer RPC argus_master_role_change_person.
+   * Kein zweistufiger revoke+issue mehr — kein Lockout bei Teilfehler. */
+  var neueRolle=await promptModal(
+    'USBNK: '+esc(usbnk)+'\nAktuell: '+esc(rolleLabel(oldRole))+'\n\nNeue Rolle eingeben (master/flz/admin/normal):',
+    oldRole
+  );
+  if(!neueRolle) return;
+  neueRolle=neueRolle.trim().toLowerCase();
+  if(!['master','flz','admin','normal'].includes(neueRolle)){ toast('Ungültige Rolle — erlaubt: master, flz, admin, normal'); return; }
+  var ok=await confirmModal(
+    'Rollenwechsel für USBNK '+esc(usbnk)+':\n'+esc(rolleLabel(oldRole))+' → '+esc(rolleLabel(neueRolle))+'\n\nDer bestehende Code bleibt gültig; die neue Rolle gilt ab der nächsten Anmeldung.\nDer Wechsel wird im Audit-Log protokolliert.',
+    'Rollenwechsel durchführen'
+  );
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_master_role_change_person',{p_short_code:sc, p_new_role:neueRolle}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Rollenwechsel fehlgeschlagen: '+esc(r.error.message||'unbekannt')); return; }
+  toast('Rolle geändert (gilt ab nächster Anmeldung) — Audit-Log: person_role_change');
+  /* Suche neu laden */
+  var inp=document.getElementById('pers-search');
+  if(inp&&inp.value) await doUsbnkSearch();
+  else{ _persResults=null; if(state.section==='identitaeten') render(); }
+}
+async function doPersonRevoke(sc, usbnk){
+  var ok=await confirmModal(
+    'USBNK-Token sperren?\nUSBNK: '+usbnk+'\nCode: '+sc+'\n\nWirkt sofort — das ausgestellte JWT verliert umgehend Wirkung (jti-Sofortsperre).',
+    'Sperren'
+  );
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r;
+  try{ r=await cl.rpc('argus_master_revoke_person',{p_short_code:sc}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error){ toast('Sperren fehlgeschlagen: '+(r.error.message||'unbekannt')); return; }
+  toast('Gesperrt (sofort wirksam) — Audit-Log: person_revoke.');
+  /* Suche neu laden */
+  var inp=document.getElementById('pers-search');
+  if(inp&&inp.value) await doUsbnkSearch();
+  else{ _persResults=null; if(state.section==='identitaeten') render(); }
+}
+
+/* ── Bereich „Audit-Log" (Plan 05-03) — T4-Anzeige mit USBNK-Filter ──
+ * Nur Master (RLS argus_is_master). Append-only, 12-Monats-Frist (§ 73 PolG BW).
+ * Pendant zu secProtokoll/loadProtokoll, aber gegen audit_log. */
+var _audit=null, _auditErr=null;
+var _auditFilter={action:'alle', usbnk:''};
+
+/* Aktions-Labels (D-06 Aktions-Katalog aus Plan 01) */
+function auditActionLabel(a){
+  if(a==='person_login')       return 'Anmeldung (Pro-Person)';
+  if(a==='person_issue')       return 'Token ausgegeben';
+  if(a==='person_revoke')      return 'Token gesperrt';
+  if(a==='person_role_change') return 'Rolle geändert';
+  if(a==='governance_abruf')   return 'Governance-Abruf';
+  if(a==='patient_create')     return 'Patient angelegt';
+  if(a==='patient_cat_change') return 'Kategorie gewechselt';
+  if(a==='patient_ready')      return 'Transportfertig';
+  if(a==='patient_checkout')   return 'Ausgecheckt';
+  if(a==='patient_photo')      return 'Foto erfasst';
+  if(a==='ccp_open')           return 'CCP eröffnet';
+  if(a==='ccp_close')          return 'CCP geschlossen';
+  if(a==='ccp_merge')          return 'CCPs zusammengeführt';
+  return a ? esc(String(a)) : '?';
+}
+
+async function loadAudit(){
+  _audit=null; _auditErr=null;
+  if(state.section==='audit') render();
+  var cl=sb();
+  if(!cl){ _auditErr='Sitzung abgelaufen — bitte neu anmelden.'; if(state.section==='audit') render(); return; }
+  try{
+    var lg=await cl.from('audit_log')
+      .select('at,usbnk,action,ccp_id,patient_id,praesidium_id,detail')
+      .order('at',{ascending:false})
+      .limit(200);
+    if(lg.error){ _auditErr=lg.error.message||'Audit-Log nicht lesbar'; }
+    else{ _audit=lg.data||[]; }
+  }catch(e){ _auditErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='audit') render();
+}
+
+function secAudit(){
+  var AUDIT_ACTIONS=[
+    ['alle','Alle Aktionen'],
+    ['person_login','Anmeldung (Pro-Person)'],
+    ['person_issue','Token ausgegeben'],
+    ['person_revoke','Token gesperrt'],
+    ['person_role_change','Rolle geändert'],
+    ['governance_abruf','Governance-Abruf'],
+    ['patient_create','Patient angelegt'],
+    ['patient_cat_change','Kategorie gewechselt'],
+    ['patient_ready','Transportfertig'],
+    ['patient_checkout','Ausgecheckt'],
+    ['patient_photo','Foto erfasst'],
+    ['ccp_open','CCP eröffnet'],
+    ['ccp_close','CCP geschlossen'],
+    ['ccp_merge','CCPs zusammengeführt']
+  ];
+
+  var h='<div class="mh"><h2>Audit-Log</h2><button class="btn ghost" data-action="auditreload">↻ Aktualisieren</button></div>';
+  h+='<div class="hint" style="margin-bottom:10px">Personenscharfes T4-Protokoll (USBNK/Zeit/Aktion/CCP/Patient) — append-only, 12-Monats-Frist (§ 73 PolG BW). Nur Master-Sichtbarkeit (RLS argus_is_master).</div>';
+
+  /* Filter-Leiste */
+  var filterActive=_auditFilter.action!=='alle'||!!_auditFilter.usbnk;
+  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
+  h+='<span class="hint" style="margin:0">Filter:</span>';
+  h+='<select data-action="auditfilter" data-field="action" id="auditfilter-action">';
+  AUDIT_ACTIONS.forEach(function(o){
+    h+='<option value="'+o[0]+'"'+(_auditFilter.action===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  });
+  h+='</select>';
+  h+='<input type="text" placeholder="USBNK…" value="'+esc(_auditFilter.usbnk)+'" data-action="auditfilter" data-field="usbnk" style="width:140px;padding:6px 9px;font-size:13px;text-transform:uppercase">';
+  if(filterActive){
+    h+='<button class="btn ghost" data-action="auditfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
+  }
+  h+='</div>';
+
+  /* Gefilterte Liste */
+  var shown=(_audit||[]).filter(function(l){
+    if(_auditFilter.action!=='alle' && l.action!==_auditFilter.action) return false;
+    if(_auditFilter.usbnk && !(l.usbnk||'').toUpperCase().includes(_auditFilter.usbnk.toUpperCase())) return false;
+    return true;
+  });
+
+  if(_auditErr){
+    h+='<div class="card" style="border-color:var(--t1);margin-top:8px"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div>';
+    h+='<div class="hint" style="margin-top:4px">'+esc(_auditErr)+'</div></div>';
+    return h;
+  }
+  if(_audit===null){
+    h+='<div class="card" style="margin-top:8px"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+    return h;
+  }
+  if(!shown.length){
+    h+='<div class="card" style="margin-top:8px"><p class="hint" style="margin:0">';
+    h+=filterActive ? 'Keine Einträge passend zum Filter.' : 'Noch keine Audit-Log-Einträge.<br>Hier erscheinen alle Identitäts-Aktionen mit USBNK (person_login, person_issue, person_revoke …)';
+    h+='</p></div>';
+    return h;
+  }
+
+  var total=_audit?_audit.length:0;
+  var countNote=filterActive ? shown.length+' von '+total : total;
+  h+='<div class="sech" style="margin-top:14px">Einträge ('+countNote+')</div>';
+  h+='<div class="card">';
+  shown.forEach(function(l){
+    var ziel='';
+    if(l.patient_id) ziel='Patient '+esc(String(l.patient_id).slice(0,10))+'…';
+    if(l.ccp_id) ziel+=(ziel?' · ':'')+'CCP '+esc(String(l.ccp_id).slice(0,8))+'…';
+    h+='<div style="padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px">';
+    h+='<div><span class="mono">'+fmtMs(l.at)+'</span>';
+    h+=' · <b>'+esc(l.usbnk||'—')+'</b>';
+    h+=' · '+auditActionLabel(l.action);
+    if(ziel) h+=' · '+ziel;
+    h+='</div>';
+    if(l.detail){
+      h+='<div class="hint" style="margin-top:2px">'+esc(l.detail)+'</div>';
+    }
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+/* ── Bereich „Protokoll" (D-13): governance_log + purge_log ─────
+ * Reine Anzeige — Zugriffe/Verlängerungen und Lösch-Läufe (inhaltsfrei). */
+var _glog=null, _glogErr=null, _plog=null, _plogErr=null;
+/* Filter-Zustand für die Protokoll-Ansicht (Plan 04.14-03, Task 3B) */
+var _glogFilter={action:'alle', kuerzel:''};
+
+async function loadProtokoll(){
+  _glog=null; _glogErr=null; _plog=null; _plogErr=null;
+  if(state.section==='protokoll') render();
+  var cl=sb();
+  if(!cl){ _glogErr='Sitzung abgelaufen — bitte neu anmelden.'; if(state.section==='protokoll') render(); return; }
+  try{
+    var lg=await cl.from('governance_log')
+      .select('at,ccp_id,patient_id,kuerzel,action,begruendung,neue_frist')
+      .order('at',{ascending:false}).limit(200);
+    if(lg.error){ _glogErr=lg.error.message||'Protokoll nicht lesbar'; }
+    else{ _glog=lg.data||[]; }
+    var pg=await cl.from('purge_log')
+      .select('at,ccp_id,kennung,reason,patient_count,photo_count,checklist_count')
+      .order('at',{ascending:false}).limit(100);
+    if(pg.error){ _plogErr=pg.error.message||'Lösch-Protokoll nicht lesbar'; }
+    else{ _plog=pg.data||[]; }
+  }catch(e){ _glogErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='protokoll') render();
+}
+
+function actionLabel(a){
+  if(a==='foto_view') return 'Foto-Abruf';
+  if(a==='protokoll_view') return 'Einsatzprotokoll-Aufruf';
+  if(a==='frist_verlaengert') return 'Frist verlängert';
+  if(a==='lage_view') return 'Lageansicht-Login (FLZ)';
+  if(a==='gast_join') return 'Gast-Code eingelöst';
+  if(a==='protokoll_export') return 'Protokoll exportiert';
+  /* Plan 04.14-01/03: Admin-Aktionen */
+  if(a==='admin_login') return 'Admin-Login';
+  if(a==='admin_gast_issue') return 'Admin: Gast-Code ausgegeben';
+  if(a==='admin_gast_revoke') return 'Admin: Gast-Code gesperrt';
+  return a ? esc(String(a)) : '?';
+}
+function purgeReasonLabel(r){
+  if(r==='frist') return 'Frist abgelaufen';
+  if(r==='inaktiv') return 'Inaktivität';
+  if(r==='foto_72h') return 'Foto-72-h-Löschung';
+  return r ? esc(String(r)) : '?';
+}
+
+function secProtokoll(){
+  var h='<div class="mh"><h2>Protokoll</h2><button class="btn ghost" data-action="protoreload">↻ Aktualisieren</button></div>';
+
+  /* ── Filter-Leiste (Plan 04.14-03, Task 3B) ── */
+  var GLOG_ACTIONS=[
+    ['alle','Alle Aktionen'],
+    ['protokoll_view','Einsatzprotokoll-Aufruf'],
+    ['foto_view','Foto-Abruf'],
+    ['frist_verlaengert','Frist verlängert'],
+    ['protokoll_export','Protokoll exportiert'],
+    ['lage_view','Lageansicht-Login (FLZ)'],
+    ['gast_join','Gast-Code eingelöst'],
+    ['admin_login','Admin-Login'],
+    ['admin_gast_issue','Admin: Gast-Code ausgegeben'],
+    ['admin_gast_revoke','Admin: Gast-Code gesperrt']
+  ];
+  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
+  h+='<span class="hint" style="margin:0">Filter:</span>';
+  h+='<select data-action="glogfilter" data-field="action">';
+  GLOG_ACTIONS.forEach(function(o){
+    h+='<option value="'+o[0]+'"'+(_glogFilter.action===o[0]?' selected':'')+'>'+o[1]+'</option>';
+  });
+  h+='</select>';
+  h+='<input type="text" placeholder="Kürzel…" value="'+esc(_glogFilter.kuerzel)+'" data-action="glogfilter" data-field="kuerzel" style="width:120px;padding:6px 9px;font-size:13px">';
+  if(_glogFilter.action!=='alle'||_glogFilter.kuerzel){
+    h+='<button class="btn ghost" data-action="glogfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
+  }
+  h+='</div>';
+
+  /* Zugriffe & Verlängerungen */
+  var glogOpen=!isCollapsed('proto-glog', false);
+  /* Gefilterte Liste */
+  var glogShown=(_glog||[]).filter(function(l){
+    if(_glogFilter.action!=='alle' && l.action!==_glogFilter.action) return false;
+    if(_glogFilter.kuerzel && !(l.kuerzel||'').toLowerCase().includes(_glogFilter.kuerzel.toLowerCase())) return false;
+    return true;
+  });
+  var filterActive=_glogFilter.action!=='alle'||!!_glogFilter.kuerzel;
+  var glogLabel='Zugriffe &amp; Verlängerungen'+(
+    _glog ? (filterActive ? ' ('+glogShown.length+' von '+_glog.length+')' : ' ('+_glog.length+')') : ''
+  );
+  h+='<div class="sech fold'+(glogOpen?' open':'')+'" style="margin-top:14px" data-action="togglecard" data-key="proto-glog" data-def="0"><span class="chev">▶</span>'+glogLabel+'</div>';
+  if(!glogOpen){
+    /* zugeklappt */
+  }else if(_glogErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_glogErr)+'</div></div>';
+  }else if(_glog===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  }else if(!glogShown.length){
+    h+='<div class="card"><p class="hint" style="margin:0">'+(filterActive?'Keine Einträge passend zum Filter.':'Noch keine Einträge.<br>Hier erscheint jeder Einsatzprotokoll-Aufruf, jeder Foto-Abruf und jede Frist-Verlängerung (Kürzel + Zeitpunkt).')+'</p></div>';
+  }else{
+    h+='<div class="card">';
+    glogShown.forEach(function(l){
+      var subj='';
+      if(l.patient_id!=null) subj='Patient '+esc(String(l.patient_id).slice(0,10))+'…';
+      if(l.ccp_id) subj+=(subj?' · ':'')+'CCP '+esc(String(l.ccp_id).slice(0,8))+'…';
+      h+='<div style="padding:7px 0;border-bottom:1px solid var(--line);font-size:12.5px">';
+      h+='<div><span class="mono">'+fmtMs(l.at)+'</span> · <b>'+esc(l.kuerzel||'—')+'</b> · '+actionLabel(l.action)+(subj?' · '+subj:'')+'</div>';
+      if(l.action==='frist_verlaengert'){
+        h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+fmtMs(l.neue_frist):'')+'</div>';
+      }
+      h+='</div>';
+    });
+    h+='</div>';
+  }
+  /* Lösch-Läufe (inhaltsfrei) */
+  var plogOpen=!isCollapsed('proto-plog', false);
+  h+='<div class="sech fold'+(plogOpen?' open':'')+'" data-action="togglecard" data-key="proto-plog" data-def="0"><span class="chev">▶</span>Lösch-Läufe'+(_plog?' ('+_plog.length+')':'')+'</div>';
+  if(!plogOpen){
+    /* zugeklappt */
+  }else if(_plogErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_plogErr)+'</div></div>';
+  }else if(_plog===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  }else if(!_plog.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Noch keine Lösch-Läufe.<br>Hier wird jede automatische Löschung dokumentiert (Zeitpunkt, Kennung, Grund, Zähler) — ohne Inhalte.</p></div>';
+  }else{
+    h+='<div class="tablewrap"><table><thead><tr><th>Zeitpunkt</th><th>CCP</th><th>Grund</th><th>Patienten</th><th>Fotos</th><th>Checklisten</th></tr></thead><tbody>';
+    _plog.forEach(function(l){
+      h+='<tr>';
+      h+='<td class="mono" style="white-space:nowrap">'+fmtIso(l.at)+'</td>';
+      h+='<td class="mono">'+esc(l.kennung||'—')+'</td>';
+      h+='<td>'+purgeReasonLabel(l.reason)+'</td>';
+      h+='<td>'+esc(String(l.patient_count!=null?l.patient_count:'—'))+'</td>';
+      h+='<td>'+esc(String(l.photo_count!=null?l.photo_count:'—'))+'</td>';
+      h+='<td>'+esc(String(l.checklist_count!=null?l.checklist_count:'—'))+'</td>';
+      h+='</tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  return h;
+}
+
+/* ── Bereich „Admin-Lage" (Plan 04.14-02, Admin-Pfad) ─────────────
+ * Anonyme Lage des eigenen Präsidiums via argus_lage() (kein Parameter —
+ * der RPC liest admin_praesidium_id() aus dem JWT). Render-Muster wie
+ * docs/lage-*.html: Summen-Kacheln + CCP-Karten in Triage-Farben.
+ * Auto-Refresh alle 20 s; Intervall beim Bereichswechsel/Logout sauber clearen. */
+var _adminLageData=null, _adminLageErr=null, _adminLageTimer=null;
+
+function secAdminLage(){
+  var pname=esc(sessionStorage.getItem('argusl_padmin_name')||'');
+  var h='<div class="mh"><h2>Lage — '+pname+'</h2>';
+  h+='<button class="btn ghost" data-action="adminlagereload">↻ Aktualisieren</button></div>';
+  if(_adminLageErr){
+    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div>';
+    h+='<div class="hint" style="margin-top:4px">'+esc(_adminLageErr)+'</div></div>';
+    return h;
+  }
+  if(_adminLageData===null){
+    h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+    return h;
+  }
+  var ccps=Array.isArray(_adminLageData.ccps) ? _adminLageData.ccps : [];
+  var stand=_adminLageData.stand ? fmtMs(_adminLageData.stand) : '—';
+  h+='<div class="hint" style="margin-bottom:10px">Stand: '+stand+'</div>';
+  if(!ccps.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine aktiven CCPs in diesem Präsidium.</p></div>';
+    return h;
+  }
+  /* Summen-Zeile */
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0};
+  ccps.forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+  });
+  var pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px">'+ccps.length+'</div><div class="hint">aktive CCPs</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px">'+pat+'</div><div class="hint">Patienten</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--t1)">'+s.t1+'</div><div class="hint">T-1</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--prio)">'+s.prio+'</div><div class="hint">Prio-Transport</div></div>';
+  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--mut)">'+s.gpa+'</div><div class="hint">gPA</div></div>';
+  h+='</div>';
+  /* CCP-Karten */
+  ccps.forEach(function(c){
+    var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
+    h+='<div class="card" style="margin-bottom:10px">';
+    h+='<div style="font-weight:600;font-size:14px;margin-bottom:8px">CCP '+esc(c.kennung||'?')+(c.ort?' · '+esc(c.ort):'')+' <span class="hint" style="font-weight:400;font-size:12px">'+total+' Pat.</span></div>';
+    h+='<div style="display:flex;gap:4px;margin-bottom:8px">';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t1);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t1||0)+'</div><div style="font-size:9px;opacity:.95">T1</div></div>';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t2);color:#3A2C00;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t2||0)+'</div><div style="font-size:9px;opacity:.95">T2</div></div>';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t3);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t3||0)+'</div><div style="font-size:9px;opacity:.95">T3</div></div>';
+    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t5);border:1px solid var(--t5b);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t5||0)+'</div><div style="font-size:9px;opacity:.95">T5</div></div>';
+    h+='</div>';
+    h+='<div class="hint">Prio-Transport <b>'+(+c.prio||0)+'</b> · transportfertig <b>'+(+c.ready||0)+'</b> · gPA <b>'+(+c.gpa||0)+'</b></div>';
+    h+='</div>';
+  });
+  h+='<p class="hint">Anonyme Übersichtszahlen — keine Patientendetails, keine Namen/Fotos. Aktualisiert sich automatisch alle 20 s.</p>';
+  return h;
+}
+async function loadAdminLage(){
+  _adminLageData=null; _adminLageErr=null;
+  if(state.section==='admin-lage') render();
+  /* Auto-Refresh starten (Intervall sauber clearen falls schon läuft) */
+  if(_adminLageTimer){ clearInterval(_adminLageTimer); _adminLageTimer=null; }
+  await _doAdminLagePoll();
+  _adminLageTimer=setInterval(_doAdminLagePoll, 20000);
+}
+async function _doAdminLagePoll(){
+  var cl=sb();
+  if(!cl){
+    _adminLageErr='Sitzung abgelaufen — bitte neu anmelden.';
+    if(state.section==='admin-lage') render();
+    if(_adminLageTimer){ clearInterval(_adminLageTimer); _adminLageTimer=null; }
+    return;
+  }
+  try{
+    var r=await cl.rpc('argus_lage');
+    if(r.error){ _adminLageErr=r.error.message||'Abruf fehlgeschlagen'; }
+    else{ _adminLageData=r.data||null; _adminLageErr=null; }
+  }catch(e){ _adminLageErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  if(state.section==='admin-lage') render();
+}
+/* Intervall beim Bereichswechsel/Logout sauber clearen */
+function clearAdminLageTimer(){
+  if(_adminLageTimer){ clearInterval(_adminLageTimer); _adminLageTimer=null; }
+}
+
+/* ── Klick-Dispatcher ──────────────────────────────────────────── */
+document.addEventListener('click', async function(e){
+  var nav=e.target.closest('[data-nav]');
+  if(nav){
+    clearAdminLageTimer();   /* Lage-Intervall beim Bereichswechsel sauber clearen */
+    state.section=nav.getAttribute('data-nav');
+    _detail=null;   /* geöffnetes Protokoll beim Bereichswechsel schließen */
+    render(); loadSection();
+    return;
+  }
+  var el=e.target.closest('[data-action]');
+  if(!el) return;
+  var a=el.getAttribute('data-action');
+  if(a==='logout'){ clearAdminLageTimer(); doLogout(); return; }
+  if(a==='login'){ var li=$('logininp'); await doLogin(li?li.value:''); return; }
+  if(a==='pastetoken'){
+    var pi=$('logininp');
+    try{
+      var txt=await navigator.clipboard.readText();
+      if(pi) pi.value=(txt||'').trim();
+      await doLogin(txt||'');
+    }catch(err){ setLoginError('Zwischenablage nicht lesbar — bitte Token eintippen.'); }
+    return;
+  }
+  if(a==='zugreload'){ loadZugaenge(); return; }
+  if(a==='togglecard'){ toggleCard(el.getAttribute('data-key'), el.getAttribute('data-def')==='1'); return; }
+  if(a==='zugfilterreset'){ _zugFilter={art:'alle',status:'alle',sort:_zugFilter.sort}; render(); return; }
+  if(a==='mklink'){
+    await makeLink(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'', el.getAttribute('data-kind'));
+    return;
+  }
+  if(a==='mkobserver'){
+    await makeObserver(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
+    return;
+  }
+  if(a==='mkgast'){
+    await makeGast(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
+    return;
+  }
+  if(a==='provision'){ await makeProvision(); return; }
+  if(a==='protoexport'){ await exportProtokoll(); return; }
+  if(a==='protoprint'){ window.print(); return; }
+  if(a==='atmistprint'){ vAtmistPrint(); return; }
+  if(a==='togglerevoke'){
+    await toggleRevoke(el.getAttribute('data-sc'), el.getAttribute('data-rev')==='1');
+    return;
+  }
+  if(a==='einsreload'){ _detail=null; loadEinsaetze(); return; }
+  if(a==='openproto'){ await openProtokoll(el.getAttribute('data-ccpid')); return; }
+  if(a==='closeproto'){ _detail=null; render(); return; }
+  if(a==='protophoto'){ await showFoto(el.getAttribute('data-pid'), el.getAttribute('data-num')); return; }
+  if(a==='extendfrist'){
+    await extendFrist(el.getAttribute('data-ccpid'), el.getAttribute('data-kennung')||'?', el.getAttribute('data-frist'));
+    return;
+  }
+  if(a==='protoreload'){ loadProtokoll(); return; }
+  if(a==='mkadmin'){
+    await makeAdmin(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
+    return;
+  }
+  if(a==='mkadmingast'){ await makeAdminGast(); return; }
+  if(a==='adminrevoke'){
+    await makeAdminRevoke(el.getAttribute('data-sc'));
+    return;
+  }
+  if(a==='adminlagereload'){
+    _adminLageData=null; _adminLageErr=null;
+    if(state.section==='admin-lage') render();
+    await _doAdminLagePoll();
+    return;
+  }
+  /* Plan 04.14-03: neue Aktionen */
+  if(a==='mkreset'){
+    await makeReset(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
+    return;
+  }
+  if(a==='showgastqr'){
+    showGastQrModal(el.getAttribute('data-sc'), el.getAttribute('data-lbl')||'');
+    return;
+  }
+  if(a==='glogfilterreset'){
+    _glogFilter={action:'alle',kuerzel:''};
+    render();
+    return;
+  }
+  /* ── Identitäten-Aktionen (Plan 05-03) ── */
+  if(a==='mkperson'){ await doMkPerson(); return; }
+  if(a==='usbnksearch'){ await doUsbnkSearch(); return; }
+  if(a==='personrole'){
+    await doPersonRole(
+      el.getAttribute('data-sc'),
+      el.getAttribute('data-usbnk')||'',
+      el.getAttribute('data-role')||'',
+      el.getAttribute('data-pid')||null
+    );
+    return;
+  }
+  if(a==='personrevoke'){
+    await doPersonRevoke(el.getAttribute('data-sc'), el.getAttribute('data-usbnk')||'');
+    return;
+  }
+  /* ── Audit-Log-Aktionen (Plan 05-03) ── */
+  if(a==='auditreload'){
+    _audit=null; _auditErr=null;
+    if(state.section==='audit') render();
+    await loadAudit();
+    return;
+  }
+  if(a==='auditfilterreset'){
+    _auditFilter={action:'alle',usbnk:''};
+    render();
+    return;
+  }
+});
+/* Filter-/Sortier-Selects (Zugänge): Auswahl übernehmen und neu rendern */
+document.addEventListener('change', function(e){
+  var el=e.target.closest('select[data-action="zugfilter"]');
+  if(el){ _zugFilter[el.getAttribute('data-field')]=el.value; render(); return; }
+  /* Protokoll-Filter (Plan 04.14-03, Task 3B): Select */
+  var gl=e.target.closest('select[data-action="glogfilter"]');
+  if(gl){ _glogFilter[gl.getAttribute('data-field')]=gl.value; render(); return; }
+  /* Audit-Log-Filter (Plan 05-03): Select */
+  var al=e.target.closest('select[data-action="auditfilter"]');
+  if(al){ _auditFilter[al.getAttribute('data-field')]=al.value; render(); return; }
+  /* Identitäten: Präsidiums-Select Sichtbarkeit (Admin-Rolle) */
+  var ro=e.target.closest('select#pers-rolle');
+  if(ro){
+    var pw=document.getElementById('pers-praes-wrap');
+    if(pw) pw.style.display=(ro.value==='admin'||ro.value==='normal')?'':'none';
+    return;
+  }
+});
+/* Protokoll-Filter Freitext-Kürzel: live filtern bei Eingabe */
+document.addEventListener('input', function(e){
+  var gk=e.target.closest('input[data-action="glogfilter"][data-field="kuerzel"]');
+  if(gk){ _glogFilter.kuerzel=gk.value; render(); return; }
+  /* Audit-Log-Filter Freitext-USBNK: live filtern */
+  var au=e.target.closest('input[data-action="auditfilter"][data-field="usbnk"]');
+  if(au){ _auditFilter.usbnk=au.value; render(); return; }
+});
+$('logininp') && $('logininp').focus();
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='logininp'){
+    doLogin(document.activeElement.value);
+  }
+});
+
+/* Start: abgelaufene/fehlende Sitzung → Login, sonst direkt Zugänge (D-10) */
+render();
+if(sessionJwt()) loadSection();
+</script>
+</body>
+</html>

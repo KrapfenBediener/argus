@@ -1,0 +1,565 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · Lageübersicht</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/png" href="../ARGUS_Icon.png">
+<style>
+  /* Optik 1:1 nach docs/UI-AUSBLICK.html (PC — FLZ-Lagedashboard), Fonts lokal */
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --t5b:#3a3d41;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;font-size:14px}
+  button{font-family:var(--sans);cursor:pointer;border:0}
+  input{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
+  input:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
+  .mono{font-family:var(--mono)}
+  /* Topbar — wie Mockup: Schiefer, Punkt, eine Zeile */
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;position:sticky;top:0;z-index:50}
+  .topbar .dot{width:9px;height:9px;border-radius:50%;background:#ffffff55;flex:0 0 auto}
+  .topbar .dot.ok{background:var(--t3)}
+  .topbar .dot.off{background:var(--t1)}
+  .topbar .tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;white-space:nowrap}
+  .topbar .stand{opacity:.85;font-size:12px}
+  .topbar button{background:#ffffff1d;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600}
+  .topbar button:hover{background:#ffffff30}
+  /* Hauptfläche — Mockup .main */
+  .main{padding:14px;max-width:920px;margin:0 auto;width:100%}
+  /* Global-Modus: je Präsidium ein eigener Block (sauber getrennt statt alles in einem Raster) */
+  .psec{margin:20px 0 4px}
+  .psec-h{display:flex;align-items:baseline;gap:10px;margin:0 0 8px;padding:0 0 6px;border-bottom:2px solid var(--acc);font-weight:700;font-size:15px}
+  .psec-h .cnt{margin-left:auto;font-weight:600;color:var(--mut);font-size:12px;white-space:nowrap}
+  /* Präsidien-Auswahl im Global-Modus (Chips) */
+  .pchips{display:flex;gap:8px;flex-wrap:wrap;margin:4px 0 10px}
+  .pchip{border:1px solid var(--line);background:var(--surf,#fff);color:var(--mut);border-radius:999px;padding:7px 14px;font-size:13px;font-weight:600;cursor:pointer;min-height:36px}
+  .pchip.on{background:var(--acc);border-color:var(--acc);color:#fff}
+  .keeprow{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)}
+  .keeprow input{width:18px;height:18px;margin:0}
+  /* Summen-Leiste — Mockup .totbar/.tot */
+  .totbar{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .tot{flex:1;min-width:96px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:9px;text-align:center}
+  .tot .n{font-family:var(--mono);font-weight:700;font-size:20px}
+  .tot .l{font-size:11px;color:var(--mut)}
+  /* CCP-Karten — Mockup .lgrid/.ccpcard/.mini */
+  .lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  /* Verbund-Karte (Feedback 2026-06-13 Runde 4): EIN kompakter Eintrag je
+   * Verbund mit SUMMEN-Zählern — die Mitglieder teilen ohnehin EINE
+   * Patientenliste, Einzelzähler wären irreführend. Je Mitglied bleibt nur
+   * eine Standort-Zeile (Koordinaten-Klick + Orts-Korrektur). */
+  .ccpcard.vb{border:2px solid var(--acc)}
+  .vmem{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);padding:4px 0;border-top:1px dashed var(--line);margin-top:4px}
+  .vmem .nm2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ccpcard{background:#fff;border:1px solid var(--line);border-radius:11px;padding:11px}
+  .ccpcard .ct{font-weight:600;font-size:14px;margin-bottom:8px;display:flex;justify-content:space-between;gap:8px}
+  .ccpcard .ct .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini{display:flex;gap:4px}
+  .mini .m{flex:1;border-radius:6px;text-align:center;color:#fff;padding:5px 0}
+  .mini .m .n{display:block;font-family:var(--mono);font-weight:700;font-size:15px;line-height:1}
+  .mini .m .l{font-size:9px;opacity:.95}
+  .sub2{display:flex;justify-content:space-between;gap:8px;margin-top:8px;font-size:11px;color:var(--mut)}
+  .sub2 b{font-family:var(--mono);font-weight:600}
+  /* Hinweis-Note — Mockup .note */
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--ready);border-radius:10px;padding:11px 14px;margin:14px 0 0;font-size:13px}
+  .note.err{border-left-color:var(--t1);color:var(--t1);font-weight:600;margin:0 0 12px}
+  .empty{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px;color:var(--mut);font-size:13px}
+  /* Login */
+  .loginwrap{min-height:calc(100vh - 40px);display:flex;align-items:flex-start;justify-content:center;padding:60px 14px}
+  .loginbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 24px;max-width:380px;width:100%;box-shadow:0 6px 22px rgba(0,0,0,.06)}
+  .loginbox h1{font-size:18px;margin:0 0 4px}
+  .arg-logo{width:52px;height:52px;border-radius:13px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;margin:0 auto 14px;letter-spacing:1px}
+  .hint{font-size:12px;color:var(--mut)}
+  .fieldlab{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;font-weight:600}
+  .lerr{color:var(--t1);font-size:12.5px;font-weight:600;margin-top:10px;min-height:18px}
+  .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
+  .btn:hover{filter:brightness(1.25)}
+  .btn[disabled]{opacity:.5;cursor:default}
+  @media(max-width:560px){ .lgrid{grid-template-columns:1fr 1fr} .main{padding:10px} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="dot" id="statdot"></span>
+  <span class="tt" id="toptitle">ARGUS · Lageübersicht</span>
+  <span class="right">
+    <span class="stand" id="stattxt"></span>
+    <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
+  </span>
+</div>
+<div id="app"></div>
+<script src="../config.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+ * ARGUS · Lageübersicht — read-only Beobachter-Seite für FLZ/ILS (Stufe a)
+ * Optik und Layout exakt nach dem verbindlichen Mockup
+ * docs/UI-AUSBLICK.html („PC — FLZ-Lagedashboard"): Totbar mit
+ * Summen, kompakte CCP-Karten im Raster, Hinweis-Note unten.
+ * Zugang nur mit Beobachter-Code (Observer-JWT, Migration 0005);
+ * Zahlen ausschließlich aus dem Aggregat-RPC argus_lage — die
+ * Seite kennt keine Patientendaten. Sitzung flüchtig
+ * (sessionStorage); Pull/Polling alle 20 s, kein Realtime.
+ * ============================================================ */
+
+/* Backend-Konfiguration zentral aus ../config.js (Phase 4.11, D-01).
+ * Kein supabase.js nötig: die Seite spricht genau zwei RPCs per fetch. */
+var _cfg = window.ARGUS_CONFIG || null;
+var _configError = !(_cfg && typeof _cfg.url==='string' && _cfg.url.indexOf('https://')===0 && _cfg.anonKey);
+var SUPA_URL = _configError ? '' : _cfg.url;
+var SUPA_KEY = _configError ? '' : _cfg.anonKey;
+
+var POLL_MS = 20000;          /* 20 s — Diskretionsentscheid (Spanne 15–30 s) */
+var _timer = null;
+var _data = null;             /* letzte erfolgreiche argus_lage-Antwort */
+var _lastOkAt = null;         /* ms des letzten erfolgreichen Polls */
+var _offline = false;
+var _polling = false;
+
+/* ── Hilfsfunktionen ─────────────────────────────────────────── */
+function $(id){ return document.getElementById(id); }
+function nowMs(){ return Date.now(); }
+/* HTML-Escaping JEDES dynamischen Werts — kennung/ort kommen von Feld-Geräten. */
+function esc(s){
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtClock(ms){
+  return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fmtHM(ms){
+  return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ── Sitzung: sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
+ * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname / arguslg_global / arguslg_admin.
+ * Standard: Tab zu = Sitzung weg. Opt-in (Owner 2026-10-14): mit gesetztem
+ * arguslg_keep werden die Sitzungsschlüssel zusätzlich in localStorage gespiegelt
+ * und beim nächsten Öffnen wiederhergestellt — bis zum Ablauf des JWT (Master:
+ * 30 Tage), bis „Abmelden" oder bis der Server mit 401 ablehnt (Sofortsperre).
+ * Explizite Schlüsselliste statt Präfix-Scan: Leitungs- und Lage-Seite teilen
+ * sich denselben Origin (localStorage), argusl_ ist Präfix von arguslg_. */
+var SESS_KEYS=['arguslg_jwt','arguslg_jwt_exp','arguslg_pname','arguslg_global','arguslg_admin','arguslg_keep'];
+function sessWipeLocal(){ try{ SESS_KEYS.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){} }
+function sessRestore(){   /* Tab frisch, aber persistierte Sitzung vorhanden → übernehmen */
+  try{
+    if(sessionStorage.getItem('arguslg_jwt')) return;
+    if(localStorage.getItem('arguslg_keep')!=='1' || !localStorage.getItem('arguslg_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=localStorage.getItem(k); if(v!=null) sessionStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessMirror(){    /* Opt-in aktiv → Sitzung nach localStorage spiegeln (nur bei Änderung) */
+  try{
+    if(sessionStorage.getItem('arguslg_keep')!=='1') return;
+    if(localStorage.getItem('arguslg_jwt')===sessionStorage.getItem('arguslg_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=sessionStorage.getItem(k); if(v!=null) localStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessionJwt(){
+  sessRestore();
+  var jwt=sessionStorage.getItem('arguslg_jwt');
+  var exp=parseInt(sessionStorage.getItem('arguslg_jwt_exp')||'0',10);
+  if(!jwt||!exp) return null;
+  if(exp<=nowMs()){ sessionStorage.clear(); sessWipeLocal(); return null; }
+  sessMirror();
+  return jwt;
+}
+function doLogout(msg){
+  sessionStorage.clear(); sessWipeLocal();
+  if(_timer){ clearInterval(_timer); _timer=null; }
+  _data=null; _lastOkAt=null; _offline=false;
+  render();
+  if(msg) setLoginError(msg);
+}
+
+/* ── Login: Beobachter-Code → Observer-JWT ──────────────────────
+ * rpc/argus_exchange_observer_code weist MasterToken und normale
+ * Feld-Codes serverseitig ab ('Kein Beobachter-Code'). */
+async function doLogin(raw){
+  if(_configError){ setLoginError('Konfiguration fehlt (config.js) — kein Backend verbunden.'); return; }
+  var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
+  if(clean.length<8){ setLoginError('Bitte vollständigen Beobachter-Code eingeben.'); return; }
+  setLoginError('');
+  /* Opt-in „Angemeldet bleiben": Flag in der Sitzung; sessionJwt() spiegelt dann
+   * nach localStorage. Ohne Häkchen: evtl. alte persistierte Sitzung löschen. */
+  var keep=!!($('keepme') && $('keepme').checked);
+  try{ sessionStorage.setItem('arguslg_keep', keep?'1':''); }catch(e){}
+  if(!keep) sessWipeLocal();
+  var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_observer_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data=await resp.json();   /* ungültiger Code = HTTP 200 + {error:…} */
+    var isAdm=false;
+    if(!data || !data.jwt){
+      /* FLZ-Zugang (0023, = Admin-Rolle): denselben Code gegen
+       * argus_exchange_admin_code versuchen → Lage des eigenen Präsidiums
+       * (argus_lage hat seit 0013 einen Admin-Zweig). Erst wenn auch das
+       * scheitert, den ursprünglichen Fehler zeigen. */
+      var firstErr=(data && data.error) ? data.error : 'Ungültiger oder verbrauchter Code.';
+      var resp2=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_admin_code',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+        body:JSON.stringify({ code:clean })
+      });
+      var data2=null; try{ data2=await resp2.json(); }catch(e){}
+      if(!data2 || !data2.jwt){ setLoginError(firstErr); return; }
+      data=data2; isAdm=true;
+    }
+    sessionStorage.setItem('arguslg_jwt', data.jwt);
+    sessionStorage.setItem('arguslg_jwt_exp', String(data.exp*1000));
+    sessionStorage.setItem('arguslg_pname', data.praesidium_name||'');
+    /* Master-Login (0021): flz=true → präsidienübergreifender Global-Modus. */
+    sessionStorage.setItem('arguslg_global', data.flz ? '1' : '');
+    /* FLZ-Zugang: eigenes Präsidium, read-only; Ort-Korrektur (observer-only RPC) aus. */
+    sessionStorage.setItem('arguslg_admin', isAdm ? '1' : '');
+    render();
+    startPolling();
+  }catch(e){
+    setLoginError('Keine Verbindung — bitte erneut versuchen.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Anmelden'; }
+  }
+}
+function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
+
+/* ── Polling: rpc/argus_lage ────────────────────────────────────
+ * Erfolg → Zahlen + „Stand HH:MM:SS"; Fehler → letzte Zahlen
+ * WEITER anzeigen + roter Punkt „Keine Verbindung". 401/abgelaufene
+ * Sitzung → zurück zum Login. */
+async function poll(){
+  if(_polling) return;
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  _polling=true;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:'{}'
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var data=await resp.json();
+    if(!data || !Array.isArray(data.ccps)) throw new Error('Unerwartete Antwort');
+    _data=data; _lastOkAt=nowMs(); _offline=false;
+  }catch(e){
+    _offline=true;
+  }finally{
+    _polling=false;
+    render();
+  }
+}
+function startPolling(){
+  if(_timer) clearInterval(_timer);
+  poll();
+  _timer=setInterval(poll, POLL_MS);
+}
+window.addEventListener('online', function(){ if(sessionJwt()) poll(); });
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible' && sessionJwt()) poll();
+});
+
+/* ── Rendering — Bausteine 1:1 aus dem Mockup ──────────────────── */
+function totBar(list){
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0,pat:0};
+  list.forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+  });
+  s.pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  var h='<div class="totbar">';
+  h+='<div class="tot"><div class="n">'+list.length+'</div><div class="l">aktive CCPs</div></div>';
+  h+='<div class="tot"><div class="n">'+s.pat+'</div><div class="l">Patienten gesamt</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--t1)">'+s.t1+'</div><div class="l">T-1</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--prio)">'+s.prio+'</div><div class="l">Prio-Transport</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--ready)">'+s.ready+'</div><div class="l">transportfertig</div></div>';
+  h+='<div class="tot"><div class="n" style="color:var(--mut)">'+s.gpa+'</div><div class="l">gPA</div></div>';
+  h+='</div>';
+  return h;
+}
+var _grouped=false;   /* true, während die Karten innerhalb eines Präsidiums-Blocks gerendert werden (Präfix dann redundant) */
+function ccpCard(c, vlabel){
+  var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
+  var hasGeo=(typeof c.lat==='number' && typeof c.lng==='number');
+  /* Global-Modus (Master, 0021): Präsidiumsname voranstellen — Kennungen sind
+   * über Präsidien hinweg nicht eindeutig. Entfällt, wenn ohnehin je Präsidium
+   * gruppiert wird (Blocküberschrift trägt den Namen). */
+  var pfx=(c.praesidium_name && !_grouped) ? esc(c.praesidium_name)+' — ' : '';
+  var h='<div class="ccpcard">';
+  h+='<div class="ct">';
+  /* Koordinaten-Klick (Paket 2): Name antippen kopiert „lat, lng" (WGS84
+   * dezimal) — Brücke zur manuellen Übernahme ins Geosystem (VIADUX). */
+  if(hasGeo){
+    h+='<span class="nm" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" title="Koordinaten kopieren">📍 '+pfx+'CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+  }else{
+    h+='<span class="nm">'+pfx+'CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+  }
+  /* FLZ/Observer darf die Ortsbezeichnung nachtragen/korrigieren (Migration 0010,
+   * protokolliert). Im Global-Modus (Master) ausgeblendet: argus_lage_set_ort
+   * greift per Kennung im EIGENEN Präsidium — bei einem präsidiumslosen Master
+   * wäre das mehrdeutig. Ort-Korrektur läuft dort über Leitung/Feld-App. */
+  if(!isGlobal() && !isAdminSess()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;font-size:13px;align-self:center;opacity:.7">✏️</span>';
+  if(vlabel) h+='<span style="flex:0 0 auto;background:var(--acc);color:#fff;border-radius:6px;padding:1px 7px;font-size:10px;font-weight:700;align-self:center">'+vlabel+'</span>';
+  h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
+  h+='<div class="mini">';
+  h+='<div class="m" style="background:var(--t1)"><span class="n">'+(+c.t1||0)+'</span><span class="l">T1</span></div>';
+  h+='<div class="m" style="background:var(--t2);color:#3A2C00"><span class="n">'+(+c.t2||0)+'</span><span class="l">T2</span></div>';
+  h+='<div class="m" style="background:var(--t3)"><span class="n">'+(+c.t3||0)+'</span><span class="l">T3</span></div>';
+  h+='<div class="m" style="background:var(--t5);border:1px solid var(--t5b)"><span class="n">'+(+c.t5||0)+'</span><span class="l">T5</span></div>';
+  h+='</div>';
+  h+='<div class="sub2"><span>Prio <b>'+(+c.prio||0)+'</b> · fertig <b>'+(+c.ready||0)+'</b> · gPA <b>'+(+c.gpa||0)+'</b></span>';
+  h+=(c.letzte_aenderung?'<span>'+fmtHM(c.letzte_aenderung)+'</span>':'');
+  h+='</div></div>';
+  return h;
+}
+/* Kompakte Verbund-Karte: Summen über alle Mitglieder (eine gemeinsame
+ * Patientenliste!) + je Mitglied eine Standort-Zeile (Koordinaten-Klick,
+ * Orts-Korrektur). vnTotal = Gesamtzahl der Verbünde (Nummer nur bei >1). */
+function verbundCard(g, vnTotal){
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0}, last=0;
+  g.members.forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+    if(c.letzte_aenderung && c.letzte_aenderung>last) last=c.letzte_aenderung;
+  });
+  var total=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  var kenns=g.members.map(function(c){return esc(c.kennung);}).join('+');
+  var vpfx=(g.members[0].praesidium_name && !_grouped) ? esc(g.members[0].praesidium_name)+' — ' : '';
+  var h='<div class="ccpcard vb">';
+  h+='<div class="ct"><span class="nm">⛓ '+vpfx+'VERBUND'+(vnTotal>1?' '+g.n:'')+' · CCP '+kenns+'</span>';
+  h+='<span class="mono" style="color:var(--mut)">'+total+'</span></div>';
+  h+='<div class="mini">';
+  h+='<div class="m" style="background:var(--t1)"><span class="n">'+s.t1+'</span><span class="l">T1</span></div>';
+  h+='<div class="m" style="background:var(--t2);color:#3A2C00"><span class="n">'+s.t2+'</span><span class="l">T2</span></div>';
+  h+='<div class="m" style="background:var(--t3)"><span class="n">'+s.t3+'</span><span class="l">T3</span></div>';
+  h+='<div class="m" style="background:var(--t5);border:1px solid var(--t5b)"><span class="n">'+s.t5+'</span><span class="l">T5</span></div>';
+  h+='</div>';
+  h+='<div class="sub2"><span>Prio <b>'+s.prio+'</b> · fertig <b>'+s.ready+'</b> · gPA <b>'+s.gpa+'</b></span>';
+  h+=(last?'<span>'+fmtHM(last)+'</span>':'');
+  h+='</div>';
+  /* Standorte der Mitglieder — der Verbund hat EINE Liste, aber MEHRERE Orte */
+  g.members.forEach(function(c){
+    var hasGeo=(typeof c.lat==='number' && typeof c.lng==='number');
+    h+='<div class="vmem">';
+    if(hasGeo){
+      h+='<span class="nm2" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" style="cursor:pointer;text-decoration:underline;text-decoration-style:dotted" title="Koordinaten kopieren">📍 CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):'')+'</span>';
+    }else{
+      h+='<span class="nm2">CCP '+esc(c.kennung)+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+'</span>';
+    }
+    if(!isGlobal() && !isAdminSess()) h+='<span data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern" style="cursor:pointer;flex:0 0 auto;margin-left:auto;opacity:.7">✏️</span>';
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+function viewLogin(){
+  var h='<div class="loginwrap"><div class="loginbox">';
+  h+='<div class="arg-logo">ARGUS</div>';
+  h+='<h1>Lageübersicht</h1>';
+  h+='<div class="hint">Read-only Ansicht für FLZ/ILS — anonyme Zahlen je CCP. Zugang mit FLZ-Zugang (eigenes Präsidium) oder MasterToken (alle Präsidien).</div>';
+  if(_configError) h+='<div class="lerr">Konfiguration fehlt (config.js) — kein Backend verbunden.</div>';
+  h+='<label class="fieldlab" for="logininp">Zugangscode</label>';
+  h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
+  h+='<label class="keeprow"><input type="checkbox" id="keepme"> Angemeldet bleiben — nur auf diesem Gerät (bis zum Ablauf des Zugangs, max. 30 Tage; „Abmelden" beendet es)</label>';
+  h+='<div style="display:flex;gap:8px;margin-top:14px">';
+  h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
+  h+='</div>';
+  h+='<div class="lerr" id="loginerr"></div>';
+  h+='</div></div>';
+  return h;
+}
+function viewLage(){
+  var h='<div class="main">';
+  if(_offline && _lastOkAt){
+    h+='<div class="note err">Keine Verbindung — letzte Zahlen von '+fmtHM(_lastOkAt)+'. Es wird weiter versucht…</div>';
+  }else if(_offline){
+    h+='<div class="note err">Keine Verbindung — Zahlen können nicht geladen werden. Es wird weiter versucht…</div>';
+  }
+  if(_data){
+    if(_data.ccps.length){
+      h+=totBar(isGlobal()?lageShown(_data.ccps):_data.ccps);   /* Summen folgen der Präsidiums-Auswahl */
+      /* Verbünde OPTISCH zusammenführen (Feedback 2026-06-13): Mitglieder
+       * einer merge_group landen gemeinsam in einem Rahmen mit Kopfzeile
+       * „VERBUND n — CCP A + CCP E"; mehrere getrennte Verbünde sind über
+       * die Nummerierung unterscheidbar. Einzel-CCPs bleiben normale Karten. */
+      var groups={}, order=[];
+      _data.ccps.forEach(function(c){
+        /* Solo-Schlüssel im Global-Modus mit praesidium_id qualifizieren, sonst
+         * würden „CCP A" aus zwei Präsidien in einer Gruppe zusammenfallen. */
+        var k=c.verbund_gruppe || ('solo-'+(c.praesidium_id||'')+'-'+c.kennung);
+        if(!groups[k]){ groups[k]={verbund:!!c.verbund_gruppe, members:[]}; order.push(k); }
+        groups[k].members.push(c);
+      });
+      var vn=0;
+      order.forEach(function(k){ if(groups[k].verbund) groups[k].n=++vn; });
+      if(isGlobal()){
+        /* Global-Modus (Owner 2026-10-14): je Präsidium ein eigener, sauber
+         * getrennter Block (Überschrift + eigenes Raster) statt aller Karten in
+         * einem gemeinsamen Raster. Reihenfolge: Präsidiumsname. */
+        var byP={}, porder=[];
+        order.forEach(function(k){
+          var m=groups[k].members[0], pid=m.praesidium_id||'', pn=m.praesidium_name||'(ohne Präsidium)';
+          if(!byP[pid]){ byP[pid]={name:pn, keys:[], ccps:0}; porder.push(pid); }
+          byP[pid].keys.push(k); byP[pid].ccps+=groups[k].members.length;
+        });
+        porder.sort(function(a,b){ return byP[a].name.localeCompare(byP[b].name,'de'); });
+        /* Manuelle Präsidiums-Auswahl (Owner 2026-10-14): Chips „Alle" + je
+         * Präsidium; Auswahl bleibt in der Sitzung. Zeigt die Auswahl auf ein
+         * Präsidium ohne offene CCPs, fällt sie auf „Alle" zurück. */
+        var sel=pselGet(); if(sel && !byP[sel]){ sel=''; pselSet(''); }
+        h+='<div class="pchips">';
+        h+='<button class="pchip'+(sel?'':' on')+'" data-action="pselect" data-pid="">Alle Präsidien</button>';
+        porder.forEach(function(pid){ h+='<button class="pchip'+(sel===pid?' on':'')+'" data-action="pselect" data-pid="'+esc(pid)+'">'+esc(byP[pid].name)+'</button>'; });
+        h+='</div>';
+        var shownP = sel ? porder.filter(function(pid){ return pid===sel; }) : porder;
+        _grouped=true;
+        shownP.forEach(function(pid){
+          var P=byP[pid];
+          h+='<div class="psec"><div class="psec-h"><span>'+esc(P.name)+'</span><span class="cnt">'+P.ccps+' CCP'+(P.ccps!==1?'s':'')+'</span></div>';
+          h+='<div class="lgrid">';
+          P.keys.forEach(function(k){ var g=groups[k]; h+= g.verbund ? verbundCard(g, vn) : ccpCard(g.members[0], ''); });
+          h+='</div></div>';
+        });
+        _grouped=false;
+      }else{
+        h+='<div class="lgrid">';
+        order.forEach(function(k){
+          var g=groups[k];
+          if(!g.verbund){ h+=ccpCard(g.members[0], ''); return; }
+          h+=verbundCard(g, vn);
+        });
+        h+='</div>';
+      }
+    }else{
+      h+='<div class="empty">'+(isGlobal()?'Aktuell keine offenen CCPs in irgendeinem Präsidium.':'Keine aktiven CCPs in diesem Präsidium.')+'</div>';
+    }
+    h+='<div class="note">Anonyme Übersichtszahlen — keine Personendaten. Keine Patientendetails, keine Namen/Fotos, nur Zahlen je Kategorie. Aktualisiert sich automatisch.</div>';
+  }else if(!_offline){
+    h+='<div class="empty">Wird geladen…</div>';
+  }
+  h+='</div>';
+  return h;
+}
+/* Global-Modus = MasterToken-Login (0021): alle Präsidien, read-only, Kennungen
+ * NICHT präsidiumseindeutig → Präsidiums-Label je Karte, kein Ort-Editieren. */
+function isGlobal(){ try{ return sessionStorage.getItem('arguslg_global')==='1'; }catch(e){ return false; } }
+/* FLZ-Zugang-Sitzung (0023): eigenes Präsidium, read-only — kein argus_lage_set_ort (observer-only). */
+function isAdminSess(){ try{ return sessionStorage.getItem('arguslg_admin')==='1'; }catch(e){ return false; } }
+/* Präsidiums-Auswahl im Global-Modus ('' = alle) — Sitzungsmerker, nicht persistiert. */
+function pselGet(){ try{ return sessionStorage.getItem('arguslg_psel')||''; }catch(e){ return ''; } }
+function pselSet(pid){ try{ sessionStorage.setItem('arguslg_psel', pid||''); }catch(e){} }
+function lageShown(ccps){ var sel=pselGet(); return sel ? ccps.filter(function(c){ return (c.praesidium_id||'')===sel; }) : ccps; }
+function render(){
+  var loggedIn=!!sessionJwt();
+  var lb=$('logoutbtn'); if(lb) lb.style.display=loggedIn?'':'none';
+  /* Topbar-Zeile wie im Mockup: ARGUS · Lageübersicht · Beobachter · <Präsidium> */
+  var tt=$('toptitle');
+  if(tt){
+    var pn=loggedIn ? (sessionStorage.getItem('arguslg_pname')||'') : '';
+    tt.textContent='ARGUS · Lageübersicht'+(loggedIn?(isGlobal()?' · Master · alle Präsidien':(isAdminSess()?' · FLZ':' · Beobachter')+(pn?' · '+pn:'')):'');
+  }
+  var dot=$('statdot'), txt=$('stattxt');
+  if(dot && txt){
+    if(!loggedIn){ dot.className='dot'; txt.textContent=''; }
+    else if(_offline){ dot.className='dot off'; txt.textContent=_lastOkAt?('letzte Zahlen '+fmtHM(_lastOkAt)):'keine Verbindung'; }
+    else if(_lastOkAt){ dot.className='dot ok'; txt.textContent='Stand: '+fmtClock(_lastOkAt); }
+    else { dot.className='dot'; txt.textContent='lädt…'; }
+  }
+  $('app').innerHTML = loggedIn ? viewLage() : viewLogin();
+  if(!loggedIn){ var li=$('logininp'); if(li) li.focus(); }
+}
+
+/* ── Events ────────────────────────────────────────────────────── */
+/* Mini-Feedback (kein natives alert) für den Koordinaten-Klick */
+function flash(msg){
+  var f=document.createElement('div');
+  f.textContent=msg;
+  f.style.cssText='position:fixed;left:50%;bottom:60px;transform:translateX(-50%);background:var(--acc);color:#fff;border-radius:9px;padding:9px 16px;font-size:13px;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.25)';
+  document.body.appendChild(f);
+  setTimeout(function(){ if(f.parentNode)f.parentNode.removeChild(f); },2200);
+}
+/* Ort-Eingabe (Migration 0010): Mini-Modal, kein natives prompt */
+function ortPrompt(kennung, current){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;padding:18px;max-width:360px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)">'+
+      '<div style="font-weight:600;margin-bottom:10px">Ort/Objekt für CCP '+esc(kennung)+'</div>'+
+      '<input id="ortinp" value="'+esc(current||'')+'" maxlength="120" placeholder="z. B. Stadthalle, Halle 2" style="margin-bottom:12px">'+
+      '<div style="display:flex;gap:8px"><button class="btn" data-m="ok" style="flex:1">Speichern</button>'+
+      '<button class="btn" data-m="no" style="flex:1;background:var(--surf2);color:var(--tx)">Abbrechen</button></div>'+
+      '<p class="hint" style="margin:10px 0 0">Wird protokolliert und erscheint auf allen Geräten dieses Einsatzes.</p></div>';
+    document.body.appendChild(ov);
+    var inp=ov.querySelector('#ortinp'); inp.focus(); inp.select();
+    function done(v){ if(ov.parentNode)ov.parentNode.removeChild(ov); resolve(v); }
+    ov.addEventListener('click',function(e){
+      var m=e.target.closest('[data-m]');
+      if(m){ done(m.getAttribute('data-m')==='ok'?inp.value:null); }
+      else if(e.target===ov){ done(null); }
+    });
+    inp.addEventListener('keydown',function(e){ if(e.key==='Enter') done(inp.value); });
+  });
+}
+async function setOrt(kennung, current){
+  var jwt=sessionJwt(); if(!jwt) return;
+  var v=await ortPrompt(kennung, current);
+  if(v===null) return;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage_set_ort',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify({ p_kennung:kennung, p_ort:v })
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    var d=await resp.json();
+    if(resp.ok && d && d.ok){ flash('Ort gespeichert ✓ (protokolliert)'); poll(); }
+    else flash('Speichern fehlgeschlagen'+(d&&d.message?': '+d.message:''));
+  }catch(e){ flash('Keine Verbindung — Ort nicht gespeichert'); }
+}
+document.addEventListener('click', function(e){
+  var b=e.target.closest('[data-action]');
+  if(!b) return;
+  var a=b.getAttribute('data-action');
+  if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
+  if(a==='pselect'){ pselSet(b.getAttribute('data-pid')||''); render(); return; }
+  if(a==='logout'){ doLogout(); }
+  if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
+  if(a==='copygeo'){
+    var txt=b.getAttribute('data-lat')+', '+b.getAttribute('data-lng');
+    try{
+      navigator.clipboard.writeText(txt).then(function(){ flash('Koordinaten kopiert: '+txt); },
+        function(){ flash('Koordinaten: '+txt); });
+    }catch(err){ flash('Koordinaten: '+txt); }
+  }
+});
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='logininp'){
+    doLogin(document.activeElement.value);
+  }
+});
+
+/* Start: vorhandene gültige Sitzung → direkt Lage + Polling, sonst Login */
+render();
+if(sessionJwt()) startPolling();
+</script>
+</body>
+</html>
