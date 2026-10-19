@@ -1,4 +1,4 @@
-# ARGUS — Auslieferung (Version 0.35.8)
+# ARGUS — Auslieferung (Version 0.35.9)
 
 Dieses Repository enthält ausschließlich die **ausgelieferten Dateien** der
 ARGUS-Web-App (Progressive Web App für Sammelstellen bei Großschadenslagen).
