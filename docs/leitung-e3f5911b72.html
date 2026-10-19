@@ -111,6 +111,62 @@
   /* Wiedervorlage */
   .wieder{border:1px solid var(--t1);border-left:5px solid var(--t1);border-radius:11px;background:#fff;padding:14px;margin-bottom:14px}
   .wieder .wt{color:var(--t1);font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+  /* 6.8-BAUSTEINE-ANFANG */
+  /* Geteilt mit der Verwaltung (Drift-Test): Klassen der Bausteine umgebungsBand,
+   * summenLeiste, karteA. Hintergründe über Variablen (Großbild überschreibt nur diese). */
+  .uband{padding:8px 14px;font-weight:700;font-size:13px;letter-spacing:.3px;line-height:1.35;border-left:10px solid transparent}
+  .uband.u-echt{background:#39404b;color:#fff;border-left-color:var(--t1)}
+  .uband.u-schulung{background:#F2B600;color:#1b1d20;border-left-color:#1b1d20}
+  .uband.u-unbekannt{background:#c9cdd2;color:#1b1d20;border-left-color:#6b7178}
+  /* Summenleiste D6.8-03: sechs große Kacheln + schmale Nebenzeile */
+  .sumbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 6px}
+  .sumbar .sum{background:var(--bg);border:1px solid var(--line);border-top:6px solid var(--line);border-radius:10px;padding:8px 6px 7px;text-align:center}
+  .sumbar .n{font-family:var(--mono);font-weight:700;font-size:28px;line-height:1.1;color:var(--tx)}
+  .sumbar .l{font-size:12px;font-weight:600;color:var(--mut)}
+  .sumneben{font-size:12.5px;color:var(--mut);margin:0 0 12px;padding:0 2px}
+  .sumneben b{font-family:var(--mono);font-weight:600;color:var(--tx)}
+  /* Kartenmuster A D6.8-02: 2-px-Rahmen, dunkles Kopfband, Kategorien, Metazeile */
+  .ka{background:var(--bg);border:2px solid var(--acc);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .kb{background:var(--acc);color:#fff;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 10px;padding:7px 10px;font-weight:700;font-size:14px;line-height:1.3}
+  .kb.alt{background:#6b7178}
+  .kb.rot{background:var(--t1)}
+  .kb .kbl{min-width:0;overflow-wrap:anywhere}
+  .kbr{flex:0 0 auto;margin-left:auto;font-weight:600;font-size:12px;white-space:nowrap}
+  .ka .geo{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+  .ka .ked{cursor:pointer;font-size:13px;opacity:.85;margin-left:4px}
+  .kz{display:flex;gap:5px;padding:9px 10px 5px}
+  .kz .k{flex:1;border-radius:6px;text-align:center;color:#fff;padding:6px 0 5px}
+  .kz .k .n{display:block;font-family:var(--mono);font-weight:700;font-size:22px;line-height:1.05}
+  .kz .k .l{font-size:10px;font-weight:600;opacity:.95}
+  .kmeta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;padding:3px 10px 8px;font-size:12px;color:var(--mut)}
+  .kmeta b{font-family:var(--mono);font-weight:600;color:var(--tx)}
+  /* Verbund: je Mitglied eine Standortzeile (eine Patientenliste, mehrere Orte) */
+  .vmem{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);padding:5px 10px;border-top:1px dashed var(--line)}
+  .vmem .nm2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vmem .ked{margin-left:auto}
+  /* 6.8-BAUSTEINE-ENDE */
+  /* 6.8-VERWALTUNG — Bandzeile mit Umschalter, Navigationsgruppen, Raster (nur Verwaltung) */
+  .ubar{position:sticky;top:var(--toph,46px);z-index:40;display:flex;align-items:stretch;flex-wrap:wrap;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+  .ubar .uband{flex:1;display:flex;align-items:center;min-width:0}
+  .ubar .segw{display:flex;align-items:stretch;background:var(--acc)}
+  .seg{background:var(--acc);color:#fff;padding:8px 16px;font-size:13px;font-weight:700;white-space:nowrap;border-left:1px solid #ffffff33;display:flex;align-items:center;gap:6px;border-radius:0}
+  .seg:hover{background:#39404b}
+  .seg.on{background:#fff;color:var(--acc);box-shadow:inset 0 -4px 0 var(--t1)}
+  .seg.on.s-schulung{background:#F2B600;color:#1b1d20;box-shadow:inset 0 -4px 0 #1b1d20}
+  .wvz{display:inline-block;min-width:19px;padding:0 6px;border-radius:10px;background:var(--t1);color:#fff;font-family:var(--mono);font-size:11px;font-weight:700;line-height:19px;text-align:center;border:1px solid #fff}
+  .side .sh.grp{margin:16px 2px 6px;color:var(--acc);font-weight:700}
+  .side .sh.grp:first-child{margin-top:4px}
+  .lgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+  .eliste{display:flex;flex-direction:column;gap:12px;margin-bottom:6px}
+  .ka .kbody{padding:9px 12px 4px;font-size:13px}
+  .ka .kakt{display:flex;gap:8px;flex-wrap:wrap;padding:6px 12px 12px}
+  .kb .pill{font-size:11px}
+  .kb .pill.gray{background:#ffffff26;color:#fff}
+  .kb .pill{border:1px solid #ffffff80}
+  .ptitle{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:20px 0 8px;padding:6px 12px;border-radius:6px;background:var(--surf2);border-left:6px solid var(--acc);font-weight:700;font-size:14px}
+  .ptitle .pcount{font-weight:600;font-size:12px;color:var(--mut)}
+  .ptitle.ohne{border-left-color:#6b7178}
+  @media(max-width:900px){ .lgrid{grid-template-columns:1fr 1fr} .sumbar{grid-template-columns:repeat(3,minmax(0,1fr))} }
   @media(max-width:760px){
     .layout{grid-template-columns:1fr}
     .side{border-right:0;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:4px;align-items:center}
@@ -123,7 +179,7 @@
 </head>
 <body>
 <div class="topbar">
-  <span class="brand">ARGUS<small>· Leitung</small></span>
+  <span class="brand">ARGUS<small>· Verwaltung<span id="toprole"></span></small></span>
   <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
 </div>
 <div id="app"></div>
@@ -566,6 +622,222 @@ function toast(msg){
   setTimeout(function(){ t.classList.remove('show'); },2200);
 }
 
+/* ── Phase 6.8: geteilte Bausteine (byte-gleich mit der FLZ-Seite, Drift-Test tests/verwaltung.test.cjs) ──
+ * Kopiert, nicht neu getippt: fmtHM, TAFEL, LAGE_SCHWELLE_MS und die reinen
+ * Funktionen bis karteA. Änderungen NUR gleichzeitig in beiden Seiten. */
+function fmtHM(ms){
+  return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+/* geteilt — D6.8-02: Buchstabiertafel wie im Funkspruch der Feld-App. */
+var TAFEL={A:'Anton',B:'Berta',C:'Cäsar',D:'Dora',E:'Emil',F:'Friedrich',G:'Gustav',H:'Heinrich',I:'Ida',J:'Julius',K:'Kaufmann',L:'Ludwig',M:'Martha',N:'Nordpol',O:'Otto',P:'Paula',Q:'Quelle',R:'Richard',S:'Samuel',T:'Theodor',U:'Ulrich',V:'Viktor',W:'Wilhelm',X:'Xanthippe',Y:'Ypsilon',Z:'Zacharias'};
+/* geteilt — D6.8-04: Schwelle für das graue Kopfband. */
+var LAGE_SCHWELLE_MS = 180000;
+function kennungFunk(k){
+  if(k===null || k===undefined || k==='') return '';
+  return String(k).split('/').map(function(teil){
+    var t=teil.trim(), u=t.toUpperCase();
+    return TAFEL[u] || t;
+  }).join('/');
+}
+function umgebungVon(p){
+  if(p && typeof p.schulung==='boolean') return p.schulung ? 'schulung' : 'echt';
+  var n=String((p && p.name) || '');
+  if(/\s—\s*Schulung$/.test(n) || n==='Schulungsumgebung') return 'schulung';
+  return 'unbekannt';
+}
+function sitzungsPraesidium(pid, pname, praesidien){
+  var liste=Array.isArray(praesidien) ? praesidien : [], hit=null, i;
+  if(pid){ for(i=0;i<liste.length;i++){ if(liste[i] && liste[i].id===pid){ hit=liste[i]; break; } } }
+  if(!hit && pname){ for(i=0;i<liste.length;i++){ if(liste[i] && liste[i].name===pname){ hit=liste[i]; break; } } }
+  if(hit) return {id:hit.id, name:hit.name, umgebung:umgebungVon(hit)};
+  return {id:pid||'', name:pname||'', umgebung:umgebungVon({name:pname})};
+}
+function lageGruppen(ccps){
+  var idx={}, out=[], vn=0;
+  (ccps||[]).forEach(function(c){
+    var key=c.verbund_gruppe || ('solo-'+(c.praesidium_id||'')+'-'+c.kennung);
+    var g=idx['k'+key];
+    if(!g){ g={key:key, verbund:!!c.verbund_gruppe, n:0, members:[]}; idx['k'+key]=g; out.push(g); }
+    g.members.push(c);
+  });
+  out.forEach(function(g){ if(g.verbund) g.n=++vn; });
+  return out;
+}
+function lageSummen(list){
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0,pat:0,ccps:0};
+  (list||[]).forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+  });
+  s.pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  s.ccps=(list||[]).length;
+  return s;
+}
+function ccpAktualitaet(c, standMs, seitPollMs, schwelleMs){
+  function zahl(v){
+    if(typeof v==='number') return isFinite(v) ? v : null;
+    if(typeof v==='string' && v.trim()!=='' && isFinite(+v)) return +v;
+    return null;
+  }
+  c=c||{};
+  var la=zahl(c.letzte_aenderung);
+  if(!('zuletzt_gesehen' in c)) return {modus:'ohne', t:la, alt:false, min:null};
+  var hb=zahl(c.zuletzt_gesehen), t=null;
+  if(hb!==null) t=hb;
+  if(la!==null && (t===null || la>t)) t=la;
+  if(t===null) return {modus:'mit', t:null, alt:true, min:null};
+  var alter=Math.max(0, (+standMs||0) + Math.max(0, +seitPollMs||0) - t);
+  return {modus:'mit', t:t, alt:alter>schwelleMs, min:Math.floor(alter/60000)};
+}
+function gruppenAktualitaet(members, standMs, seitPollMs, schwelleMs){
+  function zahl(v){
+    if(typeof v==='number') return isFinite(v) ? v : null;
+    if(typeof v==='string' && v.trim()!=='' && isFinite(+v)) return +v;
+    return null;
+  }
+  var la=null, zg=null, hat=false;
+  (members||[]).forEach(function(c){
+    if(!c) return;
+    var a=zahl(c.letzte_aenderung);
+    if(a!==null && (la===null || a>la)) la=a;
+    if('zuletzt_gesehen' in c){
+      hat=true;
+      var g=zahl(c.zuletzt_gesehen);
+      if(g!==null && (zg===null || g>zg)) zg=g;
+    }
+  });
+  var syn={letzte_aenderung:la};
+  if(hat) syn.zuletzt_gesehen=zg;
+  return ccpAktualitaet(syn, standMs, seitPollMs, schwelleMs);
+}
+function fmtAlter(min, hhmm){
+  if(min===null || min===undefined) return 'noch keine Meldung';
+  if(min<90) return 'Stand vor '+min+' min';
+  return 'letzte Meldung '+hhmm;
+}
+function umgebungsBand(umgebung, text){
+  var u=(umgebung==='echt' || umgebung==='schulung') ? umgebung : 'unbekannt';
+  var label= u==='schulung' ? 'SCHULUNG — keine echten Patientendaten' : (u==='echt' ? 'ECHTBETRIEB' : 'Umgebung unbekannt');
+  return '<div class="uband u-'+u+'">'+label+(text?' · '+esc(text):'')+'</div>';
+}
+function summenLeiste(s){
+  s=s||{};
+  function kachel(n, label, farbe){
+    return '<div class="sum" style="border-top-color:'+farbe+'"><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
+  }
+  var h='<div class="sumbar">';
+  h+=kachel(s.t1, 'T1', 'var(--t1)');
+  h+=kachel(s.t2, 'T2', 'var(--t2)');
+  h+=kachel(s.t3, 'T3', 'var(--t3)');
+  h+=kachel(s.t5, 'T5', 'var(--t5)');
+  h+=kachel(s.gpa, 'abtransportiert', 'var(--mut)');
+  h+=kachel(s.ccps, 'offene CCPs', 'var(--acc)');
+  h+='</div>';
+  h+='<div class="sumneben">Prio-Transport <b>'+(+s.prio||0)+'</b> · transportfertig <b>'+(+s.ready||0)+'</b> · Patienten gesamt <b>'+(+s.pat||0)+'</b></div>';
+  return h;
+}
+function karteA(g, akt, opts){
+  g=g||{}; akt=akt||{modus:'ohne', t:null, alt:false, min:null}; opts=opts||{};
+  var m=g.members||[], s=lageSummen(m), c0=m[0]||{}, h;
+  function geo(c){ return typeof c.lat==='number' && typeof c.lng==='number' && isFinite(c.lat) && isFinite(c.lng); }
+  function ortZiel(c, text, cls){
+    if(opts.geoKlick && geo(c)){
+      return '<span class="'+cls+' geo" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" title="Koordinaten kopieren">📍 '+text+'</span>';
+    }
+    return '<span class="'+cls+'">'+text+'</span>';
+  }
+  function stift(c){
+    return opts.ortEdit ? '<span class="ked" data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern">✏️</span>' : '';
+  }
+  h='<div class="ka">';
+  h+='<div class="kb'+(akt.alt?' alt':'')+'"><span class="kbl">';
+  if(g.verbund){
+    h+='VERBUND'+(opts.vnTotal>1?' '+(+g.n||0):'')+' · CCP '+m.map(function(c){ return esc(kennungFunk(c.kennung)); }).join(' + ');
+  }else{
+    h+=ortZiel(c0, 'CCP '+esc(kennungFunk(c0.kennung))+(c0.ort?' · '+esc(c0.ort):''), 'kn')+stift(c0);
+  }
+  h+='</span><span class="kbr">'+(akt.alt ? esc(fmtAlter(akt.min, akt.t?fmtHM(akt.t):'—'))+' · ' : '')+s.pat+' Pat.</span></div>';
+  h+='<div class="kz">';
+  h+='<div class="k" style="background:var(--t1)"><span class="n">'+s.t1+'</span><span class="l">T1</span></div>';
+  h+='<div class="k" style="background:var(--t2);color:#3A2C00"><span class="n">'+s.t2+'</span><span class="l">T2</span></div>';
+  h+='<div class="k" style="background:var(--t3)"><span class="n">'+s.t3+'</span><span class="l">T3</span></div>';
+  h+='<div class="k" style="background:var(--t5);border:1px solid var(--t5b)"><span class="n">'+s.t5+'</span><span class="l">T5</span></div>';
+  h+='</div>';
+  var rechts;
+  if(akt.modus==='mit'){
+    var ger=0;
+    m.forEach(function(c){ ger+=(+c.geraete_aktiv||0); });
+    rechts='Geräte '+ger+' · '+(akt.t ? 'Stand '+fmtHM(akt.t) : 'noch keine Meldung');
+  }else{
+    rechts='Geräte — · letzte Änderung '+(akt.t ? fmtHM(akt.t) : '—');
+  }
+  h+='<div class="kmeta"><span>abtransportiert <b>'+s.gpa+'</b> · Prio <b>'+s.prio+'</b> · fertig <b>'+s.ready+'</b></span><span>'+rechts+'</span></div>';
+  if(g.verbund){
+    m.forEach(function(c){
+      h+='<div class="vmem">'+ortZiel(c, 'CCP '+esc(kennungFunk(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c)+'</div>';
+    });
+  }
+  return h+'</div>';
+}
+/* ── Ende der geteilten Bausteine ── */
+
+/* ── Phase 6.8 (D6.8-01/-07): Umgebung der Ansicht und Kopfband ─────
+ * _umg = Ansichtszustand des Masters (Echtbetrieb | Schulung), NICHT Teil der
+ * Sitzung (SESS_KEYS) — je Sitzung Standard „Echtbetrieb“. Reiner Anzeigefilter:
+ * Rechte prüfen weiterhin RLS/RPCs. Der FLZ-Zugang hat keinen Umschalter, sein
+ * Band ergibt sich aus dem eigenen Präsidium. */
+var _umg=(function(){ try{ return sessionStorage.getItem('argusl_umg')==='schulung' ? 'schulung' : 'echt'; }catch(e){ return 'echt'; } })();
+var _praesLaden=null;
+/* Präsidien (id, name, schulung) für Band, Zugänge und Einsatz-Zuordnung — lädt
+ * nur, wenn noch nicht vorhanden; Fehler → bleibt null (kein Abbruch, Band
+ * fällt auf die Namensheuristik bzw. „Umgebung unbekannt“ zurück). */
+async function ensurePraes(){
+  if(_praes!==null) return _praes;
+  if(_praesLaden) return _praesLaden;
+  var cl=sb(); if(!cl) return null;
+  _praesLaden=(async function(){
+    try{
+      var pr=await cl.from('praesidien').select('id,name,schulung').order('name');
+      if(!pr.error && Array.isArray(pr.data) && _praes===null) _praes=pr.data;
+    }catch(e){}
+    _praesLaden=null;
+    return _praes;
+  })();
+  return _praesLaden;
+}
+/* Rolle in der Kopfzeile (textContent — kein HTML). */
+function kopfRolle(){
+  var r=sessionRole(), k='';
+  try{ k=sessionStorage.getItem('argusl_kuerzel')||''; }catch(e){}
+  var l= r==='master' ? 'Master' : (r==='admin' ? 'FLZ-Zugang' : '');
+  if(k) l = l ? l+' · '+k : k;
+  return l || r;
+}
+/* Bandzeile unter der Topbar: Master → Band der gewählten Umgebung + Umschalter;
+ * FLZ-Zugang → festes Band seines Präsidiums; Person-Rollen ohne Ansicht → neutral. */
+function kopfBand(){
+  var role=sessionRole(), h='<div class="ubar">';
+  if(role==='master'){
+    h+=umgebungsBand(_umg, _umg==='schulung' ? 'alle Schulungs-Präsidien' : 'alle echten Präsidien');
+    /* T-06.8-33: Wiedervorlagen der jeweils ANDEREN Umgebung als rotes Badge */
+    var wv=wiedervorlageAndere();
+    h+='<span class="segw">';
+    [['echt','Echtbetrieb'],['schulung','Schulung']].forEach(function(s){
+      var n=(s[0]!==_umg && wv) ? (+wv||0) : 0;
+      h+='<button class="seg'+(_umg===s[0]?' on':'')+' s-'+s[0]+'" data-action="umgebung" data-u="'+s[0]+'"'+(n?' title="'+n+' Einsatzprotokoll(e) in Wiedervorlage"':'')+'>'+s[1]+(n?' <span class="wvz">'+n+'</span>':'')+'</button>';
+    });
+    h+='</span>';
+  }else if(role==='admin'){
+    var pid='', pn='';
+    try{ pid=sessionStorage.getItem('argusl_padmin')||''; pn=sessionStorage.getItem('argusl_padmin_name')||''; }catch(e){}
+    var sp=sitzungsPraesidium(pid, pn, _praes);
+    h+=umgebungsBand(sp.umgebung, sp.name);
+  }else{
+    h+=umgebungsBand('unbekannt', '');
+  }
+  return h+'</div>';
+}
+
 /* ── In-Page-Modals (keine nativen Dialoge — Projektkonvention) ── */
 function modalBase(innerHtml){
   var ov=document.createElement('div'); ov.className='modalov';
@@ -766,17 +1038,18 @@ function doLogout(){ sessionStorage.clear(); sessWipeLocal(); location.reload();
 
 /* ── Navigation / Router ───────────────────────────────────────── */
 /* Master-Bereiche (volle Governance) */
+/* Phase 6.8 (D6.8-07): Gruppen „Betrieb“, „Nachweis“, „Personen“ — gleiche IDs/Ziele */
 var SECTIONS_MASTER=[
-  { id:'zugaenge',      label:'Zugänge' },
-  { id:'einsaetze',     label:'Einsatzprotokolle' },
-  { id:'protokoll',     label:'Protokoll' },
-  { id:'identitaeten',  label:'Identitäten' },
-  { id:'audit',         label:'Audit-Log' }
+  { id:'zugaenge',      label:'Zugänge',           grp:'Betrieb' },
+  { id:'einsaetze',     label:'Einsatzprotokolle', grp:'Betrieb' },
+  { id:'protokoll',     label:'Protokoll',         grp:'Nachweis' },
+  { id:'audit',         label:'Audit-Log',         grp:'Nachweis' },
+  { id:'identitaeten',  label:'Identitäten',       grp:'Personen' }
 ];
 /* Admin-Bereiche (reduziert: nur eigenes Präsidium) */
 var SECTIONS_ADMIN=[
-  { id:'admin-zugang', label:'Dauercodes' },
-  { id:'admin-lage',   label:'Lage' }
+  { id:'admin-zugang', label:'Dauercodes', grp:'Betrieb' },
+  { id:'admin-lage',   label:'Lage',       grp:'Betrieb' }
 ];
 function sideNav(){
   var role=sessionRole();
@@ -785,8 +1058,10 @@ function sideNav(){
   var secs=(role==='admin') ? SECTIONS_ADMIN
          : (role==='master') ? SECTIONS_MASTER
          : [];
-  var h='<nav class="side"><div class="sh">Bereiche</div>';
+  var h='<nav class="side">', grp=null;
+  if(!secs.length) h+='<div class="sh">Bereiche</div>';
   secs.forEach(function(s){
+    if(s.grp!==grp){ grp=s.grp; h+='<div class="sh grp">'+esc(s.grp)+'</div>'; }
     h+='<div class="it'+(state.section===s.id?' on':'')+'" data-nav="'+s.id+'">'+esc(s.label)+'</div>';
   });
   h+='</nav>';
@@ -796,11 +1071,15 @@ function render(){
   var app=$('app');
   var logged=!!sessionJwt();
   $('logoutbtn').style.display = logged ? '' : 'none';
+  var tr=$('toprole'); if(tr) tr.textContent = logged ? ' · '+kopfRolle() : '';
   if(!logged){
     app.innerHTML=vLogin();
     return;
   }
-  var h='<div class="layout">'+sideNav()+'<main class="main">';
+  /* Band klebt direkt unter der Topbar → deren Höhe als Abstand (D6.8-01) */
+  var tb=document.querySelector('.topbar');
+  if(tb) document.documentElement.style.setProperty('--toph', tb.offsetHeight+'px');
+  var h=kopfBand()+'<div class="layout">'+sideNav()+'<main class="main">';
   if(state.section==='zugaenge')          h+=secZugaenge();
   else if(state.section==='einsaetze')    h+=secEinsaetze();
   else if(state.section==='protokoll')    h+=secProtokoll();
@@ -813,6 +1092,8 @@ function render(){
   app.innerHTML=h;
 }
 function loadSection(){
+  /* Präsidienliste fürs Band des FLZ-Zugangs (nicht blockierend; Fehler → Heuristik) */
+  if(_praes===null && sessionRole()==='admin') ensurePraes().then(function(p){ if(p) render(); });
   if(state.section==='zugaenge')          loadZugaenge();
   else if(state.section==='einsaetze')    loadEinsaetze();
   else if(state.section==='protokoll')    loadProtokoll();
@@ -842,7 +1123,7 @@ function secNoView(){
 function vLogin(){
   var h='<div class="loginwrap"><div class="loginbox">';
   h+='<div class="arg-logo">ARGUS</div>';
-  h+='<h1 style="text-align:center">Leitung</h1>';
+  h+='<h1 style="text-align:center">Verwaltung</h1>';
   h+='<div class="hint" style="text-align:center">Anmeldung mit MasterToken oder FLZ-Zugang.<br>Die Sitzung endet mit dem Schließen des Tabs — außer du wählst „Angemeldet bleiben".</div>';
   if(_configError){ h+='<div class="lerr" style="text-align:center">⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden.</div>'; }
   h+='<label class="fieldlab" for="logininp">Zugangs-Token</label>';
@@ -1007,8 +1288,12 @@ function tokenRows(list){
 }
 
 function secZugaenge(){
-  var h='<div class="mh"><h2>Zugänge</h2><span style="display:flex;gap:8px;flex-wrap:wrap">'+
-    '<button class="btn ghost" data-action="provision">Schulungs-Präsidien anlegen/prüfen</button>'+
+  /* Phase 6.8 (D6.8-07): Präsidien der gewählten Umgebung; Schulungs-Werkzeuge
+   * (anlegen/prüfen, leeren) nur im Modus Schulung. */
+  var h='<div class="mh"><h2>Zugänge · '+(_umg==='schulung'?'Schulung':'Echtbetrieb')+'</h2><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
+    (_umg==='schulung'
+      ? '<button class="btn ghost" data-action="provision">Schulungs-Präsidien anlegen/prüfen</button>'
+      : '<span class="hint">Schulungs-Präsidien: oben auf ‚Schulung‘ umschalten</span>')+
     '<button class="btn ghost" data-action="zugreload">↻ Aktualisieren</button></span></div>';
   /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) */
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
@@ -1027,11 +1312,15 @@ function secZugaenge(){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
     return h;
   }
+  /* „unbekannt“ (Flag fehlt) erscheint in beiden Modi — mit Hinweis, nie still versteckt */
+  var praesU=_praes.filter(function(p){ var u=umgebungVon(p); return u===_umg || u==='unbekannt'; });
   if(!_praes.length){
     h+='<div class="card"><p class="hint" style="margin:0">Keine Präsidien angelegt.</p></div>';
+  }else if(!praesU.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Präsidien in der Umgebung '+(_umg==='schulung'?'Schulung':'Echtbetrieb')+'.</p></div>';
   }
   var used={};
-  _praes.forEach(function(p){
+  praesU.forEach(function(p){
     var list=_tokens.filter(function(t){ return t.praesidium_id===p.id; });
     list.forEach(function(t){ used[t.short_code||('tok'+Math.random())]=true; });
     var shown=sortTokens(list.filter(tokenMatches));
@@ -1041,6 +1330,7 @@ function secZugaenge(){
       : list.length+' Code'+(list.length===1?'':'s')+(nRev?' · '+nRev+' gesperrt':'');
     var key='zug-'+p.id;
     var open=zugFilterActive() || !isCollapsed(key, true);
+    if(umgebungVon(p)==='unbekannt') sum='Umgebung unbekannt · '+sum;
     h+='<div class="card">';
     h+=foldHead(key, true, esc(p.name), sum, open);
     if(open){
@@ -1317,6 +1607,8 @@ async function makeAdminRevoke(sc){
 
 /* ── Bereich „Einsatzprotokolle" (D-12, D-01, D-02, D-03) ──────── */
 var _eins=null, _einsErr=null;
+/* Phase 6.8 (D6.8-07): Zuordnung ccp_id → praesidium_id (Master-RLS auf ccps) */
+var _ccpPraes={}, _ccpPraesErr=null;
 var _detail=null;   /* {ccpId, data:{ccps,patients,checklists}} — geöffnetes Protokoll */
 
 /* Frist-Einstufung — 1:1 aus der Feld-App portiert (04.8-05, JSC 10/10):
@@ -1368,7 +1660,68 @@ async function loadEinsaetze(){
     if(r.error){ _einsErr=r.error.message||'Abruf fehlgeschlagen'; }
     else{ _eins=Array.isArray(r.data)?r.data:[]; }
   }catch(e){ _einsErr='Abruf fehlgeschlagen — keine Verbindung?'; }
+  /* Phase 6.8 (D6.8-07): Präsidium je Einsatz über ccps(id, praesidium_id) — nur
+   * diese zwei Spalten, nur die IDs der Einsätze, in Stücken zu 100 IDs. Fehler →
+   * alle Einsätze unter „Ohne Präsidiumszuordnung“ (nichts wird verborgen). */
+  if(Array.isArray(_eins)){
+    await ensurePraes();
+    var ids=[], seen={}, map={};
+    _eins.forEach(function(e){ if(e && e.ccp_id!=null && !seen['k'+e.ccp_id]){ seen['k'+e.ccp_id]=1; ids.push(e.ccp_id); } });
+    _ccpPraesErr=null;
+    try{
+      for(var i=0;i<ids.length;i+=100){
+        var cr=await cl.from('ccps').select('id,praesidium_id').in('id', ids.slice(i, i+100));
+        if(cr.error) throw cr.error;
+        (cr.data||[]).forEach(function(c){ if(c && c.id!=null && c.praesidium_id) map[c.id]=c.praesidium_id; });
+      }
+      _ccpPraes=map;
+    }catch(e){
+      _ccpPraes={};
+      _ccpPraesErr='Präsidiumszuordnung nicht abrufbar — alle Einsätze stehen unter ‚Ohne Präsidiumszuordnung‘';
+    }
+  }
   if(state.section==='einsaetze') render();
+}
+
+/* Phase 6.8 (D6.8-07, rein): Einsatz-Gruppen je Präsidium der gewählten Umgebung.
+ * keys in Eingangsreihenfolge; gruppen[key].ccp_id → ccpPraes → Präsidium →
+ * umgebungVon. Gleiche Umgebung → Block des Präsidiums (Blöcke nach Name, de);
+ * andere Umgebung → andere; keine/unbekannte Zuordnung oder Umgebung „unbekannt“
+ * → ohne (erscheint in beiden Modi). */
+function einsaetzeNachPraesidium(keys, gruppen, ccpPraes, praesidien, umgebung){
+  var out={bloecke:[], ohne:[], andere:[]}, idx={}, pmap={}, cp=ccpPraes||{}, gr=gruppen||{};
+  (Array.isArray(praesidien) ? praesidien : []).forEach(function(p){ if(p && p.id!=null) pmap['k'+p.id]=p; });
+  (keys||[]).forEach(function(k){
+    var g=gr[k]||{};
+    var pid=(g.ccp_id!=null && Object.prototype.hasOwnProperty.call(cp, g.ccp_id)) ? cp[g.ccp_id] : null;
+    var p=(pid!=null && pid!=='') ? pmap['k'+pid] : null;
+    var u=p ? umgebungVon(p) : 'unbekannt';
+    if(!p || u==='unbekannt'){ out.ohne.push(k); return; }
+    if(u!==umgebung){ out.andere.push(k); return; }
+    var b=idx['k'+p.id];
+    if(!b){ b={pid:p.id, name:p.name||'', keys:[]}; idx['k'+p.id]=b; out.bloecke.push(b); }
+    b.keys.push(k);
+  });
+  out.bloecke.sort(function(a,z){ return String(a.name).localeCompare(String(z.name),'de'); });
+  return out;
+}
+/* Präsidiumsname eines Einsatzes (für die gemischte Wiedervorlage) — '' wenn unbekannt. */
+function einsatzPraesName(g){
+  var pid=(g && g.ccp_id!=null && _ccpPraes) ? _ccpPraes[g.ccp_id] : null;
+  if(!pid || !Array.isArray(_praes)) return '';
+  for(var i=0;i<_praes.length;i++){ if(_praes[i] && _praes[i].id===pid) return _praes[i].name||''; }
+  return '';
+}
+/* T-06.8-33: Zahl der Wiedervorlagen (Frist abgelaufen / < 24 h) in der jeweils
+ * ANDEREN Umgebung — für das Badge am Umschalter. null, solange nicht geladen. */
+function wiedervorlageAndere(){
+  if(!Array.isArray(_eins)) return null;
+  var gg=einsatzGroups(), now=nowMs(), n=0;
+  var r=einsaetzeNachPraesidium(gg.order, gg.groups, _ccpPraes, _praes, _umg==='schulung' ? 'echt' : 'schulung');
+  r.bloecke.forEach(function(b){
+    b.keys.forEach(function(k){ var s=fristStatus(gg.groups[k].purge_after, now); if(s==='abgelaufen'||s==='bald') n++; });
+  });
+  return n;
 }
 
 /* Gruppierung: ein Verbund (merge_group_id) = ein Einsatz. */
@@ -1405,16 +1758,20 @@ function typLabel(t){
 function einsatzCard(g, now, isWieder){
   var st=fristStatus(g.purge_after, now);
   var fst=fristStatus(g.photo_purge_after, now);
-  var h='<div class="card"'+(isWieder?' style="border-color:var(--t1)"':'')+'>';
-  h+='<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">';
-  h+='<span class="mono" style="font-size:16px;font-weight:600">CCP '+esc(g.kennungen.join(' + ')||'?')+'</span>';
-  h+='<span class="pill gray">'+typLabel(g.einsatz_typ)+'</span>';
+  /* Phase 6.8 (D6.8-02): Kopfband-Muster — „CCP Anton + Emil“, Typ- und
+   * Export-Pille im Band; Wiedervorlage mit rotem Band. */
+  var kenn=g.kennungen.length ? g.kennungen.map(function(k){ return esc(kennungFunk(k)); }).join(' + ') : '?';
+  var h='<div class="ka">';
+  h+='<div class="'+('kb'+(isWieder?' rot':''))+'"><span class="kbl">CCP '+kenn+'</span><span class="kbr">';
+  h+='<span class="pill gray">'+typLabel(g.einsatz_typ)+'</span> ';
   h+=(g.exported_at
     ? '<span class="pill green">exportiert '+fmtMs(g.exported_at)+'</span>'
     : '<span class="pill" style="background:var(--prio)">noch nicht exportiert</span>');
-  h+='<span class="hint">abgeschlossen: '+fmtMs(g.closed_at)+'</span>';
-  h+='</div>';
-  h+='<div class="hint" style="margin-top:6px">'+g.patient_count+' Patient(en) · '+g.photo_count+' Foto(s) · '+g.checklist_count+' Checkliste(n)</div>';
+  h+='</span></div>';
+  h+='<div class="kbody">';
+  var pn=isWieder ? einsatzPraesName(g) : '';
+  if(pn) h+='<div class="hint" style="margin-bottom:2px">Präsidium: <b>'+esc(pn)+'</b></div>';
+  h+='<div><b class="mono">'+(+g.patient_count||0)+'</b> Patient(en) · <b class="mono">'+(+g.photo_count||0)+'</b> Foto(s) · <b class="mono">'+(+g.checklist_count||0)+'</b> Checkliste(n) <span class="hint">· abgeschlossen: '+fmtMs(g.closed_at)+'</span></div>';
   if(st==='abgelaufen'){
     h+='<div class="hint" style="margin-top:6px;color:var(--t1);font-weight:600">Protokoll-Frist abgelaufen ('+fmtMs(g.purge_after)+') — Löschung steht an.</div>';
   }else if(st==='bald'){
@@ -1429,7 +1786,8 @@ function einsatzCard(g, now, isWieder){
   }
   /* D-02: Fotos hart — bewusst KEINE Verlängerungs-UI für die Foto-Frist. */
   h+='<div class="hint" style="margin-top:4px">Fotos werden 72 Std nach Abschluss endgültig gelöscht — KEINE Verlängerung. Beweisbedarf: Sicherung durch die zuständige Stelle innerhalb der 72 Std.</div>';
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">';
+  h+='</div>';
+  h+='<div class="kakt">';
   h+='<button class="btn" data-action="openproto" data-ccpid="'+esc(g.ccp_id)+'">Protokoll öffnen</button>';
   h+='<button class="btn ghost" data-action="extendfrist" data-ccpid="'+esc(g.ccp_id)+'" data-kennung="'+esc(g.kennungen.join(' + ')||'?')+'" data-frist="'+(+g.purge_after||0)+'">⏱ Protokoll-Frist +72 h verlängern (mit Begründung)</button>';
   h+='</div>';
@@ -1454,19 +1812,51 @@ function secEinsaetze(){
     h+='<div class="card"><p class="hint" style="margin:0">Keine Einsatzprotokolle vorhanden.<br>Hier erscheinen Einsätze, sobald sie am Feldgerät abgeschlossen wurden (bis zum Ablauf ihrer Löschfrist).</p></div>';
     return h;
   }
-  /* Wiedervorlage (D-09): abgelaufene oder < 24 h laufende Protokoll-Fristen oben. */
+  /* Phase 6.8 (D6.8-07): je Präsidium der gewählten Umgebung; nicht zuordenbare
+   * Einsätze in beiden Modi; die andere Umgebung als Zähler — nichts verborgen. */
   var now=nowMs();
-  var wieder=gg.order.filter(function(k){ var s=fristStatus(gg.groups[k].purge_after, now); return s==='abgelaufen'||s==='bald'; });
-  var normal=gg.order.filter(function(k){ return wieder.indexOf(k)<0; });
+  var umgName= _umg==='schulung' ? 'Schulung' : 'Echtbetrieb';
+  var andName= _umg==='schulung' ? 'Echtbetrieb' : 'Schulung';
+  var r=einsaetzeNachPraesidium(gg.order, gg.groups, _ccpPraes, _praes, _umg);
+  function istWieder(k){ var s=fristStatus(gg.groups[k].purge_after, now); return s==='abgelaufen'||s==='bald'; }
+  function liste(keys, wieder){
+    var x='<div class="eliste">';
+    keys.forEach(function(k){ x+=einsatzCard(gg.groups[k], now, wieder); });
+    return x+'</div>';
+  }
+  function anzahl(n){ return n+(n===1?' Einsatz':' Einsätze'); }
+  if(_ccpPraesErr || !Array.isArray(_praes)){
+    h+='<div class="card" style="border-color:var(--prio)"><div class="hint" style="margin:0;color:var(--tx)">'+esc(_ccpPraesErr||'Präsidienliste nicht abrufbar — alle Einsätze stehen unter ‚Ohne Präsidiumszuordnung‘')+'</div></div>';
+  }
+  var sichtbar=[];
+  r.bloecke.forEach(function(b){ sichtbar=sichtbar.concat(b.keys); });
+  sichtbar=sichtbar.concat(r.ohne);
+  /* Wiedervorlage (D-09): abgelaufene oder < 24 h laufende Protokoll-Fristen oben. */
+  var wieder=gg.order.filter(function(k){ return sichtbar.indexOf(k)>=0 && istWieder(k); });
   if(wieder.length){
     h+='<div class="wieder"><div class="wt">Wiedervorlage — Frist abgelaufen / läuft ab</div>';
     h+='<div class="hint" style="margin-bottom:10px">Frist nur mit Begründung verlängern oder Löschung geschehen lassen — der Übergabe-Export beim Abschluss ist der dauerhafte Weg.</div>';
-    wieder.forEach(function(k){ h+=einsatzCard(gg.groups[k], now, true); });
+    h+=liste(wieder, true);
     h+='</div>';
   }
-  if(normal.length){
-    if(wieder.length) h+='<div class="sech">Weitere Einsätze</div>';
-    normal.forEach(function(k){ h+=einsatzCard(gg.groups[k], now, false); });
+  r.bloecke.forEach(function(b){
+    var rest=b.keys.filter(function(k){ return !istWieder(k); }), nw=b.keys.length-rest.length;
+    h+='<div class="ptitle"><span>'+esc(b.name)+'</span><span class="pcount">'+anzahl(b.keys.length)+(nw?' · davon '+nw+' oben in der Wiedervorlage':'')+'</span></div>';
+    h+= rest.length ? liste(rest, false) : '<div class="hint" style="margin:0 0 8px">Alle Einsätze dieses Präsidiums stehen oben in der Wiedervorlage.</div>';
+  });
+  if(r.ohne.length){
+    var oRest=r.ohne.filter(function(k){ return !istWieder(k); }), onw=r.ohne.length-oRest.length;
+    h+='<div class="ptitle ohne"><span>Ohne Präsidiumszuordnung</span><span class="pcount">'+anzahl(r.ohne.length)+(onw?' · davon '+onw+' oben in der Wiedervorlage':'')+'</span></div>';
+    h+='<div class="hint" style="margin:-2px 0 8px">CCP keinem Präsidium zuzuordnen — erscheint in beiden Umgebungen.</div>';
+    if(oRest.length) h+=liste(oRest, false);
+  }
+  if(!r.bloecke.length && !r.ohne.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Einsatzprotokolle in der Umgebung '+umgName+'.</p></div>';
+  }
+  if(r.andere.length){
+    var na=r.andere.length, nwa=r.andere.filter(istWieder).length;
+    h+='<div class="card" style="border-left:5px solid '+(nwa?'var(--t1)':'var(--acc)')+'"><b>'+na+(na===1?' weiterer Einsatz':' weitere Einsätze')+' in der Umgebung '+andName+'</b> — oben umschalten.'+
+      (nwa?' <span style="color:var(--t1);font-weight:700">davon '+nwa+' in Wiedervorlage</span>':'')+'</div>';
   }
   return h;
 }
@@ -1950,6 +2340,7 @@ async function loadIdentitaeten(){
 
 function secIdentitaeten(){
   var h='<div class="mh"><h2>Identitäten</h2></div>';
+  h+='<div class="hint" style="margin:-6px 0 12px">Gilt für alle Umgebungen und Präsidien.</div>';
 
   /* ── Block 1: Pro-Person-Token ausgeben (Einzel-Ausgabe, D-03/D-10) ── */
   h+='<div class="sech">Pro-Person-Token ausgeben</div>';
@@ -2173,6 +2564,7 @@ function secAudit(){
   ];
 
   var h='<div class="mh"><h2>Audit-Log</h2><button class="btn ghost" data-action="auditreload">↻ Aktualisieren</button></div>';
+  h+='<div class="hint" style="margin:-6px 0 12px">Gilt für alle Umgebungen und Präsidien.</div>';
   h+='<div class="hint" style="margin-bottom:10px">Personenscharfes T4-Protokoll (USBNK/Zeit/Aktion/CCP/Patient) — append-only, 12-Monats-Frist (§ 73 PolG BW). Nur Master-Sichtbarkeit (RLS argus_is_master).</div>';
 
   /* Filter-Leiste */
@@ -2284,6 +2676,7 @@ function purgeReasonLabel(r){
 
 function secProtokoll(){
   var h='<div class="mh"><h2>Protokoll</h2><button class="btn ghost" data-action="protoreload">↻ Aktualisieren</button></div>';
+  h+='<div class="hint" style="margin:-6px 0 12px">Gilt für alle Umgebungen und Präsidien.</div>';
 
   /* ── Filter-Leiste (Plan 04.14-03, Task 3B) ── */
   var GLOG_ACTIONS=[
@@ -2381,6 +2774,9 @@ function secProtokoll(){
  * docs/lage-*.html: Summen-Kacheln + CCP-Karten in Triage-Farben.
  * Auto-Refresh alle 20 s; Intervall beim Bereichswechsel/Logout sauber clearen. */
 var _adminLageData=null, _adminLageErr=null, _adminLageTimer=null;
+/* Phase 6.8 (D6.8-04): Zeitpunkt des letzten erfolgreichen Polls — Alter der
+ * CCP-Meldung = Server-stand + Zeit seit diesem Poll (nie die PC-Uhr allein). */
+var _adminLageOkAt=null;
 
 function secAdminLage(){
   var pname=esc(sessionStorage.getItem('argusl_padmin_name')||'');
@@ -2402,35 +2798,21 @@ function secAdminLage(){
     h+='<div class="card"><p class="hint" style="margin:0">Keine aktiven CCPs in diesem Präsidium.</p></div>';
     return h;
   }
-  /* Summen-Zeile */
-  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0};
-  ccps.forEach(function(c){
-    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
-    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+  /* Phase 6.8 (D6.8-02/-03/-04): dieselben Bausteine wie die FLZ-Seite —
+   * Summenleiste, Kopfband-Karten je Verbund/CCP, Aktualität mit Fallback.
+   * Keine Koordinaten-Kopie, keine Ort-Korrektur (FLZ-Zugang ist read-only). */
+  h+=summenLeiste(lageSummen(ccps));
+  var gruppen=lageGruppen(ccps), vn=0, ohneAkt=false;
+  var seitPoll=_adminLageOkAt ? nowMs()-_adminLageOkAt : 0;
+  gruppen.forEach(function(g){ if(g.verbund) vn++; });
+  ccps.forEach(function(c){ if(!c || typeof c!=='object' || !('zuletzt_gesehen' in c)) ohneAkt=true; });
+  h+='<div class="lgrid">';
+  gruppen.forEach(function(g){
+    h+=karteA(g, gruppenAktualitaet(g.members, _adminLageData.stand, seitPoll, LAGE_SCHWELLE_MS), {ortEdit:false, geoKlick:false, vnTotal:vn});
   });
-  var pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
-  h+='<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">';
-  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px">'+ccps.length+'</div><div class="hint">aktive CCPs</div></div>';
-  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px">'+pat+'</div><div class="hint">Patienten</div></div>';
-  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--t1)">'+s.t1+'</div><div class="hint">T-1</div></div>';
-  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--prio)">'+s.prio+'</div><div class="hint">Prio-Transport</div></div>';
-  h+='<div class="card" style="padding:9px 14px;flex:1;min-width:90px;text-align:center"><div style="font-family:var(--mono);font-weight:700;font-size:20px;color:var(--mut)">'+s.gpa+'</div><div class="hint">gPA</div></div>';
   h+='</div>';
-  /* CCP-Karten */
-  ccps.forEach(function(c){
-    var total=(+c.t1||0)+(+c.t2||0)+(+c.t3||0)+(+c.t5||0)+(+c.gpa||0);
-    h+='<div class="card" style="margin-bottom:10px">';
-    h+='<div style="font-weight:600;font-size:14px;margin-bottom:8px">CCP '+esc(c.kennung||'?')+(c.ort?' · '+esc(c.ort):'')+' <span class="hint" style="font-weight:400;font-size:12px">'+total+' Pat.</span></div>';
-    h+='<div style="display:flex;gap:4px;margin-bottom:8px">';
-    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t1);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t1||0)+'</div><div style="font-size:9px;opacity:.95">T1</div></div>';
-    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t2);color:#3A2C00;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t2||0)+'</div><div style="font-size:9px;opacity:.95">T2</div></div>';
-    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t3);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t3||0)+'</div><div style="font-size:9px;opacity:.95">T3</div></div>';
-    h+='<div style="flex:1;border-radius:6px;text-align:center;background:var(--t5);border:1px solid var(--t5b);color:#fff;padding:5px 0"><div style="font-family:var(--mono);font-weight:700;font-size:15px;line-height:1">'+(+c.t5||0)+'</div><div style="font-size:9px;opacity:.95">T5</div></div>';
-    h+='</div>';
-    h+='<div class="hint">Prio-Transport <b>'+(+c.prio||0)+'</b> · transportfertig <b>'+(+c.ready||0)+'</b> · gPA <b>'+(+c.gpa||0)+'</b></div>';
-    h+='</div>';
-  });
-  h+='<p class="hint">Anonyme Übersichtszahlen — keine Patientendetails, keine Namen/Fotos. Aktualisiert sich automatisch alle 20 s.</p>';
+  h+='<p class="hint" style="margin-top:12px">Anonyme Übersichtszahlen — keine Patientendetails, keine Namen/Fotos. Aktualisiert sich automatisch alle 20 s.'+
+    (ohneAkt ? ' Aktualitätsanzeige folgt nach dem Server-Update — bis dahin zeigt jede Karte die letzte Änderung.' : '')+'</p>';
   return h;
 }
 async function loadAdminLage(){
@@ -2452,7 +2834,7 @@ async function _doAdminLagePoll(){
   try{
     var r=await cl.rpc('argus_lage');
     if(r.error){ _adminLageErr=r.error.message||'Abruf fehlgeschlagen'; }
-    else{ _adminLageData=r.data||null; _adminLageErr=null; }
+    else{ _adminLageData=r.data||null; _adminLageErr=null; _adminLageOkAt=nowMs(); }
   }catch(e){ _adminLageErr='Abruf fehlgeschlagen — keine Verbindung?'; }
   if(state.section==='admin-lage') render();
 }
@@ -2475,6 +2857,14 @@ document.addEventListener('click', async function(e){
   if(!el) return;
   var a=el.getAttribute('data-action');
   if(a==='logout'){ clearAdminLageTimer(); doLogout(); return; }
+  /* Phase 6.8 (D6.8-01): Umgebung der Ansicht umschalten — reiner Anzeigefilter */
+  if(a==='umgebung'){
+    _umg=el.getAttribute('data-u')==='schulung' ? 'schulung' : 'echt';
+    try{ sessionStorage.setItem('argusl_umg', _umg); }catch(err){}
+    _detail=null;
+    render();
+    return;
+  }
   if(a==='login'){ var li=$('logininp'); await doLogin(li?li.value:''); return; }
   if(a==='pastetoken'){
     var pi=$('logininp');

@@ -115,7 +115,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.35.3';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.35.4';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -145,6 +145,11 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.35.4': [
+    'Sicherheits- und Korrekturupdate: Patientenlisten sind besser gegen eingeschleuste Inhalte geschützt.',
+    'ARGUS-App (iPhone): Abgleich ohne Netz zuverlässiger — auch nach einem App-Neustart, bei neuen oder gelöschten Fotos und beim Einsatzabschluss. Die Freischaltung bleibt beim Start sicher erhalten.',
+    'Wichtig: Alle iPhones mit der ARGUS-App auf diese Version aktualisieren — ältere Versionen sehen sich im Mesh nicht mehr.'
+  ],
   '0.35.3': [
     'Interne Aufräumarbeiten, keine sichtbaren Änderungen.'
   ],
@@ -531,7 +536,7 @@ function withTimeout(p, ms){
  * Pitfall 10: Kein direkter localStorage-Zugriff auf ACCESS_KEYS außerhalb von
  * hydrateAccessFromKeychain (Gate in tests/native.test.cjs). Werte werden nie
  * geloggt (T-06.6-23). Patientendaten bleiben in sGet/sSet (CLAUDE.md-Naht). */
-var ACCESS_KEYS=['argus_jwt','argus_jwt_exp','argus_jwt_by_pid','argus_code','argus_is_master','argus_invite'];
+var ACCESS_KEYS=['argus_jwt','argus_jwt_exp','argus_jwt_by_pid','argus_code','argus_is_master','argus_invite','argus_mesh_join'];   /* argus_mesh_join: P2 / MI-06 (Client), Mesh-Geheimnis je CCP */
 function secureStore(){ return isNativeShell() ? capPlugin('SecureStore') : null; }
 function accessStore(){ return secureStore() ? window.sessionStorage : window.localStorage; }
 function accessGet(k){ try{ return accessStore().getItem(k); }catch(e){ return null; } }
@@ -550,41 +555,136 @@ function secureWrite(k,v){
  *             Alt-Werte → Reste einer früheren Installation, frische Installation gewinnt
  *   hydrate = Keychain → Cache (fehlende Schlüssel aus Alt-Werten ergänzen)
  *   migrate = nur Alt-Werte in localStorage → Cache + Keychain
- *   none    = nichts vorhanden */
-function keychainStartDecision(kcHasAny, lsVerified, lsLegacyAny){
+ *   none    = nichts vorhanden
+ * HO-04: Stimmt der Installationsmarker argus_install_id in Keychain (kcMark) und
+ * localStorage (lsMark) überein, ist es dieselbe Installation → nie discard, auch
+ * wenn argus_verified fehlt. Ohne Marker-Argumente gilt exakt die alte Tafel. */
+function keychainStartDecision(kcHasAny, lsVerified, lsLegacyAny, kcMark, lsMark){
+  if(kcHasAny && kcMark && lsMark && kcMark===lsMark) return 'hydrate';
   if(kcHasAny && !lsVerified && !lsLegacyAny) return 'discard';
   if(kcHasAny) return 'hydrate';
   if(lsLegacyAny) return 'migrate';
   return 'none';
 }
+/* HO-04 (Review 06.7): Status der Keychain-Hydration — Rückgabewert von
+ * hydrateAccessFromKeychain() und globale Variable für init:
+ *   'pwa'      nicht in der Hülle (localStorage wie bisher)
+ *   'noplugin' Hülle ohne SecureStore-Plugin (Zugang liegt dann in localStorage)
+ *   'timeout'  Keychain-Lesen dauerte länger als 1,2 s
+ *   'error'    mindestens ein get wurde abgewiesen (z. B. Keychain vor dem ersten Entsperren)
+ *   'ok'       alle Werte gelesen
+ * Local-first: Nur bei 'ok'/'pwa' darf etwas gelöscht oder verworfen werden. Eine
+ * langsame oder gestörte Keychain kostet höchstens einen Start ohne Zugang, zerstört
+ * aber nie Freischaltung oder Keychain. */
+var _kcHyd='pwa';
+function accessMigrationAllowed(st){ return st==='ok' || st==='pwa'; }
+/* Installationsmarker argus_install_id (16 Hex): liegt in localStorage UND Keychain,
+ * gehört NICHT zu ACCESS_KEYS (kein Zugang, kein Cache). Zufall über
+ * crypto.getRandomValues, Rückfall Math.random; wirft nie. */
+function newInstallId(){
+  var h='', i;
+  try{ var a=new Uint8Array(8); crypto.getRandomValues(a); for(i=0;i<a.length;i++) h+=(a[i]<16?'0':'')+a[i].toString(16); }catch(e){ h=''; }
+  if(!/^[0-9a-f]{16}$/.test(h)){
+    h='';
+    try{ for(i=0;i<16;i++) h+=Math.floor(Math.random()*16).toString(16); }catch(e){ h=''; }
+  }
+  return h;
+}
+/* Lese-Ergebnisse (Reihenfolge: ACCESS_KEYS, dann argus_install_id) auswerten.
+ * Ein abgewiesenes get liefert {err:1} — das ist NICHT „leer“ (HO-04). */
+function keychainParseReads(res){
+  var o={kc:{}, any:false, err:false, mark:null}, i, r;
+  if(!res || !res.length){ o.err=true; return o; }
+  for(i=0;i<res.length;i++){
+    r=res[i];
+    if(!r || typeof r!=='object' || r.err){ o.err=true; continue; }
+    if(r.value==null) continue;
+    if(i<ACCESS_KEYS.length){ o.kc[ACCESS_KEYS[i]]=String(r.value); o.any=true; }
+    else o.mark=String(r.value);
+  }
+  return o;
+}
+/* Nicht-destruktiv in den Cache (sessionStorage): nur fehlende Schlüssel, erst
+ * Keychain-, dann Alt-Werte. Löscht nie etwas. Rückgabe: Anzahl gefüllter Schlüssel. */
+function keychainCacheFill(kc, legacy){
+  var n=0, k;
+  for(k in kc){ try{ if(sessionStorage.getItem(k)==null){ sessionStorage.setItem(k,kc[k]); n++; } }catch(e){} }
+  for(k in legacy){ try{ if(sessionStorage.getItem(k)==null){ sessionStorage.setItem(k,legacy[k]); n++; } }catch(e){} }
+  return n;
+}
+/* HO-04: Die Keychain antwortet erst nach dem Timeout. Werte nur übernehmen, wenn
+ * die Startentscheidung 'hydrate' wäre (gleicher Marker bzw. argus_verified/Alt-Werte
+ * — sonst Reste einer früheren Installation, die erst der nächste Start verwirft).
+ * Nie discard, nie remove. Zeigt die App inzwischen die Präsidiumsauswahl und ist
+ * jetzt ein JWT da, einmal je Sitzung neu laden (kein nativer Dialog). */
+function keychainLateHydrate(res){
+  try{
+    var rd=keychainParseReads(res); if(rd.err || !rd.any) return 0;
+    var lsVerified=false, lsMark=null, legacyAny=false, i;
+    try{ lsVerified=!!localStorage.getItem('argus_verified'); }catch(e){}
+    try{ lsMark=localStorage.getItem('argus_install_id')||null; }catch(e){}
+    for(i=0;i<ACCESS_KEYS.length;i++){ try{ if(localStorage.getItem(ACCESS_KEYS[i])!=null) legacyAny=true; }catch(e){} }
+    if(keychainStartDecision(rd.any, lsVerified, legacyAny, rd.mark, lsMark)!=='hydrate') return 0;
+    var n=keychainCacheFill(rd.kc, {});
+    if(n>0 && typeof state!=='undefined' && state && state.view==='praesidium' && accessGet('argus_jwt')){
+      try{ if(!sessionStorage.getItem('argus_kc_reload')){ sessionStorage.setItem('argus_kc_reload','1'); location.reload(); } }catch(e){}
+    }
+    return n;
+  }catch(e){ return 0; }
+}
 /* Einmal beim nativen Start: Keychain → sessionStorage (parallel, begrenzt durch
  * Timeout 1,2 s — Local-first), Alt-Werte localStorage → Keychain, danach aus
- * localStorage entfernt (Secrets liegen nativ nicht mehr in der WebKit-Datei). */
+ * localStorage entfernt (Secrets liegen nativ nicht mehr in der WebKit-Datei).
+ * HO-04: discard/migrate und das Entfernen der Alt-Werte NUR bei Status 'ok'.
+ * Bei 'timeout'/'error' werden Alt-Werte nur in den Cache kopiert; bei 'timeout'
+ * läuft das Lesen weiter und wird später nicht-destruktiv nachgeladen. */
 async function hydrateAccessFromKeychain(){
-  var S=secureStore(); if(!S) return;
-  var kc={}, kcHasAny=false, legacy={}, legacyAny=false, i, k;
+  if(!isNativeShell()){ _kcHyd='pwa'; return _kcHyd; }
+  var S=secureStore(); if(!S){ _kcHyd='noplugin'; return _kcHyd; }
+  var all=null, res, legacy={}, legacyAny=false, i, k;
   try{
-    var reads=ACCESS_KEYS.map(function(key){
-      try{ return Promise.resolve(S.get({key:key})).catch(function(){ return null; }); }
-      catch(e){ return Promise.resolve(null); }
-    });
-    var res=await withTimeout(Promise.all(reads),1200);
-    if(res){ for(i=0;i<ACCESS_KEYS.length;i++){ var r=res[i]; if(r && r.value!=null){ kc[ACCESS_KEYS[i]]=String(r.value); kcHasAny=true; } } }
-  }catch(e){}
-  var lsVerified=false;
+    all=Promise.all(ACCESS_KEYS.concat(['argus_install_id']).map(function(key){
+      try{ return Promise.resolve(S.get({key:key})).then(function(r){ return (r && typeof r==='object') ? r : {err:1}; }, function(){ return {err:1}; }); }
+      catch(e){ return Promise.resolve({err:1}); }
+    }));
+    res=await withTimeout(all,1200);
+  }catch(e){ res=undefined; }
+  var lsVerified=false, lsMark=null;
   try{ lsVerified=!!localStorage.getItem('argus_verified'); }catch(e){}
+  try{ lsMark=localStorage.getItem('argus_install_id')||null; }catch(e){}
   for(i=0;i<ACCESS_KEYS.length;i++){
     k=ACCESS_KEYS[i];
     try{ var lv=localStorage.getItem(k); if(lv!=null){ legacy[k]=lv; legacyAny=true; } }catch(e){}
   }
-  var d=keychainStartDecision(kcHasAny, lsVerified, legacyAny);
-  if(d==='discard'){ for(i=0;i<ACCESS_KEYS.length;i++) secureWrite(ACCESS_KEYS[i],null); return; }
-  if(d==='none') return;
-  if(d==='hydrate'){ for(k in kc){ try{ sessionStorage.setItem(k,kc[k]); }catch(e){} } }
-  for(k in legacy){
-    if(d==='migrate' || !(k in kc)){ try{ sessionStorage.setItem(k,legacy[k]); }catch(e){} secureWrite(k,legacy[k]); }
-    try{ localStorage.removeItem(k); }catch(e){}
+  if(res===null && all){
+    /* Timeout: nichts löschen, nichts verwerfen; das Lesen läuft weiter (nie awaiten) */
+    _kcHyd='timeout';
+    keychainCacheFill({}, legacy);
+    all.then(keychainLateHydrate, function(){});
+    return _kcHyd;
   }
+  var rd=keychainParseReads(res);
+  var d=keychainStartDecision(rd.any, lsVerified, legacyAny, rd.mark, lsMark);
+  if(rd.err){
+    /* Lesefehler: nicht-destruktiv; lesbare Keychain-Werte nur, wenn es sicher dieselbe Installation ist */
+    _kcHyd='error';
+    keychainCacheFill(d==='hydrate' ? rd.kc : {}, legacy);
+    return _kcHyd;
+  }
+  _kcHyd='ok';
+  if(d==='discard'){ for(i=0;i<ACCESS_KEYS.length;i++) secureWrite(ACCESS_KEYS[i],null); }
+  else if(d==='hydrate' || d==='migrate'){
+    if(d==='hydrate'){ for(k in rd.kc){ try{ sessionStorage.setItem(k,rd.kc[k]); }catch(e){} } }
+    for(k in legacy){
+      if(d==='migrate' || !(k in rd.kc)){ try{ sessionStorage.setItem(k,legacy[k]); }catch(e){} secureWrite(k,legacy[k]); }
+      try{ localStorage.removeItem(k); }catch(e){}
+    }
+  }
+  /* Installationsmarker sicherstellen (auch nach discard): localStorage zuerst, dann Keychain */
+  var mark=lsMark;
+  if(!mark){ mark=newInstallId()||null; if(mark){ try{ localStorage.setItem('argus_install_id',mark); }catch(e){ mark=null; } } }
+  if(mark && rd.mark!==mark) secureWrite('argus_install_id',mark);
+  return _kcHyd;
 }
 /* Safe-Area-Regeln im CSS hängen an html.native-shell (nur in der Hülle). */
 try{ if(isNativeShell()) document.documentElement.classList.add('native-shell'); }catch(e){}
@@ -637,10 +737,16 @@ function sb(){
   return _sb;
 }
 function patFromRow(r){
+  /* KR-01 (Server-Weg): Zahlenspalten nur als endliche Zahl; numerischer String → Zahl, alles andere → null */
+  function n(v){
+    if(typeof v==='number') return isFinite(v) ? v : null;
+    if(typeof v==='string' && /^\s*-?\d+(\.\d+)?\s*$/.test(v)) return Number(v);
+    return null;
+  }
   return normalize({
-    id:r.id, num:r.num, ccp:r.ccp, cat:r.cat, status:r.status,
-    prio:!!r.prio, ready:!!r.ready, tqStart:r.tq_start, tqSite:r.tq_site||null,
-    created:r.created, lastTriage:r.last_triage, updated:r.updated,
+    id:r.id, num:n(r.num), ccp:r.ccp, cat:r.cat, status:r.status,
+    prio:!!r.prio, ready:!!r.ready, tqStart:n(r.tq_start), tqSite:r.tq_site||null,
+    created:n(r.created), lastTriage:n(r.last_triage), updated:n(r.updated),
     name:r.name||'', age:r.age||'', gender:r.gender||'',
     allergies:r.allergies||'', pupRe:r.pup_re||'', pupLi:r.pup_li||'',
     vit:r.vit||{af:'',spo2:'',hf:'',rr:'',avpu:'',pain:''},
@@ -672,6 +778,9 @@ function patToRow(p){
    * Ohne 0025 bleibt die Zeile identisch zu 0.33.22. Konflikt-Marker und lokale Hilfsflags gehen nie raus. */
   if(_schemaV>=25){
     row.fts=ftsForUpload(p.fts||{});
+    /* HO-02: Foto nur vorgemerkt (Mesh), kein eigener Stempel → Foto-Gruppe mit 0 beanspruchen. Ohne Stempel fiele der
+     * Server auf updated zurück, und ein leeres Foto könnte das echte überschreiben. In der PWA nie gesetzt. */
+    if(p._fotoRemote && !row.fts.foto) row.fts.foto={t:0};
     row.deleted_at=p.deletedAt||null; row.deleted_by=p.deletedBy||null; row.deleted_dev=p.deletedDev||null;
   }
   return row;
@@ -783,7 +892,7 @@ async function openOrCreateCCP(){
     _deviceNo=1; _deviceNoCcp=_ccpId; try{ await sSet('ccp_devno_'+_ccpId,1); }catch(e){}
     localStorage.setItem('argus_ccp_id',_ccpId);
     accessSet('argus_invite',joinToken);
-    try{ localStorage.setItem(meshSecretKey(_ccpId), joinToken); }catch(e){}   /* Phase 6.7 (D6.7-10): CCP-Geheimnis für den Mesh-Beitritt */
+    try{ meshSecretPut(_ccpId, joinToken); }catch(e){}   /* Phase 6.7 (D6.7-10, P2): CCP-Geheimnis für den Mesh-Beitritt über die Zugangsfassade */
     try{
       if(ortT){
         if(!checklist.hdr)checklist.hdr={};
@@ -1801,10 +1910,10 @@ function leaveText(kennung, dev, n, isMM){
  * devStatus. Nichts davon wird vor Plan 04 aufgerufen — die PWA verhält sich unverändert. */
 var MESH_GROUPS_ORDER = ['cat','st','vit','tx','tq','stamm','foto','del'];   /* 7 Inhaltsgruppen (FGROUPS-Reihenfolge) + Grabstein del */
 var MESH_PROTO = {
-  v:1,                        /* Schema-Version des Umschlags */
+  v:2,                        /* Schema-Version des Umschlags — 2: id mit Sitzungskennung (HO-01), Quittung mit Gruppenstempeln (HO-03); v1 wird als typ verworfen */
   jsName:'ArgusMesh',         /* Capacitor-Plugin-Name (Swift jsName, Plan 02) */
   service:'argus-ccp',        /* statischer Bonjour-Diensttyp (NSBonjourServices) — nie aus der CCP-ID bilden (TN3179) */
-  types:['hello','inv','req','delta','rcpt','foto-req','lock','meta','hb'],   /* meta trägt Nabe + MasterMedic-Wechsel (D6.7-02) */
+  types:['hello','inv','req','delta','rcpt','foto-req','lock','meta','hb','close'],   /* meta trägt Nabe + MasterMedic-Wechsel (D6.7-02); close = Einsatz abgeschlossen (P1, von jeder Speiche, wird weitergeleitet) */
   maxMsg:65536,               /* Bytes: größere Nachrichten werden verworfen (T-06.7-04) */
   chunk:24576,                /* Bytes: Zielgröße je Delta-/Inventar-Teil (RESEARCH „Größen“) */
   hbMs:15000,                 /* ms: Heartbeat-Takt (= HB_INTERVAL_MS) */
@@ -1827,6 +1936,7 @@ function meshInventory(list, order){
     var e=p.fts && p.fts[g];
     if(e && e.t!=null) return e.t;
     if(g==='del') return p.deletedAt ? (p.updated||0) : 0;
+    if(g==='foto' && p._fotoRemote) return 0;   /* HO-02: vorgemerktes Foto ohne Bytes und ohne eigenen Stempel beansprucht nichts */
     return p.updated||0;
   }
   var inv={};
@@ -1851,6 +1961,28 @@ function meshDiff(mine, theirs, order){
     if(gs.length) need[id]=gs;
   });
   return need;
+}
+/* HO-02 (keine inv/req-Schleife): foto aus dem Bedarf streichen, wenn der fremde Foto-Stempel schon vorgemerkt ist
+ * (remoteT[id] = _fotoRemoteT). Die Bytes kommen nur auf Anforderung (D6.7-06); ein erneutes req brächte nur dasselbe
+ * Flag. Leere Einträge fallen weg. Rein, Eingaben bleiben unverändert. */
+function meshPruneFotoNeed(need, theirs, order, remoteT){
+  var out={}, fi=(order||[]).indexOf('foto');
+  Object.keys(need||{}).forEach(function(id){
+    var gs=(need[id]||[]).slice(), t=theirs && theirs[id], rt=remoteT && remoteT[id];
+    if(fi>=0 && Array.isArray(t) && rt!=null && Number(rt)>=Number(t[fi]||0)) gs=gs.filter(function(g){ return g!=='foto'; });
+    if(gs.length) out[id]=gs;
+  });
+  return out;
+}
+/* HO-02: Merge-Sicht eines offenen Satzes mit Foto-Vormerkung ohne eigenen Foto-Stempel (Gateway-Flush). Ohne Stempel
+ * fiele der Feldgruppen-Merge auf updated zurück; das leere lokale Foto gewänne dann gegen das echte Foto des Servers.
+ * Stempel 0 = beansprucht nichts. Gibt p selbst oder eine Kopie zurück (p bleibt unverändert). */
+function meshFotoClaim(p){
+  if(!p || !p._fotoRemote || (p.fts && p.fts.foto)) return p;
+  var c=JSON.parse(JSON.stringify(p));
+  if(!c.fts || typeof c.fts!=='object') c.fts={};
+  c.fts.foto={t:0};
+  return c;
 }
 /* Delta (D6.7-05/-06, T-06.7-01): Weißlisten-Kopie nur der angeforderten Gruppen. Nie Schlüssel mit _-Präfix,
  * nie photo/lockedBy/lockedAt, nie fts.*.p (lokale Flags vergiften fremde Geräte — RESEARCH Pitfall 6).
@@ -1884,14 +2016,33 @@ function meshDelta(p, groups, FG){
  * erwartet (wie beim Server-Weg) eine vollständige Zeile — eine fehlende Gruppe fiele sonst über cloud.updated
  * auf „undefined“. Deshalb wird das Delta vor dem Merge aus dem lokalen Stand zum vollständigen Datensatz
  * ergänzt (Vervollständigung, kein Vergleich). Einzige Ausnahme: der Foto-Sonderfall (hasPhoto-Flag statt
- * Bytes, D6.7-06). Rückgabe {merged, changed, isNew, needPhoto}; local und incoming bleiben unverändert. */
+ * Bytes, D6.7-06). Rückgabe {merged, changed, mark, isNew, needPhoto}; local und incoming bleiben unverändert.
+ * HO-02: mark = nur die Foto-Vormerkung (_fotoRemote/_fotoRemoteT/_fotoRemoteD) hat sich geändert, kein Inhalt.
+ * KR-01/MI-02/MI-10: übernommen wird nur die Weißliste (Basisschlüssel + Felder aus FG, nie Foto-Bytes, nie _-Felder,
+ * Sperre, demo/training); fts-Einträge nur mit t/d/b (ein fremdes p-Flag nie). Bei bestehenden Patienten bleiben
+ * num/ccp/ccpId/created/by aus local (D6.7-05: keine Nummernvergabe im Mesh; ein Kennungswechsel bleibt lokal maßgeblich). */
 function meshApply(local, incoming, FG){
   function cp(v){ return v===undefined ? undefined : JSON.parse(JSON.stringify(v)); }
-  var src=incoming, m;
+  function pick(s){
+    var o={}, keys=['id','num','ccp','ccpId','created','by','updated','deletedAt','deletedBy','deletedDev','conf','hasPhoto'];
+    Object.keys(FG).forEach(function(g){ FG[g].forEach(function(k){ if(k!=='photo') keys.push(k); }); });
+    keys.forEach(function(k){ if(s && s[k]!==undefined) o[k]=cp(s[k]); });
+    o.fts={};
+    var sf=(s && s.fts && typeof s.fts==='object') ? s.fts : {};
+    Object.keys(sf).forEach(function(g){
+      var e=sf[g]; if(!e || typeof e!=='object') return;
+      var x={t:e.t};
+      if(e.d!==undefined) x.d=e.d;
+      if(e.b!==undefined) x.b=e.b;
+      o.fts[g]=x;
+    });
+    return o;
+  }
+  var src=incoming||{}, m;
   if(!local){
-    m=cp(src)||{};
+    m=pick(src);
   }else{
-    incoming=cp(src)||{}; incoming.fts=incoming.fts||{};
+    incoming=pick(src);
     var lf=local.fts||{};
     Object.keys(FG).forEach(function(g){
       var has=!!incoming.fts[g] || (g==='foto' && incoming.hasPhoto!==undefined) ||
@@ -1906,34 +2057,71 @@ function meshApply(local, incoming, FG){
     }
     if(incoming.conf===undefined && local.conf!==undefined) incoming.conf=cp(local.conf);
     m=mergeGroups(local, incoming, FG);
+    /* Stammfelder ungestempelt (MI-02): der lokale Stand bleibt maßgeblich */
+    ['num','ccp','ccpId','created','by'].forEach(function(k){ if(local[k]!==undefined) m[k]=cp(local[k]); });
     /* lokale Begleitfelder (Sperre, Provenienz, Foto-Vormerkung) kennt kein Delta — sie bleiben erhalten */
     Object.keys(local).forEach(function(k){
       if(m[k]===undefined && (k.charAt(0)==='_' || k==='lockedBy' || k==='lockedAt')) m[k]=cp(local[k]);
     });
   }
   delete m.hasPhoto;
-  if(src.photo===undefined) m.photo=(local && local.photo) || '';   /* ein fotoloses Delta löscht nie ein Foto */
-  var lt=(local && local.fts && local.fts.foto && local.fts.foto.t) || 0;
-  var it=(src.fts && src.fts.foto && src.fts.foto.t) || 0;
-  if(src.hasPhoto===true){
-    if(!m.photo || it>lt) m._fotoRemote=true; else delete m._fotoRemote;
-  }else if(src.hasPhoto===false){
-    delete m._fotoRemote;
+  m.photo=(local && local.photo) || '';   /* Foto-Bytes nie aus dem Delta (D6.7-06); ein fotoloses Delta löscht nie ein Foto */
+  /* HO-02: Stempel erst mit den Bytes. Der Foto-Stempel gehört zu dem Foto, das auf diesem Gerät liegt. Ein jüngerer
+   * fremder Stempel ohne Bytes wird nur vorgemerkt (_fotoRemote/_fotoRemoteT/_fotoRemoteD) und erst gesetzt, wenn die
+   * Ressource eintrifft. Sonst lädt ein Gateway das alte Foto mit dem neuen Stempel hoch (Server: Gleichstand → OLD).
+   * Eine Löschung (hasPhoto:false, jüngerer Stempel) wird übernommen und verbreitet sich. */
+  var lfo=(local && local.fts && local.fts.foto) || null, sfo=(src.fts && src.fts.foto) || null;
+  var lt=(lfo && lfo.t) || 0;
+  var it=(sfo && sfo.t) || 0;
+  function unmark(){ delete m._fotoRemote; delete m._fotoRemoteT; delete m._fotoRemoteD; }
+  if(src.hasPhoto===true && it>lt){
+    if(lfo) m.fts.foto=cp(lfo); else delete m.fts.foto;
+    if(!((m._fotoRemoteT||0)>it)){ m._fotoRemoteT=it; m._fotoRemoteD=(sfo.d|0); }
+    m._fotoRemote=true;
+  }else if(src.hasPhoto===false && it>lt){
+    m.photo='';
+    var df={t:it};
+    if(sfo.d!==undefined) df.d=sfo.d;
+    if(sfo.b!==undefined) df.b=sfo.b;
+    m.fts.foto=df;
+    unmark();
+  }else{
+    if(lfo) m.fts.foto=cp(lfo); else delete m.fts.foto;
+    var rt=m._fotoRemoteT;
+    if(m._fotoRemote && (rt!=null ? lt>=rt : !!m.photo)) unmark();
   }
-  var changed=true;
+  var changed=true, mark=false;
   if(local){
     changed=Object.keys(FG).some(function(g){ return groupSig(m, FG[g])!==groupSig(local, FG[g]); }) ||
-      (m.deletedAt||null)!==(local.deletedAt||null);
+      (m.deletedAt||null)!==(local.deletedAt||null) ||
+      JSON.stringify(m.fts.foto||null)!==JSON.stringify(lfo);
+    mark=['_fotoRemote','_fotoRemoteT','_fotoRemoteD'].some(function(k){ return m[k]!==local[k]; });
   }
-  return {merged:m, changed:changed, isNew:!local, needPhoto:!!m._fotoRemote};
+  var needPhoto=(!!m._fotoRemote && !m.photo) || (m._fotoRemoteT||0)>lt;
+  return {merged:m, changed:changed, mark:mark, isNew:!local, needPhoto:needPhoto};
 }
-/* Quittung (D6.7-04): exakt die Regel aus confirmUpload — p-Flags bis upTo löschen, _dirty (und die
- * Provenienz _via/_fuer) nur, wenn der ganze Stand bestätigt ist. Keine Herkunfts-Buchung (die macht
+/* Quittung (D6.7-04). HO-03: Quittung trägt Gruppenstempel; skalares upTo nur für den eigenen Upload (confirmUpload).
+ * rfts = {g:{t,d}} des tatsächlich hochgeladenen Stands. Ein lokales p-Flag fällt nur bei exakt gleichem Stempel (t und d);
+ * _dirty (und die Provenienz _via/_fuer) nur, wenn danach kein p mehr übrig ist UND jede lokale Gruppe (außer ack) in rfts
+ * mit t ≥ lokalem t steht. Sonst lädt das Gerät selbst hoch (sichere Richtung). Keine Herkunfts-Buchung (die macht
  * ausschließlich das Gateway). Verändert p, gibt p zurück. */
-function meshReceipt(p, upTo){
-  if(!p) return p;
-  clearPending(p.fts||{}, upTo);
-  if((p.updated||0)<=(upTo||0)){ delete p._dirty; delete p._via; delete p._fuer; }
+function meshReceipt(p, rfts){
+  if(!p || !rfts || typeof rfts!=='object' || Array.isArray(rfts) || !Object.keys(rfts).length) return p;
+  var lf=(p.fts && typeof p.fts==='object') ? p.fts : {};
+  function own(o, k){ return Object.prototype.hasOwnProperty.call(o, k); }
+  Object.keys(rfts).forEach(function(g){
+    var r=rfts[g], e=own(lf, g) ? lf[g] : null;
+    if(g==='ack' || !r || typeof r!=='object' || !e || typeof e!=='object' || !e.p) return;
+    if(Number(e.t)===Number(r.t) && (e.d|0)===(r.d|0)) delete e.p;
+  });
+  var ks=Object.keys(lf).filter(function(g){ return !!lf[g] && typeof lf[g]==='object'; });
+  var open=ks.some(function(g){ return !!lf[g].p; });
+  var covered=ks.every(function(g){
+    if(g==='ack') return true;
+    var r=own(rfts, g) ? rfts[g] : null;
+    return !!r && typeof r==='object' && Number(r.t)>=Number(lf[g].t||0);
+  });
+  if(!open && covered){ delete p._dirty; delete p._via; delete p._fuer; }
   return p;
 }
 /* Teilung (RESEARCH Pitfall 8): gierig bis maxBytes JSON-Länge je Teil; ein übergroßes Element bildet
@@ -1948,9 +2136,17 @@ function meshChunk(items, maxBytes){
   if(cur.length) parts.push(cur);
   return parts;
 }
-/* Umschlag (RESEARCH „Nachrichtenschema“): id = Gerätenummer + monotone Sequenz → Dedup auf Nabe und Speichen. */
-function meshEnvelope(t, from, ccp, seq, at, body){
-  return Object.assign({v:1, id:from+'-'+seq, t:t, from:from, ccp:ccp, at:at}, body||{});
+/* Umschlag (RESEARCH „Nachrichtenschema“): id = Gerätenummer + Sitzungskennung + monotone Sequenz → Dedup auf Nabe und
+ * Speichen. HO-01: Sitzungskennung gegen Dedup-Kollision nach Reload; Protokoll v2 (die Sequenz beginnt je JS-Start bei 0). */
+function meshEnvelope(t, from, ccp, sid, seq, at, body){
+  return Object.assign({v:2, id:from+'-'+sid+'-'+seq, t:t, from:from, ccp:ccp, at:at}, body||{});
+}
+/* Sitzungskennung (HO-01): 8 Zeichen [0-9a-z] je JS-Lebensdauer; crypto.getRandomValues, sonst Math.random. Wirft nie. */
+function meshSid(){
+  var A='0123456789abcdefghijklmnopqrstuvwxyz', out='', i, r=null;
+  try{ if(typeof crypto!=='undefined' && crypto && crypto.getRandomValues){ r=new Uint32Array(8); crypto.getRandomValues(r); } }catch(e){ r=null; }
+  for(i=0;i<8;i++) out+=A.charAt((r ? r[i] : Math.floor(Math.random()*4294967296))%36);
+  return out;
 }
 /* Eingangsvalidierung (D6.7-10, T-06.7-03/-04/-07): null = gültig, sonst kurzer Grund
  * ('typ','ccp','from','id','zeit','unauth','groesse','inhalt'). Rein über typeof/Regex/Zahlen, wirft nie.
@@ -1964,11 +2160,11 @@ function meshValidate(msg, ctx){
   function obj(x){ return !!x && typeof x==='object' && !Array.isArray(x); }
   try{
     ctx=ctx||{};
-    if(!obj(msg) || msg.v!==1) return 'typ';
+    if(!obj(msg) || msg.v!==P.v) return 'typ';
     if(P.types.indexOf(msg.t)<0) return 'typ';
     if(!isInt(msg.from, 1, 99)) return 'from';
     if(msg.ccp!==ctx.ccp) return 'ccp';
-    if(typeof msg.id!=='string' || !/^\d{1,2}-\d{1,9}$/.test(msg.id) || msg.id.indexOf(msg.from+'-')!==0) return 'id';
+    if(typeof msg.id!=='string' || !/^\d{1,2}-[0-9a-z]{4,12}-\d{1,9}$/.test(msg.id) || msg.id.indexOf(msg.from+'-')!==0) return 'id';   /* from-sid-seq (HO-01) */
     var lim=(ctx.now||0)+P.futureMs;
     if(!isNum(msg.at) || msg.at>lim) return 'zeit';
     if(ctx.bytes!=null && ctx.bytes>P.maxMsg) return 'groesse';
@@ -1988,30 +2184,107 @@ function meshValidate(msg, ctx){
         break;
       case 'delta':
         if(!Array.isArray(pats)) return 'inhalt';
+        /* KR-01/MI-10: strenge Weißliste, Typen und Längen je Feld. Jeder Schlüssel eines Eintrags muss in DK stehen
+         * und seine Prüfung bestehen; undefined zählt als fehlend (JSON-Transport). null ist erlaubt außer bei
+         * id/num/ccp/fts. Alles andere (_-Felder, photo, lockedBy/lockedAt, demo, training, Unbekanntes) → inhalt.
+         * Freitext-Grenzen ≥ reale Eingaben (Felder ohne maxlength), damit echte Deltas nie abgewiesen werden. */
+        var own=function(o, k){ return Object.prototype.hasOwnProperty.call(o, k); };
+        var nul=function(fn){ return function(x){ return x===null || fn(x); }; };
+        var sMax=function(max){ return nul(function(x){ return isStr(x, max); }); };
+        var prim=function(x, max){ return isNum(x) || typeof x==='boolean' || isStr(x, max); };
+        var flat=function(o, maxKeys, keyLen, val){
+          if(!obj(o)) return false;
+          var ks=Object.keys(o);
+          return ks.length<=maxKeys && ks.every(function(k){ return k.length<=keyLen && val(o[k], k); });
+        };
+        var ts=nul(function(x){ return isNum(x) && x>=0 && x<=lim; });
+        var bool=nul(function(x){ return typeof x==='boolean'; });
+        var CG=['cat','st','vit','tx','tq','stamm','foto'];
+        var DK={
+          id:function(x){ return typeof x==='string' && ID.test(x); },
+          num:function(x){ return isInt(x, 0, 999999); },
+          ccp:function(x){ return typeof x==='string' && /^[A-Z]{1,3}(~\d{1,2})?$/.test(x); },
+          ccpId:nul(function(x){ return typeof x==='string' && /^[A-Za-z0-9_-]{1,64}$/.test(x); }),
+          created:ts, updated:ts, lastTriage:ts, tqStart:ts, deletedAt:ts,
+          cat:nul(function(x){ return typeof x==='string' && /^T[1235]$/.test(x); }),
+          status:nul(function(x){ return x==='active' || x==='gpa' || x==='verworfen'; }),
+          prio:bool, ready:bool, hasPhoto:bool,
+          by:sMax(200), deletedBy:sMax(200), pupRe:sMax(200), pupLi:sMax(200), tqSite:sMax(40),
+          deletedDev:nul(function(x){ return isInt(x, 0, 99); }),
+          name:sMax(200), age:sMax(200), gender:sMax(40), fr:sMax(200),
+          allergies:sMax(2000), moi:sMax(2000), injury:sMax(4000), notes:sMax(16000),
+          vit:nul(function(x){
+            return flat(x, 20, 20, function(v, k){
+              if(k==='log') return Array.isArray(v) && v.length<=500 && v.every(function(e){ return flat(e, 20, 20, function(w){ return w===null || prim(w, 200); }); });
+              return v===null || isNum(v) || isStr(v, 200);
+            });
+          }),
+          tx:nul(function(x){ return flat(x, 100, 40, function(v){ return prim(v, 200); }); }),
+          inj:nul(function(x){ return Array.isArray(x) && x.length<=200 && x.every(function(e){ return flat(e, 20, 40, function(v){ return prim(v, 500); }); }); }),
+          fts:function(x){
+            return flat(x, order.length, 20, function(e, g){
+              if(order.indexOf(g)<0 || !obj(e)) return false;
+              if(!isNum(e.t) || e.t<0 || e.t>lim) return false;
+              return Object.keys(e).every(function(k){
+                if(k==='t') return true;
+                if(k==='d') return e.d===null || isInt(e.d, 0, 99);
+                if(k==='b') return e.b===null || (isNum(e.b) && e.b>=0);
+                return false;                                  /* p-Flag und Fremdes (MI-10) */
+              });
+            });
+          },
+          conf:nul(function(x){
+            if(!Array.isArray(x) || x.length>50) return false;
+            var okE=x.every(function(c){
+              if(!obj(c) || CG.indexOf(c.g)<0 || !isNum(c.at)) return false;
+              return ['win','lose'].every(function(k){ return c[k]===undefined || (obj(c[k]) && isNum(c[k].t)); });
+            });
+            return okE && JSON.stringify(x).length<=60000;
+          })
+        };
         ok=pats.every(function(p){
           if(!obj(p) || typeof p.id!=='string' || !ID.test(p.id)) return false;
           if(Array.isArray(ctx.ccpIds) && ctx.ccpIds.indexOf(p.ccpId)<0) return false;   /* Patient fremder CCP */
-          var f=p.fts;
-          if(f===undefined) return true;
-          if(!obj(f)) return false;
-          return Object.keys(f).every(function(g){ var e=f[g]; return obj(e) && isNum(e.t) && e.t<=lim; });
+          return Object.keys(p).every(function(k){
+            if(p[k]===undefined) return true;
+            return own(DK, k) && DK[k](p[k]) === true;
+          });
         });
         break;
       case 'rcpt':
+        /* HO-03: {id, fts:{g:{t,d}}} — Gruppen aus order, t 0…lim, d 0…99, sonst nichts (kein upTo, kein p) */
         if(!Array.isArray(pats)) return 'inhalt';
-        ok=pats.every(function(r){ return obj(r) && typeof r.id==='string' && ID.test(r.id) && isNum(r.upTo); });
+        ok=pats.every(function(r){
+          if(!obj(r) || typeof r.id!=='string' || !ID.test(r.id) || !obj(r.fts)) return false;
+          if(!Object.keys(r).every(function(k){ return k==='id' || k==='fts'; })) return false;
+          var gs=Object.keys(r.fts);
+          return gs.length<=order.length && gs.every(function(g){
+            var e=r.fts[g];
+            return order.indexOf(g)>=0 && obj(e) && isNum(e.t) && e.t>=0 && e.t<=lim && isInt(e.d, 0, 99) &&
+              Object.keys(e).every(function(k){ return k==='t' || k==='d'; });
+          });
+        });
         break;
       case 'foto-req':
         ok=typeof msg.pid==='string' && ID.test(msg.pid) && isInt(msg.to, 1, 99);
         break;
       case 'lock':
-        ok=typeof msg.pid==='string' && ID.test(msg.pid) && isStr(msg.by, 40) && isNum(msg.lockedAt) && typeof msg.release==='boolean';
+        ok=typeof msg.pid==='string' && ID.test(msg.pid) && isStr(msg.by, 200) && isNum(msg.lockedAt) && typeof msg.release==='boolean';   /* Bediener-Kürzel ungekürzt, Grenze wie by im Delta */
         break;
       case 'meta':
         ok=(msg.hub===null || isInt(msg.hub, 1, 99)) && Array.isArray(msg.devs);
         break;
       case 'hb':
-        ok=isStr(msg.op, 40) && isInt(msg.open, 0, 1e9) && typeof msg.online==='boolean';
+        ok=isStr(msg.op, 200) && isInt(msg.open, 0, 1e9) && typeof msg.online==='boolean';
+        break;
+      case 'close':
+        /* P1: Abschluss im Mesh weitergeben — closedAt plausibel (höchstens futureMs voraus, höchstens 7 Tage alt), by = Kürzel
+         * des MasterMedic (1…40), ids = CCPs des Verbunds (1…8); mit ccpIds muss mindestens ein CCP dieses Geräts darunter sein */
+        ok=isNum(msg.closedAt) && msg.closedAt>0 && msg.closedAt<=lim && msg.closedAt>=(ctx.now||0)-7*86400000 &&
+          typeof msg.by==='string' && msg.by.length>=1 && msg.by.length<=40 &&
+          Array.isArray(msg.ids) && msg.ids.length>=1 && msg.ids.length<=8 &&
+          msg.ids.every(function(x){ return typeof x==='string' && /^[A-Za-z0-9_-]{1,64}$/.test(x); }) &&
+          (!Array.isArray(ctx.ccpIds) || msg.ids.some(function(x){ return ctx.ccpIds.indexOf(x)>=0; }));
         break;
     }
     return ok ? null : 'inhalt';
@@ -2035,7 +2308,10 @@ function meshHub(devNos){
 /* Zustandsautomat Nabe/Speiche (D6.7-01, RESEARCH Pattern 4): reiner Reducer — st bleibt unverändert.
  * Zustand {s, hub, since, retry, announce}, s ∈ off|seeking|connecting|spoke|hub|full|denied. Nur Speichen
  * laden ein (die Nabe nie). „announce“ = die Nabe hat eine kleinere Nummer gesehen und kündigt den Wechsel per
- * meta an (Handshake), bevor sie selbst Speiche wird. Zeiten aus MESH_PROTO; unbekannte Ereignisse → unverändert. */
+ * meta an (Handshake), bevor sie selbst Speiche wird. Zeiten aus MESH_PROTO; unbekannte Ereignisse → unverändert.
+ * HO-05: peers trägt hubs (Geräte mit Nabenflag, per adv ausgewiesen) und authed (verbundene Geräte); fehlend = leer.
+ * Suchende wählen die kleinste ausgewiesene Nabe, sonst die kleinste Nummer; die Nabe dankt nur an ein kleineres
+ * Gerät ab, das verbunden oder als Nabe ausgewiesen ist — ein sichtbarer, nicht nabenfähiger Peer bricht den Stern nicht. */
 function meshNext(st, ev){
   var P=MESH_PROTO, s=st||{s:'off'};
   function next(ch){ var n=Object.assign({}, s, ch); if(n.announce===undefined) delete n.announce; return n; }
@@ -2046,13 +2322,18 @@ function meshNext(st, ev){
     case 'denied': return next({s:'denied', hub:null, announce:undefined});
     case 'full': return next({s:'full', hub:null, since:ev.now, announce:undefined});
     case 'peers': {
-      var lower=(ev.devs||[]).filter(function(d){ return d<ev.me; }), h=meshHub(lower);
+      var lower=(ev.devs||[]).filter(function(d){ return d<ev.me; });
+      var hubs=Array.isArray(ev.hubs) ? ev.hubs : [], au=Array.isArray(ev.authed) ? ev.authed : [];
       var settle=(ev.settle!=null) ? ev.settle : P.settleMs;
       if(s.s==='seeking' || s.s==='full'){
+        var h=meshHub(lower.filter(function(d){ return hubs.indexOf(d)>=0; })) || meshHub(lower);
         if(h) return next({s:'connecting', hub:h, since:ev.now, announce:undefined});
         return (ev.now-(s.since||0)>=settle) ? next({s:'hub', hub:ev.me, announce:undefined}) : s;
       }
-      if(s.s==='hub' && h) return next({s:'connecting', hub:h, since:ev.now, announce:h});
+      if(s.s==='hub'){
+        var a=meshHub(lower.filter(function(d){ return hubs.indexOf(d)>=0 || au.indexOf(d)>=0; }));
+        if(a) return next({s:'connecting', hub:a, since:ev.now, announce:a});
+      }
       return s;
     }
     case 'connected': return (s.s==='connecting' && ev.dev===s.hub) ? next({s:'spoke', since:ev.now, retry:0, announce:undefined}) : s;
@@ -2084,13 +2365,16 @@ function meshLockApply(p, msg, now, ttl){
   return (p.lockedBy||null)!==by || (p.lockedAt||null)!==at;
 }
 /* Foto-Annahme (D6.7-06): Ressourcenname 'foto:<pid>:<stamp>:<mime>'. ok nur, wenn pid passt und der Stempel
- * nicht älter ist als der lokale Foto-Stempel (ein verspätetes altes Foto überschreibt kein neueres). Verändert p
- * nicht — das Setzen von photo übernimmt der Aufrufer (Plan 04, über safePhoto). */
-function meshPhotoAccept(name, p){
+ * nicht älter ist als der lokale Foto-Stempel (ein verspätetes altes Foto überschreibt kein neueres). MI-09: der Stempel
+ * liegt höchstens futureMs in der Zukunft (now = Jetzt des Empfängers) und ist nicht älter als die Vormerkung
+ * (_fotoRemoteT). Verändert p nicht — das Setzen von photo übernimmt der Aufrufer (über safePhoto). */
+function meshPhotoAccept(name, p, now){
   var parts=String(name||'').split(':');
   var r={ok:false, pid:parts[1]||'', stamp:parseInt(parts[2],10), mime:parts.slice(3).join(':')||'image/jpeg'};
   if(parts[0]!=='foto' || !r.pid || !isFinite(r.stamp)) return r;
   if(!p || p.id!==r.pid) return r;
+  if(!(r.stamp<=(Number(now)||0)+MESH_PROTO.futureMs)) return r;
+  if(p._fotoRemoteT && r.stamp<p._fotoRemoteT) return r;
   var t=p.fts && p.fts.foto && p.fts.foto.t;
   r.ok=(t==null) || r.stamp>=t;
   return r;
@@ -2154,20 +2438,104 @@ function herkRpcArgs(ccpId, dev, weg, ids, kuerzel, fuer, schemaV){
   return a;
 }
 /* CCP-Geheimnis für den Mesh-Beitritt (D6.7-10, T-06.7-24): ccps.join_token (32 Hex), lokal je CCP. */
-function meshSecretKey(ccpId){ return 'argus_mesh_secret_'+ccpId; }
+function meshSecretKey(ccpId){ return 'argus_mesh_secret_'+ccpId; }   /* Alt-Schlüssel bis 0.35.3 — nur noch für die Migration */
 function meshSecretValid(s){ return /^[0-9a-f]{32}$/i.test(String(s||'')); }
-/* Quittungs-Vormerkung (D6.7-04): {id, upTo} je Patient; nur ein größerer Stempel ersetzt den Eintrag,
- * über max hinaus fliegt der älteste. Liefert das (ggf. dasselbe) Array. */
-function meshRcptAdd(q, id, upTo, max){
+/* P2 / MI-06 (Client): PSK-Ausgangsmaterial im selben Schutzraum wie die JWTs. Das Mesh-Geheimnis (join_token) liegt als
+ * Karte CCP → Token unter argus_mesh_join in der Zugangsfassade: in der Hülle Keychain (+ sessionStorage-Cache), in der
+ * PWA unverändert localStorage. Format: JSON-Liste [[ccpId, token], …], neuester zuletzt, höchstens 8 Einträge.
+ * Reine Kartenfunktionen: kaputtes oder fremdes JSON gilt als leer, ungültige Einträge fallen weg. */
+function meshSecretMapParse(raw){
+  var a=null, out=[];
+  try{ a=JSON.parse(String(raw||'')); }catch(e){ a=null; }
+  if(!Array.isArray(a)) return out;
+  a.forEach(function(e){
+    if(Array.isArray(e) && typeof e[0]==='string' && e[0] && e[0].length<=64 && meshSecretValid(e[1])) out.push([e[0], String(e[1])]);
+  });
+  return out;
+}
+function meshSecretMapGet(raw, cid){
+  var m=meshSecretMapParse(raw), i;
+  for(i=0;i<m.length;i++){ if(m[i][0]===cid) return m[i][1]; }
+  return '';
+}
+function meshSecretMapPut(raw, cid, tok){
+  if(typeof cid!=='string' || !cid || cid.length>64 || !meshSecretValid(tok)) return (raw==null) ? '' : String(raw);
+  var m=meshSecretMapParse(raw).filter(function(e){ return e[0]!==cid; });
+  m.push([cid, String(tok)]);
+  while(m.length>8) m.shift();   /* ältester fliegt */
+  return JSON.stringify(m);
+}
+function meshSecretMapDel(raw, cids){
+  var drop=Array.isArray(cids) ? cids : [cids];
+  var m=meshSecretMapParse(raw).filter(function(e){ return drop.indexOf(e[0])<0; });
+  return m.length ? JSON.stringify(m) : '';
+}
+/* Fassaden-Hüllen: lesen, setzen (nur gültige Tokens), verwerfen (leere Karte → Eintrag entfernen). Werfen nie. */
+function meshSecretGet(cid){
+  if(!cid) return '';
+  try{ return meshSecretMapGet(accessGet('argus_mesh_join'), String(cid)); }catch(e){ return ''; }
+}
+function meshSecretPut(cid, tok){
+  if(!cid || !meshSecretValid(tok)) return false;
+  try{
+    var raw=accessGet('argus_mesh_join'), nx=meshSecretMapPut(raw, String(cid), String(tok));
+    if(nx!==raw) accessSet('argus_mesh_join', nx);
+    return true;
+  }catch(e){ return false; }
+}
+function meshSecretDrop(cids){
+  try{
+    var raw=accessGet('argus_mesh_join'), nx=meshSecretMapDel(raw, cids||[]);
+    if(!nx) accessDel('argus_mesh_join');
+    else if(nx!==raw) accessSet('argus_mesh_join', nx);
+  }catch(e){}
+}
+/* Einmal in init nach der Keychain-Hydration: Alt-Schlüssel argus_mesh_secret_<id> aus localStorage übernehmen und
+ * entfernen. HO-04: bei 'timeout'/'error' nur übernehmen, nichts löschen — erst ein späterer sicherer Start räumt auf. */
+function meshSecretMigrate(){
+  try{
+    var pre=meshSecretKey(''), ks=[], i, k, n;
+    n=localStorage.length;
+    for(i=0;i<n;i++){ k=localStorage.key(i); if(typeof k==='string' && k.indexOf(pre)===0 && k.length>pre.length) ks.push(k); }
+    var keep=(_kcHyd==='timeout' || _kcHyd==='error');
+    for(i=0;i<ks.length;i++){
+      var t=null; try{ t=localStorage.getItem(ks[i]); }catch(e){ t=null; }
+      meshSecretPut(ks[i].slice(pre.length), t);
+      if(!keep){ try{ localStorage.removeItem(ks[i]); }catch(e){} }
+    }
+  }catch(e){}
+}
+/* Quittungs-Vormerkung (D6.7-04, HO-03): {id, fts:{g:{t,d}}} je Patient; eine weitere Vormerkung derselben id wird
+ * gruppenweise vereinigt (größeres t gewinnt, numerisch). Ohne Objekt-fts keine Änderung; über max hinaus fliegt der
+ * älteste. Kopiert die Stempel (teilt nichts mit dem Aufrufer). Liefert das (ggf. dasselbe) Array. */
+function meshRcptAdd(q, id, fts, max){
   var out=Array.isArray(q) ? q : [];
+  if(!fts || typeof fts!=='object' || Array.isArray(fts)) return out;
   var i=-1; for(var k=0;k<out.length;k++){ if(out[k] && out[k].id===id){ i=k; break; } }
-  if(i>=0){ if(Number(upTo)>Number(out[i].upTo||0)) out[i]={id:id, upTo:upTo}; return out; }
-  out.push({id:id, upTo:upTo});
+  var cur=(i>=0 && out[i].fts) ? out[i].fts : {}, nf={};
+  Object.keys(cur).forEach(function(g){ nf[g]={t:cur[g].t, d:cur[g].d}; });
+  Object.keys(fts).forEach(function(g){
+    var e=fts[g]; if(!e || typeof e!=='object') return;
+    if(!nf[g] || Number(e.t)>Number(nf[g].t)) nf[g]={t:e.t, d:e.d};
+  });
+  if(i>=0){ out[i]={id:id, fts:nf}; return out; }
+  out.push({id:id, fts:nf});
   while(max>0 && out.length>max) out.shift();
   return out;
 }
-var _meshRcptQ = [];   /* vorgemerkte Quittungen fürs Mesh (Server hat id bis upTo) — Plan 04 sendet sie gebündelt */
-function meshNoteUpload(id, upTo){ _meshRcptQ=meshRcptAdd(_meshRcptQ, id, upTo, 500); }
+var _meshRcptQ = [];   /* vorgemerkte Quittungen fürs Mesh (Gruppenstempel des hochgeladenen Stands) — meshDrainRcpt sendet gebündelt */
+/* HO-03: nur mit Gruppenstempeln der hochgeladenen Zeile (Schema < 25 ohne fts → keine Mesh-Quittung, die Ursprungsgeräte
+ * laden selbst hoch). Nur Gruppen aus MESH_GROUPS_ORDER, je {t, d}; d außerhalb 0…99 (z. B. null) → 0. */
+function meshNoteUpload(id, fts){
+  if(!fts || typeof fts!=='object' || Array.isArray(fts)) return;
+  var f={}, n=0;
+  MESH_GROUPS_ORDER.forEach(function(g){
+    var e=fts[g];
+    if(!e || typeof e!=='object' || typeof e.t!=='number' || !isFinite(e.t) || e.t<0) return;
+    var d=e.d; f[g]={t:e.t, d:(typeof d==='number' && Math.floor(d)===d && d>=0 && d<=99) ? d : 0}; n++;
+  });
+  if(n) _meshRcptQ=meshRcptAdd(_meshRcptQ, id, f, 500);
+}
 /* Streng monotoner Stempel (auch wenn der Versatz springt), über Neustarts persistiert. */
 function stampNow(){
   _lastStamp=nextStamp(nowMs(), _lastStamp);
@@ -2706,7 +3074,7 @@ async function leaveCcpState(){
   }
   try{ flushHerkunft(); }catch(e){}   /* Herkunftsprotokoll noch absenden (Hintergrund) */
   try{ meshStop('leave'); }catch(e){}   /* Phase 6.7: Mesh beenden (vor dem Löschen der CCP-ID) */
-  try{ if(_ccpId) localStorage.removeItem(meshSecretKey(_ccpId)); }catch(e){}   /* Phase 6.7 (D6.7-10): Mesh-Geheimnis verwerfen */
+  try{ if(_ccpId) meshSecretDrop([_ccpId]); }catch(e){}   /* Phase 6.7 (D6.7-10, P2): Mesh-Geheimnis verwerfen */
   try{ localStorage.removeItem('argus_ccp_id'); }catch(e){}
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
   _ccpId=null; _mergeGroupId=null; _devices=null; patients=[];
@@ -2752,13 +3120,14 @@ function isCcpClosedRow(row){
  * erhalten — flushLatePatients reicht sie innerhalb der 24-h-Nachfrist über argus_late_push
  * nach, runLocalPurge verwirft sie nach Fristablauf. info = ccps-Zeile (falls bekannt). */
 async function cleanupClosedEinsatz(info){
-  try{ meshStop('closed'); }catch(e){}   /* Phase 6.7: Mesh beenden (Einsatz abgeschlossen) */
+  try{ meshCloseAndStop(info); }catch(e){}   /* Phase 6.7 / P1: Abschluss an den Stern senden, dann Mesh verzögert beenden — vor dem Zurücksetzen von CCP und MasterMedic */
   try{ var lmc=readLeftMarker(); if(lmc && !lmc.training && (!_ccpId || lmc.id===_ccpId)) clearLeftMarker(); }catch(e){}   /* Wiederbeitritt zu einem abgeschlossenen CCP gibt es nicht */
   try{   /* Abschlusszeit + Fristen lokal merken (Grundlage der lokalen Löschfristen) */
     var cids={}; if(_ccpId) cids[_ccpId]=true;
     (_ccpIdsKnown||[]).forEach(function(i){ cids[i]=true; });
     var ck=Object.keys(cids);
-    for(var ci=0;ci<ck.length;ci++){ await markCcpClosedLocal(ck[ci], info); try{ localStorage.removeItem(meshSecretKey(ck[ci])); }catch(e){} }   /* Phase 6.7 (D6.7-10): Mesh-Geheimnis je CCP verwerfen */
+    for(var ci=0;ci<ck.length;ci++){ await markCcpClosedLocal(ck[ci], info); }
+    try{ meshSecretDrop(ck); }catch(e){}   /* Phase 6.7 (D6.7-10, P2): Mesh-Geheimnis je CCP verwerfen */
   }catch(e){}
   try{
     var keys=await sList("ccp_pat_");
@@ -3049,7 +3418,7 @@ async function flushLatePatients(){
         for(var a=0;a<list.length;a++){
           var pa=list[a], arow=null, pushed=false;
           try{ arow=patToRow(pa); delete arow.locked_by; delete arow.locked_at; var ur=await qt(client.from('patients').upsert(arow), 12000); if(!ur.error) pushed=true; else noteSchemaError(ur.error); }catch(e){}
-          if(pushed){ await confirmUpload(pa.id, arow.updated, !!arow.fts, 'nachgereicht'); up++; handled++; }
+          if(pushed){ await confirmUpload(pa.id, arow.updated, !!arow.fts, 'nachgereicht', 0, arow.fts); up++; handled++; }
         }
         if(up>0) toast(up===1 ? "1 Patient nachgereicht" : (up+" Patienten nachgereicht"));
         continue;
@@ -3242,7 +3611,7 @@ async function flushPendingPatients(arr, client, ccpIds){
     var cloudP=byId[lp.id];
     if(cloudP){
       /* Phase 6.5: statt "Cloud >= lokal → lokal verwerfen" je Feldgruppe zusammenführen */
-      var m=mergeGroups(lp, cloudP, FGROUPS); m.ccpId=lp.ccpId||cloudP.ccpId;
+      var m=mergeGroups(meshFotoClaim(lp), cloudP, FGROUPS); m.ccpId=lp.ccpId||cloudP.ccpId;   /* HO-02: Vormerkung ohne Stempel beansprucht das Foto nicht */
       var won=Object.keys(FGROUPS).some(function(g){return groupSig(m,FGROUPS[g])!==groupSig(cloudP,FGROUPS[g]);}) || (m.deletedAt||null)!==(cloudP.deletedAt||null) || ((m.fts.ack&&m.fts.ack.t)||0)>((cloudP.fts&&cloudP.fts.ack&&cloudP.fts.ack.t)||0);
       if(!won){   /* lokal hat nichts Neues → Serverstand übernehmen, nichts hochladen */
         var nw0=await localNewerThan(lp.id, lp.updated);
@@ -3264,7 +3633,7 @@ async function flushPendingPatients(arr, client, ccpIds){
       if(nw1){ byId[m.id]=normalize(nw1); continue; }   /* während des Hochladens weiterbearbeitet: neuere Bearbeitung nicht überschreiben */
       /* Phase 6.7 (D6.7-04): Gateway-Herkunft „für Gerät X“ — Mesh-Provenienz des lokalen Satzes bestimmt Weg/Ursprung; Quittung fürs Mesh vormerken */
       var mMesh=(lp._via==='mesh');
-      if(mpushed){ queueHerkunft(m.ccpId, mMesh ? 'mesh' : herkWeg(lp), [m.id], mMesh ? (lp._fuer|0) : 0); if(mMesh) meshNoteUpload(m.id, mrow.updated); delete m._dirty; delete m._via; delete m._fuer; if(mrow.fts) clearPending(m.fts, mrow.updated); }
+      if(mpushed){ queueHerkunft(m.ccpId, mMesh ? 'mesh' : herkWeg(lp), [m.id], mMesh ? (lp._fuer|0) : 0); if(mMesh) meshNoteUpload(m.id, mrow.fts); delete m._dirty; delete m._via; delete m._fuer; if(mrow.fts) clearPending(m.fts, mrow.updated); }
       else { m._dirty=true; if(mMesh){ m._via='mesh'; m._fuer=lp._fuer|0; } }
       await sSet("ccp_pat_"+m.id, m);
       byId[m.id]=normalize(m);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
@@ -3278,7 +3647,7 @@ async function flushPendingPatients(arr, client, ccpIds){
     if(nw2){ byId[lp.id]=normalize(nw2); continue; }   /* während des Hochladens weiterbearbeitet */
     /* Phase 6.7 (D6.7-04): Gateway-Herkunft „für Gerät X“ */
     var lMesh=(lp._via==='mesh');
-    if(pushed){ queueHerkunft(lp.ccpId||_ccpId, lMesh ? 'mesh' : herkWeg(lp), [lp.id], lMesh ? (lp._fuer|0) : 0); if(lMesh) meshNoteUpload(lp.id, lrow.updated); delete lp._dirty; delete lp._via; delete lp._fuer; if(lrow.fts) clearPending(lp.fts||{}, lrow.updated); await sSet("ccp_pat_"+lp.id, lp); }
+    if(pushed){ queueHerkunft(lp.ccpId||_ccpId, lMesh ? 'mesh' : herkWeg(lp), [lp.id], lMesh ? (lp._fuer|0) : 0); if(lMesh) meshNoteUpload(lp.id, lrow.fts); delete lp._dirty; delete lp._via; delete lp._fuer; if(lrow.fts) clearPending(lp.fts||{}, lrow.updated); await sSet("ccp_pat_"+lp.id, lp); }
     byId[lp.id]=normalize(lp);   /* immer anzeigen, auch wenn Upload (noch) scheitert */
   }
   arr.length=0;
@@ -3537,20 +3906,19 @@ async function ensureDeviceNo(client){
   }
   return (_deviceNo!=null && _deviceNoCcp===_ccpId) ? _deviceNo : null;   /* noch unbekannt (z. B. offline vor erstem Claim) → vorerst kein Suffix */
 }
-/* Phase 6.7 (D6.7-10): CCP-Geheimnis für den Mesh-Beitritt = ccps.join_token, lokal unter argus_mesh_secret_<ccpId>.
+/* Phase 6.7 (D6.7-10): CCP-Geheimnis für den Mesh-Beitritt = ccps.join_token, lokal über die Zugangsfassade (P2: argus_mesh_join).
  * Aus dem Speicher lesen; sonst — nur online — nachladen (Mitglieder dürfen join_token lesen, wie beim Nachzügler-Lesen
  * der ccps-Zeile). Wirft nie, blockiert nie (fire-and-forget-tauglich); null = (noch) kein Geheimnis. Nie im Training.
  * Gesetzt ohne Netzaufruf beim Eröffnen/Beitreten/Wiederbeitreten; gelöscht beim Verlassen und beim Einsatz-Abschluss. */
 async function ensureMeshSecret(client){
   if(_training || !_ccpId) return null;
-  var cid=_ccpId, key=meshSecretKey(cid), s='';
-  try{ s=localStorage.getItem(key)||''; }catch(e){ s=''; }
+  var cid=_ccpId, s=meshSecretGet(cid);
   if(meshSecretValid(s)) return s;
   if(!client || !netLikelyUp()) return null;
   try{
     var r=await qt(client.from('ccps').select('join_token').eq('id',cid).maybeSingle());
     var t=(r && !r.error && r.data) ? r.data.join_token : null;
-    if(meshSecretValid(t)){ try{ localStorage.setItem(key, t); }catch(e){} return t; }
+    if(meshSecretValid(t)){ meshSecretPut(cid, t); return t; }
   }catch(e){}
   return null;
 }
@@ -3589,7 +3957,7 @@ async function addPatient(cat){
   patients.push(normalize(p));          /* sofort im Bestand sichtbar, ohne Netz */
   if(!p.training && _ccpId){            /* Hintergrund-Upload — bewusst NICHT awaiten */
     var cl=sb();
-    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error){ confirmUpload(p.id, irow.updated, !!irow.fts); } else if(r && r.error) noteSchemaError(r.error); if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } }, function(){ if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } }); }catch(e){} }
+    if(cl){ try{ var irow=patToRow(p); cl.from('patients').insert(irow).then(function(r){ if(r && !r.error){ confirmUpload(p.id, irow.updated, !!irow.fts, null, 0, irow.fts); } else if(r && r.error) noteSchemaError(r.error); if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } }, function(){ if(_schemaV>=28){ try{ prefetchNum(true); }catch(e){} } }); }catch(e){} }
   }
   /* nächste Online-Nummer vorab holen: ab Schema 28 erst NACH dem Upload (Server-Reservierung gilt als verbraucht, sobald der Patient dort liegt) */
   if(_schemaV<28 || _schemaV>=29){ try{ prefetchNum(true, (typeof _usedNum!=='undefined')?_usedNum:0); }catch(e){} }   /* ab 0029: sofort, mit verbrauchter Nummer */
@@ -3601,7 +3969,7 @@ async function addPatient(cat){
  * (Prio → TQ → Foto in schneller Folge) weitergetippt, wurde die neuere lokale
  * Änderung überschrieben. Jetzt: nur die _dirty-Markierung löschen, und nur,
  * wenn seitdem keine neuere Änderung (updated) gespeichert wurde. */
-async function confirmUpload(id, updatedAtUpload, withFts, weg, fuer){
+async function confirmUpload(id, updatedAtUpload, withFts, weg, fuer, rowFts){
   try{
     var cur=await sGet("ccp_pat_"+id);
     /* Phase 6.7 (D6.7-04): Gateway-Herkunft „für Gerät X“ — ohne Vorgabe Weg/Ursprung aus der lokalen Mesh-Provenienz (_via/_fuer, setzt Plan 04) */
@@ -3609,7 +3977,7 @@ async function confirmUpload(id, updatedAtUpload, withFts, weg, fuer){
     weg = weg || (viaMesh ? 'mesh' : 'direkt');
     fuer = (fuer|0) || ((cur && cur._fuer)|0) || 0;
     if(cur && !cur.demo && !cur.training && (cur.ccpId||_ccpId)) queueHerkunft(cur.ccpId||_ccpId, weg, [id], fuer);   /* Herkunft (S7): automatisch, ohne Inhalt */
-    if(viaMesh) meshNoteUpload(id, updatedAtUpload);   /* Quittung zurück ins Mesh (Plan 04 sendet) */
+    if(viaMesh) meshNoteUpload(id, rowFts);   /* Quittung zurück ins Mesh, HO-03: mit den Gruppenstempeln der hochgeladenen Zeile (rowFts) */
     /* Phase 6.5: Stempel-Bestätigung (p-Flags) nur, wenn die Zeile fts wirklich mitgeführt hat */
     if(cur && withFts) clearPending(cur.fts||{}, updatedAtUpload);
     if(cur && cur._dirty && (cur.updated||0)<=(updatedAtUpload||0)){ delete cur._dirty; delete cur._via; delete cur._fuer; await sSet("ccp_pat_"+id,cur); }
@@ -3650,7 +4018,7 @@ async function savePatient(p){
      * Sperr-Spalten NICHT mitschreiben (Sperren laufen ausschließlich über pushLock). */
     try{
       var row=patToRow(p); delete row.locked_by; delete row.locked_at;
-      client.from('patients').upsert(row).then(function(r){ if(r && !r.error) confirmUpload(p.id, row.updated, !!row.fts); else if(r && r.error) noteSchemaError(r.error); }, function(){});
+      client.from('patients').upsert(row).then(function(r){ if(r && !r.error) confirmUpload(p.id, row.updated, !!row.fts, null, 0, row.fts); else if(r && r.error) noteSchemaError(r.error); }, function(){});
     }catch(e){}
   }
 }
@@ -3718,7 +4086,8 @@ var _mesh = {
   keys:{},                                        /* Gerätenummer → peerKey */
   authed:{},                                      /* Gerätenummer → true, nur bei Transportzustand connected */
   seen:{ids:{}, order:[]},                        /* Dedup-Fenster (meshDedup) */
-  seq:0,                                          /* eigene Nachrichtensequenz (id = me-seq) */
+  sid:'',                                         /* Sitzungskennung je JS-Lebensdauer (HO-01, id = me-sid-seq); nie in meshResetSession */
+  seq:0,                                          /* eigene Nachrichtensequenz (id = me-sid-seq) */
   devs:{},                                        /* Gerätenummer → {op, last, open, online} aus hello/hb/meta */
   metaDevN:0,                                     /* Gerätezahl laut letzter meta der Nabe (Pille der Speiche) */
   full:false,                                     /* Nabe: Stern voll (verbundene Speichen ≥ maxSpokes) */
@@ -3738,6 +4107,8 @@ var _mesh = {
   serial:Promise.resolve(),                       /* Reihenfolge der Speicherzugriffe beim Anwenden */
   tick:null,                                      /* 1-s-Takt */
   awake:false,                                    /* Wachhalten aktiv */
+  closing:false,                                  /* P1: Abschluss gesendet, Stopp folgt verzögert — Takt, Start und Empfang ruhen */
+  closeFromMesh:false,                            /* P1: Abschluss kam über das Mesh — beim eigenen Bereinigen kein zweites close senden */
   pillTxt:''                                      /* zuletzt gerenderter Pillentext (Render nur bei Änderung) */
 };
 /* aktiv = mit Nabe verbunden oder selbst Nabe; Ziel = Nabe (Speiche) bzw. alle Speichen (Nabe). */
@@ -3753,6 +4124,7 @@ function meshTargets(){
  * aus dem Speicher, online höchstens qt-begrenzt) noch ein Plugin-Aufruf (T-06.7-39). */
 function meshStart(){
   var N=meshNative(); if(!N) return;
+  if(_mesh.closing) return;   /* P1: Abschluss läuft, Stopp folgt */
   if(_training || !_ccpId || document.hidden) return;
   if(_mesh.starting || _mesh.st.s!=='off') return;
   var dev=deviceNoSync(); if(!(dev>=1)) return;
@@ -3761,7 +4133,8 @@ function meshStart(){
   var sp=null; try{ sp=ensureMeshSecret(sb()); }catch(e){ sp=null; }   /* Promise, wird nicht abgewartet (Plan-03-Vertrag, Local-first) */
   Promise.resolve(sp).then(function(secret){
     if(!meshSecretValid(secret) || _ccpId!==cid || _training || document.hidden || _mesh.st.s!=='off'){ _mesh.starting=false; return; }
-    if(!_mesh.native){
+    var first=!_mesh.native;   /* erster Start dieser JS-Sitzung (Kaltstart oder WebView-Reload) */
+    if(first){
       try{
         N.on('peers', function(ev){ try{ meshOnPeers(ev); }catch(e){} });
         N.on('message', function(ev){ try{ meshOnMessage(ev); }catch(e){} });
@@ -3770,12 +4143,21 @@ function meshStart(){
       }catch(e){}
     }
     _mesh.native=N; _mesh.me=dev; _mesh.ccpId=cid;
+    if(!_mesh.sid) _mesh.sid=meshSid();
     meshResetSession();
-    var p;
-    try{ p=N.call('start',{ccpId:cid, secret:secret, deviceNo:dev, hub:false}); }catch(e){ _mesh.starting=false; return; }
+    /* HO-01: Nach einem Reload läuft das Plugin mit seinen Verbindungen weiter. Beim ersten Start der JS-Sitzung den
+     * Transport hart neu starten (stop, dann start — Erfolg wie Fehler), damit die Peers eine Trennung sehen und
+     * hello/inv neu laufen. Kein Plugin-Promise wird abgewartet (T-06.7-39). */
+    var go=function(){ return N.call('start',{ccpId:cid, secret:secret, deviceNo:dev, hub:false}); };
+    var p, q=null;
+    if(first){ try{ q=N.call('stop'); }catch(e){ q=null; } }
+    try{ p=q ? Promise.resolve(q).then(go, go) : go(); }catch(e){ _mesh.starting=false; return; }
     Promise.resolve(p).then(function(r){
       _mesh.starting=false;
       if(_ccpId!==cid || _training){ meshStop('ccp'); return; }
+      /* MI-05: denied kam vor der Auflösung (Rückweg aus den Einstellungen) — nicht mit seeking überschreiben; der
+       * Weg denied → running (meshOnState) startet neu, sobald „Lokales Netzwerk“ erlaubt ist. */
+      if(_mesh.st.s==='denied' || _mesh.denied){ meshPillRefresh(true); return; }
       _mesh.ccpHash=(r && typeof r.ccpHash==='string') ? r.ccpHash : '';
       _mesh.st=meshNext({s:'off'},{type:'start', ok:true, now:nowMs()});
       _mesh.denied=false;
@@ -3801,7 +4183,7 @@ function meshStop(reason){
     try{ N.call('stop').then(null, function(){}); }catch(e){}
     if(_mesh.awake){ try{ N.call('setKeepAwake',{on:false}).then(null, function(){}); }catch(e){} }
   }
-  _mesh.awake=false; _mesh.starting=false;
+  _mesh.awake=false; _mesh.starting=false; _mesh.closing=false; _mesh.closeFromMesh=false;
   _mesh.st=meshNext(_mesh.st,{type:'stop'});
   if(_mesh.tick){ clearInterval(_mesh.tick); _mesh.tick=null; }
   if(_mesh.gwTimer){ clearTimeout(_mesh.gwTimer); _mesh.gwTimer=null; }
@@ -3809,13 +4191,29 @@ function meshStop(reason){
   _mesh.lastError=reason ? ('stop:'+reason) : '';
   meshPillRefresh(false);
 }
+/* P1: Abschluss im Mesh weitergeben — Löschfristen ab closedAt wie beim Server-Abschluss.
+ * Ersetzt den sofortigen Stopp beim Einsatz-Abschluss. PWA (kein Plugin): sofort stoppen wie bisher. In der Hülle: aktiv und
+ * nicht selbst per Mesh informiert → close an den Stern (Nabe: alle Speichen; Speiche: Nabe, die weiterleitet), dann ruhen
+ * und nach 1,5 s stoppen, damit die Frames (auch Weiterleitungen der Nabe) noch hinausgehen. Nichts wird abgewartet.
+ * Restrisiko: ist der MasterMedic hier unbekannt, ist by leer bzw. fremd — die Empfänger verwerfen es (Auffangnetz). */
+function meshCloseAndStop(info){
+  if(!_mesh.native){ meshStop('closed'); return; }
+  if(_mesh.closing) return;
+  if(meshActive() && !_mesh.closeFromMesh){
+    var ids=[];
+    [_ccpId].concat(_ccpIdsKnown||[]).forEach(function(i){ if(typeof i==='string' && i && ids.indexOf(i)<0 && ids.length<8) ids.push(i); });
+    if(ids.length) meshSend('close', {closedAt:Number(info && info.closed_at) || nowMs(), by:String(masterMedic||'').slice(0,40), ids:ids}, meshTargets());
+  }
+  _mesh.closing=true;
+  setTimeout(function(){ if(_mesh.closing) meshStop('closed'); }, 1500);   /* nur, wenn nicht schon anders gestoppt (keine neue Sitzung treffen) */
+}
 /* Senden (T-06.7-04/-39): Umschlag per meshEnvelope, eigene id sofort als gesehen eintragen (Relay-Echo), Übergröße
  * verwerfen, Plugin-Promise nie awaiten. to = peerKey | 'all' | undefined (= Ziel nach Rolle). true = übergeben. */
 function meshSend(t, body, to){
   var N=_mesh.native; if(!N || !(_mesh.me>=1)) return false;
   if(to===undefined) to=meshTargets();
   if(!to) return false;
-  var msg=meshEnvelope(t, _mesh.me, _mesh.ccpHash, ++_mesh.seq, nowMs(), body);
+  var msg=meshEnvelope(t, _mesh.me, _mesh.ccpHash, _mesh.sid, ++_mesh.seq, nowMs(), body);
   var json=''; try{ json=JSON.stringify(msg); }catch(e){ return false; }
   if(json.length>MESH_PROTO.maxMsg){ _mesh.lastError='send:groesse:'+t; return false; }
   meshDedup(_mesh.seen, msg.id);
@@ -3823,7 +4221,7 @@ function meshSend(t, body, to){
   return true;
 }
 /* Relay (nur Nabe, Store-and-forward): unveränderte json an alle verbundenen Speichen außer dem Absender — oder
- * gezielt an onlyKey (foto-req). Weitergeleitet werden nur delta/rcpt/lock/foto-req (der Aufrufer entscheidet). */
+ * gezielt an onlyKey (foto-req). Weitergeleitet werden nur delta/rcpt/lock/close/foto-req (der Aufrufer entscheidet). */
 function meshRelay(json, fromKey, onlyKey){
   var N=_mesh.native; if(!N || _mesh.st.s!=='hub' || typeof json!=='string') return;
   if(onlyKey){
@@ -3873,13 +4271,14 @@ function meshOnPeers(ev, fromTick){
   var now=nowMs(), me=_mesh.me, P=MESH_PROTO;
   var list=(ev && Array.isArray(ev.peers)) ? ev.peers : [];
   if(!fromTick) _mesh.peerList=list;
-  var prevAuthed=_mesh.authed, peers={}, keys={}, authed={}, devs=[];
+  var prevAuthed=_mesh.authed, peers={}, keys={}, authed={}, devs=[], hubs=[];
   list.forEach(function(p){
     if(!p || typeof p.key!=='string') return;
     var d=parseInt(p.dev,10); if(!(d>=1) || d===me) return;
     if(_mesh.ccpHash && p.ccp && p.ccp!==_mesh.ccpHash) return;        /* fremder CCP (T-06.7-40) */
     peers[p.key]={dev:d, ccp:p.ccp||'', full:(p.full===true || p.full==='1' || p.full===1), hub:(p.hub===true || p.hub==='1' || p.hub===1), state:p.state||''};
     keys[d]=p.key; if(devs.indexOf(d)<0) devs.push(d);
+    if(peers[p.key].hub && hubs.indexOf(d)<0) hubs.push(d);           /* HO-05: Nabenflag (nativ per adv ausgewiesen) */
     if(!_mesh.seenAt[d]) _mesh.seenAt[d]=now;
     if(p.state==='connected') authed[d]=true;
   });
@@ -3892,13 +4291,15 @@ function meshOnPeers(ev, fromTick){
     if(authed[st.hub]) _mesh.hubLostAt=0;
     else if(!_mesh.hubLostAt) _mesh.hubLostAt=now;
   }else _mesh.hubLostAt=0;
-  /* Nabenkandidat wirbt „voll“ (D6.7-09) → warten statt einladen (Retry nach fullRetryMs im Reducer) */
-  var lower=devs.filter(function(d){ return d<me; }), h=meshHub(lower);
+  /* Nabenkandidat wirbt „voll“ (D6.7-09) → warten statt einladen (Retry nach fullRetryMs im Reducer); Kandidat wie im
+   * Reducer: kleinste ausgewiesene Nabe, sonst kleinste Nummer (HO-05) */
+  var lower=devs.filter(function(d){ return d<me; });
+  var h=meshHub(lower.filter(function(d){ return hubs.indexOf(d)>=0; })) || meshHub(lower);
   var hp=h ? peers[keys[h]] : null, hubFull=!!(hp && hp.full && !authed[h]);
   if(hubFull && (st.s==='seeking' || st.s==='connecting' || st.s==='full')){
     if(st.s!=='full') st=meshNext(st,{type:'full', now:now});
   }else{
-    st=meshNext(st,{type:'peers', devs:devs, me:me, now:now});
+    st=meshNext(st,{type:'peers', devs:devs, hubs:hubs, authed:Object.keys(authed).map(Number), me:me, now:now});
   }
   _mesh.st=st;
   /* Übergänge */
@@ -3960,7 +4361,7 @@ function meshUpdateAwake(){
  * letzte peers-Liste (Beruhigungszeit → Nabe), Einladung, Geräteliste bereinigen (120 s), Zeitpläne hb/inv/meta/rcpt,
  * Wachhalten, Pille (Render nur bei Textänderung auf home, T-06.7-37). */
 function meshTick(){
-  if(!_mesh.native) return;
+  if(!_mesh.native || _mesh.closing) return;
   var now=nowMs(), P=MESH_PROTO, st=_mesh.st;
   if(st.s!=='off' && st.s!=='denied'){
     st=meshNext(st,{type:'tick', now:now});
@@ -3981,9 +4382,10 @@ function meshTick(){
 }
 /* Eingang (D6.7-10, T-06.7-30): JSON im try, dann meshValidate (Typ, ccp, from, id, Zeit, Größe, Inhalt, authed),
  * dann meshDedup — erst danach wirkt etwas. Nur von verbundenen Transportpeers; ein abweichendes from ist nur über die
- * eigene Nabe erlaubt (Relay). Relay (Nabe) nur für delta/rcpt/lock; foto-req leitet der Zweig gezielt weiter;
+ * eigene Nabe erlaubt (Relay). Relay (Nabe) nur für delta/rcpt/lock/close; foto-req leitet der Zweig gezielt weiter;
  * inv/req/hello/hb/meta nie. */
 function meshOnMessage(ev){
+  if(_mesh.closing) return;   /* P1: Abschluss gesendet, Stopp folgt */
   var msg=null, json=ev && ev.json, key=(ev && typeof ev.from==='string') ? ev.from : '';
   try{
     if(typeof json!=='string') json=JSON.stringify(json);
@@ -4014,7 +4416,33 @@ function meshOnMessage(ev){
     case 'foto-req': meshHandleFotoReq(msg, key, json); break;
     case 'meta': meshHandleMeta(msg, key); break;
     case 'hb': meshHandleHb(msg, key); break;
+    case 'close': if(hub) meshRelay(json, key); meshHandleClose(msg, key); break;   /* P1: erst weiterleiten, dann anwenden */
   }
+}
+/* P1: Abschluss im Mesh weitergeben — Löschfristen ab closedAt wie beim Server-Abschluss.
+ * Abschluss-Zeile aus dem Mesh-Ereignis: Fristen = Server-Standard 72 h (Migration 0003). Rein. */
+function meshCloseRow(closedAt){
+  var H72=72*3600000, c=Number(closedAt);
+  return {closed_at:c, purge_after:c+H72, photo_purge_after:c+H72};
+}
+/* P1 (T-06.7-81): close nur vom bekannten MasterMedic (by), nicht im Training, nicht während einer laufenden Bereinigung.
+ * Mit Netz entscheidet der Server (Abschluss-Prüfung; meldet er „offen“, passiert nichts). Ohne Netz: Abschluss-Marker je
+ * eigenem CCP sofort (die lokale Bereinigung rechnet damit auch bei offenem Hinweis), dann derselbe Weg wie ein
+ * Server-Abschluss (Hinweis-Modal, Bereinigung). closeFromMesh: beim eigenen Bereinigen kein zweites close senden. */
+async function meshHandleClose(msg, key){
+  if(_training || _remoteCloseHandling || _selfClosing){ _mesh.lastError='rx:close:busy'; return; }
+  var mm=String(masterMedic||'').slice(0,40);   /* Sender kürzt auf 40 Zeichen */
+  if(!mm || msg.by!==mm){ _mesh.lastError='rx:close:by'; return; }
+  if(netLikelyUp() && sb()){ try{ checkClosedEinsatz(); }catch(e){} return; }
+  var known=(_ccpIdsKnown && _ccpIdsKnown.length) ? _ccpIdsKnown : (_ccpId ? [_ccpId] : []);
+  var mine=(msg.ids||[]).filter(function(id, i, a){ return known.indexOf(id)>=0 && a.indexOf(id)===i; });
+  if(!mine.length){ _mesh.lastError='rx:close:ccp'; return; }
+  try{
+    for(var i=0;i<mine.length;i++) await markCcpClosedLocal(mine[i], meshCloseRow(msg.closedAt));
+  }catch(e){}
+  if(_training || _remoteCloseHandling || _selfClosing) return;
+  _mesh.closeFromMesh=true;
+  handleRemoteClose(Object.assign(meshCloseRow(msg.closedAt), {kennung:_ccpKennung}));
 }
 /* Pillenzustand (D6.7-11): Text aus meshPillText; Render nur bei Änderung und nur auf home (T-06.7-37).
  * n = Nabe: verbundene Speichen + 1; Speiche: Gerätezahl der letzten meta, sonst 2. */
@@ -4086,7 +4514,12 @@ function meshSendInv(toKey){
 }
 /* inv empfangen (D6.7-03): was ICH vom Absender brauche (meshDiff) → req an den Absender. */
 function meshHandleInv(msg, key){
-  var need=meshDiff(meshMyInventory(), msg.pats, Array.isArray(msg.order) ? msg.order : MESH_GROUPS_ORDER);
+  var order=Array.isArray(msg.order) ? msg.order : MESH_GROUPS_ORDER;
+  var need=meshDiff(meshMyInventory(), msg.pats, order);
+  /* HO-02: schon vorgemerkte Foto-Stempel nicht erneut anfordern (keine Schleife) */
+  var remoteT={};
+  patients.concat(_tombs||[]).forEach(function(p){ if(p && p.id && p._fotoRemoteT) remoteT[p.id]=p._fotoRemoteT; });
+  need=meshPruneFotoNeed(need, msg.pats, order, remoteT);
   if(Object.keys(need).length) meshSendMap('req', need, key);
 }
 /* req empfangen (D6.7-05/-06, T-06.7-01): je Patient Weißlisten-Delta der angeforderten Gruppen (nie Übungsdaten,
@@ -4131,6 +4564,17 @@ async function meshApplyIncoming(inc, fromDev){
   var local=null; try{ local=await sGet('ccp_pat_'+inc.id); }catch(e){ local=null; }
   if(local && (local.demo || local.training)) return false;
   var r=meshApply(local, inc, FGROUPS);
+  if(!r.changed && !r.isNew && r.mark && local){
+    /* HO-02: reine Vormerkungsänderung — nur die drei Felder nachziehen, kein _dirty, keine Herkunft */
+    var vk=['_fotoRemote','_fotoRemoteT','_fotoRemoteD'];
+    var setMark=function(x){ vk.forEach(function(k){ if(r.merged[k]!==undefined) x[k]=r.merged[k]; else delete x[k]; }); };
+    setMark(local);
+    await sSet('ccp_pat_'+local.id, local);
+    var q;
+    for(q=0;q<patients.length;q++){ if(patients[q].id===local.id) setMark(patients[q]); }
+    for(q=0;q<_tombs.length;q++){ if(_tombs[q].id===local.id) setMark(_tombs[q]); }
+    return r;
+  }
   if(!r.changed && !r.isNew) return false;
   var m=normalize(r.merged);
   if(!m.ccpId && _ccpId) m.ccpId=_ccpId;
@@ -4189,19 +4633,19 @@ function meshGatewayFlush(){
     try{ loadPatients().then(function(){ if(state.view==='home') render(); }, function(){}); }catch(e){}
   }, 1500);
 }
-/* rcpt empfangen (D6.7-04): meshReceipt (p-Flags ≤ upTo, _dirty/_via/_fuer nur bei vollständig bestätigtem Stand) im
- * Speicher und im Arbeitsobjekt; Zähler „nicht synchronisiert“ auf home nachziehen. Nabe leitet im Dispatcher weiter. */
+/* rcpt empfangen (D6.7-04, HO-03): meshReceipt je Gruppenstempel (p nur bei exakt gleichem Stempel, _dirty/_via/_fuer nur bei
+ * vollständig gedecktem Stand) im Speicher und im Arbeitsobjekt; Zähler „nicht synchronisiert“ auf home nachziehen. Nabe leitet im Dispatcher weiter. */
 async function meshHandleRcpt(msg, key){
   var list=Array.isArray(msg.pats) ? msg.pats : [];
   await meshSerial(async function(){
     for(var i=0;i<list.length;i++){
       var r=list[i], p=null;
       try{ p=await sGet('ccp_pat_'+r.id); }catch(e){ p=null; }
-      if(p && !p.demo && !p.training){ meshReceipt(p, r.upTo); try{ await sSet('ccp_pat_'+r.id, p); }catch(e){} }
+      if(p && !p.demo && !p.training){ meshReceipt(p, r.fts); try{ await sSet('ccp_pat_'+r.id, p); }catch(e){} }
       var mem=null, k;
       for(k=0;k<patients.length;k++){ if(patients[k].id===r.id){ mem=patients[k]; break; } }
       if(!mem){ for(k=0;k<_tombs.length;k++){ if(_tombs[k].id===r.id){ mem=_tombs[k]; break; } } }
-      if(mem && mem!==p) meshReceipt(mem, r.upTo);
+      if(mem && mem!==p) meshReceipt(mem, r.fts);
     }
   });
   if(state.view==='home'){ try{ render(); }catch(e){} }
@@ -4270,18 +4714,21 @@ function meshHandleLock(msg, key){
     }
   }
 }
-/* Foto anfordern (D6.7-06): nur für den geöffneten Patienten mit Foto-Vormerkung (_fotoRemote) und ohne Foto; Ziel =
- * Gerät des Foto-Stempels, sonst Ursprungsgerät, sonst Nabe; höchstens alle 15 s je Patient. */
+/* Foto anfordern (D6.7-06): nur für den geöffneten Patienten mit Foto-Vormerkung (_fotoRemote) und ohne Foto bzw. mit
+ * älterem Foto (HO-02: _fotoRemoteT jünger als der lokale Foto-Stempel); Ziel = Gerät der Vormerkung (_fotoRemoteD),
+ * sonst Gerät des Foto-Stempels, sonst Ursprungsgerät, sonst Nabe; höchstens alle 15 s je Patient. */
 function meshRequestPhoto(pid){
   if(!meshActive() || typeof pid!=='string') return;
   var p=null, k;
   for(k=0;k<patients.length;k++){ if(patients[k].id===pid){ p=patients[k]; break; } }
   if(!p){ for(k=0;k<_tombs.length;k++){ if(_tombs[k].id===pid){ p=_tombs[k]; break; } } }
-  if(!p || p.photo || !p._fotoRemote || p.demo || p.training) return;
+  if(!p || !p._fotoRemote || p.demo || p.training) return;
+  var lt=(p.fts && p.fts.foto && p.fts.foto.t) || 0;
+  if(p.photo && !((p._fotoRemoteT||0)>lt)) return;
   var now=nowMs();
   if(_mesh.fotoReq[pid] && now-_mesh.fotoReq[pid]<15000) return;
   _mesh.fotoReq[pid]=now;
-  var to=((p.fts && p.fts.foto && p.fts.foto.d)|0) || (p._fuer|0) || (_mesh.st.s==='spoke' ? (_mesh.st.hub|0) : 0);
+  var to=(p._fotoRemoteD|0) || ((p.fts && p.fts.foto && p.fts.foto.d)|0) || (p._fuer|0) || (_mesh.st.s==='spoke' ? (_mesh.st.hub|0) : 0);
   if(!(to>=1) || to===_mesh.me){
     var ds=Object.keys(_mesh.authed); if(!ds.length) return;
     to=parseInt(ds[0], 10);
@@ -4311,9 +4758,12 @@ async function meshHandleFotoReq(msg, key, json){
   _mesh.fotoWait[msg.pid]=(_mesh.fotoWait[msg.pid]||[]).filter(function(x){ return x!==key; }).concat([key]);
   meshRelay(json, key, k);
 }
-/* resource empfangen (D6.7-06, T-06.7-36): nur von verbundenen Peers; Annahme nur bei passender pid und Stempel
- * (meshPhotoAccept), Data-URI nur über safePhoto; dann Foto setzen, offener Satz (_dirty, Provenienz), Render im
- * Patienten-View nur ohne fokussiertes Eingabefeld. Nabe reicht an wartende Anforderer weiter. */
+/* resource empfangen (D6.7-06, T-06.7-36): nur von verbundenen Peers und nur auf offene Anforderung (eigene Vormerkung
+ * oder, als Nabe, wartende Anforderer); Stempel geklemmt (futureMs), Data-URI nur über safePhoto. Eigene Übernahme nur bei
+ * bestandener Annahme: Foto + Stempel der Ressource (Gerät aus der Vormerkung), Vormerkung weg, offener Satz (_dirty);
+ * Provenienz _via/_fuer nur ohne eigene unbestätigte Stempel. Render im Patienten-View nur ohne fokussiertes Eingabefeld.
+ * Die Nabe reicht an wartende Anforderer weiter, auch wenn sie selbst ablehnt.
+ * MI-09 (JS-Teil); Größenbegrenzung vertagt. */
 async function meshOnResource(ev){
   var N=_mesh.native;
   if(!N || !ev || typeof ev.name!=='string' || typeof ev.base64!=='string' || !ev.base64) return;
@@ -4323,33 +4773,45 @@ async function meshOnResource(ev){
   if(!pid) return;
   var p=null; try{ p=await sGet('ccp_pat_'+pid); }catch(e){ p=null; }
   if(!p || p.demo || p.training) return;
-  var acc=meshPhotoAccept(ev.name, p);
-  if(!acc.ok) return;
+  var ws=(_mesh.st.s==='hub' && _mesh.fotoWait[pid]) ? _mesh.fotoWait[pid] : null;
+  if(!p._fotoRemote && !ws){ _mesh.lastError='rx:foto:ungefragt'; return; }
+  var now=nowMs();
+  var acc=meshPhotoAccept(ev.name, p, nowMs());
+  if(String(ev.name).indexOf('foto:')!==0 || !isFinite(acc.stamp) || acc.stamp>now+MESH_PROTO.futureMs) return;   /* Klemme */
   var uri=safePhoto('data:'+acc.mime+';base64,'+ev.base64);
   if(!uri) return;
-  function put(x){
-    x.photo=uri; delete x._fotoRemote; x._dirty=true; x._via=x._via||'mesh'; x._fuer=(x._fuer|0)||fromDev;
-    if(!x.fts) x.fts={};
-    if(!x.fts.foto || (x.fts.foto.t||0)<acc.stamp) x.fts.foto={t:acc.stamp, d:(x.fts.foto && x.fts.foto.d)||fromDev};
-    x._sig=groupSigs(x, FGROUPS);
+  var lt=(p.fts && p.fts.foto && p.fts.foto.t) || 0;
+  var take=acc.ok && !(p.photo===uri && lt===acc.stamp);
+  if(take){
+    var fd=(p._fotoRemoteD|0) || fromDev;
+    var put=function(x){
+      x.photo=uri;
+      if(!x.fts || typeof x.fts!=='object') x.fts={};
+      x.fts.foto={t:acc.stamp, d:fd};
+      delete x._fotoRemote; delete x._fotoRemoteT; delete x._fotoRemoteD;
+      x._dirty=true;
+      var own=Object.keys(x.fts).some(function(g){ var e=x.fts[g]; return !!(e && e.p); });
+      if(!own){ x._via='mesh'; x._fuer=fd; }
+      x._sig=groupSigs(x, FGROUPS);
+    };
+    put(p);
+    try{ await sSet('ccp_pat_'+pid, p); }catch(e){}
+    var mem=null, k;
+    for(k=0;k<patients.length;k++){ if(patients[k].id===pid){ mem=patients[k]; break; } }
+    if(!mem){ for(k=0;k<_tombs.length;k++){ if(_tombs[k].id===pid){ mem=_tombs[k]; break; } } }
+    if(mem && mem!==p) put(mem);
+    if(state.view==='patient'){
+      if(state.edit && state.edit.id===pid){
+        var ae=document.activeElement, tag=(ae && ae.tagName)||'';
+        if(tag!=='INPUT' && tag!=='TEXTAREA'){ try{ render(); }catch(e){} }
+      }
+    }else if(state.view!=='checklist'){ try{ render(); }catch(e){} }
   }
-  put(p);
-  try{ await sSet('ccp_pat_'+pid, p); }catch(e){}
-  var mem=null, k;
-  for(k=0;k<patients.length;k++){ if(patients[k].id===pid){ mem=patients[k]; break; } }
-  if(!mem){ for(k=0;k<_tombs.length;k++){ if(_tombs[k].id===pid){ mem=_tombs[k]; break; } } }
-  if(mem && mem!==p) put(mem);
-  if(state.view==='patient'){
-    if(state.edit && state.edit.id===pid){
-      var ae=document.activeElement, tag=(ae && ae.tagName)||'';
-      if(tag!=='INPUT' && tag!=='TEXTAREA'){ try{ render(); }catch(e){} }
-    }
-  }else if(state.view!=='checklist'){ try{ render(); }catch(e){} }
-  if(_mesh.st.s==='hub' && _mesh.fotoWait[pid]){
-    var ws=_mesh.fotoWait[pid]; delete _mesh.fotoWait[pid];
+  if(ws){
+    delete _mesh.fotoWait[pid];
     ws.forEach(function(w){ if(w!==ev.from){ try{ N.call('sendResource', {to:w, name:ev.name, base64:ev.base64}).then(null, function(){}); }catch(e){} } });
   }
-  meshGatewayFlush();
+  if(take) meshGatewayFlush();
 }
 /* Heartbeat senden (D6.7-08, Pitfall 10): Kürzel, offene Sätze, Netzlage, Alter der letzten Uhrprobe (nur Anzeige). */
 function meshSendHb(){
@@ -4369,19 +4831,24 @@ function meshSendMeta(){
   meshSend('meta', {hub:_mesh.me, mm:masterMedic||'', full:!!_mesh.full, devs:meshDevList(now)}, 'all');
 }
 /* meta empfangen (D6.7-01/-02): Reducer meta (Nabenwechsel per Handshake), MasterMedic NUR ohne Netz übernehmen —
- * online bleibt loadMeta/Server die Autorität (T-06.7-34); Geräteliste einmischen (nur frischere Einträge). */
+ * online bleibt loadMeta/Server die Autorität (T-06.7-34); Geräteliste einmischen (nur frischere Einträge).
+ * MI-04 (Teil)/HO-05: Rollen-/Nabenteil und mm nur von der EIGENEN Nabe (nie an der Nabe selbst — eine Speiche kann
+ * keine Abdankung auslösen); ein leeres mm wird nie übernommen (es löschte sonst die Rolle auf allen Speichen). */
 function meshHandleMeta(msg, key){
   var now=nowMs(), old=_mesh.st;
-  var st=meshNext(old, {type:'meta', hub:msg.hub, me:_mesh.me, now:now});
-  if(st!==old){
-    _mesh.st=st; _mesh.hubLostAt=0;
-    meshOnPeers({peers:_mesh.peerList}, true);
-    meshMaybeConnect(now);
-  }
-  if(typeof msg.mm==='string' && !netLikelyUp() && msg.mm!==masterMedic){
-    masterMedic=msg.mm;
-    try{ sSet('ccp_mastermedic', masterMedic).then(null, function(){}); }catch(e){}
-    if(state.view==='home'){ try{ render(); }catch(e){} }
+  var own=(msg.from===_mesh.st.hub && _mesh.st.s!=='hub');
+  if(own){
+    var st=meshNext(old, {type:'meta', hub:msg.hub, me:_mesh.me, now:now});
+    if(st!==old){
+      _mesh.st=st; _mesh.hubLostAt=0;
+      meshOnPeers({peers:_mesh.peerList}, true);
+      meshMaybeConnect(now);
+    }
+    if(typeof msg.mm==='string' && msg.mm && !netLikelyUp() && msg.mm!==masterMedic){
+      masterMedic=msg.mm;
+      try{ sSet('ccp_mastermedic', masterMedic).then(null, function(){}); }catch(e){}
+      if(state.view==='home'){ try{ render(); }catch(e){} }
+    }
   }
   var n=0;
   (Array.isArray(msg.devs) ? msg.devs : []).forEach(function(d){
@@ -4611,7 +5078,7 @@ function vCapture(){
     var cc=CATS[lc.cat]||CATS.T3;
     h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">';
     h+='<span class="hint">Zuletzt:</span>';
-    h+='<span class="mono" style="font-weight:700">'+pno(lc)+'</span>';
+    h+='<span class="mono" style="font-weight:700">'+esc(pno(lc))+'</span>';
     h+='<span class="pill" style="background:'+cc.bg+';color:'+cc.fg+(cc.bd?';border:1px solid '+cc.bd:'')+'">'+cc.label+'</span>';
     if(lc.prio)h+='<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>';
     if(lc.tqStart)h+='<span class="pill" style="background:var(--t1);color:#fff">TQ läuft</span>';
@@ -4621,7 +5088,7 @@ function vCapture(){
     h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="flex:1;padding:8px 4px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
     h+='<button class="txbtn'+(lc.tqStart?' on':'')+'" data-action="captq" style="flex:1;padding:8px 4px;'+(lc.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(lc.tqStart?'TQ stop':'TQ')+'</button>';
     if(_photosAllowed) h+='<label id="cap-foto" class="txbtn'+(lc.photo?' on':'')+'" style="flex:1;padding:8px 4px;cursor:pointer;text-align:center;'+(lc.photo?'background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(lc.photo?'Foto ✓':'Foto')+'<input type="file" accept="image/*" capture="environment" data-kind="capphoto" style="display:none"></label>';
-    h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="flex:1;padding:8px 4px">öffnen</button>';
+    h+='<button class="txbtn" data-action="openpat" data-id="'+esc(lc.id)+'" style="flex:1;padding:8px 4px">öffnen</button>';
     h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:8px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
     h+='</div>';
   }
@@ -4643,13 +5110,13 @@ function vCapture(){
     var pc=CATS[lc.cat]||CATS.T3;
     h+='<div class="modalov" data-action="capnext" style="align-items:flex-end">';
     h+='<div class="modalbx" data-action="noop" style="max-width:430px;margin:0 auto 16px">';
-    h+='<div style="text-align:center"><span class="mono" style="font-size:27px;font-weight:700">'+pno(lc)+'</span> <span class="pill" style="background:'+pc.bg+';color:'+pc.fg+(pc.bd?';border:1px solid '+pc.bd:'')+';font-size:14px;vertical-align:4px">'+pc.label+'</span>';
+    h+='<div style="text-align:center"><span class="mono" style="font-size:27px;font-weight:700">'+esc(pno(lc))+'</span> <span class="pill" style="background:'+pc.bg+';color:'+pc.fg+(pc.bd?';border:1px solid '+pc.bd:'')+';font-size:14px;vertical-align:4px">'+pc.label+'</span>';
     h+='<div class="hint" style="margin-top:3px">erfasst ✓ · Nummer auf die Haut schreiben · Sofort-Optionen:</div></div>';
     h+='<div style="display:flex;gap:6px;margin-top:12px">';
     h+='<button class="txbtn'+(lc.prio?' on':'')+'" data-action="capprio" style="flex:1;padding:10px 4px;'+(lc.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio</button>';
     h+='<button class="txbtn'+(lc.tqStart?' on':'')+'" data-action="captq" style="flex:1;padding:10px 4px;'+(lc.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(lc.tqStart?'TQ stop':'TQ')+'</button>';
     if(_photosAllowed) h+='<label class="txbtn'+(lc.photo?' on':'')+'" style="flex:1;padding:10px 4px;cursor:pointer;text-align:center;'+(lc.photo?'background:var(--acc);border-color:var(--acc);color:#fff':'')+'">'+(lc.photo?'Foto ✓':'Foto')+'<input type="file" accept="image/*" capture="environment" data-kind="capphoto" style="display:none"></label>';
-    h+='<button class="txbtn" data-action="openpat" data-id="'+lc.id+'" style="flex:1;padding:10px 4px">öffnen</button>';
+    h+='<button class="txbtn" data-action="openpat" data-id="'+esc(lc.id)+'" style="flex:1;padding:10px 4px">öffnen</button>';
     h+='<button class="txbtn" data-action="capdiscard" style="flex:1;padding:10px 4px;border-color:var(--t1);color:var(--t1)">Verwerfen</button>';
     h+='</div>';
     h+='<button class="prim" data-action="capnext" style="width:100%;margin-top:12px">Nächsten Patienten erfassen ›</button>';
@@ -4746,9 +5213,9 @@ function vCatlist(){
     /* T3 Namensfeld-Härtung: Die Liste zeigt bewusst KEINEN Namen — Nummer +
      * Pills identifizieren den Patienten; Hauptzeile ist die Sichtungszeit/TQ.
      * Der Name erscheint nur im Übergabe-Kontext (Übergabekarte/Export). */
-    h+='<button class="patrow" data-action="openpat" data-id="'+p.id+'"><span class="pnum"'+(isd?' style="color:var(--prio)"':'')+'>'+pno(p)+(isd?' ⚠':'')+'</span>'+
-      '<span style="flex:1"><span class="hint js-age" data-ts="'+p.lastTriage+'">'+ageStr(p.lastTriage)+'</span>'+
-      (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+p.tqStart+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
+    h+='<button class="patrow" data-action="openpat" data-id="'+esc(p.id)+'"><span class="pnum"'+(isd?' style="color:var(--prio)"':'')+'>'+esc(pno(p))+(isd?' ⚠':'')+'</span>'+
+      '<span style="flex:1"><span class="hint js-age" data-ts="'+(Number(p.lastTriage)||0)+'">'+ageStr(p.lastTriage)+'</span>'+
+      (p.tqStart?' <span class="hint">· TQ <span class="js-tq" data-tq="'+(Number(p.tqStart)||0)+'">'+fmtDur(nowMs()-p.tqStart)+'</span></span>':'')+'</span>'+
       catPill+
       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
       (photoVisible(p)?'<span class="pill" style="background:var(--surf2);color:var(--mut)">📷</span>':'')+
@@ -4770,7 +5237,7 @@ function vPatient(){
     h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:13px;margin-bottom:12px">'+
        '<div style="font-weight:600;font-size:15px">🔒 Wird bearbeitet von '+(esc(li.by)||'?')+'</div>'+
        '<div class="hint" style="margin-top:4px">Schreibgeschützt, um Doppelbearbeitung zu vermeiden. Sobald die Bearbeitung freigegeben wird oder 45 s ohne Aktivität vergehen, kannst du automatisch übernehmen.</div>'+
-       (isMasterMedic()?'<button class="prim" data-action="overridelock" data-id="'+p.id+'" style="margin-top:10px;background:var(--prio);border-color:var(--prio);color:#fff">🔓 Sperre übernehmen (MasterMedic)</button>':'')+
+       (isMasterMedic()?'<button class="prim" data-action="overridelock" data-id="'+esc(p.id)+'" style="margin-top:10px;background:var(--prio);border-color:var(--prio);color:#fff">🔓 Sperre übernehmen (MasterMedic)</button>':'')+
        '</div>';
   }
   if(isMasterMedic() && !_training && p.conf && p.conf.length){
@@ -4796,10 +5263,10 @@ function vPatient(){
     });
   }
   h+='<div id="patbody"'+(ro?' style="opacity:.55;pointer-events:none"':'')+'>';
-  h+='<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px"><span class="pnum" style="font-size:28px">'+pno(p)+'</span>'+
+  h+='<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px"><span class="pnum" style="font-size:28px">'+esc(pno(p))+'</span>'+
     '<span class="pill" style="font-size:14px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+' '+c.nm+'</span>'+
     '<span style="flex:1"></span>'+
-    '<button class="txbtn '+(p.prio?"on":"")+'" data-action="prio" data-id="'+p.id+'" style="width:auto;'+(p.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio-Transport</button></div>';
+    '<button class="txbtn '+(p.prio?"on":"")+'" data-action="prio" data-id="'+esc(p.id)+'" style="width:auto;'+(p.prio?'background:var(--prio);border-color:var(--prio);color:#fff':'')+'">Prio-Transport</button></div>';
   if(isDupNum(p)){
     h+='<div class="card" style="background:var(--surf2);border:1px solid var(--prio);padding:11px;margin-top:8px"><span style="color:var(--prio);font-weight:600">⚠ Nummer '+esc(pno(p))+' doppelt vergeben</span><div class="hint" style="margin-top:3px">Ein weiterer aktiver Patient im selben CCP trägt dieselbe Nummer. Bitte einen davon neu kennzeichnen.</div></div>';
   }
@@ -4817,7 +5284,7 @@ function vPatient(){
     }
     h+='<div class="row" style="margin-top:9px">'+
       '<label class="txbtn" style="flex:1;cursor:pointer;line-height:1.3">Neues Foto<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>'+
-      '<button class="txbtn" data-action="delphoto" data-id="'+p.id+'" style="flex:1">Foto entfernen</button></div>';
+      '<button class="txbtn" data-action="delphoto" data-id="'+esc(p.id)+'" style="flex:1">Foto entfernen</button></div>';
     h+=fotoHint;
   }else{
     h+='<label class="txbtn" style="display:block;padding:16px;cursor:pointer;font-size:15px">📷 Foto aufnehmen oder wählen<input type="file" accept="image/*" capture="environment" data-kind="photo" style="display:none"></label>';
@@ -4826,7 +5293,7 @@ function vPatient(){
   h+='</div>';
 
   h+='<div class="sech" id="ph-cat">In andere Kategorie verschieben</div><div class="catset">';
-  CATORDER.forEach(function(cat){var cc=CATS[cat];var on=p.cat===cat;h+='<button data-action="movecat" data-id="'+p.id+'" data-cat="'+cat+'" style="background:'+(on?cc.bg:"var(--surf2)")+';color:'+(on?cc.fg:"var(--mut)")+';border-color:'+(on?cc.bg:"var(--line)")+'">'+cc.label+'</button>';});
+  CATORDER.forEach(function(cat){var cc=CATS[cat];var on=p.cat===cat;h+='<button data-action="movecat" data-id="'+esc(p.id)+'" data-cat="'+cat+'" style="background:'+(on?cc.bg:"var(--surf2)")+';color:'+(on?cc.fg:"var(--mut)")+';border-color:'+(on?cc.bg:"var(--line)")+'">'+cc.label+'</button>';});
   h+='</div>';
 
   h+='<div class="sech" id="ph-stamm">Stammdaten</div><div class="card">'+
@@ -4838,7 +5305,7 @@ function vPatient(){
     '<div><label class="fieldlab">Allergien</label>'+inp("allergies",p.allergies)+'</div></div></div>';
 
   /* WR-02: tqLabel gibt Klartext zurück → esc() hier für den innerHTML-Kontext. */
-  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+p.id+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?esc(tqLabel(p)):'TQ-Timer starten')+'</button></div>';
+  h+='<div class="sech">&lt;C&gt; Tourniquet</div><div class="card"><button class="txbtn '+(p.tqStart?"on":"")+'" data-action="tq" data-id="'+esc(p.id)+'" style="'+(p.tqStart?'background:var(--t1);border-color:var(--t1);color:#fff':'')+'">'+(p.tqStart?esc(tqLabel(p)):'TQ-Timer starten')+'</button></div>';
 
   h+='<div class="sech" id="ph-tx">Maßnahmen A–E</div><div class="card">';
   TXG.forEach(function(g){h+='<div class="subl">'+esc(g[0])+'</div><div class="grid3">';
@@ -4871,7 +5338,7 @@ function vPatient(){
    * Vitalwerte mit Uhrzeit + Kürzel als Eintrag ein (gespeichert in p.vit.log). */
   var vlog=(p.vit && Array.isArray(p.vit.log)) ? p.vit.log : [];
   h+='<div class="card" style="padding:11px 13px">';
-  h+='<button class="txbtn" data-action="logvit" data-id="'+p.id+'" style="width:100%">＋ Messung protokollieren</button>';
+  h+='<button class="txbtn" data-action="logvit" data-id="'+esc(p.id)+'" style="width:100%">＋ Messung protokollieren</button>';
   if(vlog.length){
     h+='<details style="margin-top:10px"><summary style="cursor:pointer;font-size:13px;color:var(--mut)">Protokollierte Messungen ('+vlog.length+')</summary><div style="margin-top:6px">';
     vlog.slice().reverse().forEach(function(m){
@@ -4895,10 +5362,10 @@ function vPatient(){
 
   if(p.status==='gpa'){
     h+='<div class="card" style="background:var(--surf2);border:1px solid var(--line);padding:11px;margin-bottom:8px"><span style="font-weight:600">↩ Bereits abtransportiert (gPA)</span><div class="hint" style="margin-top:3px">Falls versehentlich ausgecheckt: hier zurück in den aktiven Bestand holen.</div></div>';
-    h+='<button class="prim" data-action="reactivate" data-id="'+p.id+'" style="background:var(--acc);color:#fff">↩ Zurückholen → aktiv</button>';
+    h+='<button class="prim" data-action="reactivate" data-id="'+esc(p.id)+'" style="background:var(--acc);color:#fff">↩ Zurückholen → aktiv</button>';
   }else{
-    h+='<button class="txbtn '+(p.ready?"on":"")+'" data-action="ready" data-id="'+p.id+'" style="width:100%;padding:14px;font-size:15px;'+(p.ready?'background:var(--ready);border-color:var(--ready);color:#fff':'')+'">'+(p.ready?'✓ transportfertig':'als transportfertig markieren')+'</button>';
-    h+='<button class="prim" data-action="gpa" data-id="'+p.id+'" style="background:var(--ready);color:#fff">Abtransport → gPA</button>';
+    h+='<button class="txbtn '+(p.ready?"on":"")+'" data-action="ready" data-id="'+esc(p.id)+'" style="width:100%;padding:14px;font-size:15px;'+(p.ready?'background:var(--ready);border-color:var(--ready);color:#fff':'')+'">'+(p.ready?'✓ transportfertig':'als transportfertig markieren')+'</button>';
+    h+='<button class="prim" data-action="gpa" data-id="'+esc(p.id)+'" style="background:var(--ready);color:#fff">Abtransport → gPA</button>';
   }
   h+='<p class="hint" style="text-align:center;margin-top:8px">Eingaben werden automatisch gespeichert.</p>';
   h+='</div>';
@@ -4972,7 +5439,7 @@ function vHandover(p,c){
      '<div style="font-weight:600">Ausgecheckt → gPA · Übergabe-Karte</div>'+
      '<div class="hint" style="margin-top:2px">Bearbeitung gesperrt · der Reihe nach vorlesen</div></div></div>';
   h+='<div class="card" data-am="hdr" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:13px">'+
-     '<span class="pnum" style="font-size:30px">'+pno(p)+'</span>'+
+     '<span class="pnum" style="font-size:30px">'+esc(pno(p))+'</span>'+
      '<span class="pill" style="font-size:14px;background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+' '+c.nm+'</span>'+
      (p.prio?'<span class="pill" style="font-size:13px;background:var(--prio);color:#fff">PRIO</span>':'')+
      (p.name?'<span style="flex-basis:100%;font-size:14px;color:var(--mut);margin-top:2px">Name: '+esc(p.name)+'</span>':'')+
@@ -4985,7 +5452,7 @@ function vHandover(p,c){
   h+=amRow('S','Befund / Vitalwerte',sVal,false,'S');
   h+=amRow('T','Maßnahmen',ttVal,false,'TT');
   h+='</div>';
-  h+='<button class="prim" data-action="reactivate" data-id="'+p.id+'" style="background:var(--acc);color:#fff;margin-top:12px">↩ Zurückholen → aktiv (zum Korrigieren)</button>';
+  h+='<button class="prim" data-action="reactivate" data-id="'+esc(p.id)+'" style="background:var(--acc);color:#fff;margin-top:12px">↩ Zurückholen → aktiv (zum Korrigieren)</button>';
   h+='<p class="hint" style="text-align:center;margin-top:8px">Übergabe an die gPA — der Reihe nach vorlesen.</p>';
   h+='</div>';
   return h;
@@ -5097,7 +5564,7 @@ function exportPrintCard(p){
   TXG.forEach(function(grp){grp[1].forEach(function(f){ if(p.tx&&p.tx[f[0]]) tl.push(esc(f[1])); });});
   var h='<div class="card" style="padding:10px 13px;margin-bottom:10px">';
   h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-     '<span class="pnum" style="font-size:20px">'+pno(p)+'</span>'+
+     '<span class="pnum" style="font-size:20px">'+esc(pno(p))+'</span>'+
      '<span class="pill" style="background:'+c.bg+';color:'+c.fg+(c.bd?';border:1px solid '+c.bd:'')+'">'+c.label+'</span>'+
      (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
      (p.status==='gpa'?'<span class="pill" style="background:var(--surf2);color:var(--mut)">gPA</span>':'')+
@@ -6069,7 +6536,7 @@ document.addEventListener("click",async function(e){
       }catch(e){}
     }
     _ccpId=rm.id; try{ localStorage.setItem('argus_ccp_id', rm.id); }catch(e){}
-    try{ if(rrow && rrow.data && meshSecretValid(rrow.data.join_token)) localStorage.setItem(meshSecretKey(_ccpId), rrow.data.join_token); }catch(e){}   /* Phase 6.7 (D6.7-10): CCP-Geheimnis */
+    try{ if(rrow && rrow.data && meshSecretValid(rrow.data.join_token)) meshSecretPut(_ccpId, rrow.data.join_token); }catch(e){}   /* Phase 6.7 (D6.7-10, P2): CCP-Geheimnis */
     _ccpKennung=rm.kennung||'A'; _ccpOrt=rm.ort||'';
     clearLeftMarker();   /* eine noch nicht übertragene Abmeldung verfällt: serverseitig war das Gerät nie „verlassen“ */
     _hbCcp=null; _hbFirst=true;
@@ -6164,7 +6631,7 @@ document.addEventListener("click",async function(e){
     if(!selId) return;
     _ccpId=selId; localStorage.setItem('argus_ccp_id',_ccpId);
     /* Phase 6.7 (D6.7-10): CCP-Geheimnis aus der bereits gelesenen Zeile sichern — kein zweiter Netzaufruf */
-    try{ var jrow=jres.data.find(function(c){ return c && c.id===selId; }); if(jrow && meshSecretValid(jrow.join_token)) localStorage.setItem(meshSecretKey(_ccpId), jrow.join_token); }catch(e){}
+    try{ var jrow=jres.data.find(function(c){ return c && c.id===selId; }); if(jrow && meshSecretValid(jrow.join_token)) meshSecretPut(_ccpId, jrow.join_token); }catch(e){}
     if(!operator){
       var voj=await promptModal("Dein Kürzel:","");
       if(!voj||!voj.trim()) return;
@@ -6470,7 +6937,7 @@ document.addEventListener("click",async function(e){
         await acquirePatientLock(state.edit); /* frei, abgelaufen oder eigene Sperre → übernehmen */
       }
       state.view="patient";render();
-      try{ if(state.edit._fotoRemote && !state.edit.photo) meshRequestPhoto(id); }catch(e){}   /* Phase 6.7 (D6.7-06): Foto nur auf Anforderung beim Öffnen */
+      try{ if(state.edit._fotoRemote) meshRequestPhoto(id); }catch(e){}   /* Phase 6.7 (D6.7-06): Foto nur auf Anforderung beim Öffnen */
     }
     return;
   }
@@ -6669,6 +7136,7 @@ setInterval(async function(){
   /* Hülle: Zugangsschlüssel aus der Keychain, Migration localStorage→Keychain,
    * Neuinstallation verwirft Reste; Timeout 1,2 s (Local-first) */
   await hydrateAccessFromKeychain();
+  meshSecretMigrate();   /* P2: Alt-Schlüssel des Mesh-Geheimnisses in die Zugangsfassade (wirft nie) */
   await nativeStartup();   /* Hülle: Build-Nummer, Launch-URL — begrenzt durch withTimeout */
   operator=await getOperator();if(!operator)operator="";
   /* Fehlende/kaputte config.js nicht still schlucken: einmaliger Hinweis beim
@@ -6789,7 +7257,9 @@ setInterval(async function(){
    * Geräte mit altem Zugang (verified / unlocked / master), aber ohne JWT
    * werden zur Code-Eingabe geführt. Danach 30 Tage Ruhe. URL-Links
    * (#code= / #inv=) umgehen die Migration (werden oben verarbeitet). */
-  var hasLegacyAccess = (verified==='true' || getUnlocked().length>0 || _isMaster) && !accessGet('argus_jwt');
+  /* HO-04: nur wenn die Keychain sicher gelesen wurde (ok) oder PWA — bei Timeout/Lesefehler/
+   * fehlendem Plugin wäre der fehlende JWT kein Beweis für ein Altgerät (Local-first, nichts löschen). */
+  var hasLegacyAccess = accessMigrationAllowed(_kcHyd) && ((verified==='true' || getUnlocked().length>0 || _isMaster) && !accessGet('argus_jwt'));
   if(hasLegacyAccess && !urlCode && !urlToken){
     localStorage.removeItem('argus_verified');
     localStorage.removeItem('argus_unlocked');
