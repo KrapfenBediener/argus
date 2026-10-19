@@ -173,6 +173,26 @@
   .karte .leaflet-control-attribution{font-family:var(--sans);font-size:11px}
   .karte .leaflet-control-scale-line{font-family:var(--sans);font-weight:600}
   .kfehl{font-size:12.5px;color:var(--mut);margin:0 0 6px}
+  /* 6.9-MERGE-ANFANG */
+  /* D6.9-05 FLZ-Zusammenführung (nur FLZ-Seite): Kartenhülle als Zieh-/Ablagezone,
+   * Knopf „Zusammenführen mit …“, In-Page-Dialog wie der Ort-Dialog. */
+  .mzone{display:flex;flex-direction:column;min-width:0}
+  .mzone>.ka{flex:1}
+  .mzone[draggable="true"]{cursor:grab}
+  .mzone.mquelle{opacity:.55}
+  .mzone.mziel>.ka{outline:3px dashed var(--acc);outline-offset:3px}
+  .mbar{display:flex;justify-content:flex-end;margin-top:4px}
+  .mbtn{min-height:32px;padding:4px 12px;border-radius:8px;background:var(--surf2);color:var(--tx);font-size:12px;font-weight:600}
+  .mbtn:hover{filter:brightness(.95)}
+  .mdlg{background:#fff;color:#16181a;border-radius:14px;padding:18px;max-width:420px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .mdlg .mdt{font-weight:700;font-size:15px;margin:0 0 10px}
+  .mdlg p{margin:0 0 8px;font-size:13px;line-height:1.4}
+  .mdlg .btn{display:block;width:100%;min-height:44px;margin-top:8px}
+  .mdlg .mab{background:var(--surf2);color:var(--tx)}
+  .mdlg .mzw{background:var(--bg);color:var(--tx);border:2px solid var(--acc);text-align:left}
+  .mdlg .mzw:hover{background:var(--surf2);filter:none}
+  body.gross .mbar{display:none}
+  /* 6.9-MERGE-ENDE */
   /* 6.8-GROSSBILD */
   /* D6.8-05 Großbild für Leitstand-Bildschirm/Beamer. Zwei Teile: body.gross = Größen
    * (große Zahlen, breites Raster) in beiden Farbschemata; body.gross.ggedaempft = gedämpftes
@@ -282,22 +302,17 @@ function fmtHM(ms){
 }
 
 /* ── Phase 6.8: reine Bausteine (geteilt mit der Verwaltung — Drift-Test in tests/verwaltung.test.cjs) ──
- * Ab hier bis zum Abschnittsende: keine Globals außer TAFEL, LAGE_SCHWELLE_MS,
- * esc() und fmtHM(); Zeit und Daten kommen nur als Parameter. Die mit
+ * Ab hier bis zum Abschnittsende: keine Globals außer LAGE_SCHWELLE_MS, esc() und fmtHM();
+ * Zeit und Daten kommen nur als Parameter. Die mit
  * „geteilt“ markierten Funktionen werden byte-gleich in die Verwaltung kopiert. */
-/* geteilt — D6.8-02: Buchstabiertafel wie im Funkspruch der Feld-App
- * (Literal zeichengleich, Drift-Test gegen index.html). */
-var TAFEL={A:'Anton',B:'Berta',C:'Cäsar',D:'Dora',E:'Emil',F:'Friedrich',G:'Gustav',H:'Heinrich',I:'Ida',J:'Julius',K:'Kaufmann',L:'Ludwig',M:'Martha',N:'Nordpol',O:'Otto',P:'Paula',Q:'Quelle',R:'Richard',S:'Samuel',T:'Theodor',U:'Ulrich',V:'Viktor',W:'Wilhelm',X:'Xanthippe',Y:'Ypsilon',Z:'Zacharias'};
 /* geteilt — D6.8-04: ab 3 min ohne Lebenszeichen wird das Kopfband grau (Owner justiert). */
 var LAGE_SCHWELLE_MS = 180000;
-/* geteilt — D6.8-02: Kennung → Funkname („A“ → „Anton“, „A/E“ → „Anton/Emil“);
- * unbekannt → Rohwert. Kein Escaping — der Aufrufer escaped. */
-function kennungFunk(k){
+/* geteilt — D6.9-01: Kennung als Buchstabe („CCP A“); die Buchstabiertafel bleibt
+ * dem Funkspruch der Feld-App vorbehalten. „a / e“ → „A/E“. Kein Escaping — der
+ * Aufrufer escaped. */
+function kennungKurz(k){
   if(k===null || k===undefined || k==='') return '';
-  return String(k).split('/').map(function(teil){
-    var t=teil.trim(), u=t.toUpperCase();
-    return TAFEL[u] || t;
-  }).join('/');
+  return String(k).split('/').map(function(teil){ return teil.trim().toUpperCase(); }).join('/');
 }
 /* geteilt — D6.8-01: Umgebung eines Präsidiums. Das Flag praesidien.schulung
  * gewinnt; ohne Flag nur POSITIVE Schulungs-Erkennung über das Namensmuster
@@ -449,7 +464,7 @@ function summenLeiste(s){
 }
 /* geteilt — D6.8-02/-04: CCP-Karte im Muster A („Kopfband“). g = Gruppe aus
  * lageGruppen, akt = gruppenAktualitaet(…), opts = {ortEdit, geoKlick, vnTotal}.
- * Kennung wie im Funkspruch („CCP Anton“); grau nur mit echtem Lebenszeichen
+ * Kennung als Buchstabe („CCP A“, D6.9-01); grau nur mit echtem Lebenszeichen
  * (akt.alt). Jede Zeichenkette über esc(), Zahlen über (+x||0)/toFixed. */
 function karteA(g, akt, opts){
   g=g||{}; akt=akt||{modus:'ohne', t:null, alt:false, min:null}; opts=opts||{};
@@ -467,9 +482,9 @@ function karteA(g, akt, opts){
   h='<div class="ka">';
   h+='<div class="kb'+(akt.alt?' alt':'')+'"><span class="kbl">';
   if(g.verbund){
-    h+='VERBUND'+(opts.vnTotal>1?' '+(+g.n||0):'')+' · CCP '+m.map(function(c){ return esc(kennungFunk(c.kennung)); }).join(' + ');
+    h+='VERBUND'+(opts.vnTotal>1?' '+(+g.n||0):'')+' · CCP '+m.map(function(c){ return esc(kennungKurz(c.kennung)); }).join(' + ');
   }else{
-    h+=ortZiel(c0, 'CCP '+esc(kennungFunk(c0.kennung))+(c0.ort?' · '+esc(c0.ort):''), 'kn')+stift(c0);
+    h+=ortZiel(c0, 'CCP '+esc(kennungKurz(c0.kennung))+(c0.ort?' · '+esc(c0.ort):''), 'kn')+stift(c0);
   }
   h+='</span><span class="kbr">'+(akt.alt ? esc(fmtAlter(akt.min, akt.t?fmtHM(akt.t):'—'))+' · ' : '')+s.pat+' Pat.</span></div>';
   h+='<div class="kz">';
@@ -489,7 +504,7 @@ function karteA(g, akt, opts){
   h+='<div class="kmeta"><span>abtransportiert <b>'+s.gpa+'</b> · Prio <b>'+s.prio+'</b> · fertig <b>'+s.ready+'</b></span><span>'+rechts+'</span></div>';
   if(g.verbund){
     m.forEach(function(c){
-      h+='<div class="vmem">'+ortZiel(c, 'CCP '+esc(kennungFunk(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c)+'</div>';
+      h+='<div class="vmem">'+ortZiel(c, 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c)+'</div>';
     });
   }
   return h+'</div>';
@@ -518,6 +533,98 @@ function auswahlKacheln(a){
   return h;
 }
 /* ── Ende Phase-6.8-Bausteine (reine Funktionen) ── */
+/* ── Phase 6.9: Zusammenführen durch die FLZ (D6.9-05) — seitenspezifisch, NICHT geteilt ──
+ * Failsafe, wenn der MasterMedic eines angefragten CCP fehlt: FLZ-Zugang/Master ordnet
+ * einen EINZELNEN CCP einem CCP oder Verbund desselben Präsidiums zu (argus_flz_merge,
+ * Migration 0033). Reine Funktionen: nur Parameter + esc()/kennungKurz(); Rückgabe der
+ * Text-Bausteine roh (der Aufrufer escaped), HTML-Bausteine escapen selbst.
+ * Keine Patientendaten (D6.9-06) — einzig das MasterMedic-Kürzel des Haupt-CCP. */
+/* Freigabe: FLZ-Zugang oder Master UND jeder CCP-Eintrag trägt die id aus 0033
+ * (fehlt sie, kennt der Server argus_flz_merge noch nicht → Funktion ausgeblendet). */
+function mergeFaehig(ccps, global, admin){
+  return !!(global||admin) && Array.isArray(ccps) && ccps.length>0 &&
+    ccps.every(function(c){ return c && typeof c.id==='string' && c.id.length>0; });
+}
+/* Quelle ist nur ein einzelner CCP (Verbünde werden nie umgehängt) → id oder ''. */
+function mergeQuelle(g){
+  return (g && !g.verbund && g.members && g.members.length===1 && typeof g.members[0].id==='string') ? g.members[0].id : '';
+}
+/* Ziele für „Zusammenführen mit …“: jede andere Gruppe in Anzeige-Reihenfolge;
+ * zu = id des ersten Mitglieds (der Server löst den Verbund selbst auf). */
+function mergeZiele(gruppen, vonId){
+  var r=[];
+  (gruppen||[]).forEach(function(g){
+    var m=(g && g.members)||[];
+    if(!m.length) return;
+    if(m.some(function(c){ return c && c.id===vonId; })) return;
+    var label;
+    if(g.verbund){
+      label='Verbund CCP '+m.map(function(c){ return kennungKurz(c.kennung); }).join(' + ');
+    }else{
+      label='CCP '+kennungKurz(m[0].kennung)+(m[0].ort ? ' · '+m[0].ort : '');
+    }
+    r.push({zu:m[0].id, label:label});
+  });
+  return r;
+}
+/* Wortlaut der Bestätigung aus der Server-Vorschau (argus_flz_merge ohne Ausführung). */
+function mergeFrage(v){
+  var K=kennungKurz, mm=v.haupt.master_medic;
+  var titel='CCP '+K(v.von.kennung)+' mit '+
+    (v.ziel.verbund ? 'Verbund CCP '+v.ziel.kennungen.map(K).join(' + ') : 'CCP '+K(v.ziel.kennungen[0]))+
+    ' zusammenführen?';
+  return {titel:titel, zeilen:[
+    'Haupt-CCP: '+K(v.haupt.kennung)+' ('+(mm ? 'MasterMedic '+mm : 'kein MasterMedic')+')',
+    'Danach: Verbund CCP '+v.verbund.map(K).join(' + ')+' — gemeinsame Patientenliste auf allen Geräten.',
+    mm ? 'MasterMedic des Verbunds: '+mm+' — im Feld jederzeit übernehmbar.' : 'Im Feld kann jederzeit jemand MasterMedic übernehmen.',
+    'Geräte ohne Verbindung übernehmen die Zuordnung beim nächsten Kontakt. Die Zuordnung wird protokolliert.'
+  ]};
+}
+/* Dialog-Inhalt (T-06.9-40): Titel und Zeilen über esc(). */
+function mergeDialogHtml(f, okText){
+  var h='<div class="mdlg">'+'<div class="mdt">'+esc(f.titel)+'</div>';
+  (f.zeilen||[]).forEach(function(z){ h+='<p>'+esc(z)+'</p>'; });
+  h+='<button class="btn" data-m="ok">'+esc(okText)+'</button>';
+  h+='<button class="btn mab" data-m="no">Abbrechen</button>';
+  return h+'</div>';
+}
+/* Erfolgsmeldung nach der Ausführung. */
+function mergeErgebnis(r){
+  return 'Zusammengeführt: Verbund CCP '+r.verbund.map(kennungKurz).join(' + ')+' — Haupt-CCP '+kennungKurz(r.haupt.kennung);
+}
+/* Kartenhülle: jede Karte ist Ablageziel (data-mzu), nur Einzel-CCPs sind ziehbar
+ * und tragen „Zusammenführen mit …“. Inaktiv → Karte unverändert. */
+function mergeHuelle(g, inner, o){
+  if(!o || !o.aktiv) return inner;
+  var m=(g && g.members)||[], id0=(m[0] && m[0].id)||'';
+  /* q wie mergeQuelle(g) — hier eingebettet, damit der Baustein nur esc() braucht */
+  var q=(g && !g.verbund && m.length===1 && typeof m[0].id==='string') ? m[0].id : '';
+  return '<div class="mzone" data-mzu="'+esc(id0)+'"'+(q ? ' draggable="true" data-mvon="'+esc(q)+'"' : '')+'>'+inner+
+    (q ? '<div class="mbar"><button class="mbtn" data-action="mergemit" data-mvon="'+esc(q)+'">Zusammenführen mit …</button></div>' : '')+
+    '</div>';
+}
+/* ── Ende reine Zusammenführ-Bausteine ── */
+
+/* Server-Aufruf (nicht rein): Vorschau (ausfuehren=false) oder Ausführung. Rolle und
+ * Präsidium prüft der Server (SECURITY DEFINER, 0033) — die Seite blendet nur aus.
+ * Rückgabe: Server-Antwort {ok, …} bzw. {ok:false, meldung}; null nach Logout. */
+async function flzMerge(von, zu, ausfuehren){
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_flz_merge',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify({ p_from:von, p_to:zu, p_ausfuehren:!!ausfuehren })
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+    var d=null; try{ d=await resp.json(); }catch(e){}
+    if(!resp.ok) return {ok:false, meldung:(d && d.message) || ('Server-Fehler '+resp.status)};
+    return d || {ok:false, meldung:'Unerwartete Antwort — nichts geändert.'};
+  }catch(e){
+    return {ok:false, meldung:'Keine Verbindung — nichts geändert.'};
+  }
+}
 
 /* ── Sitzung: sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
  * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname / arguslg_pid / arguslg_global / arguslg_admin.
@@ -645,7 +752,7 @@ async function poll(){
     _offline=true;
   }finally{
     _polling=false;
-    render();
+    renderSpaeter();   /* D6.9-05: nicht während Ziehen/Zusammenführen */
   }
 }
 function startPolling(){
@@ -678,7 +785,7 @@ async function loadPraesidien(){
     });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     var d=await resp.json();
-    if(Array.isArray(d) && sessionJwt()===jwt){ _praesidien=d; render(); }
+    if(Array.isArray(d) && sessionJwt()===jwt){ _praesidien=d; renderSpaeter(); }
   }catch(e){ /* bleibt null — nächster Versuch im Poll */ }
 }
 
@@ -894,17 +1001,17 @@ function skizzeSvg(gruppen, akts, W, H){
   });
   P.forEach(function(p){
     var c=p.ref.c, f=farben[p.ref.gi]||'leer';
-    h+='<g class="skp sk-'+f+'"><title>CCP '+esc(kennungFunk(c.kennung))+(c.ort?' · '+esc(c.ort):'')+'</title>'+
+    h+='<g class="skp sk-'+f+'"><title>CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):'')+'</title>'+
       '<circle cx="'+n(p.x)+'" cy="'+n(p.y)+'" r="11.0"/>'+
       '<text x="'+n(p.x)+'" y="'+n(p.y+4)+'" text-anchor="middle">'+esc(String(c.kennung||'').slice(0,2))+'</text></g>';
   });
-  /* Beschriftung direkt am Punkt („CCP Anton · Ort“): rechts, bei Platzmangel links;
+  /* Beschriftung direkt am Punkt („CCP A · Ort“): rechts, bei Platzmangel links;
    * übereinanderliegende Labels werden um je 14 px nach unten versetzt. */
   var platziert=[];
   P.slice().sort(function(a, b){ return a.y-b.y; }).forEach(function(p){
     var c=p.ref.c, ort=String(c.ort||'');
     if(ort.length>24) ort=ort.slice(0,23)+'…';
-    var t='CCP '+kennungFunk(c.kennung)+(ort ? ' · '+ort : '');
+    var t='CCP '+kennungKurz(c.kennung)+(ort ? ' · '+ort : '');
     var w=t.length*7, platzR=W-6-(p.x+16), platzL=p.x-16-6;
     var rechts=(w<=platzR) || (platzR>=platzL);
     var x0=rechts ? p.x+16 : p.x-16-w, x1=x0+w, y=p.y+4, guard=0, kollidiert;
@@ -930,7 +1037,7 @@ function skizzeSvg(gruppen, akts, W, H){
   h+='<div class="skhinw"><strong>Schematische Lageskizze</strong> — keine Straßenkarte. Norden oben, Abstände maßstäblich (Luftlinie nach den erfassten Standorten)'+
     (kanten.length ? '; gestrichelt: Entfernung zum jeweils nächsten CCP' : '')+'.</div>';
   if(ohne.length){
-    h+='<div class="skohne skwarn">Ohne Koordinaten: '+ohne.map(function(p){ return 'CCP '+esc(kennungFunk(p.c.kennung)); }).join(', ')+' — nicht auf der Skizze.</div>';
+    h+='<div class="skohne skwarn">Ohne Koordinaten: '+ohne.map(function(p){ return 'CCP '+esc(kennungKurz(p.c.kennung)); }).join(', ')+' — nicht auf der Skizze.</div>';
   }
   return h;
 }
@@ -974,7 +1081,7 @@ function kachelRueckfall(z, ereignis, n){
   return {ok:false, fehler:z.fehler, aus:false};
 }
 /* rein: Kartenpunkte wie die Skizze — ein Punkt je Mitglied mit gültigen Koordinaten,
- * Lagefarbe je Gruppe (grau bei veraltet), Label „CCP Anton · Ort“ (gekürzt, escaped:
+ * Lagefarbe je Gruppe (grau bei veraltet), Label „CCP A · Ort“ (gekürzt, escaped:
  * Leaflet setzt Tooltips als HTML). ohne = escapte Namen der CCPs ohne Koordinaten. */
 function karteMarker(gruppen, akts){
   var punkte=[], ohne=[];
@@ -984,7 +1091,7 @@ function karteMarker(gruppen, akts){
     var farbe=lageFarbe(lageSummen(m), !!(akts[gi] && akts[gi].alt));
     m.forEach(function(c){
       c=c||{};
-      var la=koordZahl(c.lat), ln=koordZahl(c.lng), name='CCP '+kennungFunk(c.kennung);
+      var la=koordZahl(c.lat), ln=koordZahl(c.lng), name='CCP '+kennungKurz(c.kennung);
       if(la===null || ln===null || Math.abs(la)>90 || Math.abs(ln)>180 || (la===0 && ln===0)){ ohne.push(esc(name)); return; }
       var ort=String(c.ort||'');
       if(ort.length>24) ort=ort.slice(0,23)+'…';
@@ -1157,7 +1264,8 @@ function viewAuswahl(){
  * offene CCPs) + „Präsidium wechseln“. FLZ-Zugang/Beobachter: eigenes Präsidium,
  * Server liefert ohnehin nur dieses; Umgebung über die gespeicherte praesidium_id. */
 function viewPraesidium(pid){
-  var glob=isGlobal(), all=_data ? _data.ccps : [], list, sp, i;
+  var glob=isGlobal(), all=_data ? _data.ccps : [], list, sp, i, mAktiv=false;
+  _mergeGruppen=[];
   if(glob){
     list=ccpsFuer(all, pid);
     var pn='';
@@ -1187,9 +1295,13 @@ function viewPraesidium(pid){
       var opts={ortEdit: !isGlobal() && !isAdminSess(), geoKlick:true, vnTotal:vn};
       /* einmal berechnet — Karten und Lageskizze zeigen dieselbe Aktualität */
       var akts=gruppen.map(function(g){ return gruppenAktualitaet(g.members, _data.stand, seitPoll, LAGE_SCHWELLE_MS); });
+      /* D6.9-05: Zusammenführen nur für FLZ-Zugang/Master, nur mit 0033 (jeder Eintrag
+       * hat id) und nicht im Großbild — sonst bleibt die Karte unverändert. */
+      mAktiv=mergeFaehig(list, isGlobal(), isAdminSess()) && !grossVorliebe();
+      _mergeGruppen = mAktiv ? gruppen : [];
       h+='<div class="lgrid">';
       gruppen.forEach(function(g, gi){
-        h+=karteA(g, akts[gi], opts);
+        h+=mergeHuelle(g, karteA(g, akts[gi], opts), {aktiv:mAktiv});
       });
       h+='</div>';
       /* Kartenmodul (Owner-Entscheid 19.10., ändert D6.8-06): Straßenkarte nur über die
@@ -1219,6 +1331,7 @@ function viewPraesidium(pid){
     }
     h+='<div class="note">Anonyme Übersichtszahlen — keine Personendaten. Keine Patientendetails, keine Namen/Fotos, nur Zahlen je Kategorie. Aktualisiert sich automatisch.'+
       (ohneAkt ? ' Aktualitätsanzeige folgt nach dem Server-Update — bis dahin zeigt jede Karte die letzte Änderung.' : '')+'</div>';
+    if(mAktiv) h+='<div class="note">Zusammenführen (Failsafe): einzelne CCP-Karte auf eine andere ziehen oder „Zusammenführen mit …“ — die Bestätigung zeigt vorher Haupt-CCP und MasterMedic. Jede Zuordnung wird protokolliert.</div>';
   }else if(!_offline){
     h+='<div class="empty">Wird geladen…</div>';
   }
@@ -1272,7 +1385,7 @@ function ortPrompt(kennung, current){
     var ov=document.createElement('div');
     ov.style.cssText='position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px';
     ov.innerHTML='<div style="background:#fff;color:#16181a;border-radius:14px;padding:18px;max-width:360px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)">'+
-      '<div style="font-weight:600;margin-bottom:10px">Ort/Objekt für CCP '+esc(kennungFunk(kennung))+'</div>'+
+      '<div style="font-weight:600;margin-bottom:10px">Ort/Objekt für CCP '+esc(kennungKurz(kennung))+'</div>'+
       '<input id="ortinp" value="'+esc(current||'')+'" maxlength="120" placeholder="z. B. Stadthalle, Halle 2" style="margin-bottom:12px;background:#fff;color:#16181a">'+
       '<div style="display:flex;gap:8px"><button class="btn" data-m="ok" style="flex:1">Speichern</button>'+
       '<button class="btn" data-m="no" style="flex:1;background:var(--surf2);color:var(--tx)">Abbrechen</button></div>'+
@@ -1304,6 +1417,122 @@ async function setOrt(kennung, current){
     else flash('Speichern fehlgeschlagen'+(d&&d.message?': '+d.message:''));
   }catch(e){ flash('Keine Verbindung — Ort nicht gespeichert'); }
 }
+/* ── Phase 6.9: FLZ-Zusammenführung — Verdrahtung (D6.9-05) ──────────────
+ * Während Ziehen (_zieh) oder laufender Zusammenführung (_mergeBusy) rendert der
+ * 20-s-Poll nicht neu (das zerstörte Zieh-Quelle/Ziel); die Anzeige wird danach
+ * nachgeholt. _mergeGruppen setzt viewPraesidium (Gruppen der angezeigten Liste). */
+var _zieh=null, _mergeBusy=false, _renderAus=false, _mergeGruppen=[];
+var ZIEH_MAX_MS=120000;   /* verwaistes Ziehen (dragend nie angekommen) blockiert höchstens 2 min */
+function renderSpaeter(){
+  if(_zieh && !(nowMs()-_zieh.t<ZIEH_MAX_MS)) _zieh=null;
+  if(_zieh || _mergeBusy){ _renderAus=true; return; }
+  render();
+}
+function renderNachholen(){
+  if(_renderAus && !_zieh && !_mergeBusy){ _renderAus=false; render(); }
+}
+/* In-Page-Overlay (Stil wie ortPrompt, keine nativen Dialoge). Ergebnis: data-z des
+ * gewählten Ziels, 'ok' oder null (Abbrechen, Escape, Klick außerhalb). Fokus auf
+ * „Abbrechen“ — ein versehentliches Enter führt nichts aus (T-06.9-42). */
+function mergeDialog(inner){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div'), fertig=false;
+    ov.style.cssText='position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.setAttribute('role', 'dialog');
+    ov.setAttribute('aria-modal', 'true');
+    ov.innerHTML=inner;
+    function taste(e){ if(e.key==='Escape'){ e.preventDefault(); done(null); } }
+    function done(v){
+      if(fertig) return; fertig=true;
+      document.removeEventListener('keydown', taste, true);
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+      resolve(v);
+    }
+    ov.addEventListener('click', function(e){
+      var z=e.target.closest('[data-z]'), m=e.target.closest('[data-m]');
+      if(z) done(z.getAttribute('data-z')||null);
+      else if(m) done(m.getAttribute('data-m')==='ok' ? 'ok' : null);
+      else if(e.target===ov) done(null);
+    });
+    document.addEventListener('keydown', taste, true);
+    document.body.appendChild(ov);
+    var ab=ov.querySelector('[data-m="no"]'); if(ab) ab.focus();
+  });
+}
+/* Bestätigung mit Server-Vorschau (Haupt-CCP, MasterMedic) → true nur bei „Zusammenführen“. */
+function mergeBestaetigen(f){
+  return mergeDialog(mergeDialogHtml(f, 'Zusammenführen')).then(function(v){ return v==='ok'; });
+}
+/* Zielauswahl ohne Maus („Zusammenführen mit …“) → id des Ziels oder null. */
+function mergeZielWahl(ziele){
+  if(!ziele || !ziele.length){ flash('Kein anderer CCP in diesem Präsidium.'); return Promise.resolve(null); }
+  var h='<div class="mdlg"><div class="mdt">Zusammenführen mit …</div>';
+  ziele.forEach(function(z){ h+='<button class="btn mzw" data-z="'+esc(z.zu)+'">'+esc(z.label)+'</button>'; });
+  h+='<button class="btn mab" data-m="no">Abbrechen</button></div>';
+  return mergeDialog(h);
+}
+/* Ablauf: Server-Vorschau → Bestätigung → Ausführung. Regelverstöße (Quelle im
+ * Verbund, Kennung doppelt, abgeschlossen …) kommen als Server-Meldung; 401 → Login. */
+async function mergeStart(von, zu){
+  if(_mergeBusy || !von || !zu || von===zu) return;
+  _mergeBusy=true;
+  var erfolg=false;
+  try{
+    var v=await flzMerge(von, zu, false);
+    if(!v) return;
+    if(!v.ok){ flash(v.meldung||'Zusammenführen nicht möglich.'); return; }
+    if(!(await mergeBestaetigen(mergeFrage(v)))) return;
+    var r=await flzMerge(von, zu, true);
+    if(r && r.ok){ flash(mergeErgebnis(r)); erfolg=true; }
+    else flash((r && r.meldung)||'Zusammenführen fehlgeschlagen.');
+  }catch(e){
+    flash('Zusammenführen fehlgeschlagen.');
+  }finally{
+    _mergeBusy=false;
+    renderNachholen();
+  }
+  if(erfolg) poll();
+}
+/* Drag-and-Drop (Delegation): nur Einzel-CCPs sind ziehbar, jede andere Karte ist Ziel. */
+function mergeZone(t, sel){
+  var el=(t && t.nodeType===3) ? t.parentNode : t;
+  return (el && el.closest) ? el.closest(sel) : null;
+}
+document.addEventListener('dragstart', function(e){
+  var z=mergeZone(e.target, '.mzone[data-mvon]');
+  if(!z) return;
+  if(_mergeBusy || grossVorliebe()){ e.preventDefault(); return; }
+  var von=z.getAttribute('data-mvon')||'';
+  _zieh={von:von, t:nowMs()};
+  try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', von); }catch(err){}
+  z.classList.add('mquelle');
+});
+document.addEventListener('dragover', function(e){
+  if(!_zieh) return;
+  var z=mergeZone(e.target, '.mzone[data-mzu]');
+  if(!z || z.getAttribute('data-mzu')===_zieh.von) return;
+  e.preventDefault();
+  try{ e.dataTransfer.dropEffect='move'; }catch(err){}
+  z.classList.add('mziel');
+});
+document.addEventListener('dragleave', function(e){
+  var z=mergeZone(e.target, '.mzone.mziel');
+  if(z && !(e.relatedTarget && z.contains(e.relatedTarget))) z.classList.remove('mziel');
+});
+document.addEventListener('drop', function(e){
+  if(!_zieh) return;
+  var z=mergeZone(e.target, '.mzone[data-mzu]');
+  if(!z) return;
+  e.preventDefault();
+  var von=_zieh.von, zu=z.getAttribute('data-mzu')||'';
+  z.classList.remove('mziel');
+  mergeStart(von, zu);
+});
+document.addEventListener('dragend', function(){
+  Array.prototype.forEach.call(document.querySelectorAll('.mquelle,.mziel'), function(el){ el.classList.remove('mquelle', 'mziel'); });
+  _zieh=null;
+  renderNachholen();
+});
 document.addEventListener('click', function(e){
   var b=e.target.closest('[data-action]');
   if(!b) return;
@@ -1320,6 +1549,11 @@ document.addEventListener('click', function(e){
     karteWahlSet(kw);
     if(kw==='karte') _karteFehler=false;
     render(); return;
+  }
+  if(a==='mergemit'){
+    var mv=b.getAttribute('data-mvon')||'';
+    mergeZielWahl(mergeZiele(_mergeGruppen, mv)).then(function(z){ if(z) mergeStart(mv, z); });
+    return;
   }
   if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
   if(a==='copygeo'){

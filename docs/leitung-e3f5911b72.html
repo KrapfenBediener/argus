@@ -625,21 +625,20 @@ function toast(msg){
 }
 
 /* ── Phase 6.8: geteilte Bausteine (byte-gleich mit der FLZ-Seite, Drift-Test tests/verwaltung.test.cjs) ──
- * Kopiert, nicht neu getippt: fmtHM, TAFEL, LAGE_SCHWELLE_MS und die reinen
- * Funktionen bis karteA. Änderungen NUR gleichzeitig in beiden Seiten. */
+ * Kopiert, nicht neu getippt: fmtHM, LAGE_SCHWELLE_MS und die reinen Funktionen
+ * bis karteA. Keine Globals außer LAGE_SCHWELLE_MS, esc() und fmtHM().
+ * Änderungen NUR gleichzeitig in beiden Seiten. */
 function fmtHM(ms){
   return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
 }
-/* geteilt — D6.8-02: Buchstabiertafel wie im Funkspruch der Feld-App. */
-var TAFEL={A:'Anton',B:'Berta',C:'Cäsar',D:'Dora',E:'Emil',F:'Friedrich',G:'Gustav',H:'Heinrich',I:'Ida',J:'Julius',K:'Kaufmann',L:'Ludwig',M:'Martha',N:'Nordpol',O:'Otto',P:'Paula',Q:'Quelle',R:'Richard',S:'Samuel',T:'Theodor',U:'Ulrich',V:'Viktor',W:'Wilhelm',X:'Xanthippe',Y:'Ypsilon',Z:'Zacharias'};
 /* geteilt — D6.8-04: Schwelle für das graue Kopfband. */
 var LAGE_SCHWELLE_MS = 180000;
-function kennungFunk(k){
+/* geteilt — D6.9-01: Kennung als Buchstabe („CCP A“); die Buchstabiertafel bleibt
+ * dem Funkspruch der Feld-App vorbehalten. „a / e“ → „A/E“. Kein Escaping — der
+ * Aufrufer escaped. */
+function kennungKurz(k){
   if(k===null || k===undefined || k==='') return '';
-  return String(k).split('/').map(function(teil){
-    var t=teil.trim(), u=t.toUpperCase();
-    return TAFEL[u] || t;
-  }).join('/');
+  return String(k).split('/').map(function(teil){ return teil.trim().toUpperCase(); }).join('/');
 }
 function umgebungVon(p){
   if(p && typeof p.schulung==='boolean') return p.schulung ? 'schulung' : 'echt';
@@ -756,9 +755,9 @@ function karteA(g, akt, opts){
   h='<div class="ka">';
   h+='<div class="kb'+(akt.alt?' alt':'')+'"><span class="kbl">';
   if(g.verbund){
-    h+='VERBUND'+(opts.vnTotal>1?' '+(+g.n||0):'')+' · CCP '+m.map(function(c){ return esc(kennungFunk(c.kennung)); }).join(' + ');
+    h+='VERBUND'+(opts.vnTotal>1?' '+(+g.n||0):'')+' · CCP '+m.map(function(c){ return esc(kennungKurz(c.kennung)); }).join(' + ');
   }else{
-    h+=ortZiel(c0, 'CCP '+esc(kennungFunk(c0.kennung))+(c0.ort?' · '+esc(c0.ort):''), 'kn')+stift(c0);
+    h+=ortZiel(c0, 'CCP '+esc(kennungKurz(c0.kennung))+(c0.ort?' · '+esc(c0.ort):''), 'kn')+stift(c0);
   }
   h+='</span><span class="kbr">'+(akt.alt ? esc(fmtAlter(akt.min, akt.t?fmtHM(akt.t):'—'))+' · ' : '')+s.pat+' Pat.</span></div>';
   h+='<div class="kz">';
@@ -778,7 +777,7 @@ function karteA(g, akt, opts){
   h+='<div class="kmeta"><span>abtransportiert <b>'+s.gpa+'</b> · Prio <b>'+s.prio+'</b> · fertig <b>'+s.ready+'</b></span><span>'+rechts+'</span></div>';
   if(g.verbund){
     m.forEach(function(c){
-      h+='<div class="vmem">'+ortZiel(c, 'CCP '+esc(kennungFunk(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c)+'</div>';
+      h+='<div class="vmem">'+ortZiel(c, 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c)+'</div>';
     });
   }
   return h+'</div>';
@@ -1762,9 +1761,9 @@ function typLabel(t){
 function einsatzCard(g, now, isWieder){
   var st=fristStatus(g.purge_after, now);
   var fst=fristStatus(g.photo_purge_after, now);
-  /* Phase 6.8 (D6.8-02): Kopfband-Muster — „CCP Anton + Emil“, Typ- und
+  /* Phase 6.8 (D6.8-02): Kopfband-Muster — „CCP A + E“ (D6.9-01), Typ- und
    * Export-Pille im Band; Wiedervorlage mit rotem Band. */
-  var kenn=g.kennungen.length ? g.kennungen.map(function(k){ return esc(kennungFunk(k)); }).join(' + ') : '?';
+  var kenn=g.kennungen.length ? g.kennungen.map(function(k){ return esc(kennungKurz(k)); }).join(' + ') : '?';
   var h='<div class="ka">';
   h+='<div class="'+('kb'+(isWieder?' rot':''))+'"><span class="kbl">CCP '+kenn+'</span><span class="kbr">';
   h+='<span class="pill gray">'+typLabel(g.einsatz_typ)+'</span> ';
@@ -1950,6 +1949,12 @@ function patLabelPlain(p){
 }
 var HERK_EV={ geraet_verlassen:'verlassen', geraet_abgemeldet:'abgemeldet durch MasterMedic',
   geraet_abmeldung_aufgehoben:'Abmeldung aufgehoben', geraet_wieder_beigetreten:'wieder beigetreten' };
+/* Phase 6.9 (D6.9-05): Ereignis aus Migration 0033 (argus_flz_merge), detail
+ * {durch, rolle, von, haupt, verbund, gruppe}. Rohtext — die Ausgabe escaped. */
+function flzMergeEreignis(det){
+  return 'Zusammengeführt durch '+(det && det.durch ? String(det.durch) : 'FLZ')+
+    ' — CCP '+(det && det.von ? String(det.von) : '?')+' → Haupt-CCP '+(det && det.haupt ? String(det.haupt) : '?');
+}
 /* Datenherkunft (Phase 6.5, S7, D6.5-09/-15): Geräte, Wege und Ereignisse aus
  * argus_governance_protokoll.devices/.herkunft. Fehlen beide Schlüssel (Server ohne 0026) → null.
  * Alle Werte stammen von Feld-Geräten: die Ausgabe in vDatenherkunft läuft ausschließlich über esc(). */
@@ -1985,6 +1990,9 @@ function herkunftModel(d, pats){
         var w=(det.weg==='nachgereicht'||det.weg==='nachfrist') ? det.weg : 'direkt';
         (Array.isArray(det.ids)?det.ids:[]).forEach(function(id){ h[w][String(id)]=true; });
       }
+    }else if(e.action==='flz_merge'){
+      /* D6.9-05: Zuordnung durch die FLZ — kein Gerät beteiligt (dev:null) */
+      events.push({at:e.at, label:flzMergeEreignis(det), dev:null, kuerzel:e.kuerzel||'', open:null});
     }else if(HERK_EV[e.action]){
       events.push({at:e.at, label:HERK_EV[e.action], dev:dev, kuerzel:e.kuerzel||'', open:(det.open_n!=null ? (det.open_n|0) : null)});
     }
@@ -2042,7 +2050,7 @@ function vDatenherkunft(d, pats){
   if(m.events.length){
     h+='<div class="card" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Ereignisse</div>';
     m.events.forEach(function(e){
-      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)"><span class="mono">'+esc(fmtMs(e.at))+'</span> · Gerät '+esc(String(e.dev||'?'))+' '+esc(e.label)+
+      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)"><span class="mono">'+esc(fmtMs(e.at))+'</span>'+(e.dev!==null ? ' · Gerät '+esc(String(e.dev||'?'))+' ' : ' · ')+esc(e.label)+
         (e.kuerzel?(' · '+esc(e.kuerzel)):'')+(e.open!=null?(' · offen: '+esc(String(e.open))):'')+'</div>';
     });
     h+='</div>';
@@ -2669,6 +2677,8 @@ function actionLabel(a){
   if(a==='admin_login') return 'Admin-Login';
   if(a==='admin_gast_issue') return 'Admin: Gast-Code ausgegeben';
   if(a==='admin_gast_revoke') return 'Admin: Gast-Code gesperrt';
+  /* Phase 6.9 (D6.9-05): Zuordnung eines CCP durch die FLZ (Migration 0033) */
+  if(a==='flz_merge') return 'Zusammengeführt durch FLZ';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -2693,7 +2703,8 @@ function secProtokoll(){
     ['gast_join','Gast-Code eingelöst'],
     ['admin_login','Admin-Login'],
     ['admin_gast_issue','Admin: Gast-Code ausgegeben'],
-    ['admin_gast_revoke','Admin: Gast-Code gesperrt']
+    ['admin_gast_revoke','Admin: Gast-Code gesperrt'],
+    ['flz_merge','Zusammengeführt durch FLZ']
   ];
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
@@ -2740,6 +2751,7 @@ function secProtokoll(){
       if(l.action==='frist_verlaengert'){
         h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+fmtMs(l.neue_frist):'')+'</div>';
       }
+      if(l.action==='flz_merge'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
       h+='</div>';
     });
     h+='</div>';

@@ -120,7 +120,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.35.6';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.35.7';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -150,6 +150,12 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.35.7': [
+    'Eine offene Zusammenführungs-Anfrage sehen jetzt alle Geräte des angefragten CCP — mit dem Knopf „MasterMedic übernehmen und bestätigen“. Wer angefragt hat, sieht, wie lange die Anfrage schon wartet, und kann sie zurückziehen.',
+    '„CCP beitreten“ zeigt bei einem zusammengeführten Verbund den Ort des Haupt-CCP.',
+    'MasterMedic: „Geräte im CCP“ ist auf der Startseite jetzt eine Zeile. Auffälliges (z. B. ein Gerät außer Reichweite mit offenen Patienten) ist farbig hervorgehoben; Antippen zeigt die Liste mit allen Eingriffen.',
+    'Die FLZ kann CCPs jetzt selbst zusammenführen (Karte auf Karte ziehen) und zeigt CCPs kurz als „CCP A“. In der App erscheint dann „Zusammengeführt durch FLZ“ — in der ARGUS-App auch auf Geräten ohne Netz über das Mesh, sobald ein Gerät desselben CCP Netz hat.'
+  ],
   '0.35.6': [
     'Neue Patienten bekommen online jetzt zuverlässig die fortlaufende Nummer ohne Gerätekennung — auch direkt nach dem Wechsel in einen anderen CCP.',
     'iPhone: Die App vergrößert beim Antippen von Eingabefeldern nicht mehr ungewollt die Ansicht.'
@@ -486,6 +492,13 @@ var _mergeReqFrom   = null;   /* eingehende Merge-Anfrage von diesem CCP */
 var _demoMerged     = false;  /* lokale Demo-Zusammenführung (nur Schulungsumgebung) */
 var _photosAllowed  = true;   /* Fotos dauerhaft AN (v0.31.0, DSB-Freigabe 2026-06-21) — kein einsatzweiter Schalter mehr; Wert bleibt true, 72-h-Löschung nach Abschluss unverändert */
 var _mergeReqHandling = false;/* Re-Entrancy-Schutz für Bestätigungsdialog */
+var _mergeReqAt     = null;   /* D6.9-02: merge_request_at der eingehenden Anfrage */
+var _mergeReqK      = '';     /* D6.9-02: Kennung des anfragenden CCP (Hintergrundabruf) */
+var _mergeReqKFor   = null;   /* für welche Anfrage (merge_request_from) _mergeReqK gilt */
+var _mergeOut       = [];     /* D6.9-02: eigene offene Anfragen an andere CCPs (nur MasterMedic) */
+var _mergeOutAt     = 0;      /* letzter Abruf von _mergeOut (10-s-Drossel) */
+var _mergeInfoBusy  = false;  /* Re-Entrancy-Schutz loadMergeInfo */
+var _flzMergeAt     = null;   /* D6.9-05: ccps.flz_merge_at (Server-ms) — Zusammenführung durch die FLZ */
 var _prevGroupSize  = 1;      /* zur Erkennung, dass ein CCP der Gruppe beigetreten ist */
 var _lastView       = null;   /* für Scroll-Reset nur bei View-Wechsel */
 var _openCcpCount   = -1;     /* offene (nicht abgeschlossene) CCPs im Präsidium; -1 = unbekannt */
@@ -847,6 +860,9 @@ function applyMeta(row){
   }
   if('merge_group_id' in row) _mergeGroupId=row.merge_group_id||null;
   if('merge_request_from' in row) _mergeReqFrom=row.merge_request_from||null;
+  if('merge_request_at' in row) _mergeReqAt=row.merge_request_at||null;
+  /* D6.9-05: Zusammenführung durch die FLZ (Migration 0033) — ohne Spalte passiert nichts */
+  if('flz_merge_at' in row){ _flzMergeAt=(typeof row.flz_merge_at==='number')?row.flz_merge_at:null; flzMergeHinweis(); }
   /* ccpMerged (Präfix-Anzeige) wird in loadPatients aus der Gruppengröße abgeleitet. */
 }
 /* schulung-Flag des aktiven Präsidiums laden (Migration 0009): steuert das
@@ -982,7 +998,7 @@ function subscribeRealtime(){
       await loadPatients(); render();
     })
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'ccps',
-        filter:'id=eq.'+_ccpId}, function(p){applyMeta(p.new);render();checkIncomingMergeRequest();})
+        filter:'id=eq.'+_ccpId}, function(p){applyMeta(p.new);meshVerbundErfassen(p.new);render();checkIncomingMergeRequest();})
     .subscribe();
 }
 
@@ -1616,21 +1632,9 @@ function ccpJoinModal(list){
     var ov=document.createElement('div');ov.className='modalov';
     var inner='<div class="modalbx" style="max-width:360px">';
     inner+='<div class="modalmsg" style="margin-bottom:14px">CCP auswählen</div>';
-    list.forEach(function(ccp){
-      var members=ccp._members||[ccp];
-      var isVerbund=members.length>1;
-      var kenns=members.map(function(m){return m.kennung;}).sort().join('+');
-      inner+='<button class="mc-ccpjoin card" data-id="'+ccp.id+'" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px">';
-      /* Kennung als kompaktes Badge, Örtlichkeit als gut lesbare Hauptzeile
-       * (vorher war der Ort nur ein blasser hint neben der großen Kennung). */
-      inner+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">';
-      inner+='<span class="pill mono" style="background:var(--acc);color:#fff;font-size:13px;font-weight:700;letter-spacing:.3px;padding:3px 10px">'+(isVerbund?('Verbund '+esc(kenns)):('CCP '+esc(ccp.kennung)))+'</span>';
-      if(isVerbund) inner+='<span class="pill" style="background:var(--surf2);color:var(--mut)">'+members.length+' CCPs</span>';
-      inner+='</div>';
-      inner+='<div style="font-size:18px;font-weight:700;color:var(--tx);line-height:1.2;margin-bottom:3px">'+(isVerbund?'Zusammengeführter Verbund':(ccp.ort?esc(ccp.ort):'<span style="color:var(--hint);font-weight:400;font-style:italic">Ort nicht angegeben</span>'))+'</div>';
-      inner+='<div class="hint">'+(isVerbund?('Gemeinsame Patientenliste'):('MasterMedic: '+(ccp.master_medic||'keine')))+'</div>';
-      inner+='</button>';
-    });
+    /* D6.9-04: je Einzel-CCP/Verbund eine Karte (Verbund: Ort des Haupt-CCP,
+     * data-id = Haupt-CCP); alle Server-Texte escaped (joinKarteHtml). */
+    list.forEach(function(ccp){ inner+=joinKarteHtml(ccp); });
     inner+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
     inner+='</div>';
     ov.innerHTML=inner; document.body.appendChild(ov);
@@ -1925,6 +1929,28 @@ function devLabel(d, now, o){
   if(st==='abgemeldet') return head+' — abgemeldet'+(n>0 ? cnt('möglicherweise verloren') : '');
   return head+' — verlassen '+(o.hhmm ? o.hhmm(d.left_at) : '')+(n>0 ? cnt('offen') : '');
 }
+/* D6.9-03: „Geräte im CCP: N“ als eine Zeile (rein, ES5; einziger Global: devStatus).
+ * n = Geräte, die den CCP nicht verlassen haben; verlassene zählen nur mit offenen Patienten als Auffälligkeit.
+ * stufe: 'rot' (abgemeldet) > 'warn' (außer Reichweite / verlassen mit offenen) > 'ok'. Zähler numerisch (|0). */
+function devKurz(rows, now){
+  var k={n:0, aus:0, ausOffen:0, abg:0, abgOffen:0, verlN:0, verlOffen:0, stufe:'ok'};
+  (rows||[]).forEach(function(d){
+    if(!d) return;
+    var st=devStatus(d, now), o=d.open_n|0;
+    if(st!=='verlassen') k.n++;
+    if(st==='ausser_reichweite'){ k.aus++; k.ausOffen+=o; }
+    else if(st==='abgemeldet'){ k.abg++; k.abgOffen+=o; }
+    else if(st==='verlassen' && o>0){ k.verlN++; k.verlOffen+=o; }
+  });
+  k.stufe = k.abg>0 ? 'rot' : ((k.aus>0 || k.verlN>0) ? 'warn' : 'ok');
+  return k;
+}
+function devKurzText(k){
+  return 'Geräte im CCP: '+k.n+
+    (k.aus ? ' · '+k.aus+' außer Reichweite'+(k.ausOffen ? ' ('+k.ausOffen+' '+(k.ausOffen===1?'Patient':'Patienten')+' offen)' : '') : '')+
+    (k.abg ? ' · '+k.abg+' abgemeldet'+(k.abgOffen ? ' ('+k.abgOffen+' möglicherweise verloren)' : '') : '')+
+    (k.verlN ? ' · '+k.verlN+' verlassen ('+k.verlOffen+' offen)' : '');
+}
 /* Gerätestand veraltet/unbekannt (Plan 06.5-10, B6): ohne Verbindung oder älter als 30 s
  * (= zwei Beats Toleranz wie devStatus) darf die Liste NICHT als „außer Reichweite" gelesen
  * werden — das Gerät des MasterMedic selbst wäre dann die Ursache, nicht die anderen Geräte. */
@@ -1950,7 +1976,7 @@ var MESH_PROTO = {
   v:2,                        /* Schema-Version des Umschlags — 2: id mit Sitzungskennung (HO-01), Quittung mit Gruppenstempeln (HO-03); v1 wird als typ verworfen */
   jsName:'ArgusMesh',         /* Capacitor-Plugin-Name (Swift jsName, Plan 02) */
   service:'argus-ccp',        /* statischer Bonjour-Diensttyp (NSBonjourServices) — nie aus der CCP-ID bilden (TN3179) */
-  types:['hello','inv','req','delta','rcpt','foto-req','lock','meta','hb','close'],   /* meta trägt Nabe + MasterMedic-Wechsel (D6.7-02); close = Einsatz abgeschlossen (P1, von jeder Speiche, wird weitergeleitet) */
+  types:['hello','inv','req','delta','rcpt','foto-req','lock','meta','hb','close','verbund'],   /* meta trägt Nabe + MasterMedic-Wechsel (D6.7-02); close = Einsatz abgeschlossen (P1, von jeder Speiche, wird weitergeleitet); verbund = Verbund-Stand vom Server (D6.9-07), nur Gateway sendet, wird weitergeleitet */
   maxMsg:65536,               /* Bytes: größere Nachrichten werden verworfen (T-06.7-04) */
   chunk:24576,                /* Bytes: Zielgröße je Delta-/Inventar-Teil (RESEARCH „Größen“) */
   hbMs:15000,                 /* ms: Heartbeat-Takt (= HB_INTERVAL_MS) */
@@ -1964,6 +1990,8 @@ var MESH_PROTO = {
   helloMs:5000,               /* ms: Frist für das hello nach Verbindungsaufbau */
   futureMs:60000,             /* ms: Toleranz für at/Stempel aus der Zukunft (wie die Server-Klemme) */
   maxSpokes:7,                /* Nabe + 7 Speichen = 8 Geräte (Protokollentscheid D6.7-01/-09 — Network.framework hat kein hartes Limit) */
+  verbundMs:60000,            /* ms: Gateway wiederholt den Verbund-Stand (D6.9-07), damit spät dazukommende Geräte ihn erhalten */
+  verbundTtlMs:86400000,      /* ms: älterer Verbund-Stand wird weder gesendet noch angenommen (24 h) */
   seenMax:2000                /* Dedup-Fenster (LRU) je Gerät */
 };
 /* Inventar (D6.7-03): je Patient 8 Stempel in MESH_GROUPS_ORDER + Foto-Flag (nie Bytes, D6.7-06).
@@ -2323,9 +2351,64 @@ function meshValidate(msg, ctx){
           msg.ids.every(function(x){ return typeof x==='string' && /^[A-Za-z0-9_-]{1,64}$/.test(x); }) &&
           (!Array.isArray(ctx.ccpIds) || msg.ids.some(function(x){ return ctx.ccpIds.indexOf(x)>=0; }));
         break;
+      case 'verbund':
+        /* D6.9-07: Verbund-Stand vom Server (Gateway) — exakte Schlüssel-Weißliste (Umschlag + 8 Felder), ids 2…8 eindeutig,
+         * grp ∈ ids, Kennungen A–Z (1…3), quelle flz|anfrage, flzAt null oder ≤ lim, mm ≤ 40, stand im Fenster
+         * [now − verbundTtlMs, lim]; mit ccpIds mindestens ein CCP dieses Geräts. Vertrauensstufe wie close. */
+        var VK=['v','id','t','from','ccp','at','grp','ids','kennung','hauptK','quelle','flzAt','mm','stand'], KE=/^[A-Z]{1,3}$/;
+        ok=Object.keys(msg).every(function(k){ return VK.indexOf(k)>=0; }) &&
+          Array.isArray(msg.ids) && msg.ids.length>=2 && msg.ids.length<=8 &&
+          msg.ids.every(function(x, i, a){ return typeof x==='string' && /^[A-Za-z0-9_-]{1,64}$/.test(x) && a.indexOf(x)===i; }) &&
+          typeof msg.grp==='string' && msg.ids.indexOf(msg.grp)>=0 &&
+          typeof msg.kennung==='string' && KE.test(msg.kennung) &&
+          (msg.hauptK==='' || (typeof msg.hauptK==='string' && KE.test(msg.hauptK))) &&
+          (msg.quelle==='flz' || msg.quelle==='anfrage') &&
+          (msg.flzAt===null || (isNum(msg.flzAt) && msg.flzAt>0 && msg.flzAt<=lim)) &&
+          isStr(msg.mm, 40) &&
+          isNum(msg.stand) && msg.stand<=lim && msg.stand>=(ctx.now||0)-P.verbundTtlMs &&
+          (!Array.isArray(ctx.ccpIds) || msg.ids.some(function(x){ return ctx.ccpIds.indexOf(x)>=0; }));
+        break;
     }
     return ok ? null : 'inhalt';
   }catch(e){ return 'inhalt'; }
+}
+/* D6.9-07: Verbund-Stand im Mesh DESSELBEN CCP — Body aus der Server-Zeile des eigenen CCP (row) und der Mitgliederliste
+ * vom Server (members = ccps der Gruppe, {id, kennung}). Nur Server-bestätigter Stand (Aufrufer: meshVerbundErfassen).
+ * null, wenn kein Verbund (< 2 gültige Mitglieder), eigene id oder Gruppen-id fehlen oder die Kennung ungültig ist.
+ * Body-Schlüssel genau grp, ids, kennung, hauptK, quelle, flzAt, mm, stand. Rein; nutzt flzMergeFrisch (D6.9-05). */
+function meshVerbundBody(row, members, now){
+  var CI=/^[A-Za-z0-9_-]{1,64}$/, KE=/^[A-Z]{1,3}$/;
+  if(!row || typeof row!=='object' || !row.id || !row.merge_group_id || !Array.isArray(members)) return null;
+  var ids=[], hauptK='';
+  members.forEach(function(m){
+    var id=m && m.id;
+    if(typeof id==='string' && CI.test(id) && ids.indexOf(id)<0 && ids.length<8) ids.push(id);
+  });
+  if(ids.length<2 || ids.indexOf(row.id)<0 || ids.indexOf(row.merge_group_id)<0) return null;
+  var kennung=String(row.kennung||'').toUpperCase();
+  if(!KE.test(kennung)) return null;
+  members.forEach(function(m){
+    if(hauptK || !m || m.id!==row.merge_group_id) return;
+    var k=String(m.kennung||'').toUpperCase();
+    if(KE.test(k)) hauptK=k;
+  });
+  var fa=row.flz_merge_at;
+  return {grp:row.merge_group_id, ids:ids, kennung:kennung, hauptK:hauptK,
+    quelle:flzMergeFrisch(fa, now) ? 'flz' : 'anfrage',
+    flzAt:(typeof fa==='number' && isFinite(fa) && fa>0) ? fa : null,
+    mm:String(row.master_medic||'').slice(0,40), stand:now};
+}
+/* D6.9-07: Empfangsentscheid für einen validierten verbund. c = {online, ccpId, stand, grp, kennung, flzAt, mm}.
+ * 'server' = mit Netz entscheidet der Server (nichts anwenden); 'fremd' = eigener CCP nicht im Verbund; 'alt' = Stand nicht
+ * jünger als der zuletzt übernommene (wirkt nie doppelt); 'gleich' = schon so bekannt; sonst 'anwenden' (vorläufig). Rein. */
+function meshVerbundEntscheid(msg, c){
+  c=c||{};
+  if(c.online) return 'server';
+  if(!msg || !Array.isArray(msg.ids) || msg.ids.indexOf(c.ccpId)<0) return 'fremd';
+  if(!(msg.stand > (c.stand||0))) return 'alt';
+  var mm=String(c.mm||'').slice(0,40);   /* Sender kürzt auf 40 Zeichen */
+  if(msg.grp===c.grp && msg.kennung===c.kennung && (msg.quelle!=='flz' || msg.flzAt===c.flzAt) && (!msg.mm || msg.mm===mm)) return 'gleich';
+  return 'anwenden';
 }
 /* Dedup (T-06.7-02): true = neu (wird eingetragen), false = schon gesehen. seen={ids:{}, order:[]};
  * über max Einträge fliegt der älteste (LRU-Grenze). */
@@ -2694,6 +2777,7 @@ async function probeSchema(n){
  * Master in argus_device_heartbeat, 0026). Fire-and-forget: blockiert
  * nie die UI; Fehler/Netzprobleme werden verschluckt (Local-first). */
 var _hbBusy=false, _hbCcp=null, _hbFirst=true, _devices=null, _devicesAt=0, _devPollBusy=false;
+var _devOffen=false;   /* D6.9-03: Geräteliste aufgeklappt — nicht persistiert, beim Verlassen des CCP wieder zu */
 async function deviceHeartbeat(){
   if(_training || !_ccpId || _schemaV<26 || document.hidden || navigator.onLine===false || _hbBusy || !sb()) return;
   var dev=deviceNoSync(); if(dev<1) return;
@@ -2822,7 +2906,7 @@ async function loadMeta(){
   if(client && _ccpId && netLikelyUp()){   /* bekannt offline → sofort lokal, kein Netz-Hänger */
     try{
       var r=await qt(client.from('ccps').select('*').eq('id',_ccpId)).single();
-      if(r.data){applyMeta(r.data);return;}
+      if(r.data){applyMeta(r.data);meshVerbundErfassen(r.data);return;}   /* D6.9-07: Serverstand für das Mesh (nicht awaited, nur Hülle + Netz) */
     }catch(e){}
   }
   var mm=await sGet("ccp_mastermedic");masterMedic=(typeof mm==="string")?mm:"";
@@ -2935,13 +3019,82 @@ async function undoMergeDemo(){
 }
 /* ── Echtes CCP-Zusammenführen (geräteübergreifend über Supabase) ──────────
  * Datenmodell: ccps.merge_group_id (gemeinsame Gruppe), ccps.merge_request_from
- * (Handshake). A initiiert → B bestätigt. A bleibt MasterMedic. Keine
- * Umnummerierung; der beitretende CCP bekommt die nächste freie Kennung und
- * schreibt seine eigenen Patienten darauf um. */
+ * (Handshake). Haupt-CCP = merge_group_id (D6.9-04): bei Anfrage/Bestätigung
+ * zweier Einzel-CCPs der bestätigende, bei „Weitere CCP hinzufügen" bleibt der
+ * Haupt-CCP des Verbunds, in der Schulung (direkt) der Auslösende; die FLZ führt
+ * über argus_flz_merge zusammen (Drop-Ziel = Haupt). Keine Umnummerierung; der
+ * beitretende CCP bekommt die nächste freie Kennung und schreibt seine eigenen
+ * Patienten darauf um. */
 function nextFreeKennung(usedArr){
   var L="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
   for(var i=0;i<L.length;i++){ if(usedArr.indexOf(L[i])===-1) return L[i]; }
   return "Z";
+}
+/* D6.9-04: Haupt-CCP eines Verbunds = Mitglied mit id = merge_group_id;
+ * Rückfall (Altbestand): kleinste Kennung (fehlende zuletzt), Gleichstand → erstes. */
+function verbundHaupt(members){
+  if(!members || !members.length) return null;
+  for(var i=0;i<members.length;i++){ var m=members[i]; if(m && m.id && m.id===m.merge_group_id) return m; }
+  var best=null;
+  for(var j=0;j<members.length;j++){
+    var c=members[j]; if(!c) continue;
+    if(!best){ best=c; continue; }
+    var ck=c.kennung?String(c.kennung):null, bk=best.kennung?String(best.kennung):null;
+    if(ck!==null && (bk===null || ck<bk)) best=c;
+  }
+  return best;
+}
+/* D6.9-04: Karte der Auswahl „CCP beitreten" — Verbund mit Ort des Haupt-CCP
+ * (data-id = Haupt), Einzel-CCP mit MasterMedic. Alle Server-Texte escaped (T-06.9-20). */
+function joinKarteHtml(ccp){
+  var members=(ccp && ccp._members) || [ccp];
+  var isVerbund=members.length>1;
+  var h=isVerbund ? (verbundHaupt(members)||ccp) : ccp;
+  var keinOrt='<span style="color:var(--hint);font-weight:400;font-style:italic">Ort nicht angegeben</span>';
+  var out='<button class="mc-ccpjoin card" data-id="'+esc(h.id)+'" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px">';
+  /* Kennung als kompaktes Badge, Örtlichkeit als gut lesbare Hauptzeile */
+  out+='<div style="display:flex;align-items:center;gap:9px;margin-bottom:5px">';
+  if(isVerbund){
+    var kenns=members.map(function(m){ return (m&&m.kennung)?String(m.kennung):'?'; }).sort().join('+');
+    out+='<span class="pill mono" style="background:var(--acc);color:#fff;font-size:13px;font-weight:700;letter-spacing:.3px;padding:3px 10px">Verbund '+esc(kenns)+'</span>';
+    out+='<span class="pill" style="background:var(--surf2);color:var(--mut)">'+members.length+' CCPs</span>';
+  }else{
+    out+='<span class="pill mono" style="background:var(--acc);color:#fff;font-size:13px;font-weight:700;letter-spacing:.3px;padding:3px 10px">CCP '+esc(ccp.kennung)+'</span>';
+  }
+  out+='</div>';
+  out+='<div style="font-size:18px;font-weight:700;color:var(--tx);line-height:1.2;margin-bottom:3px">'+(h.ort?esc(h.ort):keinOrt)+'</div>';
+  out+='<div class="hint">'+(isVerbund?'Gemeinsame Patientenliste':('MasterMedic: '+esc(ccp.master_medic||'keine')))+'</div>';
+  out+='</button>';
+  return out;
+}
+/* D6.9-04: Gruppen-id beim Bestätigen einer Anfrage. Eigener CCP in einem
+ * anderen Verbund → null (ablehnen statt zerreißen); Anfragender schon Verbund →
+ * dessen Gruppe (Haupt bleibt); zwei Einzel-CCPs → der bestätigende wird Haupt. */
+function verbundZiel(srcG, ownG, ownId){
+  if(ownG && ownG!==srcG) return null;
+  if(srcG) return srcG;
+  return ownId;
+}
+/* D6.9-02: Hinweistext der offenen Anfrage für alle Geräte (roh; Aufrufer escaped). */
+function anfrageText(fromK, mm){
+  return 'CCP '+(fromK||'?')+' möchte zusammenführen — '+(mm ? 'MasterMedic '+mm+' muss bestätigen' : 'ein MasterMedic muss bestätigen');
+}
+/* D6.9-02: Wartezeile beim Anfragenden (roh; Aufrufer escaped). */
+function wartetText(kennung, at, now){
+  var t='Anfrage an CCP '+(kennung||'?')+' wartet';
+  if(typeof at==='number' && at>0){
+    var min=Math.floor(Math.max(0, now-at)/60000);
+    t+=' seit '+(min<1 ? 'unter 1 min' : min+' min');
+  }
+  return t;
+}
+/* D6.9-05: Zusammenführung durch die FLZ (ccps.flz_merge_at, Server-ms) ist 30 min „frisch". */
+function flzMergeFrisch(at, now){
+  return typeof at==='number' && isFinite(at) && at>0 && (now-at) < 1800000;
+}
+/* D6.9-05: Toast nur einmal je Stempel (gesehen = zuletzt gemeldeter Stempel). */
+function flzMergeNeu(at, gesehen, now){
+  return flzMergeFrisch(at, now) && at > (+gesehen||0);
 }
 async function realMergeRequest(targetId){
   var client=sb(); if(!client||!_ccpId) return false;
@@ -2954,21 +3107,33 @@ async function realMergeRequest(targetId){
  * Ziel-CCPs fiktive MasterMedics ohne Gerät haben (Ein-Personen-Demo). */
 async function realMergeDirect(targetId){
   var client=sb(); if(!client||!_ccpId) return false;
+  /* Der Auslösende bleibt Haupt (der Ziel-CCP wird in seinen Verbund geholt). */
   var grp=_mergeGroupId||_ccpId;
-  if(!_mergeGroupId){ _mergeGroupId=grp; try{await client.from('ccps').update({merge_group_id:grp,merged:true}).eq('id',_ccpId);}catch(e){} }
+  var neu=!_mergeGroupId;
   var tgt; try{ tgt=(await client.from('ccps').select('*').eq('id',targetId).single()).data; }catch(e){}
   if(!tgt) return false;
   var used=[]; try{ var gm=await client.from('ccps').select('kennung').eq('merge_group_id',grp); if(gm.data) gm.data.forEach(function(c){if(c.kennung)used.push(c.kennung);}); }catch(e){}
+  if(neu && used.indexOf(_ccpKennung||'A')===-1) used.push(_ccpKennung||'A');   /* Gruppe entsteht erst gleich — eigene Kennung ist belegt */
   var tk=tgt.kennung||'B';
   if(used.indexOf(tk)!==-1){ tk=nextFreeKennung(used); try{await client.from('patients').update({ccp:tk}).eq('ccp_id',targetId);}catch(e){} }
-  try{await client.from('ccps').update({merge_group_id:grp,kennung:tk,merged:true,merge_request_from:null,merge_request_at:null}).eq('id',targetId);}catch(e){}
+  try{await client.from('ccps').update({kennung:tk,merge_request_from:null,merge_request_at:null}).eq('id',targetId);}catch(e){}
+  /* Gruppenzuordnung beider Zeilen in EINEM Update (keine Selbstheilung dazwischen) */
+  try{await client.from('ccps').update({merge_group_id:grp,merged:true}).in('id', neu ? [_ccpId,targetId] : [targetId]);}catch(e){}
+  _mergeGroupId=grp;
   return true;
 }
 async function realMergeAccept(fromId){
   var client=sb(); if(!client||!_ccpId) return false;
   var src; try{ src=(await client.from('ccps').select('*').eq('id',fromId).single()).data; }catch(e){}
   if(!src) return false;
-  var grp=src.merge_group_id||src.id;
+  /* D6.9-04: Haupt-CCP = merge_group_id; bei zwei Einzel-CCPs wird der
+   * bestätigende Haupt. Beide Zeilen in einem Update (keine Selbstheilung dazwischen). */
+  var grp=verbundZiel(src.merge_group_id||null, _mergeGroupId||null, _ccpId);
+  if(grp===null){
+    toast('Dein CCP gehört bereits zu einem Verbund — Anfrage abgelehnt. Weitere CCPs über „Weitere CCP hinzufügen“.');
+    await realMergeDecline();
+    return false;
+  }
   /* belegte Kennungen der Gruppe sammeln, nächste freie wählen */
   var used=[]; try{ var gm=await client.from('ccps').select('kennung').eq('merge_group_id',grp); if(gm.data) gm.data.forEach(function(c){if(c.kennung)used.push(c.kennung);}); }catch(e){}
   if(used.indexOf(src.kennung||'A')===-1) used.push(src.kennung||'A');
@@ -2977,9 +3142,9 @@ async function realMergeAccept(fromId){
   await loadPatients();
   for(var i=0;i<patients.length;i++){ if(!patients[i].demo && patients[i].ccp!==newK){ patients[i].ccp=newK; await savePatient(patients[i]); } }
   _ccpKennung=newK; _mergeGroupId=grp;
-  try{await client.from('ccps').update({merge_group_id:grp,kennung:newK,merged:true,merge_request_from:null,merge_request_at:null}).eq('id',_ccpId);}catch(e){}
-  /* Auch den anfragenden CCP (A) der Gruppe zuordnen, falls noch nicht geschehen */
-  if(!src.merge_group_id){ try{await client.from('ccps').update({merge_group_id:grp,merged:true}).eq('id',fromId);}catch(e){} }
+  try{await client.from('ccps').update({kennung:newK,merge_request_from:null,merge_request_at:null}).eq('id',_ccpId);}catch(e){}
+  /* Gruppenzuordnung: eigene Zeile und (bei Einzel-CCP) die des Anfragenden in EINEM Update */
+  try{await client.from('ccps').update({merge_group_id:grp,merged:true}).in('id', src.merge_group_id ? [_ccpId] : [_ccpId, fromId]);}catch(e){}
   return true;
 }
 async function realMergeDecline(){
@@ -3005,6 +3170,7 @@ function realMergeUI(){
     h+='<div class="banner" style="margin-bottom:10px"><span>✓</span><div>';
     h+='<span style="font-weight:600">Zusammengeführt (CCP '+esc(_ccpKennung)+' + weitere)</span><br>';
     h+='<span class="hint">Nummern mit Buchstaben-Präfix (z. B. A-01, B-01)</span>';
+    if(flzMergeFrisch(_flzMergeAt, nowMs())) h+='<br><span class="hint">⇄ Zusammengeführt durch FLZ ('+esc(hhmm(_flzMergeAt))+')</span>';
     h+='</div></div>';
     h+='<button class="navbtn" data-action="rmergestart" style="margin-top:0;margin-bottom:8px"><span class="ic">⇄</span><span><span class="t">Weitere CCP hinzufügen</span><br><span class="s">einen weiteren CCP in den Verbund holen</span></span></button>';
     h+='<button class="ghost" data-action="rmergeleave" style="margin-top:0;margin-bottom:8px">Zusammenführung auflösen</button>';
@@ -3014,6 +3180,14 @@ function realMergeUI(){
   }else{
     h+='<button class="navbtn" data-action="rmergestart" style="margin-top:0"><span class="ic">⇄</span><span><span class="t">CCPs zusammenführen</span><br><span class="s">anderen CCP im Präsidium anfragen — gemeinsame Patientenliste</span></span></button>';
   }
+  /* D6.9-02: eigene offene Anfragen mit Wartezeit + Zurückziehen (alle Zweige) */
+  (_mergeOut||[]).forEach(function(o){
+    if(!o) return;
+    h+='<div class="banner" style="margin-top:8px;margin-bottom:8px"><span>⏳</span><div style="flex:1">';
+    h+='<span style="font-weight:600">'+esc(wartetText(o.kennung, o.merge_request_at, nowMs()))+'</span>';
+    h+='<button class="ghost" data-action="mergewithdraw" data-id="'+esc(o.id)+'" data-k="'+esc(o.kennung||'?')+'" style="min-height:48px">Zurückziehen</button>';
+    h+='</div></div>';
+  });
   return h;
 }
 /* Eingehende Merge-Anfrage: nur der MasterMedic des angefragten CCP bestätigt. */
@@ -3027,6 +3201,62 @@ async function checkIncomingMergeRequest(){
   if(ok){ var fid=_mergeReqFrom; await realMergeAccept(fid); _mergeReqFrom=null; await loadMeta(); await loadPatients(); render(); toast("Zusammengeführt mit CCP "+fromK); }
   else { await realMergeDecline(); }
   _mergeReqHandling=false;
+}
+/* D6.9-02/-05: Anfrage-/FLZ-Zustand beim Verlassen/Abschluss/Wechsel des CCP leeren. */
+function mergeInfoReset(){
+  _mergeReqFrom=null; _mergeReqAt=null; _mergeReqK=''; _mergeReqKFor=null;
+  _mergeOut=[]; _mergeOutAt=0; _flzMergeAt=null;
+}
+/* D6.9-02: Hintergrundabruf (nie awaited im Render-/Erfassungspfad, Fehler still,
+ * offline gelten die zuletzt bekannten Werte): (a) Kennung des anfragenden CCP
+ * für den Hinweis aller Geräte, (b) eigene offene Anfragen (nur MasterMedic,
+ * höchstens alle 10 s; force überspringt die Drossel). */
+async function loadMergeInfo(force){
+  var client=sb();
+  if(!client || !_ccpId || _training || !netLikelyUp()) return;
+  if(_mergeInfoBusy){ if(force) _mergeOutAt=0; return; }   /* force: nächster Lauf holt sofort */
+  _mergeInfoBusy=true;
+  var cid=_ccpId;
+  try{
+    if(_mergeReqFrom && _mergeReqKFor!==_mergeReqFrom){
+      var rf=_mergeReqFrom;
+      try{
+        var r=await qt(client.from('ccps').select('kennung').eq('id',rf).maybeSingle());
+        if(r && !r.error && _ccpId===cid && _mergeReqFrom===rf){ _mergeReqK=(r.data && r.data.kennung) ? String(r.data.kennung) : ''; _mergeReqKFor=rf; }
+      }catch(e){}
+    }else if(!_mergeReqFrom){ _mergeReqK=''; _mergeReqKFor=null; }
+    if(operator && masterMedic && operator===masterMedic && (force || nowMs()-_mergeOutAt>=10000)){
+      try{
+        var o=await qt(client.from('ccps').select('id,kennung,ort,merge_request_at').eq('merge_request_from',cid).is('closed_at',null));
+        if(o && !o.error && Array.isArray(o.data) && _ccpId===cid){ _mergeOut=o.data; _mergeOutAt=nowMs(); }
+      }catch(e){}
+    }
+  }catch(e){}
+  _mergeInfoBusy=false;
+}
+/* D6.9-02: offene Anfrage für alle Geräte des angefragten CCP, deren Bediener
+ * nicht MasterMedic ist — bewusste Rollenübernahme, dann bestehender Bestätigungsdialog. */
+function mergeAnfrageBanner(){
+  if(_training || !_mergeReqFrom || _mergeGroupId || (operator && masterMedic && operator===masterMedic)) return '';
+  return '<div class="banner" style="margin-bottom:8px"><span>⇄</span><div style="flex:1">'+
+    '<span style="font-weight:600;color:var(--tx)">'+esc(anfrageText(_mergeReqK, masterMedic))+'</span>'+
+    '<button class="navbtn" data-action="mergeclaim" style="margin-top:8px;margin-bottom:0;min-height:48px"><span class="ic">★</span><span><span class="t">MasterMedic übernehmen und bestätigen</span></span></button>'+
+    '</div></div>';
+}
+/* D6.9-05: Toast „Zusammengeführt durch FLZ" einmal je Stempel und Gerät
+ * (localStorage argus_flzmerge_<ccp>); verdecktes Dokument → beim nächsten sichtbaren Lauf. */
+function flzMergeHinweis(){
+  if(_training || !_ccpId) return;
+  if(!(typeof _flzMergeAt==='number' && _flzMergeAt>0)) return;
+  var key='argus_flzmerge_'+_ccpId, gesehen=0;
+  try{ gesehen=+(localStorage.getItem(key)||0)||0; }catch(e){}
+  if(!(_flzMergeAt>gesehen)) return;
+  if(flzMergeNeu(_flzMergeAt, gesehen, nowMs())){
+    var hidden=false; try{ hidden=!!document.hidden; }catch(e){}
+    if(hidden) return;
+    toast('Zusammengeführt durch FLZ — gemeinsame Patientenliste');
+  }
+  try{ localStorage.setItem(key, String(_flzMergeAt)); }catch(e){}
 }
 /* CCP-Verwaltung: Abschließen (MasterMedic, soft) / Löschen (nur MasterToken). */
 /* CCP-Verwaltung als Home-Buttons (Stil wie die Navigations-Buttons).
@@ -3072,7 +3302,7 @@ async function leaveCurrentCcp(){
   try{ meshStop('leave'); }catch(e){}   /* Phase 6.7 */
   if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
   _ccpId=null; localStorage.removeItem('argus_ccp_id');
-  _mergeGroupId=null; _ccpKennung='A'; _demoMerged=false; ccpMerged=false; patients=[];
+  _mergeGroupId=null; _ccpKennung='A'; _demoMerged=false; ccpMerged=false; patients=[]; mergeInfoReset();
   try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && !pp.demo) await sDel(lk[i]); } }catch(e){}
 }
 /* ════════ CCP verlassen / wieder beitreten (Phase 6.5, D6.5-02/-03/-04) ════════
@@ -3114,7 +3344,7 @@ async function leaveCcpState(){
   try{ if(_ccpId) meshSecretDrop([_ccpId]); }catch(e){}   /* Phase 6.7 (D6.7-10, P2): Mesh-Geheimnis verwerfen */
   try{ localStorage.removeItem('argus_ccp_id'); }catch(e){}
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
-  _ccpId=null; _mergeGroupId=null; _devices=null; patients=[];
+  _ccpId=null; _mergeGroupId=null; _devices=null; _devOffen=false; patients=[]; mergeInfoReset();
   _hbCcp=null; _hbFirst=true;   /* nächster Beat in diesem CCP bekräftigt den Wiederbeitritt */
 }
 /* Vorgemerkte Abmeldung an den Server nachreichen (App-Start, online, Rückkehr der Verbindung).
@@ -3190,7 +3420,7 @@ async function cleanupClosedEinsatz(info){
     if(/^[a-f0-9]{32}$/i.test(inv.trim())) accessDel('argus_invite');
   }catch(e){}
   if(_channel){ try{_channel.unsubscribe();}catch(e){} _channel=null; }
-  _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; _ccpIdsKnown=null;
+  _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; _ccpIdsKnown=null; mergeInfoReset();
   masterMedic=''; _demoMerged=false; ccpMerged=false;
   checklist={hdr:{},items:{}};
   patients=patients.filter(function(p){return p.demo||p.training;});
@@ -4149,6 +4379,10 @@ var _mesh = {
   awake:false,                                    /* Wachhalten aktiv */
   closing:false,                                  /* P1: Abschluss gesendet, Stopp folgt verzögert — Takt, Start und Empfang ruhen */
   closeFromMesh:false,                            /* P1: Abschluss kam über das Mesh — beim eigenen Bereinigen kein zweites close senden */
+  verbundBestaetigt:null,                         /* D6.9-07: Sendepuffer — Verbund-Stand NUR aus Server-Zeilen (meshVerbundErfassen); überlebt meshResetSession */
+  verbundSig:'', verbundAt:0, verbundHolt:false,  /* D6.9-07: Signatur/Zeit der letzten Server-Erfassung, Abruf läuft */
+  lastVerbund:0,                                  /* D6.9-07: letzter Versand (Takt verbundMs) */
+  verbundStand:0, verbundStandCcp:null,           /* D6.9-07: zuletzt übernommener Stand (Monotonie) und sein CCP */
   pillTxt:''                                      /* zuletzt gerenderter Pillentext (Render nur bei Änderung) */
 };
 /* aktiv = mit Nabe verbunden oder selbst Nabe; Ziel = Nabe (Speiche) bzw. alle Speichen (Nabe). */
@@ -4261,7 +4495,7 @@ function meshSend(t, body, to){
   return true;
 }
 /* Relay (nur Nabe, Store-and-forward): unveränderte json an alle verbundenen Speichen außer dem Absender — oder
- * gezielt an onlyKey (foto-req). Weitergeleitet werden nur delta/rcpt/lock/close/foto-req (der Aufrufer entscheidet). */
+ * gezielt an onlyKey (foto-req). Weitergeleitet werden nur delta/rcpt/lock/close/verbund/foto-req (der Aufrufer entscheidet). */
 function meshRelay(json, fromKey, onlyKey){
   var N=_mesh.native; if(!N || _mesh.st.s!=='hub' || typeof json!=='string') return;
   if(onlyKey){
@@ -4415,6 +4649,7 @@ function meshTick(){
       if(_mesh.st.s==='hub' && now-_mesh.lastMeta>=30000) meshSendMeta();
       meshSendInv(null);                                            /* drosselt sich selbst auf invMs */
       meshDrainRcpt(now);
+      meshVerbundSenden(now);                                       /* D6.9-07: nur Gateway (Netz), drosselt sich auf verbundMs */
     }
   }
   meshUpdateAwake();
@@ -4422,7 +4657,7 @@ function meshTick(){
 }
 /* Eingang (D6.7-10, T-06.7-30): JSON im try, dann meshValidate (Typ, ccp, from, id, Zeit, Größe, Inhalt, authed),
  * dann meshDedup — erst danach wirkt etwas. Nur von verbundenen Transportpeers; ein abweichendes from ist nur über die
- * eigene Nabe erlaubt (Relay). Relay (Nabe) nur für delta/rcpt/lock/close; foto-req leitet der Zweig gezielt weiter;
+ * eigene Nabe erlaubt (Relay). Relay (Nabe) nur für delta/rcpt/lock/close/verbund; foto-req leitet der Zweig gezielt weiter;
  * inv/req/hello/hb/meta nie. */
 function meshOnMessage(ev){
   if(_mesh.closing) return;   /* P1: Abschluss gesendet, Stopp folgt */
@@ -4457,6 +4692,7 @@ function meshOnMessage(ev){
     case 'meta': meshHandleMeta(msg, key); break;
     case 'hb': meshHandleHb(msg, key); break;
     case 'close': if(hub) meshRelay(json, key); meshHandleClose(msg, key); break;   /* P1: erst weiterleiten, dann anwenden */
+    case 'verbund': if(hub) meshRelay(json, key); meshHandleVerbund(msg, key); break;   /* D6.9-07: erst weiterleiten, dann entscheiden (wie close) */
   }
 }
 /* P1: Abschluss im Mesh weitergeben — Löschfristen ab closedAt wie beim Server-Abschluss.
@@ -4483,6 +4719,70 @@ async function meshHandleClose(msg, key){
   if(_training || _remoteCloseHandling || _selfClosing) return;
   _mesh.closeFromMesh=true;
   handleRemoteClose(Object.assign(meshCloseRow(msg.closedAt), {kennung:_ccpKennung}));
+}
+/* D6.9-07: Verbund-Stand im Mesh DESSELBEN CCP. Vertrauensstufe wie close: authentisierte Geräte dieses CCP-Mesh,
+ * Plausibilität per Weißliste; gesendet wird nur Server-bestätigter Stand eines Gateways, mit Netz entscheidet beim
+ * Empfänger der Server. Kein Verbund-übergreifendes Mesh (Phase 6.10, Verbund-Mesh). Geräte ≤ 0.35.6 verwerfen den Typ; eine
+ * alte Nabe leitet ihn nicht weiter. Patienten der anderen Verbund-CCPs kommen weiterhin nur über den Server. */
+/* Erfassen (Gateway): einziger Schreiber des Sendepuffers — nur aus Server-Zeilen (loadMeta-Serverpfad, Realtime-UPDATE)
+ * mit der Mitgliederliste vom Server; nie aus Mesh-Empfang oder lokaler Aktion. Nur Hülle + Netz, nicht im Training.
+ * Unveränderte Signatur → höchstens alle 10 min neu abfragen. Fehler bleiben still; wird nie awaitet. */
+async function meshVerbundErfassen(row){
+  try{
+    if(!meshNative() || _training || !_ccpId || !row || row.id!==_ccpId || !netLikelyUp()) return;
+    var client=sb(); if(!client) return;
+    if(!row.merge_group_id || isCcpClosedRow(row)){ _mesh.verbundBestaetigt=null; _mesh.verbundSig=''; return; }
+    var sig=[row.merge_group_id, row.kennung, row.flz_merge_at, row.master_medic].join('|');
+    if((sig===_mesh.verbundSig && nowMs()-_mesh.verbundAt<600000) || _mesh.verbundHolt) return;
+    var cid=_ccpId;
+    _mesh.verbundHolt=true;
+    var r=null;
+    try{ r=await qt(client.from('ccps').select('id,kennung').eq('merge_group_id', row.merge_group_id).is('closed_at', null)); }
+    finally{ _mesh.verbundHolt=false; }
+    if(_ccpId!==cid || _training || !r || r.error || !Array.isArray(r.data)) return;
+    var body=meshVerbundBody(row, r.data, nowMs());
+    _mesh.verbundBestaetigt=body; _mesh.verbundSig=sig; _mesh.verbundAt=nowMs();
+    if(body) _mesh.lastVerbund=0;   /* sofort im nächsten Takt senden */
+  }catch(e){}
+}
+/* Senden (Gateway, im 1-s-Takt): nur mit Netz und aktivem Mesh, nur der Puffer aus meshVerbundErfassen, nur solange der
+ * eigene CCP darin steht und der Stand höchstens verbundTtlMs alt ist; höchstens alle verbundMs. */
+function meshVerbundSenden(now){
+  var b=_mesh.verbundBestaetigt;
+  if(!b || _training || !meshActive() || !netLikelyUp()) return;
+  if(!Array.isArray(b.ids) || b.ids.indexOf(_ccpId)<0){ _mesh.verbundBestaetigt=null; return; }   /* CCP gewechselt → Puffer leeren */
+  if(now-(b.stand||0) > MESH_PROTO.verbundTtlMs) return;
+  if(now-_mesh.lastVerbund < MESH_PROTO.verbundMs) return;
+  _mesh.lastVerbund=now;
+  meshSend('verbund', b, meshTargets());
+}
+/* Empfang: mit Netz nur den Server fragen (loadMeta → loadPatients); ohne Netz vorläufig übernehmen (Verbund-Gruppe,
+ * CCP-Liste, Präfix-Anzeige, neue Kennung für neue Patienten, MasterMedic, Hinweis), bis der nächste Serverkontakt alles
+ * überschreibt. Ältere/gleiche Stände wirken nicht doppelt. Schreibt nie den Sendepuffer und keine Patienten, sendet nichts. */
+function meshHandleVerbund(msg, key){
+  if(_training || _remoteCloseHandling || _selfClosing){ _mesh.lastError='rx:verbund:busy'; return; }
+  var e=meshVerbundEntscheid(msg, {online:netLikelyUp() && !!sb(), ccpId:_ccpId,
+    stand:(_mesh.verbundStandCcp===_ccpId) ? (_mesh.verbundStand||0) : 0,
+    grp:_mergeGroupId, kennung:_ccpKennung, flzAt:_flzMergeAt, mm:masterMedic});
+  if(e==='server'){
+    try{ loadMeta().then(function(){ return loadPatients(); }).then(function(){ render(); }, function(){}); }catch(err){}
+    return;
+  }
+  if(e==='fremd' || e==='alt'){ _mesh.lastError='rx:verbund:'+e; return; }
+  _mesh.verbundStand=msg.stand; _mesh.verbundStandCcp=_ccpId;
+  if(e!=='anwenden') return;
+  _mergeGroupId=msg.grp;
+  _ccpIdsKnown=msg.ids.slice();
+  try{ localStorage.setItem('argus_ccp_ids_'+_ccpId, JSON.stringify(_ccpIdsKnown)); }catch(err){}
+  ccpMerged=true;
+  _ccpKennung=msg.kennung;
+  if(msg.mm && msg.mm!==String(masterMedic||'').slice(0,40)){
+    masterMedic=msg.mm;
+    try{ sSet('ccp_mastermedic', masterMedic).then(null, function(){}); }catch(err){}
+  }
+  if(msg.quelle==='flz' && typeof msg.flzAt==='number'){ _flzMergeAt=msg.flzAt; flzMergeHinweis(); }
+  else toast('Zusammengeführt — Haupt-CCP '+(msg.hauptK||'?')+'; gemeinsame Liste, sobald Netz besteht');
+  render();
 }
 /* Pillenzustand (D6.7-11): Text aus meshPillText; Render nur bei Änderung und nur auf home (T-06.7-37).
  * n = Nabe: verbundene Speichen + 1; Speiche: Gerätezahl der letzten meta, sonst 2. */
@@ -5012,8 +5312,8 @@ function vHome(){
   var schulBanner=(_praesidiumSchulung&&!_training)?
     '<div style="background:#F2B600;color:#1b1d20;padding:12px 14px;margin-bottom:8px;border-radius:10px;text-align:center;font-weight:700;font-size:16px;border:2px solid #c9960a;letter-spacing:.3px">🎓 SCHULUNGSUMGEBUNG — keine echten Patientendaten</div>':
     '';
-  return countbar()+schulBanner+
-  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()&&netLikelyUp()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+(function(){var h=clockHint(_clockOffset);return h?'<br><span class="hint">⏱ '+esc(h)+'</span>':'';})()+'</div></div>'+
+  return countbar()+schulBanner+mergeAnfrageBanner()+
+  '<div class="banner"><span>⇄</span><div>'+(_configError?'⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden':(_ccpId&&sb()&&netLikelyUp()?'🟢 Echtzeit-Modus':'🔴 Lokaler Modus'))+(_praesidiumName?' · '+esc(_praesidiumName):'')+(function(){var n=patients.filter(function(p){return p._dirty;}).length;return n?' · <b style="color:#c60">⏳ '+n+' nicht synchronisiert</b>':'';})()+': Alle Geräte im selben CCP teilen dieselbe Patientenliste.<br><span class="hint">Bediener: '+(esc(operator)||"—")+' · <a href="#" data-action="setoperator" style="color:var(--mut)">ändern</a></span><br>'+mmLine+(function(){var h=clockHint(_clockOffset);return h?'<br><span class="hint">⏱ '+esc(h)+'</span>':'';})()+((_mergeGroupId && flzMergeFrisch(_flzMergeAt, nowMs()))?'<br><span class="hint">⇄ Zusammengeführt durch FLZ ('+esc(hhmm(_flzMergeAt))+')</span>':'')+'</div></div>'+
   meshPill()+
   devicesCard()+
   navbtn("checklist","☑","Checkliste CCP","Aufbau & Leitung, mit Notizen")+
@@ -5049,8 +5349,15 @@ function devicesCard(){
   var merged=(_ccpIdsKnown||[]).length>1;
   if(!rows) rows=_devices;
   var col={verbunden:'var(--t3)', ausser_reichweite:'var(--t2)', abgemeldet:'var(--t1)', verlassen:'var(--mut)'};
-  var h='<div class="sech">Geräte im CCP</div><div class="card" style="padding:10px">';
-  rows.forEach(function(d){
+  /* D6.9-03: Normalfall eine Zeile „Geräte im CCP: N“; Auffälliges ergänzt und hervorgehoben (abgemeldet rot, sonst amber).
+   * Antippen klappt die bisherige Liste auf/zu — alle MasterMedic-Eingriffe (devtap) bleiben dort erreichbar. */
+  var k=devKurz(rows, now), kc={ok:'var(--t3)', warn:'var(--t2)', rot:'var(--t1)'}[k.stufe], hi=k.stufe!=='ok';
+  var h='<div class="card" style="padding:10px">'+
+    '<button class="txbtn" data-action="devtoggle" aria-expanded="'+(_devOffen?'true':'false')+'" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;font-size:15px;padding:10px 12px'+(_devOffen?';margin-bottom:6px':'')+(hi?';border-left:4px solid '+kc+';font-weight:700':'')+'">'+
+      '<span style="width:12px;height:12px;border-radius:50%;flex:none;background:'+kc+'"></span>'+
+      '<span style="flex:1;color:var(--tx)">'+esc(devKurzText(k))+'</span>'+
+      '<span style="flex:none;color:var(--mut)">'+(_devOffen?'▲':'▼')+'</span></button>';
+  if(_devOffen) rows.forEach(function(d){
     var st=devStatus(d, now), self=(myDev>=1 && d.device_no===myDev && (!d.ccp_id || d.ccp_id===_ccpId));
     h+='<button class="txbtn" data-action="devtap" data-ccp="'+esc(d.ccp_id)+'" data-dev="'+esc(d.device_no)+'" style="width:100%;min-height:48px;display:flex;align-items:center;gap:10px;text-align:left;font-size:15px;margin-bottom:6px;padding:10px 12px">'+
       '<span style="width:12px;height:12px;border-radius:50%;flex:none;background:'+col[st]+'"></span>'+
@@ -5920,14 +6227,14 @@ function trainCount(){ return patients.filter(function(p){return p.training;}).l
 function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
 function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; if(_training)_photosAllowed=true; }catch(e){} }   /* Reload mitten im Training: Foto-Schalter lokal wieder an (s. Kommentar oben) */
 function trainSave(){ try{ localStorage.setItem('argus_training',_training?'1':'0'); localStorage.setItem('argus_train_step',String(_trainStep)); }catch(e){} }
-async function startTraining(){ if(!_training){ try{ meshStop('training'); }catch(e){} try{await trainReset();}catch(e){} clearLeftMarker(true); _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; _photosAllowed=true; trainSave(); try{await loadPatients();}catch(e){} render(); }   /* Foto-Schalter lokal an (train-ccp synct nie → kein Cloud-Leck) */
+async function startTraining(){ if(!_training){ try{ meshStop('training'); }catch(e){} try{await trainReset();}catch(e){} clearLeftMarker(true); _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; mergeInfoReset(); state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; _photosAllowed=true; trainSave(); try{await loadPatients();}catch(e){} render(); }   /* Foto-Schalter lokal an (train-ccp synct nie → kein Cloud-Leck) */
 async function trainReset(){ try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && pp.training) await sDel(lk[i]); } }catch(e){} }
 async function endTraining(){
   /* Overlay (Spotlight + Panel) VOR dem Dialog entfernen, sonst liegt es im Vordergrund. */
   try{ trainClearSpot(); var pe=document.getElementById('train-coach'); if(pe&&pe.parentNode)pe.parentNode.removeChild(pe); }catch(e){}
   var ok=await confirmModal('Training beenden?\n\nDie Übungsdaten auf diesem Gerät werden entfernt. Echte CCPs sind nicht betroffen.','Beenden');
   if(!ok){ try{ renderCoach(); }catch(e){} return; }
-  _training=false; _photosAllowed=true; trainSave(); try{ trainTeardown(); }catch(e){}   /* Fotos bleiben dauerhaft an (v0.31.0) */ try{await trainReset();}catch(e){} clearLeftMarker(true); if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} try{ meshStart(); }catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
+  _training=false; _photosAllowed=true; trainSave(); try{ trainTeardown(); }catch(e){}   /* Fotos bleiben dauerhaft an (v0.31.0) */ try{await trainReset();}catch(e){} clearLeftMarker(true); if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; mergeInfoReset(); try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} try{ meshStart(); }catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
 }
 function trainStep(d){
   if(d>0){ _trainStep=Math.min(_trainStep+1,TRAIN_LESSONS.length); if(_trainStep>_trainMax)_trainMax=_trainStep; }
@@ -6614,7 +6921,7 @@ document.addEventListener("click",async function(e){
       clearLeftMarker();   /* neuer CCP → altes „verlassen“ verfällt */
       if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
       try{ meshStop('training'); }catch(e){}   /* Phase 6.7 (T-06.7-31): nie im Training */
-      _ccpId='train-ccp'; _mergeGroupId=null; _ccpKennung='A'; patients=[];
+      _ccpId='train-ccp'; _mergeGroupId=null; _ccpKennung='A'; patients=[]; mergeInfoReset();
       try{
         if(!checklist.hdr)checklist.hdr={};
         if(ortTr && ortTr.trim()){ checklist.hdr.ort=ortTr.trim(); _ccpOrt=ortTr.trim(); }
@@ -6631,7 +6938,7 @@ document.addEventListener("click",async function(e){
      * scheitert das Anlegen), bleibt er in seinem alten CCP statt CCP-los. */
     var prevCcp={id:_ccpId, grp:_mergeGroupId, k:_ccpKennung, pats:patients};
     if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
-    _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[];
+    _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[]; mergeInfoReset();
     var ok2=await openOrCreateCCP();
     if(ok2){ clearLeftMarker(); subscribeRealtime(); await loadPatients(); try{ meshStart(); }catch(e){} }   /* Phase 6.7: Mesh je CCP */
     else{
@@ -6697,6 +7004,33 @@ document.addEventListener("click",async function(e){
     render();toast("Du bist jetzt MasterMedic");
     return;
   }
+  /* D6.9-02: offene Anfrage — bewusste Rollenübernahme, danach der bestehende
+   * Bestätigungsdialog (zwei Bestätigungen, kein stiller Durchgriff). */
+  if(a==="mergeclaim"){
+    e.preventDefault();
+    if(!operator){var vq=await promptModal("Erst dein Kürzel angeben:",operator||"");if(vq==null||!vq.trim())return;operator=vq.trim();await setOperatorStore(operator);}
+    var okq=await confirmModal((masterMedic?('MasterMedic-Rolle von '+masterMedic+' übernehmen'):'MasterMedic-Rolle übernehmen')+' und die Zusammenführung mit CCP '+(_mergeReqK||'?')+' bestätigen?\n\nDanach fragt die App die Zusammenführung noch einmal ab.','Übernehmen');
+    if(!okq)return;
+    await setMasterMedic(operator);
+    try{ if(!checklist.hdr)checklist.hdr={}; checklist.hdr.mm=operator; await saveChecklist(); }catch(e){}
+    try{ pollDevices().then(function(){ try{ render(); }catch(e){} }); }catch(e){}
+    render();toast('Du bist jetzt MasterMedic');
+    await checkIncomingMergeRequest(); render();
+    return;
+  }
+  /* D6.9-02: eigene Anfrage zurückziehen — leert nur die eigene Anfrage am Ziel (T-06.9-22). */
+  if(a==="mergewithdraw"){
+    var wid=el.getAttribute("data-id"), wk=el.getAttribute("data-k")||'?';
+    var wc=sb();
+    if(!wc || !netLikelyUp()){ toast('Offline — Zurückziehen geht wieder, sobald Verbindung besteht'); return; }
+    var okw=await confirmModal('Anfrage an CCP '+wk+' zurückziehen?','Zurückziehen');
+    if(!okw || !wid || !_ccpId)return;
+    var wr=null; try{ wr=await qt(wc.from('ccps').update({merge_request_from:null, merge_request_at:null}).eq('id',wid).eq('merge_request_from',_ccpId)); }catch(err){ wr={error:err}; }
+    if(wr && !wr.error){ _mergeOut=(_mergeOut||[]).filter(function(o){ return o && o.id!==wid; }); toast('Anfrage zurückgezogen'); }
+    else toast('Zurückziehen fehlgeschlagen');
+    await loadMergeInfo(true); render();
+    return;
+  }
   if(a==="mergestart"){
     var ccpKey=await mergeCcpSelectModal();
     if(!ccpKey)return;
@@ -6730,7 +7064,7 @@ document.addEventListener("click",async function(e){
       else toast("Zusammenführen fehlgeschlagen");
     }else{
       var okr=await realMergeRequest(tgt);
-      if(okr){await loadPatients();render();toast("Anfrage gesendet — warte auf Bestätigung der CCP-Leitung");}
+      if(okr){await loadPatients();render();toast("Anfrage gesendet — warte auf Bestätigung der CCP-Leitung"); loadMergeInfo(true).then(function(){ render(); });}
       else toast("Anfrage fehlgeschlagen");
     }
     return;
@@ -6800,7 +7134,7 @@ document.addEventListener("click",async function(e){
     _demoMerged=false; await sSet("ccp_merged",false);
     var slk=await sList("ccp_pat_"); for(var si=0;si<slk.length;si++){await sDel(slk[si]);}
     if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
-    _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[];
+    _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[]; mergeInfoReset();
     localStorage.removeItem('argus_ccp_id');
     await loadOpenCcpCount();
     go("start");toast("Schulungsumgebung geleert");
@@ -6834,7 +7168,7 @@ document.addEventListener("click",async function(e){
     /* Trainer NICHT in einen CCP setzen — er findet die Demo-CCPs auf der
      * Landingpage vor und kann beitreten/übernehmen. */
     if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;}
-    _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[];
+    _ccpId=null; _mergeGroupId=null; _ccpKennung='A'; patients=[]; mergeInfoReset();
     localStorage.removeItem('argus_ccp_id');
     await loadOpenCcpCount();
     go("start");
@@ -6928,6 +7262,7 @@ document.addEventListener("click",async function(e){
     render(); toast(a==="confadopt"?"Stand übernommen":"Als erledigt markiert");
     return;
   }
+  if(a==="devtoggle"){ _devOffen=!_devOffen; render(); return; }   /* D6.9-03: Geräteliste auf/zu */
   if(a==="devtap"){
     if(!isMasterMedic() || _training) return;
     var dccp=el.getAttribute("data-ccp"), ddev=parseInt(el.getAttribute("data-dev"),10);
@@ -7132,7 +7467,9 @@ setInterval(async function(){
    * Dateiauswahl läuft (max. 3 min), wird NICHT neu gerendert. */
   if(state.capPopup) return;
   if(_filePickerOpen && nowMs()-_filePickerOpen<180000) return;
-  await loadMeta();await loadPatients();await loadChecklist();
+  await loadMeta();
+  loadMergeInfo();   /* D6.9-02: Hintergrund, nicht awaited (Local-first) */
+  await loadPatients();await loadChecklist();
   await checkIncomingMergeRequest();
   try{ prefetchNum(); }catch(e){}   /* Online-Nummer bereithalten (no-op, wenn schon reserviert/offline) */
   render();
