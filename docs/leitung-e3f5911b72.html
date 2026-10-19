@@ -146,6 +146,8 @@
   .vmem{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);padding:5px 10px;border-top:1px dashed var(--line)}
   .vmem .nm2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .vmem .ked{margin-left:auto}
+  /* Verbund D6.9-10: kleiner Hinweis „Verbund“ unter dem Kopfband */
+  .vhin{padding:4px 10px 0;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut)}
   /* 6.8-BAUSTEINE-ENDE */
   /* 6.8-VERWALTUNG — Bandzeile mit Umschalter, Navigationsgruppen, Raster (nur Verwaltung) */
   .ubar{position:sticky;top:var(--toph,46px);z-index:40;display:flex;align-items:stretch;flex-wrap:wrap;box-shadow:0 2px 6px rgba(0,0,0,.12)}
@@ -661,8 +663,24 @@ function lageGruppen(ccps){
     if(!g){ g={key:key, verbund:!!c.verbund_gruppe, n:0, members:[]}; idx['k'+key]=g; out.push(g); }
     g.members.push(c);
   });
-  out.forEach(function(g){ if(g.verbund) g.n=++vn; });
+  out.forEach(function(g){
+    if(g.verbund && g.members.length<2) g.verbund=false;
+    if(g.verbund) g.n=++vn;
+  });
   return out;
+}
+function lageHaupt(members){
+  var m=(Array.isArray(members) ? members : []).filter(function(c){ return !!c && typeof c==='object'; });
+  var best=null, i;
+  if(!m.length) return null;
+  for(i=0;i<m.length;i++){ if(m[i].id && m[i].id===m[i].verbund_gruppe) return m[i]; }
+  function kenn(c){ return (c.kennung===null || c.kennung===undefined || c.kennung==='') ? null : String(c.kennung); }
+  best=m[0];
+  for(i=1;i<m.length;i++){
+    var a=kenn(m[i]), b=kenn(best);
+    if(a!==null && (b===null || a<b)) best=m[i];
+  }
+  return best;
 }
 function lageSummen(list){
   var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0,pat:0,ccps:0};
@@ -752,14 +770,16 @@ function karteA(g, akt, opts){
   function stift(c){
     return opts.ortEdit ? '<span class="ked" data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern">✏️</span>' : '';
   }
+  var hp=lageHaupt(m)||c0, grp=hp.verbund_gruppe||g.key||'';
   h='<div class="ka">';
-  h+='<div class="kb'+(akt.alt?' alt':'')+'"><span class="kbl">';
+  h+='<div class="kb'+(akt.alt?' alt':'')+'"'+(g.verbund && opts.verbundAkt ? ' data-vkopf="'+esc(grp)+'"' : '')+'><span class="kbl">';
   if(g.verbund){
-    h+='VERBUND'+(opts.vnTotal>1?' '+(+g.n||0):'')+' · CCP '+m.map(function(c){ return esc(kennungKurz(c.kennung)); }).join(' + ');
+    h+=ortZiel(hp, 'CCP '+m.map(function(c){ return esc(kennungKurz(c.kennung)); }).join('+')+(hp.ort?' · '+esc(hp.ort):''), 'kn');
   }else{
     h+=ortZiel(c0, 'CCP '+esc(kennungKurz(c0.kennung))+(c0.ort?' · '+esc(c0.ort):''), 'kn')+stift(c0);
   }
   h+='</span><span class="kbr">'+(akt.alt ? esc(fmtAlter(akt.min, akt.t?fmtHM(akt.t):'—'))+' · ' : '')+s.pat+' Pat.</span></div>';
+  if(g.verbund) h+='<div class="vhin">Verbund'+(opts.vnTotal>1?' '+(+g.n||0):'')+'</div>';
   h+='<div class="kz">';
   h+='<div class="k" style="background:var(--t1)"><span class="n">'+s.t1+'</span><span class="l">T1</span></div>';
   h+='<div class="k" style="background:var(--t2);color:#3A2C00"><span class="n">'+s.t2+'</span><span class="l">T2</span></div>';
@@ -777,7 +797,16 @@ function karteA(g, akt, opts){
   h+='<div class="kmeta"><span>abtransportiert <b>'+s.gpa+'</b> · Prio <b>'+s.prio+'</b> · fertig <b>'+s.ready+'</b></span><span>'+rechts+'</span></div>';
   if(g.verbund){
     m.forEach(function(c){
-      h+='<div class="vmem">'+ortZiel(c, 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c)+'</div>';
+      var isH=(c===hp);
+      h+='<div class="vmem"'+(opts.verbundAkt && !isH ? ' draggable="true" data-vmid="'+esc(c.id||'')+'" data-vgrp="'+esc(grp)+'"' : '')+'>';
+      h+=ortZiel(c, isH
+        ? 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+' · Haupt-CCP'
+        : 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · früher: '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c);
+      if(opts.verbundAkt){
+        h+='<span class="vakt">'+(isH ? '' : '<button class="vbtn" data-action="vhaupt" data-vmid="'+esc(c.id||'')+'">Zum Haupt-CCP machen</button>')+
+          '<button class="vbtn" data-action="vsplit" data-vmid="'+esc(c.id||'')+'">Aus Verbund lösen</button></span>';
+      }
+      h+='</div>';
     });
   }
   return h+'</div>';
@@ -1955,6 +1984,22 @@ function flzMergeEreignis(det){
   return 'Zusammengeführt durch '+(det && det.durch ? String(det.durch) : 'FLZ')+
     ' — CCP '+(det && det.von ? String(det.von) : '?')+' → Haupt-CCP '+(det && det.haupt ? String(det.haupt) : '?');
 }
+/* Phase 6.9 (D6.9-10): Ereignisse aus Migration 0034 (argus_flz_split, argus_flz_haupt).
+ * detail flz_split {durch, rolle, ccp, verbund_vorher, verbund_nachher, aufgeloest,
+ * haupt_vorher, haupt_nachher, gruppe_vorher, gruppe_nachher}; flz_haupt {durch, rolle,
+ * haupt_vorher, haupt_nachher, verbund, gruppe_vorher, gruppe_nachher}.
+ * Rohtext — die Ausgabe escaped; unbekannte Aktion → ''. */
+function flzVerbundEreignis(action, det){
+  var d=det||{}, durch=d.durch ? String(d.durch) : 'FLZ';
+  if(action==='flz_split'){
+    return 'Aus Verbund gelöst durch '+durch+' — CCP '+(d.ccp?String(d.ccp):'?')+
+      (d.aufgeloest===true ? ' (Verbund aufgelöst)' : (d.haupt_nachher && d.haupt_vorher && d.haupt_nachher!==d.haupt_vorher ? ' (neuer Haupt-CCP '+String(d.haupt_nachher)+')' : ''));
+  }
+  if(action==='flz_haupt'){
+    return 'Haupt-CCP gewechselt durch '+durch+' — '+(d.haupt_vorher?String(d.haupt_vorher):'?')+' → '+(d.haupt_nachher?String(d.haupt_nachher):'?');
+  }
+  return '';
+}
 /* Datenherkunft (Phase 6.5, S7, D6.5-09/-15): Geräte, Wege und Ereignisse aus
  * argus_governance_protokoll.devices/.herkunft. Fehlen beide Schlüssel (Server ohne 0026) → null.
  * Alle Werte stammen von Feld-Geräten: die Ausgabe in vDatenherkunft läuft ausschließlich über esc(). */
@@ -1993,6 +2038,9 @@ function herkunftModel(d, pats){
     }else if(e.action==='flz_merge'){
       /* D6.9-05: Zuordnung durch die FLZ — kein Gerät beteiligt (dev:null) */
       events.push({at:e.at, label:flzMergeEreignis(det), dev:null, kuerzel:e.kuerzel||'', open:null});
+    }else if(e.action==='flz_split' || e.action==='flz_haupt'){
+      /* D6.9-10: Herauslösen/Haupt-Wechsel durch die FLZ (0034) — kein Gerät beteiligt */
+      events.push({at:e.at, label:flzVerbundEreignis(e.action, det), dev:null, kuerzel:e.kuerzel||'', open:null});
     }else if(HERK_EV[e.action]){
       events.push({at:e.at, label:HERK_EV[e.action], dev:dev, kuerzel:e.kuerzel||'', open:(det.open_n!=null ? (det.open_n|0) : null)});
     }
@@ -2679,6 +2727,8 @@ function actionLabel(a){
   if(a==='admin_gast_revoke') return 'Admin: Gast-Code gesperrt';
   /* Phase 6.9 (D6.9-05): Zuordnung eines CCP durch die FLZ (Migration 0033) */
   if(a==='flz_merge') return 'Zusammengeführt durch FLZ';
+  if(a==='flz_split') return 'Aus Verbund gelöst durch FLZ';
+  if(a==='flz_haupt') return 'Haupt-CCP gewechselt durch FLZ';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -2704,7 +2754,9 @@ function secProtokoll(){
     ['admin_login','Admin-Login'],
     ['admin_gast_issue','Admin: Gast-Code ausgegeben'],
     ['admin_gast_revoke','Admin: Gast-Code gesperrt'],
-    ['flz_merge','Zusammengeführt durch FLZ']
+    ['flz_merge','Zusammengeführt durch FLZ'],
+    ['flz_split','Aus Verbund gelöst durch FLZ'],
+    ['flz_haupt','Haupt-CCP gewechselt durch FLZ']
   ];
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
@@ -2751,7 +2803,7 @@ function secProtokoll(){
       if(l.action==='frist_verlaengert'){
         h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+fmtMs(l.neue_frist):'')+'</div>';
       }
-      if(l.action==='flz_merge'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
+      if(l.action==='flz_merge' || l.action==='flz_split' || l.action==='flz_haupt'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
       h+='</div>';
     });
     h+='</div>';
