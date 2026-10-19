@@ -4,7 +4,9 @@ Dieses Projekt (Argus) ist eine Single-File-PWA ohne Build-Pipeline und
 ohne npm-Abhängigkeiten in der Web-App selbst. Alle Drittanbieter-Ressourcen
 der Web-App sind **lokal im Repository eingebunden** (self-hosted) — zur
 Laufzeit erfolgen **keine Requests an Drittanbieter-Server** (kein CDN,
-keine externen Font-Dienste). Die optionale iOS-Hülle (`native/`) bezieht
+keine externen Font-Dienste). Einzige Ausnahme: die optionale Straßenkarte
+der FLZ-Seite lädt Kartenkacheln beim in `karte-config.js` eingetragenen
+Kartendienst (siehe Abschnitt 5). Die optionale iOS-Hülle (`native/`) bezieht
 Capacitor über npm (siehe Abschnitt 4).
 
 ---
@@ -66,6 +68,37 @@ Capacitor über npm (siehe Abschnitt 4).
   Repository: https://github.com/ionic-team/capacitor)
 - **Verwendung:** Laufzeit-Brücke zwischen der WebView und iOS; verpackt
   die unveränderte Web-App als iOS-App.
+
+---
+
+## 5. Leaflet (Kartenanzeige der FLZ-Seite)
+
+- **Eingebunden als:** lokale Dateien `vendor/leaflet/leaflet.js` und
+  `vendor/leaflet/leaflet.css` (unverändert); Lizenztext in
+  `vendor/leaflet/LICENSE`. Geladen nur von der FLZ-Seite
+  (`docs/lage-*.html`), nicht von der Feld-App und nicht vom Service Worker.
+  Bilddateien des Pakets werden nicht benötigt (Kreis-Marker statt Bild-Marker).
+- **Version:** 1.9.4
+- **Herkunft der Kopie:** npm-Registry-Tarball `leaflet-1.9.4.tgz`
+  (einmaliger Download, 2026-10-19; Integrität geprüft gegen
+  `sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==`)
+- **Autoren:** Volodymyr Agafonkin, CloudMade
+  (Copyright (c) 2010-2023, Volodymyr Agafonkin; Copyright (c) 2010-2011, CloudMade)
+- **Quelle:** https://github.com/Leaflet/Leaflet
+- **Lizenz:** BSD-2-Clause (BSD 2-Clause License, siehe `vendor/leaflet/LICENSE`)
+- **Verwendung:** Darstellung der Straßenkarte unter den CCP-Punkten. Die
+  Bibliothek selbst lädt nichts von Drittservern.
+
+### Kartendaten (Laufzeit, austauschbar)
+
+Die Kartenkacheln stammen NICHT aus diesem Repository, sondern vom Kartendienst,
+der in der Passform `karte-config.js` eingetragen ist. Vorläufig ist das
+**OpenStreetMap** (Kachel-Server der OpenStreetMap Foundation; Daten
+© OpenStreetMap-Mitwirkende, Open Database License,
+https://www.openstreetmap.org/copyright). Der Quellenhinweis wird in der Karte
+angezeigt. Dies ist die einzige Stelle, an der zur Laufzeit ein Drittserver
+angefragt wird — und nur, solange eine Passform eingetragen ist
+(`window.ARGUS_KARTE = null` schaltet das ab).
 
 ---
 

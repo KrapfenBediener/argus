@@ -121,6 +121,8 @@
   /* Summenleiste D6.8-03: sechs große Kacheln + schmale Nebenzeile */
   .sumbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 6px}
   .sumbar .sum{background:var(--bg);border-radius:10px;padding:12px 6px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  /* Infokacheln (abtransportiert, offene CCPs): nur umrandet, ohne Füllung, in der Textfarbe des Modus */
+  .sumbar .sum.info{background:transparent;border:2px solid var(--tx);color:var(--tx);box-shadow:none}
   .sumbar .n{font-family:var(--mono);font-weight:700;font-size:38px;line-height:1.05;color:inherit}
   .sumbar .l{font-size:13px;font-weight:700;color:inherit}
   .sumneben{font-size:12.5px;color:var(--mut);margin:0 0 12px;padding:0 2px}
@@ -722,17 +724,18 @@ function umgebungsBand(umgebung, text){
 }
 function summenLeiste(s){
   s=s||{};
-  /* Kategoriefarben wie die Kacheln der Karten; Schrift mit Kontrast (T2 dunkel auf Gelb) */
-  function kachel(n, label, bg, fg){
-    return '<div class="sum" style="background:'+bg+';color:'+fg+'"><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
+  /* T1/T2/T3/T5: gefüllte Kategoriekacheln wie die Karten, Schrift mit Kontrast (T2 dunkel auf Gelb).
+   * Ohne bg: umrandete Infokachel (.info) ohne Füllung — klar abgesetzt von der T5-Kachel. */
+  function kachel(n, label, bg, fg, cls){
+    return '<div class="sum'+(cls?' '+cls:'')+'"'+(bg?' style="background:'+bg+';color:'+fg+'"':'')+'><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
   }
   var h='<div class="sumbar">';
   h+=kachel(s.t1, 'T1', 'var(--t1)', '#fff');
   h+=kachel(s.t2, 'T2', 'var(--t2)', '#3A2C00');
   h+=kachel(s.t3, 'T3', 'var(--t3)', '#fff');
-  h+=kachel(s.t5, 'T5', 'var(--t5)', '#fff');
-  h+=kachel(s.gpa, 'abtransportiert', '#4a5463', '#fff');
-  h+=kachel(s.ccps, 'offene CCPs', '#646d7a', '#fff');
+  h+=kachel(s.t5, 'T5', 'var(--t5)', '#fff', 's-t5');
+  h+=kachel(s.gpa, 'abtransportiert', '', '', 'info');
+  h+=kachel(s.ccps, 'offene CCPs', '', '', 'info');
   h+='</div>';
   h+='<div class="sumneben">Prio-Transport <b>'+(+s.prio||0)+'</b> · transportfertig <b>'+(+s.ready||0)+'</b> · Patienten gesamt <b>'+(+s.pat||0)+'</b></div>';
   return h;

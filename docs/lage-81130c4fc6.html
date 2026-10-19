@@ -11,6 +11,7 @@
 <link rel="icon" type="image/png" href="../assets/icon-flz-192.png">
 <link rel="apple-touch-icon" href="../assets/icon-flz-180.png">
 <meta name="apple-mobile-web-app-title" content="ARGUS FLZ">
+<link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
 <style>
   /* Optik 1:1 nach docs/UI-AUSBLICK.html (PC — FLZ-Lagedashboard), Fonts lokal */
   @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
@@ -72,6 +73,8 @@
   /* Summenleiste D6.8-03: sechs große Kacheln + schmale Nebenzeile */
   .sumbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 6px}
   .sumbar .sum{background:var(--bg);border-radius:10px;padding:12px 6px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  /* Infokacheln (abtransportiert, offene CCPs): nur umrandet, ohne Füllung, in der Textfarbe des Modus */
+  .sumbar .sum.info{background:transparent;border:2px solid var(--tx);color:var(--tx);box-shadow:none}
   .sumbar .n{font-family:var(--mono);font-weight:700;font-size:38px;line-height:1.05;color:inherit}
   .sumbar .l{font-size:13px;font-weight:700;color:inherit}
   .sumneben{font-size:12.5px;color:var(--mut);margin:0 0 12px;padding:0 2px}
@@ -121,7 +124,8 @@
   /* D6.8-06 Lageskizze (Inline-SVG, kein Kartendienst): Farben über Variablen,
    * funktioniert damit auch im Großbild. */
   .skab{margin:18px 0 0}
-  .skab > h3{margin:0 0 8px;font-size:14px;font-weight:700;letter-spacing:.3px;color:var(--tx)}
+  .skab h3{margin:0;font-size:14px;font-weight:700;letter-spacing:.3px;color:var(--tx)}
+  .skkopf{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}
   .skizze{display:block;width:100%;height:auto;max-height:75vh}
   .skizze .skrahmen{fill:var(--bg);stroke:var(--line);stroke-width:1}
   .skizze text{font-family:var(--mono);font-weight:700;font-size:12px}
@@ -155,38 +159,60 @@
   .sklegende .lg-t5{background:var(--t5)}
   .sklegende .lg-leer{background:var(--bg);border-color:var(--mut)}
   .sklegende .lg-grau{background:#9aa1a8}
+  /* 6.8-KARTE */
+  /* Kartenmodul (Passform karte-config.js): Leaflet-Karte statt Skizze. Eigener
+   * Stapelkontext, damit Leaflet-Ebenen (z-index bis 1000) unter Kopfzeile und Band
+   * bleiben. Kacheln werden nie eingefärbt/invertiert (auch nicht im Großbild). */
+  .kschalter{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
+  .kschalter button{background:var(--bg);color:var(--tx);font-size:12px;font-weight:600;padding:4px 12px}
+  .kschalter button + button{border-left:1px solid var(--line)}
+  .kschalter button[aria-pressed="true"]{background:var(--acc);color:#fff}
+  .kartehalter{position:relative;z-index:0;isolation:isolate}
+  .karte{height:440px;border:1px solid var(--line);border-radius:10px;background:#e8eaed;font-family:var(--sans)}
+  .karte .leaflet-tooltip.kartelab{font-family:var(--sans);font-size:13px;font-weight:600;color:#16181a;background:#fff;border:1px solid #9aa1a8;border-radius:6px;padding:2px 7px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .karte .leaflet-control-attribution{font-family:var(--sans);font-size:11px}
+  .karte .leaflet-control-scale-line{font-family:var(--sans);font-weight:600}
+  .kfehl{font-size:12.5px;color:var(--mut);margin:0 0 6px}
   /* 6.8-GROSSBILD */
-  /* D6.8-05 Großbild für Leitstand-Bildschirm/Beamer: dunkles Design über Variablen,
-   * große Zahlen, breites Raster. Nur eigene Regeln mit body.gross — der geteilte
-   * Baustein-Block bleibt unverändert. Kategorie-Farben --t1…--t5 bleiben, das
-   * Schulungs-Band bleibt amber mit dunkler Schrift, Echtbetrieb behält den roten Marker. */
-  body.gross{--bg:#14181d;--surf:#0b0d10;--surf2:#1c2229;--line:#3b434c;--tx:#f3f5f7;--mut:#b4bcc5}
+  /* D6.8-05 Großbild für Leitstand-Bildschirm/Beamer. Zwei Teile: body.gross = Größen
+   * (große Zahlen, breites Raster) in beiden Farbschemata; body.gross.ggedaempft = gedämpftes
+   * Farbschema: nur der Seitenhintergrund wird ein ruhiges Off-White, alles andere (weiße
+   * CCP-Karten mit dunklem Kopfband, Summenleiste, veraltet, Skizze, Karte) bleibt exakt wie
+   * in der Normalansicht. Ohne ggedaempft bleibt das helle Normaldesign (Umschalter
+   * „Großbild: hell | gedämpft“, Wahl in localStorage). Nur eigene Regeln mit body.gross —
+   * der geteilte Baustein-Block bleibt unverändert. */
   body.gross .main{max-width:none;padding:18px 22px}
   body.gross .lgrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
-  body.gross .ka{border-color:#e6e9ec}
-  body.gross .kb{background:#000;border-bottom:1px solid #e6e9ec;font-size:22px;padding:9px 12px}
-  body.gross .kb.alt{background:#6b7178}
-  body.gross .kb.rot{background:var(--t1)}
+  body.gross .kb{font-size:22px;padding:9px 12px}
   body.gross .kbr{font-size:20px}
   body.gross .kz .k .n{font-size:44px}
   body.gross .kz .k .l{font-size:14px}
   body.gross .kmeta{font-size:15px}
   body.gross .sumbar .n{font-size:48px}
-  body.gross .sumbar .sum:nth-child(4){box-shadow:0 0 0 2px #6b7178}
   body.gross .sumbar .l{font-size:15px}
   body.gross .sumneben{font-size:16px}
   body.gross .uband{font-size:18px}
-  body.gross .note,body.gross .empty{background:var(--surf2)}
-  body.gross .ptile{border-color:#e6e9ec}
-  body.gross .btn{box-shadow:inset 0 0 0 1px #e6e9ec}
-  body.gross .skab > h3{font-size:18px}
+  body.gross .skab h3{font-size:18px}
+  body.gross .karte{height:62vh}
+  body.gross .karte .leaflet-tooltip.kartelab{font-size:15px}
+  body.gross .kschalter button{font-size:14px}
+  body.gross .kfehl{font-size:15px}
   body.gross .sklegende,body.gross .skohne{font-size:15px}
   body.gross .skwarn{font-size:16px}
   body.gross .skhinw{font-size:15px}
-  body.gross .sklegende .lg-t5{border-color:#e6e9ec}
   body.gross .skizze .sklab{font-size:15px}
   body.gross .skizze .skdl{font-size:14px}
-  body.gross .sk-t5 circle{stroke:#e6e9ec}
+  /* Gedämpft: Off-White (wärmer/grauer als Weiß, 1,2:1 zur weißen Karte). Die weißen Karten
+   * heben sich durch ihren 2-px-Rahmen in Schiefer ab; die hellen Linien von Karte, Kartenschalter
+   * und Skizze würden auf Off-White verschwinden und bekommen ein mittleres Grau. */
+  body.gross.ggedaempft{--surf:#E9E7E1}
+  body.gross.ggedaempft .karte{border-color:#9aa1a8}
+  body.gross.ggedaempft .kschalter{border-color:#9aa1a8}
+  body.gross.ggedaempft .skizze .skrahmen{stroke:#9aa1a8}
+  /* Umschalter „Großbild: hell | gedämpft“ in der Kopfzeile (nur im Großbild sichtbar) */
+  .topbar .gthema{display:inline-flex;align-items:center;gap:4px}
+  .topbar .gthema .gtl{font-size:12px;opacity:.85}
+  .topbar .gthema button[aria-pressed="true"]{background:#fff;color:var(--acc)}
   /* Wachhalte-Zustand in der Kopfzeile (sichtbarer Fallback, Pitfall 7) */
   .topbar .wach{display:inline-flex;align-items:center;gap:8px;font-size:12px;max-width:42vw;overflow:hidden;text-overflow:ellipsis}
   .topbar .wach .wt{overflow:hidden;text-overflow:ellipsis}
@@ -203,12 +229,15 @@
   <span class="right">
     <span class="stand" id="stattxt"></span>
     <span class="wach" id="wachtxt"></span>
+    <span id="gthema" class="gthema" style="display:none"><span class="gtl">Großbild:</span><button id="gthell" data-action="gthema" data-thema="hell" aria-pressed="false" title="Großbild hell">hell</button><button id="gtgedaempft" data-action="gthema" data-thema="gedaempft" aria-pressed="true" title="Großbild gedämpft">gedämpft</button></span>
     <button id="grossbtn" data-action="gross" style="display:none" title="Großbild für Leitstand/Beamer. Browser-Vollbild: Ctrl+Cmd+F (Mac) bzw. F11 (Windows)">Großbild</button>
     <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
   </span>
 </div>
 <div id="app"></div>
 <script src="../config.js"></script>
+<script src="../karte-config.js"></script>
+<script src="../vendor/leaflet/leaflet.js"></script>
 <script>
 "use strict";
 
@@ -402,17 +431,18 @@ function umgebungsBand(umgebung, text){
  * offene CCPs groß; darunter Nebenzeile Prio/transportfertig/Patienten gesamt. */
 function summenLeiste(s){
   s=s||{};
-  /* Kategoriefarben wie die Kacheln der Karten; Schrift mit Kontrast (T2 dunkel auf Gelb) */
-  function kachel(n, label, bg, fg){
-    return '<div class="sum" style="background:'+bg+';color:'+fg+'"><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
+  /* T1/T2/T3/T5: gefüllte Kategoriekacheln wie die Karten, Schrift mit Kontrast (T2 dunkel auf Gelb).
+   * Ohne bg: umrandete Infokachel (.info) ohne Füllung — klar abgesetzt von der T5-Kachel. */
+  function kachel(n, label, bg, fg, cls){
+    return '<div class="sum'+(cls?' '+cls:'')+'"'+(bg?' style="background:'+bg+';color:'+fg+'"':'')+'><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
   }
   var h='<div class="sumbar">';
   h+=kachel(s.t1, 'T1', 'var(--t1)', '#fff');
   h+=kachel(s.t2, 'T2', 'var(--t2)', '#3A2C00');
   h+=kachel(s.t3, 'T3', 'var(--t3)', '#fff');
-  h+=kachel(s.t5, 'T5', 'var(--t5)', '#fff');
-  h+=kachel(s.gpa, 'abtransportiert', '#4a5463', '#fff');
-  h+=kachel(s.ccps, 'offene CCPs', '#646d7a', '#fff');
+  h+=kachel(s.t5, 'T5', 'var(--t5)', '#fff', 's-t5');
+  h+=kachel(s.gpa, 'abtransportiert', '', '', 'info');
+  h+=kachel(s.ccps, 'offene CCPs', '', '', 'info');
   h+='</div>';
   h+='<div class="sumneben">Prio-Transport <b>'+(+s.prio||0)+'</b> · transportfertig <b>'+(+s.ready||0)+'</b> · Patienten gesamt <b>'+(+s.pat||0)+'</b></div>';
   return h;
@@ -525,6 +555,7 @@ function sessionJwt(){
 function doLogout(msg){
   sessionStorage.clear(); sessWipeLocal();
   wachAus();   /* D6.8-05: Wachhalten endet mit der Sitzung; die Großbild-Vorliebe bleibt stehen */
+  karteAbbauen(); _karteFehler=false;
   if(_timer){ clearInterval(_timer); _timer=null; }
   _data=null; _lastOkAt=null; _offline=false; _praesidien=null; _praesAt=0;
   render();
@@ -652,7 +683,7 @@ async function loadPraesidien(){
 }
 
 /* ── Großbild (Phase 6.8, D6.8-05) ─────────────────────────────────
- * Umschalter „Großbild“ für Leitstand-Bildschirm/Beamer: dunkles Design, große
+ * Umschalter „Großbild“ für Leitstand-Bildschirm/Beamer: gedämpftes Off-White, große
  * Zahlen, breites Raster (CSS-Block 6.8-GROSSBILD) und Bildschirm-Wachhalten per
  * Screen Wake Lock, wo verfügbar. Die Vorliebe liegt als Anzeige-Einstellung in
  * localStorage (arguslg_gross) und ist NICHT Teil der Sitzung: Anmeldedauer
@@ -677,6 +708,14 @@ function wachKnopf(z){
   return '';
 }
 function grossVorliebe(){ try{ return localStorage.getItem('arguslg_gross')==='1'; }catch(e){ return false; } }
+/* Farbschema des Großbilds: nur 'hell' oder 'gedaempft' (Standard), ebenfalls Anzeige-Vorliebe.
+ * Der frühere gespeicherte Wert 'dunkel' (und jeder andere) wird als 'gedaempft' gelesen. */
+function grossThema(){ try{ return localStorage.getItem('arguslg_gross_thema')==='hell' ? 'hell' : 'gedaempft'; }catch(e){ return 'gedaempft'; } }
+function grossThemaSetzen(t){
+  t = (t==='hell') ? 'hell' : 'gedaempft';
+  try{ localStorage.setItem('arguslg_gross_thema', t); }catch(e){}
+  grossAnwenden(true);
+}
 /* Zustandsanzeige in der Kopfzeile — Text escaped, Knopf aus festen Texten */
 function wachZeigen(){
   var w=$('wachtxt'); if(!w) return;
@@ -689,7 +728,13 @@ function wachSetzen(z){ _wlZustand=z||''; wachZeigen(); }
 /* Großbild anwenden (Start/render). Nur angemeldet: Login-Maske bleibt hell. */
 function grossAnwenden(angemeldet){
   var an=!!angemeldet && grossVorliebe();
+  var th=grossThema();
   document.body.classList.toggle('gross', an);
+  document.body.classList.toggle('ggedaempft', an && th==='gedaempft');
+  var tw=$('gthema'), td=$('gtgedaempft'), thl=$('gthell');
+  if(tw) tw.style.display=an ? '' : 'none';
+  if(td) td.setAttribute('aria-pressed', th==='gedaempft' ? 'true' : 'false');
+  if(thl) thl.setAttribute('aria-pressed', th==='hell' ? 'true' : 'false');
   var b=$('grossbtn');
   if(b){ b.style.display=angemeldet ? '' : 'none'; b.textContent=an ? 'Normalansicht' : 'Großbild'; }
   if(an && !_wlWanted && !_wlZustand) _wlZustand='aus';
@@ -734,9 +779,9 @@ function wachAus(){
 
 /* ── Lageskizze (Phase 6.8, D6.8-06) ───────────────────────────────
  * Schlichte SVG-Skizze der CCP-Standorte aus den erfassten Koordinaten
- * (argus_lage lat/lng, seit 0009). Keine fremden Kartendienste, keine Kacheln,
- * kein externer Abruf — eine echte Straßenkarte ist eine spätere Option mit
- * Datenschutzprüfung. Keine automatische Ausreißer-Entfernung (würde die Lage
+ * (argus_lage lat/lng, seit 0009). Die Skizze selbst ruft nichts ab; sie ist der
+ * Rückfall des Kartenmoduls (unten), wenn keine Passform eingetragen ist oder der
+ * Kartendienst nicht erreichbar ist. Keine automatische Ausreißer-Entfernung (würde die Lage
  * verfälschen); die Maßstabsleiste macht Ausreißer sichtbar. Alles rein/testbar. */
 /* rein: Lagefarbe einer Gruppe — veraltet grau, sonst schwerste Kategorie */
 function lageFarbe(s, alt){
@@ -890,6 +935,182 @@ function skizzeSvg(gruppen, akts, W, H){
   return h;
 }
 
+/* ── Kartenmodul „Passform“ (Owner-Entscheid 19.10.2026, ändert D6.8-06) ──────────
+ * Echte Straßenkarte als austauschbares Modul: ../karte-config.js setzt
+ * window.ARGUS_KARTE (Kachel-Adresse, Quellenhinweis, maxZoom). Die Seite selbst
+ * enthält KEINE Kachel-Adresse. Leaflet kommt lokal aus ../vendor/leaflet/.
+ * Rückfall auf die SVG-Lageskizze: Passform fehlt/null/ungültig, keine
+ * Koordinaten, Leaflet nicht geladen, Wahl „Skizze“ oder Dienst nicht erreichbar.
+ * Datenschutz: Der Kartendienst sieht IP und Ausschnitt, nie Zahlen/Kennungen/Orte —
+ * Punkte und Beschriftungen zeichnet die Seite selbst. */
+var KARTE_N = 4;             /* scheitern die ersten N Kacheln alle → Lageskizze */
+var KARTE_WARTE_MS = 8000;   /* bis dahin muss mindestens eine Kachel geladen sein */
+/* rein: Passform prüfen und normalisieren — null, wenn unbrauchbar. Kachel-Adresse
+ * nur https:// oder Pfad auf demselben Server, mit {z}/{x}/{y}, ohne Leer-/Steuerzeichen;
+ * Quellenhinweis ist Pflicht. Referrer: nur Origin oder keiner (nie der Seitenname, D-06). */
+function karteKonfig(k){
+  if(!k || typeof k!=='object' || Array.isArray(k)) return null;
+  var u=k.kachelUrl, q=k.quelle;
+  if(typeof u!=='string' || typeof q!=='string' || !q.trim()) return null;
+  if(!/^(https:\/\/[^\/\s"'<>]+|\/(?!\/))[^\s"'<>]*$/.test(u)) return null;
+  if(u.indexOf('{z}')<0 || u.indexOf('{x}')<0 || u.indexOf('{y}')<0) return null;
+  var qu=(typeof k.quelleUrl==='string' && /^https:\/\/[^\s"'<>]+$/.test(k.quelleUrl)) ? k.quelleUrl : '';
+  var mz=(typeof k.maxZoom==='number' && k.maxZoom%1===0 && k.maxZoom>=1 && k.maxZoom<=22) ? k.maxZoom : 19;
+  return {kachelUrl:u, quelle:q.trim(), quelleUrl:qu, maxZoom:mz, referrerPolicy: k.referrerPolicy==='no-referrer' ? 'no-referrer' : 'origin'};
+}
+/* rein: Karte oder Skizze? */
+function karteModus(konfig, nKoord, wahl, fehler, bibliothekDa){
+  return (konfig && nKoord>0 && wahl!=='skizze' && !fehler && bibliothekDa) ? 'karte' : 'skizze';
+}
+/* rein: Rückfall-Zustand aus Kachel-Ereignissen ('start' | 'load' | 'fehler' | 'zeit').
+ * Eine geladene Kachel entscheidet für die Karte; alle ersten n fehlerhaft oder
+ * Zeitablauf ohne Kachel → aus (Lageskizze). Entschieden bleibt entschieden. */
+function kachelRueckfall(z, ereignis, n){
+  if(!z || ereignis==='start') return {ok:false, fehler:0, aus:false};
+  if(z.ok || z.aus) return {ok:z.ok, fehler:z.fehler, aus:z.aus};
+  if(ereignis==='load') return {ok:true, fehler:0, aus:false};
+  if(ereignis==='fehler'){ var f=z.fehler+1; return {ok:false, fehler:f, aus:f>=(+n||1)}; }
+  if(ereignis==='zeit') return {ok:false, fehler:z.fehler, aus:true};
+  return {ok:false, fehler:z.fehler, aus:false};
+}
+/* rein: Kartenpunkte wie die Skizze — ein Punkt je Mitglied mit gültigen Koordinaten,
+ * Lagefarbe je Gruppe (grau bei veraltet), Label „CCP Anton · Ort“ (gekürzt, escaped:
+ * Leaflet setzt Tooltips als HTML). ohne = escapte Namen der CCPs ohne Koordinaten. */
+function karteMarker(gruppen, akts){
+  var punkte=[], ohne=[];
+  akts=akts||[];
+  (gruppen||[]).forEach(function(g, gi){
+    var m=(g && g.members) || [];
+    var farbe=lageFarbe(lageSummen(m), !!(akts[gi] && akts[gi].alt));
+    m.forEach(function(c){
+      c=c||{};
+      var la=koordZahl(c.lat), ln=koordZahl(c.lng), name='CCP '+kennungFunk(c.kennung);
+      if(la===null || ln===null || Math.abs(la)>90 || Math.abs(ln)>180 || (la===0 && ln===0)){ ohne.push(esc(name)); return; }
+      var ort=String(c.ort||'');
+      if(ort.length>24) ort=ort.slice(0,23)+'…';
+      punkte.push({key:(c.praesidium_id||'')+'-'+c.kennung, lat:la, lng:ln, farbe:farbe, label:esc(name+(ort ? ' · '+ort : ''))});
+    });
+  });
+  return {punkte:punkte, ohne:ohne};
+}
+/* rein: Lagefarbe → Kreisfarben (Werte wie die Palette in :root) */
+function karteFarbe(f){
+  var t={t1:'#C62828', t2:'#F2B600', t3:'#2E7D32', t5:'#1b1d20', grau:'#9aa1a8'};
+  return t[f] ? {fuell:t[f], rand:'#ffffff'} : {fuell:'#ffffff', rand:'#5d6368'};
+}
+/* rein: Ausschnitt — ein Punkt (oder alle gleich) → Mitte mit Zoom ≤ 16, sonst
+ * Grenzen für fitBounds mit Max-Zoom ≤ 17 (nie über maxZoom des Dienstes). */
+function karteAusschnitt(punkte, maxZoom){
+  var p=punkte||[], mz=(+maxZoom>0) ? +maxZoom : 19;
+  if(!p.length) return null;
+  var la0=Infinity, la1=-Infinity, ln0=Infinity, ln1=-Infinity;
+  p.forEach(function(q){
+    la0=Math.min(la0, q.lat); la1=Math.max(la1, q.lat);
+    ln0=Math.min(ln0, q.lng); ln1=Math.max(ln1, q.lng);
+  });
+  if(la0===la1 && ln0===ln1) return {mitte:[la0, ln0], zoom:Math.min(16, mz)};
+  return {grenzen:[[la0, ln0], [la1, ln1]], maxZoom:Math.min(17, mz)};
+}
+/* rein: Quellenhinweis der Passform als Leaflet-Attribution (escaped) */
+function karteQuelleHtml(k){
+  k=k||{};
+  var q=esc(k.quelle||'');
+  return k.quelleUrl ? '<a href="'+esc(k.quelleUrl)+'" target="_blank" rel="noopener noreferrer">'+q+'</a>' : q;
+}
+/* rein: kleiner Schalter „Karte / Skizze“ neben der Überschrift */
+function karteSchalter(aktiv){
+  function b(w, t){ return '<button data-action="kartewahl" data-wahl="'+w+'" aria-pressed="'+(aktiv===w ? 'true' : 'false')+'">'+t+'</button>'; }
+  return '<span class="kschalter" role="group" aria-label="Darstellung">'+b('karte', 'Karte')+b('skizze', 'Skizze')+'</span>';
+}
+/* rein: Kartenabschnitt — leerer Halter, in den karteNachRender() die (bestehende)
+ * Leaflet-Karte einhängt; Legende; CCPs ohne Koordinaten namentlich. */
+function karteAbschnitt(km, schalter){
+  km=km||{punkte:[], ohne:[]};
+  var h='<section class="skab"><div class="skkopf"><h3>Lagekarte</h3>'+(schalter||'')+'</div>';
+  h+='<div id="kartehalter" class="kartehalter" aria-label="Lagekarte"></div>';
+  h+='<div class="sklegende"><span><i class="lg-t1"></i>T1</span><span><i class="lg-t2"></i>T2</span>'+
+    '<span><i class="lg-t3"></i>T3</span><span><i class="lg-t5"></i>T5</span><span><i class="lg-leer"></i>leer</span>'+
+    '<span><i class="lg-grau"></i>grau = veraltet</span><span>Maßstab unten links · Kartenquelle unten rechts</span></div>';
+  if(km.ohne && km.ohne.length) h+='<div class="skohne skwarn">Ohne Koordinaten: '+km.ohne.join(', ')+' — nicht auf der Karte.</div>';
+  return h+'</section>';
+}
+
+/* Kartenzustand: die Leaflet-Karte wird EINMAL erzeugt und beim Polling nur in den
+ * neuen Halter umgehängt (kein Flackern, kein Neuladen der Kacheln); Marker werden
+ * aktualisiert, der Ausschnitt nur beim ersten Mal bzw. bei Präsidiumswechsel gesetzt. */
+var _karte=null, _karteFehler=false, _karteSoll=null;
+function karteWahlGet(){ try{ return sessionStorage.getItem('arguslg_kartewahl')||''; }catch(e){ return ''; } }
+function karteWahlSet(w){ try{ sessionStorage.setItem('arguslg_kartewahl', w==='skizze' ? 'skizze' : 'karte'); }catch(e){} }
+function karteAbbauen(){
+  var k=_karte; _karte=null;
+  if(!k) return;
+  if(k.timer) clearTimeout(k.timer);
+  if(k.ro){ try{ k.ro.disconnect(); }catch(e){} }
+  try{ k.map.remove(); }catch(e){}
+  if(k.el.parentNode) k.el.parentNode.removeChild(k.el);
+}
+function karteMarkerSetzen(punkte){
+  var alt=_karte.marker, neu={};
+  punkte.forEach(function(p){
+    var f=karteFarbe(p.farbe), m=alt[p.key];
+    var stil={radius:10, weight:3, color:f.rand, fillColor:f.fuell, fillOpacity:1, opacity:1};
+    if(m){
+      m.setLatLng([p.lat, p.lng]);
+      m.setStyle(stil);
+      if(m.getTooltip() && m.getTooltip().getContent()!==p.label) m.setTooltipContent(p.label);
+    }else{
+      stil.interactive=false;
+      m=L.circleMarker([p.lat, p.lng], stil).bindTooltip(p.label, {permanent: true, direction:'right', offset:[12, 0], className:'kartelab', opacity:1});
+      m.addTo(_karte.map);
+    }
+    neu[p.key]=m;
+  });
+  Object.keys(alt).forEach(function(key){ if(!neu[key]) _karte.map.removeLayer(alt[key]); });
+  _karte.marker=neu;
+}
+function karteEinpassen(punkte){
+  var a=karteAusschnitt(punkte, _karte.maxZoom);
+  if(!a) return;
+  if(a.mitte) _karte.map.setView(a.mitte, a.zoom, {animate:false});
+  else _karte.map.fitBounds(a.grenzen, {paddingTopLeft:[40, 40], paddingBottomRight:[190, 40], maxZoom:a.maxZoom, animate:false});
+  _karte.eingepasst=true;
+}
+/* nach jedem render(): Karte in #kartehalter einhängen (bzw. einmalig erzeugen) */
+function karteNachRender(){
+  var halter=$('kartehalter'), s=_karteSoll;
+  if(!halter || !s || !window.L) return;
+  var k=s.konfig;
+  if(_karte && _karte.url!==k.kachelUrl) karteAbbauen();
+  if(!_karte){
+    var el=document.createElement('div');
+    el.className='karte';
+    halter.appendChild(el);
+    var map=L.map(el, {scrollWheelZoom:false});
+    map.attributionControl.setPrefix(false);
+    L.control.scale({imperial:false}).addTo(map);
+    var schicht=L.tileLayer(k.kachelUrl, {maxZoom:k.maxZoom, attribution: karteQuelleHtml(k), referrerPolicy: k.referrerPolicy});
+    var neu={map:map, el:el, url:k.kachelUrl, maxZoom:k.maxZoom, marker:{}, pid:null, eingepasst:false, timer:null, ro:null};
+    var z=kachelRueckfall(null, 'start', KARTE_N);
+    var ereignis=function(e){
+      if(_karte!==neu) return;
+      z=kachelRueckfall(z, e, KARTE_N);
+      if(z.ok && neu.timer){ clearTimeout(neu.timer); neu.timer=null; }
+      if(z.aus){ _karteFehler=true; karteAbbauen(); render(); }
+    };
+    schicht.on('tileload', function(){ ereignis('load'); });
+    schicht.on('tileerror', function(){ ereignis('fehler'); });
+    neu.timer=setTimeout(function(){ neu.timer=null; ereignis('zeit'); }, KARTE_WARTE_MS);
+    if(window.ResizeObserver){ neu.ro=new ResizeObserver(function(){ map.invalidateSize({pan:false}); }); neu.ro.observe(el); }
+    schicht.addTo(map);
+    _karte=neu;
+  }else if(_karte.el.parentNode!==halter){
+    halter.appendChild(_karte.el);
+    _karte.map.invalidateSize({pan:false});
+  }
+  karteMarkerSetzen(s.punkte);
+  if(_karte.pid!==s.pid || !_karte.eingepasst){ karteEinpassen(s.punkte); _karte.pid=s.pid; }
+}
+
 /* ── Rendering — Bausteine 1:1 aus dem Mockup ──────────────────── */
 function viewLogin(){
   var h='<div class="loginwrap"><div class="loginbox">';
@@ -971,16 +1192,28 @@ function viewPraesidium(pid){
         h+=karteA(g, akts[gi], opts);
       });
       h+='</div>';
-      /* D6.8-06: Lageskizze aus den erfassten Koordinaten — keine fremden Kartendienste
-       * (Straßenkarte ist eine spätere Option mit Datenschutzprüfung). */
-      var sk=skizzeSvg(gruppen, akts, 640, 360);
-      h+='<section class="skab"><h3>Lageskizze</h3>'+sk;
-      if(sk.indexOf('<svg')>=0){
-        h+='<div class="sklegende"><span><i class="lg-t1"></i>T1</span><span><i class="lg-t2"></i>T2</span>'+
-          '<span><i class="lg-t3"></i>T3</span><span><i class="lg-t5"></i>T5</span><span><i class="lg-leer"></i>leer</span>'+
-          '<span><i class="lg-grau"></i>grau = veraltet</span><span>Norden oben · Maßstab unten links</span></div>';
+      /* Kartenmodul (Owner-Entscheid 19.10., ändert D6.8-06): Straßenkarte nur über die
+       * Passform karte-config.js. Leer/ungültig, ohne Koordinaten, ohne Leaflet, bei Wahl
+       * „Skizze“ oder nicht erreichbarem Dienst → SVG-Lageskizze aus den Koordinaten. */
+      var kk=karteKonfig(window.ARGUS_KARTE), km=karteMarker(gruppen, akts), wahl=karteWahlGet();
+      var kartenFaehig=!!(kk && km.punkte.length && window.L);
+      var modus=karteModus(kk, km.punkte.length, wahl, _karteFehler, !!window.L);
+      var schalter=kartenFaehig ? karteSchalter(modus) : '';
+      if(modus==='karte'){
+        h+=karteAbschnitt(km, schalter);
+        _karteSoll={pid:(glob ? pid : sp.id)||'', konfig:kk, punkte:km.punkte};
+      }else{
+        var sk=skizzeSvg(gruppen, akts, 640, 360);
+        h+='<section class="skab"><div class="skkopf"><h3>Lageskizze</h3>'+schalter+'</div>';
+        if(kartenFaehig && _karteFehler && wahl!=='skizze') h+='<div class="kfehl">Karte nicht erreichbar — Lageskizze</div>';
+        h+=sk;
+        if(sk.indexOf('<svg')>=0){
+          h+='<div class="sklegende"><span><i class="lg-t1"></i>T1</span><span><i class="lg-t2"></i>T2</span>'+
+            '<span><i class="lg-t3"></i>T3</span><span><i class="lg-t5"></i>T5</span><span><i class="lg-leer"></i>leer</span>'+
+            '<span><i class="lg-grau"></i>grau = veraltet</span><span>Norden oben · Maßstab unten links</span></div>';
+        }
+        h+='</section>';
       }
-      h+='</section>';
     }else{
       h+='<div class="empty">Keine offenen CCPs in diesem Präsidium.</div>';
     }
@@ -1018,7 +1251,9 @@ function render(){
   /* Band-Bereich klebt direkt unter der Topbar → deren Höhe als Abstand */
   var tb=document.querySelector('.topbar');
   if(tb) document.documentElement.style.setProperty('--toph', tb.offsetHeight+'px');
+  _karteSoll=null;   /* setzt viewPraesidium(), wenn die Karte gezeigt wird */
   $('app').innerHTML = loggedIn ? viewLage() : viewLogin();
+  karteNachRender();
   if(!loggedIn){ var li=$('logininp'); if(li) li.focus(); }
 }
 
@@ -1078,7 +1313,14 @@ document.addEventListener('click', function(e){
   if(a==='pwechsel'){ pselSet(''); loadPraesidien(); render(); window.scrollTo(0,0); return; }
   if(a==='logout'){ doLogout(); }
   if(a==='gross'){ grossUmschalten(); return; }
+  if(a==='gthema'){ grossThemaSetzen(b.getAttribute('data-thema')); return; }
   if(a==='wachan'){ wachAn(); return; }
+  if(a==='kartewahl'){
+    var kw=b.getAttribute('data-wahl')==='skizze' ? 'skizze' : 'karte';
+    karteWahlSet(kw);
+    if(kw==='karte') _karteFehler=false;
+    render(); return;
+  }
   if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
   if(a==='copygeo'){
     var txt=b.getAttribute('data-lat')+', '+b.getAttribute('data-lng');
