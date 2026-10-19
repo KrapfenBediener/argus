@@ -148,6 +148,15 @@
   .vmem .ked{margin-left:auto}
   /* Verbund D6.9-10: kleiner Hinweis „Verbund“ unter dem Kopfband */
   .vhin{padding:4px 10px 0;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut)}
+  /* Lagen D6.11-08/-10: Abschnitt je Lage mit Kopf (Name, „vor Ort eröffnet“, CCPs, Eröffnung) */
+  .labschnitt{margin:18px 0 0}
+  .lkopf{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0 0 8px;padding:8px 12px;border-left:8px solid var(--acc);border-radius:6px;background:var(--surf2);color:var(--tx);font-size:15px;font-weight:700}
+  .lkopf.ohne{border-left-color:#9aa1a8}
+  .lkopf .lkn{min-width:0;overflow-wrap:anywhere}
+  .lkopf .lvo{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .lkopf .lkr{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--mut)}
+  .lkhin{font-size:12px;color:var(--mut);margin:-4px 0 8px 2px}
+  .lgesamt{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
   /* 6.8-BAUSTEINE-ENDE */
   /* 6.8-VERWALTUNG — Bandzeile mit Umschalter, Navigationsgruppen, Raster (nur Verwaltung) */
   .ubar{position:sticky;top:var(--toph,46px);z-index:40;display:flex;align-items:stretch;flex-wrap:wrap;box-shadow:0 2px 6px rgba(0,0,0,.12)}
@@ -691,6 +700,48 @@ function lageSummen(list){
   s.pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
   s.ccps=(list||[]).length;
   return s;
+}
+/* geteilt — D6.11-08/-10: Abschnitte je Lage; Verbund → Lage des Haupt-CCP; unbekannte/fehlende Lage → „Ohne Lage“.
+ * gruppen aus lageGruppen, lagen = einsatzlagen der Lage-Antwort (nur Objekte mit
+ * Zeichenketten-id). Reihenfolge: Eröffnungszeit, dann Name, dann id. Je Lage (auch
+ * ohne CCP) {key, lage, gis, s}; zuletzt höchstens ein {key:'ohne', lage:null, gis, s}
+ * — nur mit mindestens einer Gruppe. gis = Indizes in gruppen, s = lageSummen. */
+function lagenAbschnitte(gruppen, lagen){
+  var gr=Array.isArray(gruppen) ? gruppen : [], idx={}, out=[], ohne={key:'ohne', lage:null, gis:[], s:null}, ohneM=[];
+  var ls=(Array.isArray(lagen) ? lagen : []).filter(function(l){ return !!l && typeof l==='object' && typeof l.id==='string'; });
+  ls.sort(function(a, b){
+    var d=(+a.eroeffnet_at||0)-(+b.eroeffnet_at||0);
+    if(d) return d<0 ? -1 : 1;
+    d=String(a.name||'').localeCompare(String(b.name||''), 'de');
+    if(d) return d;
+    return a.id<b.id ? -1 : (a.id>b.id ? 1 : 0);
+  });
+  ls.forEach(function(l){
+    if(idx['k'+l.id]) return;
+    var ab={key:l.id, lage:{id:l.id, name:l.name, vor_ort:l.vor_ort, eroeffnet_at:l.eroeffnet_at}, gis:[], s:null, m:[]};
+    idx['k'+l.id]=ab; out.push(ab);
+  });
+  gr.forEach(function(g, gi){
+    var m=(g && g.members) || [], hp=lageHaupt(m), lid=hp && hp.einsatzlage_id;
+    var ab=(typeof lid==='string' && idx['k'+lid]) || null;
+    if(ab){ ab.gis.push(gi); ab.m=ab.m.concat(m); }
+    else{ ohne.gis.push(gi); ohneM=ohneM.concat(m); }
+  });
+  out.forEach(function(ab){ ab.s=lageSummen(ab.m); delete ab.m; });
+  if(ohne.gis.length){ ohne.s=lageSummen(ohneM); out.push(ohne); }
+  return out;
+}
+/* geteilt — D6.11-08/-10: Kopf eines Lage-Abschnitts — Lagename (escaped), Kennzeichen
+ * „vor Ort eröffnet“, Zahl der CCPs, Eröffnungszeit; „Ohne Lage“ mit Hinweis.
+ * Reine Anzeige: kein Aktions-Markup (Verwalten nur seitenspezifisch). */
+function lageKopf(ab){
+  ab=ab||{};
+  var l=ab.lage, n=+((ab.s||{}).ccps)||0;
+  var h='<div class="lkopf'+(l?'':' ohne')+'"><span class="lkn">'+(l ? esc(l.name||'') : 'Ohne Lage')+'</span>';
+  if(l && l.vor_ort===true) h+='<span class="lvo">vor Ort eröffnet</span>';
+  h+='<span class="lkr">'+n+(n===1?' CCP':' CCPs')+(l && +l.eroeffnet_at ? ' · eröffnet '+fmtHM(+l.eroeffnet_at) : '')+'</span></div>';
+  if(!l) h+='<div class="lkhin">CCPs ohne Lage-Zuordnung (ältere App-Versionen)</div>';
+  return h;
 }
 function ccpAktualitaet(c, standMs, seitPollMs, schwelleMs){
   function zahl(v){
@@ -2704,6 +2755,10 @@ function actionLabel(a){
   if(a==='admin_gast_revoke') return 'Admin: Gast-Code gesperrt';
   /* Phase 6.9 (D6.9-05): Zuordnung eines CCP durch die FLZ (Migration 0033) */
   if(a==='flz_merge') return 'Zusammengeführt durch FLZ';
+  /* Phase 6.11 (D6.11-12): Lagen anlegen/umbenennen/abschließen (Migration 0035) */
+  if(a==='einsatzlage_angelegt') return 'Lage eröffnet';
+  if(a==='einsatzlage_umbenannt') return 'Lage umbenannt';
+  if(a==='einsatzlage_abgeschlossen') return 'Lage abgeschlossen';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -2729,7 +2784,10 @@ function secProtokoll(){
     ['admin_login','Admin-Login'],
     ['admin_gast_issue','Admin: Gast-Code ausgegeben'],
     ['admin_gast_revoke','Admin: Gast-Code gesperrt'],
-    ['flz_merge','Zusammengeführt durch FLZ']
+    ['flz_merge','Zusammengeführt durch FLZ'],
+    ['einsatzlage_angelegt','Lage eröffnet'],
+    ['einsatzlage_umbenannt','Lage umbenannt'],
+    ['einsatzlage_abgeschlossen','Lage abgeschlossen']
   ];
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
@@ -2777,6 +2835,7 @@ function secProtokoll(){
         h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+fmtMs(l.neue_frist):'')+'</div>';
       }
       if(l.action==='flz_merge'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
+      if(l.action==='einsatzlage_angelegt' || l.action==='einsatzlage_umbenannt' || l.action==='einsatzlage_abgeschlossen'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
       h+='</div>';
     });
     h+='</div>';
@@ -2835,23 +2894,40 @@ function secAdminLage(){
   var ccps=Array.isArray(_adminLageData.ccps) ? _adminLageData.ccps : [];
   var stand=_adminLageData.stand ? fmtMs(_adminLageData.stand) : '—';
   h+='<div class="hint" style="margin-bottom:10px">Stand: '+stand+'</div>';
-  if(!ccps.length){
+  /* Phase 6.11 (D6.11-12): Lage-Abschnitte über die geteilten Bausteine; Einsatzmappe folgt im Verwaltungs-Komplex.
+   * Nur, wenn die Lage-Antwort einsatzlagen liefert (Migration 0035) — sonst wie bisher.
+   * Keine Reiter, keine Verwaltungsknöpfe. */
+  var lagen=Array.isArray(_adminLageData.einsatzlagen) ? _adminLageData.einsatzlagen : null;
+  if(!ccps.length && !(lagen && lagen.length)){
     h+='<div class="card"><p class="hint" style="margin:0">Keine aktiven CCPs in diesem Präsidium.</p></div>';
     return h;
   }
   /* Phase 6.8 (D6.8-02/-03/-04): dieselben Bausteine wie die FLZ-Seite —
    * Summenleiste, Kopfband-Karten je Verbund/CCP, Aktualität mit Fallback.
    * Keine Koordinaten-Kopie, keine Ort-Korrektur (FLZ-Zugang ist read-only). */
-  h+=summenLeiste(lageSummen(ccps));
   var gruppen=lageGruppen(ccps), vn=0, ohneAkt=false;
   var seitPoll=_adminLageOkAt ? nowMs()-_adminLageOkAt : 0;
   gruppen.forEach(function(g){ if(g.verbund) vn++; });
   ccps.forEach(function(c){ if(!c || typeof c!=='object' || !('zuletzt_gesehen' in c)) ohneAkt=true; });
-  h+='<div class="lgrid">';
-  gruppen.forEach(function(g){
-    h+=karteA(g, gruppenAktualitaet(g.members, _adminLageData.stand, seitPoll, LAGE_SCHWELLE_MS), {ortEdit:false, geoKlick:false, vnTotal:vn});
-  });
-  h+='</div>';
+  function karte(g){
+    return karteA(g, gruppenAktualitaet(g.members, _adminLageData.stand, seitPoll, LAGE_SCHWELLE_MS), {ortEdit:false, geoKlick:false, vnTotal:vn});
+  }
+  if(lagen){
+    var ab=lagenAbschnitte(gruppen, lagen);
+    if(ab.length>=2) h+='<div class="lgesamt">Alle Lagen</div>'+summenLeiste(lageSummen(ccps));
+    ab.forEach(function(a){
+      h+='<section class="labschnitt">'+lageKopf(a)+summenLeiste(a.s)+'<div class="lgrid">';
+      a.gis.forEach(function(gi){ h+=karte(gruppen[gi]); });
+      h+='</div>';
+      if(!a.gis.length) h+='<p class="hint" style="margin:0">Noch kein CCP in dieser Lage.</p>';
+      h+='</section>';
+    });
+  }else{
+    h+=summenLeiste(lageSummen(ccps));
+    h+='<div class="lgrid">';
+    gruppen.forEach(function(g){ h+=karte(g); });
+    h+='</div>';
+  }
   h+='<p class="hint" style="margin-top:12px">Anonyme Übersichtszahlen — keine Patientendetails, keine Namen/Fotos. Aktualisiert sich automatisch alle 20 s.'+
     (ohneAkt ? ' Aktualitätsanzeige folgt nach dem Server-Update — bis dahin zeigt jede Karte die letzte Änderung.' : '')+'</p>';
   return h;

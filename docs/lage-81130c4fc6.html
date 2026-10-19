@@ -100,6 +100,15 @@
   .vmem .ked{margin-left:auto}
   /* Verbund D6.9-10: kleiner Hinweis „Verbund“ unter dem Kopfband */
   .vhin{padding:4px 10px 0;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut)}
+  /* Lagen D6.11-08/-10: Abschnitt je Lage mit Kopf (Name, „vor Ort eröffnet“, CCPs, Eröffnung) */
+  .labschnitt{margin:18px 0 0}
+  .lkopf{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0 0 8px;padding:8px 12px;border-left:8px solid var(--acc);border-radius:6px;background:var(--surf2);color:var(--tx);font-size:15px;font-weight:700}
+  .lkopf.ohne{border-left-color:#9aa1a8}
+  .lkopf .lkn{min-width:0;overflow-wrap:anywhere}
+  .lkopf .lvo{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .lkopf .lkr{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--mut)}
+  .lkhin{font-size:12px;color:var(--mut);margin:-4px 0 8px 2px}
+  .lgesamt{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
   /* 6.8-BAUSTEINE-ENDE */
   /* Lage-eigene Klassen (Phase 6.8, D6.8-01): Band-Bereich und Auswahlbildschirm */
   .ubar{position:sticky;top:var(--toph,37px);z-index:40;display:flex;align-items:stretch;box-shadow:0 2px 6px rgba(0,0,0,.12)}
@@ -175,6 +184,28 @@
   .karte .leaflet-control-attribution{font-family:var(--sans);font-size:11px}
   .karte .leaflet-control-scale-line{font-family:var(--sans);font-weight:600}
   .kfehl{font-size:12.5px;color:var(--mut);margin:0 0 6px}
+  /* 6.11-LAGEN */
+  /* D6.11-08 Reiter „Alle | <Lage> | … | Ohne Lage“ (nur FLZ-Seite; Abschnitte/Kopf im Baustein-Block) */
+  .lreiter{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+  .lreiter button{background:var(--bg);color:var(--tx);border:2px solid var(--acc);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700}
+  .lreiter button[aria-pressed="true"]{background:var(--acc);color:#fff}
+  .labschnitt .lgrid > .empty{grid-column:1/-1}
+  /* 6.11-LAGEN-VERWALTEN */
+  /* D6.11-07 Lage anlegen/umbenennen/abschließen — nur FLZ-Zugang/Master, nie im Großbild */
+  .lgleiste{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px}
+  .lgleiste .lgneu{margin:0 0 12px auto}
+  .lgakt{display:flex;gap:6px;margin:-4px 0 8px}
+  .lgbtn{background:var(--bg);color:var(--acc);border:1px solid var(--acc);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600}
+  .lgleer{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 0}
+  .lgdlg{position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px}
+  .lgdlg-box{background:#fff;color:#16181a;border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .lgdlg-t{font-weight:600;margin-bottom:8px}
+  .lgdlg-tx{margin:0 0 6px}
+  .lgdlg-in{width:100%;margin:8px 0 10px}
+  .lgdlg-hw{margin:0 0 12px}
+  .lgdlg-kn{display:flex;gap:8px}
+  .lgdlg-kn .btn{flex:1}
+  .lgdlg .lgdlg-no{background:var(--surf2);color:var(--tx)}
   /* 6.8-GROSSBILD */
   /* D6.8-05 Großbild für Leitstand-Bildschirm/Beamer. Zwei Teile: body.gross = Größen
    * (große Zahlen, breites Raster) in beiden Farbschemata; body.gross.ggedaempft = gedämpftes
@@ -198,6 +229,10 @@
   body.gross .karte{height:62vh}
   body.gross .karte .leaflet-tooltip.kartelab{font-size:15px}
   body.gross .kschalter button{font-size:14px}
+  body.gross .lreiter button{font-size:18px;padding:8px 16px}
+  body.gross .lkopf{font-size:22px}
+  body.gross .lkopf .lkr{font-size:16px}
+  body.gross .lgesamt{font-size:15px}
   body.gross .kfehl{font-size:15px}
   body.gross .sklegende,body.gross .skohne{font-size:15px}
   body.gross .skwarn{font-size:16px}
@@ -389,6 +424,48 @@ function lageSummen(list){
   s.ccps=(list||[]).length;
   return s;
 }
+/* geteilt — D6.11-08/-10: Abschnitte je Lage; Verbund → Lage des Haupt-CCP; unbekannte/fehlende Lage → „Ohne Lage“.
+ * gruppen aus lageGruppen, lagen = einsatzlagen der Lage-Antwort (nur Objekte mit
+ * Zeichenketten-id). Reihenfolge: Eröffnungszeit, dann Name, dann id. Je Lage (auch
+ * ohne CCP) {key, lage, gis, s}; zuletzt höchstens ein {key:'ohne', lage:null, gis, s}
+ * — nur mit mindestens einer Gruppe. gis = Indizes in gruppen, s = lageSummen. */
+function lagenAbschnitte(gruppen, lagen){
+  var gr=Array.isArray(gruppen) ? gruppen : [], idx={}, out=[], ohne={key:'ohne', lage:null, gis:[], s:null}, ohneM=[];
+  var ls=(Array.isArray(lagen) ? lagen : []).filter(function(l){ return !!l && typeof l==='object' && typeof l.id==='string'; });
+  ls.sort(function(a, b){
+    var d=(+a.eroeffnet_at||0)-(+b.eroeffnet_at||0);
+    if(d) return d<0 ? -1 : 1;
+    d=String(a.name||'').localeCompare(String(b.name||''), 'de');
+    if(d) return d;
+    return a.id<b.id ? -1 : (a.id>b.id ? 1 : 0);
+  });
+  ls.forEach(function(l){
+    if(idx['k'+l.id]) return;
+    var ab={key:l.id, lage:{id:l.id, name:l.name, vor_ort:l.vor_ort, eroeffnet_at:l.eroeffnet_at}, gis:[], s:null, m:[]};
+    idx['k'+l.id]=ab; out.push(ab);
+  });
+  gr.forEach(function(g, gi){
+    var m=(g && g.members) || [], hp=lageHaupt(m), lid=hp && hp.einsatzlage_id;
+    var ab=(typeof lid==='string' && idx['k'+lid]) || null;
+    if(ab){ ab.gis.push(gi); ab.m=ab.m.concat(m); }
+    else{ ohne.gis.push(gi); ohneM=ohneM.concat(m); }
+  });
+  out.forEach(function(ab){ ab.s=lageSummen(ab.m); delete ab.m; });
+  if(ohne.gis.length){ ohne.s=lageSummen(ohneM); out.push(ohne); }
+  return out;
+}
+/* geteilt — D6.11-08/-10: Kopf eines Lage-Abschnitts — Lagename (escaped), Kennzeichen
+ * „vor Ort eröffnet“, Zahl der CCPs, Eröffnungszeit; „Ohne Lage“ mit Hinweis.
+ * Reine Anzeige: kein Aktions-Markup (Verwalten nur seitenspezifisch). */
+function lageKopf(ab){
+  ab=ab||{};
+  var l=ab.lage, n=+((ab.s||{}).ccps)||0;
+  var h='<div class="lkopf'+(l?'':' ohne')+'"><span class="lkn">'+(l ? esc(l.name||'') : 'Ohne Lage')+'</span>';
+  if(l && l.vor_ort===true) h+='<span class="lvo">vor Ort eröffnet</span>';
+  h+='<span class="lkr">'+n+(n===1?' CCP':' CCPs')+(l && +l.eroeffnet_at ? ' · eröffnet '+fmtHM(+l.eroeffnet_at) : '')+'</span></div>';
+  if(!l) h+='<div class="lkhin">CCPs ohne Lage-Zuordnung (ältere App-Versionen)</div>';
+  return h;
+}
 /* geteilt — D6.8-04: Aktualität eines CCP. Feld-Präsenz-Fallback: ohne den
  * 0032-Schlüssel zuletzt_gesehen → modus 'ohne' und NIE grau (Patientenstempel
  * sind kein Lebenszeichen). Mit Schlüssel: Alter = Server-stand + Zeit seit dem
@@ -548,6 +625,222 @@ function auswahlKacheln(a){
   return h;
 }
 /* ── Ende Phase-6.8-Bausteine (reine Funktionen) ── */
+
+/* ── Phase 6.11 (nur FLZ-Seite, NICHT geteilt): Lagen-Reiter ──────────────────
+ * D6.11-08: Bei zwei oder mehr Abschnitten Reiter „Alle | <Lage> | … | Ohne Lage“;
+ * die Wahl gilt je Präsidium für die Sitzung (sessionStorage arguslg_lagewahl, kein
+ * Sitzungsschlüssel) und auch im Großbild. D6.11-09: der FLZ-Zugang sieht alle Lagen
+ * seines Präsidiums; der Master nur die des gewählten Präsidiums. */
+function lagenFuer(einsatzlagen, pid){
+  return (Array.isArray(einsatzlagen) ? einsatzlagen : []).filter(function(l){
+    return !!l && typeof l==='object' && (!pid || l.praesidium_id===pid);
+  });
+}
+/* rein: Reiterleiste — '' unter zwei Abschnitten; Namen und data-lage escaped. */
+function lageReiter(abschnitte, wahl){
+  var ab=Array.isArray(abschnitte) ? abschnitte : [];
+  if(ab.length<2) return '';
+  function knopf(key, text){
+    return '<button data-action="lagewahl" data-lage="'+esc(key)+'" aria-pressed="'+(wahl===key ? 'true' : 'false')+'">'+text+'</button>';
+  }
+  var h='<nav class="lreiter" aria-label="Lagen">'+knopf('alle', 'Alle');
+  ab.forEach(function(a){
+    a=a||{};
+    h+=knopf(a.key, (a.lage ? esc(a.lage.name||'') : 'Ohne Lage')+' ('+(+((a.s||{}).ccps)||0)+')');
+  });
+  return h+'</nav>';
+}
+/* rein: gespeicherte Wahl nur, wenn es den Abschnitt noch gibt — sonst „alle“. */
+function lageWahlGueltig(wahl, abschnitte){
+  if(wahl==='alle') return 'alle';
+  var ab=Array.isArray(abschnitte) ? abschnitte : [], i;
+  for(i=0;i<ab.length;i++){ if(ab[i] && typeof wahl==='string' && ab[i].key===wahl) return wahl; }
+  return 'alle';
+}
+function lageWahlGet(pid){
+  try{
+    var o=JSON.parse(sessionStorage.getItem('arguslg_lagewahl')||'null');
+    return (o && o.pid===pid && typeof o.w==='string') ? o.w : 'alle';
+  }catch(e){ return 'alle'; }
+}
+function lageWahlSet(pid, w){
+  try{ sessionStorage.setItem('arguslg_lagewahl', JSON.stringify({pid:pid, w:String(w||'alle')})); }catch(e){}
+}
+/* Präsidium, für das die Reiterwahl gilt: Master = gewähltes Präsidium, sonst das der Sitzung. */
+function lagePidKey(){
+  if(isGlobal()) return pselGet();
+  try{ return sessionStorage.getItem('arguslg_pid')||'eigen'; }catch(e){ return 'eigen'; }
+}
+/* ── Phase 6.11 (D6.11-07): FLZ legt Lagen an, benennt sie um und schließt sie ab —
+ * rein organisatorisch, kein CCP-Eingriff (D6.11-06, D6.9-11) ───────────────────
+ * Nur FLZ-Seite. Bedienelemente nur mit Server-Fähigkeit (argus_lage liefert
+ * einsatzlagen), nur für FLZ-Zugang und Master, nie im Großbild. Ob die Aktion
+ * erlaubt ist, entscheidet ausschließlich der Server (Migration 0035). */
+function lageVerwaltbar(faehig, glob, adm, gross){
+  return !!faehig && (!!glob || !!adm) && !gross;
+}
+/* rein: Name wie der Server ihn speichert — Leerraum zusammengefasst, Ränder gekürzt. */
+function lageNameNorm(s){
+  return String(s==null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+function lageNameOk(s){
+  var n=lageNameNorm(s).length;
+  return n>=1 && n<=80;
+}
+/* Clientseitige uuid v4 → Anlegen ist beim Wiederholen idempotent (Server: on conflict). */
+function lageNeueId(){
+  try{ if(typeof crypto!=='undefined' && crypto && typeof crypto.randomUUID==='function') return String(crypto.randomUUID()); }catch(e){}
+  var b=new Uint8Array(16), i, h='';
+  try{ crypto.getRandomValues(b); }catch(e){ for(i=0;i<16;i++) b[i]=Math.floor(Math.random()*256); }
+  b[6]=(b[6]&0x0f)|0x40;
+  b[8]=(b[8]&0x3f)|0x80;
+  for(i=0;i<16;i++){
+    h+=(b[i]<16 ? '0' : '')+b[i].toString(16);
+    if(i===3 || i===5 || i===7 || i===9) h+='-';
+  }
+  return h;
+}
+/* rein: Server-Meldung roh (der Dialog escaped), sonst neutraler Text. */
+function lageRpcFehler(d){
+  return d && d.meldung ? String(d.meldung) : 'Aktion fehlgeschlagen.';
+}
+/* rein: Inhalt des Dialog-Overlays. Eingabe (cfg.eingabe), Frage, Info (cfg.info: nur OK).
+ * Alle Werte über esc(); keine data-action — die Knöpfe gehören nur dem Dialog. */
+function lageDialogHtml(cfg){
+  cfg=cfg||{};
+  var h='<div class="lgdlg-box" role="dialog" aria-modal="true">'+
+    '<div class="lgdlg-t">'+esc(cfg.titel||'')+'</div>';
+  if(cfg.text) h+='<p class="lgdlg-tx">'+esc(cfg.text)+'</p>';
+  if(cfg.eingabe) h+='<input class="lgdlg-in" maxlength="80" autocomplete="off" value="'+esc(cfg.wert||'')+'">';
+  if(cfg.hinweis) h+='<p class="hint lgdlg-hw">'+esc(cfg.hinweis)+'</p>';
+  h+='<div class="lgdlg-kn"><button class="btn lgdlg-ok">'+esc(cfg.ok||'OK')+'</button>';
+  if(!cfg.info) h+='<button class="btn lgdlg-no">Abbrechen</button>';
+  return h+'</div></div>';
+}
+/* Schreibaufruf nur an die drei Lage-RPCs (Positivliste). 401 → Abmeldung (null);
+ * HTTP-/Netzfehler → {ok:false, meldung}; sonst die Server-Antwort. */
+async function lageRpc(fn, args){
+  if(['argus_einsatzlage_anlegen', 'argus_einsatzlage_umbenennen', 'argus_einsatzlage_abschliessen'].indexOf(fn)<0){
+    return {ok:false, meldung:'Unbekannte Aktion.'};
+  }
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+  var resp, d;
+  try{
+    resp=await fetch(SUPA_URL+'/rest/v1/rpc/'+fn,{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify(args||{})
+    });
+  }catch(e){
+    return {ok:false, meldung:'Keine Verbindung — bitte erneut versuchen.'};
+  }
+  if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+  if(!resp.ok) return {ok:false, meldung:'Server-Fehler (HTTP '+resp.status+').'};
+  try{ d=await resp.json(); }catch(e){ d=null; }
+  return (d && typeof d==='object') ? d : {ok:false, meldung:'Unerwartete Antwort.'};
+}
+/* In-Page-Dialog (kein natives prompt/confirm): Overlay an document.body wie ortPrompt —
+ * übersteht das 20-s-Neuzeichnen von #app. Enter = OK, Escape = Abbrechen (Info: OK),
+ * Klick auf den Hintergrund = Abbrechen. Ergebnis: Eingabe → Text | null,
+ * Frage → true | null, Info → true. */
+function lageDialog(cfg){
+  cfg=cfg||{};
+  return new Promise(function(resolve){
+    var ov=document.createElement('div'), fertig=false, nein=cfg.info ? true : null;
+    ov.className='lgdlg';
+    ov.innerHTML=lageDialogHtml(cfg);
+    document.body.appendChild(ov);
+    var inp=ov.querySelector('.lgdlg-in'), ok=ov.querySelector('.lgdlg-ok');
+    function done(v){
+      if(fertig) return;
+      fertig=true;
+      document.removeEventListener('keydown', taste, true);
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+      resolve(v);
+    }
+    function ja(){ done(inp ? inp.value : true); }
+    function taste(e){
+      if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); ja(); }
+      else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); done(nein); }
+    }
+    document.addEventListener('keydown', taste, true);
+    ov.addEventListener('click', function(e){
+      var t=e.target;
+      if(t && t.closest && t.closest('.lgdlg-ok')) ja();
+      else if(t && t.closest && t.closest('.lgdlg-no')) done(nein);
+      else if(t===ov) done(nein);
+    });
+    if(inp){ inp.focus(); if(inp.select) inp.select(); }
+    else if(ok) ok.focus();
+  });
+}
+function lageHinweis(titel, text){
+  return lageDialog({titel:titel, text:text, info:true, ok:'OK'});
+}
+/* Sperre gegen Doppelklick (ein Ablauf zur Zeit); offene Anlage merkt sich ihre uuid,
+ * damit eine Wiederholung nach Verbindungsfehler keine zweite Lage erzeugt. */
+var _lageBusy=false, _lageNeuOffen=null;
+/* D6.11-01: Regelfall — die FLZ legt die Lage an, bevor vor Ort ein CCP eröffnet wird. */
+async function lageAnlegen(pid){
+  if(_lageBusy) return;
+  _lageBusy=true;
+  try{
+    var roh=await lageDialog({titel:'Lage anlegen', text:'Name der Lage, z. B. „LebEL XY-Schule“ oder „MANV Hauptbahnhof“.',
+      hinweis:'Nur Anlass oder Objekt — keine Personennamen.', eingabe:true, wert:'', ok:'Anlegen'});
+    if(roh==null) return;
+    if(!lageNameOk(roh)){ await lageHinweis('Lage anlegen', 'Bitte einen Namen angeben (höchstens 80 Zeichen).'); return; }
+    var name=lageNameNorm(roh), p=pid||null, o=_lageNeuOffen;
+    var id=(o && o.pid===p && o.name===name) ? o.id : lageNeueId();
+    _lageNeuOffen={pid:p, name:name, id:id};
+    var d=await lageRpc('argus_einsatzlage_anlegen', {p_id:id, p_praesidium_id:p, p_name:name});
+    if(!d) return;
+    if(d.ok){ _lageNeuOffen=null; flash('Lage „'+name+'“ angelegt'); poll(); return; }
+    if(d.fehler) _lageNeuOffen=null;   /* Server hat abgelehnt → nächster Versuch mit neuer uuid */
+    await lageHinweis('Lage anlegen', lageRpcFehler(d));
+  }finally{
+    _lageBusy=false;
+  }
+}
+async function lageUmbenennen(lage){
+  if(_lageBusy || !lage || !lage.id) return;
+  _lageBusy=true;
+  try{
+    var roh=await lageDialog({titel:'Lage umbenennen', text:'Neuer Name der Lage.',
+      hinweis:'Nur Anlass oder Objekt — keine Personennamen.', eingabe:true, wert:lage.name||'', ok:'Umbenennen'});
+    if(roh==null) return;
+    if(!lageNameOk(roh)){ await lageHinweis('Lage umbenennen', 'Bitte einen Namen angeben (höchstens 80 Zeichen).'); return; }
+    var d=await lageRpc('argus_einsatzlage_umbenennen', {p_id:lage.id, p_name:lageNameNorm(roh)});
+    if(!d) return;
+    if(d.ok){ flash(d.unveraendert ? 'Name unverändert' : 'Lage umbenannt'); poll(); return; }
+    await lageHinweis('Lage umbenennen', lageRpcFehler(d));
+  }finally{
+    _lageBusy=false;
+  }
+}
+/* D6.11-07: Abschluss nur durch die FLZ, ohne Timer/Automatik; der Server lehnt ab,
+ * solange ein CCP der Lage offen ist („Die Lage hat noch N offene CCPs …“). */
+async function lageAbschliessen(lage){
+  if(_lageBusy || !lage || !lage.id) return;
+  _lageBusy=true;
+  try{
+    var ja=await lageDialog({titel:'Lage „'+(lage.name||'')+'“ abschließen?',
+      text:'Sie erscheint im Feld danach nicht mehr zur Auswahl. Abschließen geht nur, wenn kein CCP der Lage mehr offen ist.', ok:'Abschließen'});
+    if(ja!==true) return;
+    var d=await lageRpc('argus_einsatzlage_abschliessen', {p_id:lage.id});
+    if(!d) return;
+    if(d.ok){ flash(d.bereits ? 'Lage war bereits abgeschlossen' : 'Lage abgeschlossen'); poll(); return; }
+    await lageHinweis('Lage abschließen', lageRpcFehler(d));
+  }finally{
+    _lageBusy=false;
+  }
+}
+/* rein: Aktionen je Lage-Abschnitt (seitenspezifisch, nicht im geteilten lageKopf). */
+function lageAktionen(lage){
+  var id=esc((lage||{}).id||'');
+  return '<span class="lgakt"><button class="lgbtn" data-action="lageumben" data-lage="'+id+'">Umbenennen</button>'+
+    '<button class="lgbtn" data-action="lageabschl" data-lage="'+id+'">Abschließen</button></span>';
+}
 
 /* ── Sitzung: sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
  * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname / arguslg_pid / arguslg_global / arguslg_admin.
@@ -880,17 +1173,24 @@ function massstab(meterProPx, maxPx){
 /* rein (nur Lage, NICHT geteilt): Punkte für Lageskizze und Straßenkarte.
  * D6.9-10: je Verbund genau ein Punkt am Haupt-CCP (lageHaupt); frühere Orte der
  * Mitglieder nicht als Punkt. Einzel-CCPs: je Mitglied ein Punkt. {c, gi, name} in
- * Gruppenreihenfolge; name roh („CCP A+B“), der Aufrufer escaped. */
+ * Gruppenreihenfolge; name roh („CCP A+B“), der Aufrufer escaped.
+ * D6.11-08: trägt die Gruppe lageName (Ansicht „Alle“ mit mehreren Lagen), steht der
+ * Lagename (gekürzt auf 18 Zeichen) davor: „LebEL XY-Schule · CCP A“. */
 function lagePunkte(gruppen){
   var out=[];
   (gruppen||[]).forEach(function(g, gi){
-    var m=(g && g.members) || [];
+    var m=(g && g.members) || [], pre='';
+    if(g && g.lageName){
+      pre=String(g.lageName);
+      if(pre.length>18) pre=pre.slice(0,17)+'…';
+      pre+=' · ';
+    }
     if(g && g.verbund){
       if(!m.length) return;
-      out.push({c:lageHaupt(m)||m[0]||{}, gi:gi, name:'CCP '+m.map(function(c){ return kennungKurz((c||{}).kennung); }).join('+')});
+      out.push({c:lageHaupt(m)||m[0]||{}, gi:gi, name:pre+'CCP '+m.map(function(c){ return kennungKurz((c||{}).kennung); }).join('+')});
       return;
     }
-    m.forEach(function(c){ c=c||{}; out.push({c:c, gi:gi, name:'CCP '+kennungKurz(c.kennung)}); });
+    m.forEach(function(c){ c=c||{}; out.push({c:c, gi:gi, name:pre+'CCP '+kennungKurz(c.kennung)}); });
   });
   return out;
 }
@@ -1224,11 +1524,37 @@ function viewPraesidium(pid){
   h+='<div class="main">'+verbindungsNote();
   if(_data){
     var ohneAkt=false;
-    if(list.length){
-      h+=summenLeiste(lageSummen(list));
+    /* Phase 6.11 (D6.11-08/-09/-10): Lagen nur, wenn die Lage-Antwort sie liefert
+     * (Migration 0035). Ohne einsatzlagen bleibt die Ansicht wie in 0.35.9. */
+    var faehig=!!(_data && Array.isArray(_data.einsatzlagen));
+    var lagenP=faehig ? lagenFuer(_data.einsatzlagen, glob ? pid : '') : [];
+    /* D6.11-01/-07: Lagen verwalten — nur FLZ-Zugang/Master, nicht im Großbild; der Server entscheidet */
+    var verw=lageVerwaltbar(faehig, isGlobal(), isAdminSess(), grossVorliebe());
+    var neuKnopf='<button class="btn lgneu" data-action="lageneu">＋ Lage anlegen</button>';
+    if(list.length || lagenP.length){
+      var gruppenAlle=lageGruppen(list), gruppen=gruppenAlle, abAlle=null, ab=null, mehr=false, lwahl='alle';
+      if(faehig){
+        abAlle=lagenAbschnitte(gruppenAlle, lagenP);
+        mehr=abAlle.length>=2;
+        lwahl=mehr ? lageWahlGueltig(lageWahlGet(glob ? pid : lagePidKey()), abAlle) : 'alle';
+        if(lwahl!=='alle'){
+          gruppen=[];
+          abAlle.forEach(function(a){ if(a.key===lwahl) a.gis.forEach(function(gi){ gruppen.push(gruppenAlle[gi]); }); });
+        }
+        ab=lagenAbschnitte(gruppen, lagenP);
+        if(lwahl!=='alle') ab=ab.filter(function(a){ return a.key===lwahl; });
+        h+=verw ? '<div class="lgleiste">'+lageReiter(abAlle, lwahl)+neuKnopf+'</div>' : lageReiter(abAlle, lwahl);
+        if(mehr && lwahl==='alle'){
+          h+='<div class="lgesamt">Alle Lagen</div>'+summenLeiste(lageSummen(list));
+          /* Kartenpunkte tragen den Lagenamen als Präfix („LebEL XY · CCP A · Ort“) */
+          ab.forEach(function(a){ a.gis.forEach(function(gi){ gruppen[gi].lageName=a.lage ? a.lage.name : 'Ohne Lage'; }); });
+        }
+      }else{
+        h+=summenLeiste(lageSummen(list));
+      }
       /* D6.8-04: Alter = Server-stand + Zeit seit dem letzten erfolgreichen Poll
        * (nicht die PC-Uhr); grau erst ab LAGE_SCHWELLE_MS und nur mit 0032-Feld. */
-      var gruppen=lageGruppen(list), vn=0, seitPoll=_lastOkAt ? nowMs()-_lastOkAt : 0;
+      var vn=0, seitPoll=_lastOkAt ? nowMs()-_lastOkAt : 0;
       gruppen.forEach(function(g){ if(g.verbund) vn++; });
       list.forEach(function(c){ if(!('zuletzt_gesehen' in c)) ohneAkt=true; });
       /* Ort-Korrektur nur für Alt-Beobachter (argus_lage_set_ort ist observer-only;
@@ -1236,35 +1562,54 @@ function viewPraesidium(pid){
       var opts={ortEdit: !isGlobal() && !isAdminSess(), geoKlick:true, vnTotal:vn};
       /* einmal berechnet — Karten und Lageskizze zeigen dieselbe Aktualität */
       var akts=gruppen.map(function(g){ return gruppenAktualitaet(g.members, _data.stand, seitPoll, LAGE_SCHWELLE_MS); });
-      h+='<div class="lgrid">';
-      gruppen.forEach(function(g, gi){
-        h+=karteA(g, akts[gi], opts);
-      });
-      h+='</div>';
-      /* Kartenmodul (Owner-Entscheid 19.10., ändert D6.8-06): Straßenkarte nur über die
-       * Passform karte-config.js. Leer/ungültig, ohne Koordinaten, ohne Leaflet, bei Wahl
-       * „Skizze“ oder nicht erreichbarem Dienst → SVG-Lageskizze aus den Koordinaten. */
-      var kk=karteKonfig(window.ARGUS_KARTE), km=karteMarker(gruppen, akts), wahl=karteWahlGet();
-      var kartenFaehig=!!(kk && km.punkte.length && window.L);
-      var modus=karteModus(kk, km.punkte.length, wahl, _karteFehler, !!window.L);
-      var schalter=kartenFaehig ? karteSchalter(modus) : '';
-      if(modus==='karte'){
-        h+=karteAbschnitt(km, schalter);
-        _karteSoll={pid:(glob ? pid : sp.id)||'', konfig:kk, punkte:km.punkte};
+      if(ab){
+        /* je Lage ein Abschnitt: Kopf, eigene Summenleiste, CCP-Karten (D6.11-08) */
+        ab.forEach(function(a){
+          h+='<section class="labschnitt" data-lage="'+esc(a.key)+'">'+lageKopf(a)+(verw && a.lage ? lageAktionen(a.lage) : '')+summenLeiste(a.s)+'<div class="lgrid">';
+          a.gis.forEach(function(gi){
+            var g=gruppen[gi];
+            h+=karteA(g, akts[gi], opts);
+          });
+          if(!a.gis.length) h+='<div class="empty">Noch kein CCP in dieser Lage.</div>';
+          h+='</div></section>';
+        });
       }else{
-        var sk=skizzeSvg(gruppen, akts, 640, 360);
-        h+='<section class="skab"><div class="skkopf"><h3>Lageskizze</h3>'+schalter+'</div>';
-        if(kartenFaehig && _karteFehler && wahl!=='skizze') h+='<div class="kfehl">Karte nicht erreichbar — Lageskizze</div>';
-        h+=sk;
-        if(sk.indexOf('<svg')>=0){
-          h+='<div class="sklegende"><span><i class="lg-t1"></i>T1</span><span><i class="lg-t2"></i>T2</span>'+
-            '<span><i class="lg-t3"></i>T3</span><span><i class="lg-t5"></i>T5</span><span><i class="lg-leer"></i>leer</span>'+
-            '<span><i class="lg-grau"></i>grau = veraltet</span><span>Norden oben · Maßstab unten links</span></div>';
+        h+='<div class="lgrid">';
+        gruppen.forEach(function(g, gi){
+          h+=karteA(g, akts[gi], opts);
+        });
+        h+='</div>';
+      }
+      if(gruppen.length){
+        /* Kartenmodul (Owner-Entscheid 19.10., ändert D6.8-06): Straßenkarte nur über die
+         * Passform karte-config.js. Leer/ungültig, ohne Koordinaten, ohne Leaflet, bei Wahl
+         * „Skizze“ oder nicht erreichbarem Dienst → SVG-Lageskizze aus den Koordinaten. */
+        var kk=karteKonfig(window.ARGUS_KARTE), km=karteMarker(gruppen, akts), wahl=karteWahlGet();
+        var kartenFaehig=!!(kk && km.punkte.length && window.L);
+        var modus=karteModus(kk, km.punkte.length, wahl, _karteFehler, !!window.L);
+        var schalter=kartenFaehig ? karteSchalter(modus) : '';
+        var praefix=mehr && lwahl==='alle';
+        if(modus==='karte'){
+          h+=karteAbschnitt(km, schalter);
+          /* anderer Reiter → anderer Schlüssel → Ausschnitt neu einpassen */
+          _karteSoll={pid:((glob ? pid : sp.id)||'')+(lwahl!=='alle' ? '|'+lwahl : ''), konfig:kk, punkte:km.punkte};
+        }else{
+          var sk=skizzeSvg(gruppen, akts, 640, 360);
+          h+='<section class="skab"><div class="skkopf"><h3>Lageskizze</h3>'+schalter+'</div>';
+          if(kartenFaehig && _karteFehler && wahl!=='skizze') h+='<div class="kfehl">Karte nicht erreichbar — Lageskizze</div>';
+          h+=sk;
+          if(sk.indexOf('<svg')>=0){
+            h+='<div class="sklegende"><span><i class="lg-t1"></i>T1</span><span><i class="lg-t2"></i>T2</span>'+
+              '<span><i class="lg-t3"></i>T3</span><span><i class="lg-t5"></i>T5</span><span><i class="lg-leer"></i>leer</span>'+
+              '<span><i class="lg-grau"></i>grau = veraltet</span><span>Norden oben · Maßstab unten links</span>'+
+              (praefix ? '<span>Beschriftung: Lage · CCP</span>' : '')+'</div>';
+          }
+          h+='</section>';
         }
-        h+='</section>';
       }
     }else{
       h+='<div class="empty">Keine offenen CCPs in diesem Präsidium.</div>';
+      if(verw) h+='<div class="lgleer">'+neuKnopf+'<span class="hint">Regelfall: Die FLZ legt die Lage an, bevor vor Ort ein CCP eröffnet wird.</span></div>';
     }
     h+='<div class="note">Anonyme Übersichtszahlen — keine Personendaten. Keine Patientendetails, keine Namen/Fotos, nur Zahlen je Kategorie. Aktualisiert sich automatisch.'+
       (ohneAkt ? ' Aktualitätsanzeige folgt nach dem Server-Update — bis dahin zeigt jede Karte die letzte Änderung.' : '')+'</div>';
@@ -1361,9 +1706,24 @@ document.addEventListener('click', function(e){
   if(a==='pselect'){ pselSet(b.getAttribute('data-pid')||''); render(); window.scrollTo(0,0); return; }
   if(a==='pwechsel'){ pselSet(''); loadPraesidien(); render(); window.scrollTo(0,0); return; }
   if(a==='logout'){ doLogout(); }
-  if(a==='gross'){ grossUmschalten(); return; }
+  if(a==='gross'){ grossUmschalten(); render(); return; }   /* sofort neu zeichnen: Verwaltungsknöpfe nie im Großbild */
   if(a==='gthema'){ grossThemaSetzen(b.getAttribute('data-thema')); return; }
   if(a==='wachan'){ wachAn(); return; }
+  if(a==='lagewahl'){ lageWahlSet(lagePidKey(), b.getAttribute('data-lage')||'alle'); render(); return; }
+  /* D6.11-07: Lagen verwalten (Master: gewähltes Präsidium; FLZ-Zugang: das der Sitzung) */
+  if(a==='lageneu'){
+    var lpid='';
+    if(isGlobal()) lpid=pselGet();
+    else{ try{ lpid=sessionStorage.getItem('arguslg_pid')||''; }catch(err){} }
+    lageAnlegen(lpid); return;
+  }
+  if(a==='lageumben' || a==='lageabschl'){
+    var lid=b.getAttribute('data-lage')||'', lz=null;
+    lagenFuer(_data && _data.einsatzlagen, '').forEach(function(l){ if(l.id===lid) lz=l; });
+    if(!lz){ flash('Lage nicht mehr vorhanden'); return; }
+    if(a==='lageumben') lageUmbenennen(lz); else lageAbschliessen(lz);
+    return;
+  }
   if(a==='kartewahl'){
     var kw=b.getAttribute('data-wahl')==='skizze' ? 'skizze' : 'karte';
     karteWahlSet(kw);
