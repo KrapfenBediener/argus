@@ -115,7 +115,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.35.4';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.35.5';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -145,6 +145,11 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.35.5': [
+    'Die Online-Nummer stimmt jetzt schon beim ersten Patienten nach dem Beitritt: keine Gerätekennung mehr (z. B. A-1 statt A-1-2), solange du Netz hast.',
+    'Neu installierte Apps erkennen die Server-Funktionen sofort nach der Code-Eingabe.',
+    'Lage-Seite der Leitung: kräftigere Summenleiste und beschriftete Lageskizze mit Entfernungen.'
+  ],
   '0.35.4': [
     'Sicherheits- und Korrekturupdate: Patientenlisten sind besser gegen eingeschleuste Inhalte geschützt.',
     'ARGUS-App (iPhone): Abgleich ohne Netz zuverlässiger — auch nach einem App-Neustart, bei neuen oder gelöschten Fotos und beim Einsatzabschluss. Die Freischaltung bleibt beim Start sicher erhalten.',
@@ -1142,6 +1147,9 @@ async function exchangeCode(code, scope){
     accessSet('argus_code', clean);                    /* für stille Verlängerung */
     storePidJwt(data.praesidium_id, data.jwt, data.exp*1000, clean);   /* je Präsidium merken (Picker-Wechsel) */
     if(data.scope==='schulung') localStorage.setItem('argus_twin_of_'+data.praesidium_id, '1');   /* Merker: Twin-JWT stammt aus Scope-Exchange → Verlängerung mit p_scope */
+    /* Neuer Zugang aktiv → Schema sofort erkennen (frische Hülle: init endet sonst vor probeSchema(3), _schemaV bliebe bis zu 180 s auf 0).
+     * Fire-and-forget, KEIN await — Local-first, blockiert nie. */
+    try{ probeSchema(1); }catch(e){}
     return {
       praesidium_id: data.praesidium_id,
       is_master: !!data.is_master,
@@ -7044,7 +7052,10 @@ document.addEventListener("click",async function(e){
   if(!p.tx)p.tx={};p.tx[f]=!p.tx[f];el.classList.toggle("on",p.tx[f]);await savePatient(p);
 });
 
-function go(view){state.view=view;if(view==="capture"){state.capMode="menu";state.capDirect=false;}state.capPopup=false;render();if(view==="start"||view==="home")maybeShowIntro();}
+/* Startfall (Owner-Befund 0.35.4, „C-1-2“): Beitritt/Eröffnung/Wiederbeitritt enden in go("home"). Bisher holte erst das
+ * 3,5-s-Intervall die erste Online-Nummer — wer sofort erfasste, bekam online das Offline-Label. Jetzt sofort anstoßen
+ * (no-op, wenn reserviert/offline/Training/Backoff); der Erfassungsbildschirm ist das Sicherheitsnetz. Nie warten. */
+function go(view){state.view=view;if(view==="capture"){state.capMode="menu";state.capDirect=false;}state.capPopup=false;if(view==="home"||view==="capture"){ try{ prefetchNum(); }catch(e){} }render();if(view==="start"||view==="home")maybeShowIntro();}
 async function back(){
   if(state.view==="patient"){await releasePatientLock();state.readonly=false;go("catlist");}
   else if(state.view==="einsatzexport"){_closeTyp=null;go("overview");}

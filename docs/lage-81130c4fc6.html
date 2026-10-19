@@ -71,9 +71,9 @@
   .uband.u-unbekannt{background:#c9cdd2;color:#1b1d20;border-left-color:#6b7178}
   /* Summenleiste D6.8-03: sechs große Kacheln + schmale Nebenzeile */
   .sumbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 6px}
-  .sumbar .sum{background:var(--bg);border:1px solid var(--line);border-top:6px solid var(--line);border-radius:10px;padding:8px 6px 7px;text-align:center}
-  .sumbar .n{font-family:var(--mono);font-weight:700;font-size:28px;line-height:1.1;color:var(--tx)}
-  .sumbar .l{font-size:12px;font-weight:600;color:var(--mut)}
+  .sumbar .sum{background:var(--bg);border-radius:10px;padding:12px 6px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .sumbar .n{font-family:var(--mono);font-weight:700;font-size:38px;line-height:1.05;color:inherit}
+  .sumbar .l{font-size:13px;font-weight:700;color:inherit}
   .sumneben{font-size:12.5px;color:var(--mut);margin:0 0 12px;padding:0 2px}
   .sumneben b{font-family:var(--mono);font-weight:600;color:var(--tx)}
   /* Kartenmuster A D6.8-02: 2-px-Rahmen, dunkles Kopfband, Kategorien, Metazeile */
@@ -136,10 +136,17 @@
   .sk-grau circle{fill:#9aa1a8}
   .sk-t2 text{fill:#1b1d20}
   .sk-leer text{fill:var(--tx)}
-  .skmass line{stroke:var(--tx);stroke-width:2}
-  .skmass text{fill:var(--tx);font-family:var(--sans);font-size:11px;font-weight:600}
+  .skmass line{stroke:var(--tx);stroke-width:3}
+  .skmass text{fill:var(--tx);font-family:var(--sans);font-size:13px;font-weight:700;stroke:var(--bg);stroke-width:4px;paint-order:stroke;stroke-linejoin:round}
+  .skizze .sklab{fill:var(--tx);font-family:var(--sans);font-size:13px;font-weight:600;stroke:var(--bg);stroke-width:4px;paint-order:stroke;stroke-linejoin:round}
+  .skdist line{stroke:var(--mut);stroke-width:1.5;stroke-dasharray:5 4}
+  .skizze .skdl{fill:var(--mut);font-family:var(--sans);font-size:12px;font-weight:600;stroke:var(--bg);stroke-width:4px;paint-order:stroke;stroke-linejoin:round}
+  .skhinw{font-size:13px;color:var(--tx);margin-top:6px}
   .skohne{font-size:12.5px;color:var(--mut);margin-top:6px}
   .skleer{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--mut)}
+  .skwarn{background:#FFF4D1;border:1px solid #E0B84A;border-left:5px solid #F2B600;border-radius:10px;color:#3A2C00;font-size:13.5px;padding:12px 14px}
+  .skwarn b{font-weight:700}
+  .skohne.skwarn{margin-top:8px;padding:9px 12px}
   .sklegende{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--mut);margin-top:6px}
   .sklegende i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid var(--line)}
   .sklegende .lg-t1{background:var(--t1)}
@@ -165,6 +172,7 @@
   body.gross .kz .k .l{font-size:14px}
   body.gross .kmeta{font-size:15px}
   body.gross .sumbar .n{font-size:48px}
+  body.gross .sumbar .sum:nth-child(4){box-shadow:0 0 0 2px #6b7178}
   body.gross .sumbar .l{font-size:15px}
   body.gross .sumneben{font-size:16px}
   body.gross .uband{font-size:18px}
@@ -173,6 +181,11 @@
   body.gross .btn{box-shadow:inset 0 0 0 1px #e6e9ec}
   body.gross .skab > h3{font-size:18px}
   body.gross .sklegende,body.gross .skohne{font-size:15px}
+  body.gross .skwarn{font-size:16px}
+  body.gross .skhinw{font-size:15px}
+  body.gross .sklegende .lg-t5{border-color:#e6e9ec}
+  body.gross .skizze .sklab{font-size:15px}
+  body.gross .skizze .skdl{font-size:14px}
   body.gross .sk-t5 circle{stroke:#e6e9ec}
   /* Wachhalte-Zustand in der Kopfzeile (sichtbarer Fallback, Pitfall 7) */
   .topbar .wach{display:inline-flex;align-items:center;gap:8px;font-size:12px;max-width:42vw;overflow:hidden;text-overflow:ellipsis}
@@ -389,16 +402,17 @@ function umgebungsBand(umgebung, text){
  * offene CCPs groß; darunter Nebenzeile Prio/transportfertig/Patienten gesamt. */
 function summenLeiste(s){
   s=s||{};
-  function kachel(n, label, farbe){
-    return '<div class="sum" style="border-top-color:'+farbe+'"><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
+  /* Kategoriefarben wie die Kacheln der Karten; Schrift mit Kontrast (T2 dunkel auf Gelb) */
+  function kachel(n, label, bg, fg){
+    return '<div class="sum" style="background:'+bg+';color:'+fg+'"><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
   }
   var h='<div class="sumbar">';
-  h+=kachel(s.t1, 'T1', 'var(--t1)');
-  h+=kachel(s.t2, 'T2', 'var(--t2)');
-  h+=kachel(s.t3, 'T3', 'var(--t3)');
-  h+=kachel(s.t5, 'T5', 'var(--t5)');
-  h+=kachel(s.gpa, 'abtransportiert', 'var(--mut)');
-  h+=kachel(s.ccps, 'offene CCPs', 'var(--acc)');
+  h+=kachel(s.t1, 'T1', 'var(--t1)', '#fff');
+  h+=kachel(s.t2, 'T2', 'var(--t2)', '#3A2C00');
+  h+=kachel(s.t3, 'T3', 'var(--t3)', '#fff');
+  h+=kachel(s.t5, 'T5', 'var(--t5)', '#fff');
+  h+=kachel(s.gpa, 'abtransportiert', '#4a5463', '#fff');
+  h+=kachel(s.ccps, 'offene CCPs', '#646d7a', '#fff');
   h+='</div>';
   h+='<div class="sumneben">Prio-Transport <b>'+(+s.prio||0)+'</b> · transportfertig <b>'+(+s.ready||0)+'</b> · Patienten gesamt <b>'+(+s.pat||0)+'</b></div>';
   return h;
@@ -734,12 +748,38 @@ function lageFarbe(s, alt){
   if((+s.t5||0)>0) return 't5';
   return 'leer';
 }
+/* rein: Koordinate als Zahl — Zahl oder numerischer Text (numeric kommt je nach
+ * Backend/Proxy auch als Text an), sonst null. */
+function koordZahl(v){
+  if(typeof v==='number') return isFinite(v) ? v : null;
+  if(typeof v==='string' && v.trim()!=='' && isFinite(+v)) return +v;
+  return null;
+}
+/* rein: Luftlinie in Metern (Haversine) */
+function distanzM(la1, ln1, la2, ln2){
+  var R=6371000, r=Math.PI/180;
+  var a=Math.sin((la2-la1)*r/2), b=Math.sin((ln2-ln1)*r/2);
+  var h=a*a+Math.cos(la1*r)*Math.cos(la2*r)*b*b;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(h)));
+}
+/* rein: Entfernung als Text — auf 10 m gerundet, ab 1 km mit Komma */
+function distText(m){
+  m=+m;
+  if(!isFinite(m) || m<0) return '';
+  if(m<10) return '< 10 m';
+  var r=Math.round(m/10)*10;
+  if(r>=1000) return (m/1000).toFixed(1).replace('.',',')+' km';
+  return r+' m';
+}
 /* rein: äquirektangulär um die mittlere Breite, Norden oben, gleichmäßiger
  * Maßstab, Mindestausdehnung 0.0009° (~100 m), 12 % Rand, zentriert. */
 function skizzeProjektion(pts, W, H, pad){
-  var ok=(pts||[]).filter(function(p){
-    return p && typeof p.lat==='number' && typeof p.lng==='number' && isFinite(p.lat) && isFinite(p.lng)
-      && Math.abs(p.lat)<=90 && Math.abs(p.lng)<=180 && !(p.lat===0 && p.lng===0);
+  var ok=[];
+  (pts||[]).forEach(function(p){
+    if(!p) return;
+    var la=koordZahl(p.lat), ln=koordZahl(p.lng);
+    if(la===null || ln===null || Math.abs(la)>90 || Math.abs(ln)>180 || (la===0 && ln===0)) return;
+    ok.push({lat:la, lng:ln, ref:p});
   });
   if(!ok.length) return {punkte:[], meterProPx:null};
   var lat0=ok.reduce(function(s,p){ return s+p.lat; },0)/ok.length;
@@ -749,7 +789,7 @@ function skizzeProjektion(pts, W, H, pad){
   var sx=Math.max(x1-x0, MIN)*1.12, sy=Math.max(y1-y0, MIN)*1.12;
   var s=Math.min((W-2*pad)/sx, (H-2*pad)/sy), cx=(x0+x1)/2, cy=(y0+y1)/2;
   return {
-    punkte: ok.map(function(p,i){ return {x:W/2+(xs[i]-cx)*s, y:H/2+(ys[i]-cy)*s, ref:p}; }),
+    punkte: ok.map(function(p,i){ return {x:W/2+(xs[i]-cx)*s, y:H/2+(ys[i]-cy)*s, lat:p.lat, lng:p.lng, ref:p.ref}; }),
     meterProPx: 111320/s
   };
 }
@@ -776,31 +816,76 @@ function skizzeSvg(gruppen, akts, W, H){
   });
   var pr=skizzeProjektion(pts, W, H, 28);
   if(!pr.punkte.length){
-    return '<div class="skleer">Keine Koordinaten erfasst — Standorte werden beim Eröffnen eines CCP aufgenommen, wenn das Gerät den Standort freigibt.</div>';
+    var nc=pts.length;
+    return '<div class="skleer skwarn"><b>Keine Koordinaten erfasst</b> — '+
+      (nc ? 'bei '+nc+(nc===1 ? ' CCP' : ' CCPs')+' liegt kein Standort vor. ' : 'es gibt keine offenen CCPs. ')+
+      'Die Feld-App speichert den Standort einmalig beim Eröffnen eines CCP, und nur wenn das Gerät den Standort freigibt (iPhone: Einstellungen › ARGUS › Standort). '+
+      'Die Skizze erscheint, sobald ein CCP mit Standort eröffnet wird.</div>';
   }
   var drin=pr.punkte.map(function(p){ return p.ref; });
   var ohne=pts.filter(function(p){ return drin.indexOf(p)<0; });
+  var P=pr.punkte, kanten=[], gesehen={};
+  /* Abstandslinie je Punkt zum nächsten CCP (ohne Doppelte); nur wo Platz für die Beschriftung ist */
+  P.forEach(function(a, i){
+    var best=-1, bd=Infinity;
+    P.forEach(function(b, k){
+      if(i===k) return;
+      var d=distanzM(a.lat, a.lng, b.lat, b.lng);
+      if(d>=1 && d<bd){ bd=d; best=k; }
+    });
+    if(best<0) return;
+    var key=Math.min(i,best)+'-'+Math.max(i,best);
+    if(gesehen[key]) return;
+    gesehen[key]=1;
+    var b2=P[best];
+    if(Math.sqrt((a.x-b2.x)*(a.x-b2.x)+(a.y-b2.y)*(a.y-b2.y))>=60) kanten.push({a:a, b:b2, m:bd});
+  });
   var h='<svg class="skizze" viewBox="0 0 '+n(W)+' '+n(H)+'" role="img" aria-label="Lageskizze">';
   h+='<rect class="skrahmen" x="0.5" y="0.5" width="'+n(W-1)+'" height="'+n(H-1)+'" rx="8.0"/>';
   h+='<text class="sknord" x="'+n(W-14)+'" y="'+n(24)+'" text-anchor="end">N ↑</text>';
-  pr.punkte.forEach(function(p){
+  kanten.forEach(function(k){
+    h+='<g class="skdist"><line x1="'+n(k.a.x)+'" y1="'+n(k.a.y)+'" x2="'+n(k.b.x)+'" y2="'+n(k.b.y)+'"/>'+
+      '<text class="skdl" x="'+n((k.a.x+k.b.x)/2)+'" y="'+n((k.a.y+k.b.y)/2-5)+'" text-anchor="middle">'+esc(distText(k.m))+'</text></g>';
+  });
+  P.forEach(function(p){
     var c=p.ref.c, f=farben[p.ref.gi]||'leer';
     h+='<g class="skp sk-'+f+'"><title>CCP '+esc(kennungFunk(c.kennung))+(c.ort?' · '+esc(c.ort):'')+'</title>'+
       '<circle cx="'+n(p.x)+'" cy="'+n(p.y)+'" r="11.0"/>'+
       '<text x="'+n(p.x)+'" y="'+n(p.y+4)+'" text-anchor="middle">'+esc(String(c.kennung||'').slice(0,2))+'</text></g>';
+  });
+  /* Beschriftung direkt am Punkt („CCP Anton · Ort“): rechts, bei Platzmangel links;
+   * übereinanderliegende Labels werden um je 14 px nach unten versetzt. */
+  var platziert=[];
+  P.slice().sort(function(a, b){ return a.y-b.y; }).forEach(function(p){
+    var c=p.ref.c, ort=String(c.ort||'');
+    if(ort.length>24) ort=ort.slice(0,23)+'…';
+    var t='CCP '+kennungFunk(c.kennung)+(ort ? ' · '+ort : '');
+    var w=t.length*7, platzR=W-6-(p.x+16), platzL=p.x-16-6;
+    var rechts=(w<=platzR) || (platzR>=platzL);
+    var x0=rechts ? p.x+16 : p.x-16-w, x1=x0+w, y=p.y+4, guard=0, kollidiert;
+    do{
+      kollidiert=false;
+      platziert.forEach(function(q){ if(Math.abs(q.y-y)<14 && q.x0<x1 && x0<q.x1) kollidiert=true; });
+      if(kollidiert) y+=14;
+    }while(kollidiert && ++guard<40);
+    if(y>H-6) y=H-6;
+    platziert.push({x0:x0, x1:x1, y:y});
+    h+='<text class="sklab" x="'+n(rechts ? p.x+16 : p.x-16)+'" y="'+n(y)+'" text-anchor="'+(rechts ? 'start' : 'end')+'">'+esc(t)+'</text>';
   });
   var ms=massstab(pr.meterProPx, W/4);
   if(ms){
     var mx=16, my=H-16;
     h+='<g class="skmass">'+
       '<line x1="'+n(mx)+'" y1="'+n(my)+'" x2="'+n(mx+ms.px)+'" y2="'+n(my)+'"/>'+
-      '<line x1="'+n(mx)+'" y1="'+n(my-5)+'" x2="'+n(mx)+'" y2="'+n(my+0.5)+'"/>'+
-      '<line x1="'+n(mx+ms.px)+'" y1="'+n(my-5)+'" x2="'+n(mx+ms.px)+'" y2="'+n(my+0.5)+'"/>'+
-      '<text x="'+n(mx)+'" y="'+n(my-8)+'">'+esc(ms.text)+'</text></g>';
+      '<line x1="'+n(mx)+'" y1="'+n(my-6)+'" x2="'+n(mx)+'" y2="'+n(my+1)+'"/>'+
+      '<line x1="'+n(mx+ms.px)+'" y1="'+n(my-6)+'" x2="'+n(mx+ms.px)+'" y2="'+n(my+1)+'"/>'+
+      '<text x="'+n(mx)+'" y="'+n(my-10)+'">'+esc(ms.text)+'</text></g>';
   }
   h+='</svg>';
+  h+='<div class="skhinw"><strong>Schematische Lageskizze</strong> — keine Straßenkarte. Norden oben, Abstände maßstäblich (Luftlinie nach den erfassten Standorten)'+
+    (kanten.length ? '; gestrichelt: Entfernung zum jeweils nächsten CCP' : '')+'.</div>';
   if(ohne.length){
-    h+='<div class="skohne">Ohne Koordinaten: '+ohne.map(function(p){ return 'CCP '+esc(kennungFunk(p.c.kennung)); }).join(', ')+'</div>';
+    h+='<div class="skohne skwarn">Ohne Koordinaten: '+ohne.map(function(p){ return 'CCP '+esc(kennungFunk(p.c.kennung)); }).join(', ')+' — nicht auf der Skizze.</div>';
   }
   return h;
 }
