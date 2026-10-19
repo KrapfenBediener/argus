@@ -120,7 +120,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.36.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.36.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -150,8 +150,12 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.36.1': [
+    'Lagen: „Lage auswählen“ ist jetzt ein eigenes Menü wie die Präsidiumsauswahl — Präsidium → Lage → CCP. Die gewählte Lage steht auf der Startseite, „Lage wechseln“ führt zurück ins Menü. ARGUS merkt sich die Lage je Präsidium; nach „CCP verlassen“ bist du wieder in deiner Lage.',
+    '„Neue CCP eröffnen“ fragt nicht mehr nach der Lage — der CCP entsteht in der gewählten Lage. „CCP beitreten“ zeigt zuerst die CCPs deiner Lage, „Alle Lagen anzeigen“ blendet die übrigen ein.'
+  ],
   '0.36.0': [
-    'Lagen: Beim Eröffnen eines CCP wählst du zuerst die Lage. Gibt es nur eine offene Lage, ist sie schon ausgewählt — ein Tipp genügt. Sonst steht die nächstgelegene oben, „Neue Lage eröffnen“ darunter (Name vorbelegt mit der Uhrzeit, änderbar; geht auch ohne Netz).',
+    'Lagen: Ein Präsidium kann mehrere Lagen gleichzeitig führen. Ist nur eine Lage offen, genügt ein Tipp; sonst steht die nächstgelegene oben, „Neue Lage eröffnen“ darunter (Name vorbelegt mit der Uhrzeit, änderbar; geht auch ohne Netz).',
     '„CCP beitreten“ zeigt die CCPs nach Lage gruppiert, mit Entfernung.',
     'Zusammenführen geht nur noch innerhalb derselben Lage. Kennungen (A, B, C …) und Funkspruch bleiben wie gewohnt.'
   ],
@@ -920,7 +924,7 @@ async function refreshSchulungFlag(){
   }catch(e){}
 }
 var _ccpCreateErr=null;   /* Klartext, wenn das Anlegen am SERVER scheiterte (≠ Abbruch durch Nutzer) */
-/* Phase 6.11 (D6.11-03/-10): lageId aus dem Lage-Schritt (v ≥ 35); ohne lageId genau wie 0.35.9. */
+/* Phase 6.11 (D6.11-03/-10/-13): lageId = im Menü „Lage auswählen“ gewählte Lage (v ≥ 35); ohne lageId genau wie 0.35.9. */
 async function openOrCreateCCP(lageId){
   _ccpCreateErr=null;
   var client=sb(); if(!client){ _ccpCreateErr='Keine Backend-Verbindung'; return false; }
@@ -994,7 +998,7 @@ async function openOrCreateCCP(lageId){
   }
   _ccpCreateErr=(ins.error&&(ins.error.message||ins.error.details))||'Server hat den CCP nicht angelegt';
   /* Phase 6.11: Die FLZ hat die Lage zwischenzeitlich abgeschlossen (Trigger „Lage abgeschlossen …“) → verständlich erklären, nichts anlegen. */
-  if(/Lage abgeschlossen/.test(String(_ccpCreateErr))) _ccpCreateErr='Die gewählte Lage wurde inzwischen abgeschlossen. Bitte erneut „Neue CCP eröffnen“ und eine offene Lage wählen.';
+  if(/Lage abgeschlossen/.test(String(_ccpCreateErr))) _ccpCreateErr='Die gewählte Lage wurde inzwischen abgeschlossen. Bitte im Menü „Lage auswählen“ eine offene Lage wählen.';
   return false;
 }
 function subscribeRealtime(){
@@ -1635,6 +1639,15 @@ function vPraesidium(){
   h+=appFooter();
   return h;
 }
+/* D6.11-13: Bildschirm „Lage auswählen“ — sofort aus dem Menü-Zustand (Cache), Laden im Hintergrund. */
+function vLage(){
+  if(_training) return lageMenueHtml(lagenFuerWahl(trainLagenListe(), [], null, [], ''), {praesidium:_praesidiumName, schulung:true, gewaehlt:trainLageAktuell().id})+appFooter();   /* D6.11-11 */
+  var m=_lagenMenue||{}, eig=(m.pid===_praesidiumId);
+  var liste=lagenFuerWahl(eig?m.lagen:null, eig?m.ccps:[], eig?m.pos:null, lagePendingLesen(), _praesidiumId);
+  var w=lageWahlLesen(_praesidiumId);
+  return lageMenueHtml(liste, {praesidium:_praesidiumName, schulung:!!_praesidiumSchulung, gewaehlt:w?w.id:'',
+    laedt:!!m.laedt && !(eig && m.lagen), offline:!!(eig && m.quelle==='cache')})+appFooter();
+}
 function vAdmin(){
   var h='<div style="text-align:center;padding:24px 0 12px"><div style="font-size:22px;font-weight:600">Administration</div><div class="hint">Nur MasterToken · Zugänge verwalten</div></div>';
   if(!_praesidienList.length){
@@ -1654,28 +1667,24 @@ function vAdmin(){
   /* Leitungs-Funktionen (Zugänge sperren, Einsatzprotokolle, Protokoll) liegen auf der separaten Leitungs-Oberfläche — nicht in der Feld-App (Phase 4.9). */
   return h;
 }
-function ccpJoinModal(list, gruppen){
+function ccpJoinModal(list, gruppen, nurLage){
   return new Promise(function(resolve){
     var ov=document.createElement('div');ov.className='modalov';
-    var inner='<div class="modalbx" style="max-width:360px">';
-    inner+='<div class="modalmsg" style="margin-bottom:14px">CCP auswählen</div>';
     /* D6.9-04: je Einzel-CCP/Verbund eine Karte (Verbund: Ort des Haupt-CCP,
-     * data-id = Haupt-CCP); alle Server-Texte escaped (joinKarteHtml). */
-    /* D6.11-03: mit Gruppen (Server ≥ 35) je Lage ein Kopf, Karten mit Entfernung; sonst wie bisher. */
-    if(Array.isArray(gruppen) && gruppen.length){
-      gruppen.forEach(function(gr){
-        inner+=lageJoinKopf(gr);
-        (gr && Array.isArray(gr.eintraege) ? gr.eintraege : []).forEach(function(e){ inner+=joinKarteHtml(e.ccp, (e.dist!==null && e.dist!==undefined) ? distText(e.dist) : ''); });
-      });
-    }else list.forEach(function(ccp){ inner+=joinKarteHtml(ccp); });
-    inner+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
-    inner+='</div>';
-    ov.innerHTML=inner; document.body.appendChild(ov);
+     * data-id = Haupt-CCP); alle Server-Texte escaped (Karten über joinKarteHtml() in joinModalHtml).
+     * D6.11-03: mit Gruppen (Server ≥ 35) je Lage ein Kopf, Karten mit Entfernung; sonst wie bisher.
+     * D6.11-13: mit nurLage zuerst nur diese Lage; „Alle Lagen anzeigen“ zeigt alle Gruppen (joinModalHtml). */
+    ov.innerHTML='<div class="modalbx" style="max-width:360px">'+joinModalHtml(list, gruppen, nurLage)+'</div>'; document.body.appendChild(ov);
     function done(v){ modalDismiss(ov, function(){ resolve(v); }); }
-    ov.querySelectorAll('.mc-ccpjoin').forEach(function(btn){
-      btn.addEventListener('click',function(){done(btn.getAttribute('data-id'));});
-    });
-    ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
+    function binden(){
+      ov.querySelectorAll('.mc-ccpjoin').forEach(function(btn){
+        btn.addEventListener('click',function(){done(btn.getAttribute('data-id'));});
+      });
+      ov.querySelector('.mc-cancel').addEventListener('click',function(){done(null);});
+      var alle=ov.querySelector('.mc-allelagen');
+      if(alle) alle.addEventListener('click',function(){ var bx=ov.querySelector('.modalbx'); bx.innerHTML=joinModalHtml(list, gruppen, null); binden(); });
+    }
+    binden();
     ov.addEventListener('click',function(e){if(e.target===ov)done(null);});
   });
 }
@@ -1687,7 +1696,10 @@ function ccpJoinModal(list, gruppen){
  * Reconnect, Netz-Rückkehr). Die Lagen-Liste fällt bei Netzfehlern auf den Cache
  * argus_lagen_<pid> zurück. Speicherfehler brechen nichts. */
 var _lageFlushBusy=null;   /* laufender Nachreich-Lauf (Promise) — Sperre gegen Parallelaufrufe */
-var _lageAbgelehnt={};     /* id → Meldung, wenn der Server eine Lage abgelehnt hat (für den Lage-Schritt) */
+var _lageAbgelehnt={};     /* id → Meldung, wenn der Server eine Lage abgelehnt hat (für Menü und Eröffnen) */
+var _lagenQuelle=null;     /* D6.11-13: Quelle der letzten ladeLagen-Antwort — 'server' | 'cache' | null (nur 'server' darf eine gemerkte Lage verwerfen) */
+var _lagenMenue={pid:null, lagen:null, ccps:[], pos:null, laedt:false, quelle:null};   /* D6.11-13: Zustand des Menüs „Lage auswählen“ */
+var _lagePruefBusy=false;  /* D6.11-13: Sperre für lageWahlPruefen */
 function lagePendingLesen(){
   try{ var a=JSON.parse(localStorage.getItem('argus_lage_pending')||'[]'); return Array.isArray(a) ? a : []; }catch(e){ return []; }
 }
@@ -1703,20 +1715,56 @@ function lageCacheLesen(pid){
 function lageCacheSchreiben(pid, arr){
   try{ localStorage.setItem('argus_lagen_'+pid, JSON.stringify(Array.isArray(arr) ? arr : [])); }catch(e){}
 }
+/* D6.11-13: gewählte Lage je Präsidium (argus_lage_wahl_<pid>); nur Kennung und Name, keine
+ * Patientendaten. Lesen prüft die Form (T-06.11-82); Speicherfehler brechen nichts. */
+function lageWahlLesen(pid){
+  if(!pid) return null;
+  try{
+    var o=JSON.parse(localStorage.getItem('argus_lage_wahl_'+pid)||'null');
+    if(!o || typeof o!=='object' || typeof o.id!=='string' || !o.id || !lageNameOk(o.name)) return null;
+    return {id:o.id, name:lageNameNorm(o.name), vor_ort:!!o.vor_ort};
+  }catch(e){ return null; }
+}
+function lageWahlSchreiben(pid, l){
+  if(!pid || !l || typeof l!=='object' || typeof l.id!=='string' || !l.id || !lageNameOk(l.name)) return false;
+  try{ localStorage.setItem('argus_lage_wahl_'+pid, JSON.stringify({id:l.id, name:lageNameNorm(l.name), vor_ort:!!l.vor_ort})); return true; }catch(e){ return false; }
+}
+function lageWahlLoeschen(pid){
+  if(!pid) return;
+  try{ localStorage.removeItem('argus_lage_wahl_'+pid); }catch(e){}
+}
+/* Abgleich der gemerkten Lage mit einer FRISCHEN Serverliste (nie mit dem Cache, T-06.11-83):
+ * 'leer' (nichts gemerkt) | 'lokal' (noch in der Warteschlange) | 'ok' (offen; Name/vor_ort
+ * nachgezogen) | 'weg' (abgeschlossen oder unbekannt → gelöscht). */
+function lageWahlAbgleich(pid, lagen){
+  var w=lageWahlLesen(pid);
+  if(!w) return 'leer';
+  if(lagePendingLesen().some(function(x){ return x && x.id===w.id; })) return 'lokal';
+  var arr=Array.isArray(lagen)?lagen:[];
+  for(var i=0;i<arr.length;i++){
+    var l=arr[i];
+    if(!l || typeof l!=='object' || l.id!==w.id || l.abgeschlossen_at) continue;
+    if(lageNameOk(l.name) && (lageNameNorm(l.name)!==w.name || !!l.vor_ort!==w.vor_ort)) lageWahlSchreiben(pid, {id:w.id, name:l.name, vor_ort:l.vor_ort});
+    return 'ok';
+  }
+  lageWahlLoeschen(pid);
+  return 'weg';
+}
 /* Offene Lagen des eigenen Präsidiums: Array (Netzfehler → Cache, evtl. leer) oder
  * null = Lagen gibt es hier nicht (Training, kein Präsidium, v<35, Tabelle fehlt). */
 async function ladeLagen(){
-  if(_training || !_praesidiumId || _schemaV<35) return null;
-  var client=sb(); if(!client) return null;
+  if(_training || !_praesidiumId || _schemaV<35){ _lagenQuelle=null; return null; }
+  var client=sb(); if(!client){ _lagenQuelle=null; return null; }
   var pid=_praesidiumId;
   if(netLikelyUp()){
     try{
       var r=await qt(client.from('einsatzlagen').select('id,name,vor_ort,eroeffnet_at').eq('praesidium_id',pid).is('abgeschlossen_at',null));
-      if(r && !r.error && Array.isArray(r.data)){ lageCacheSchreiben(pid, r.data); return r.data; }
+      if(r && !r.error && Array.isArray(r.data)){ lageCacheSchreiben(pid, r.data); _lagenQuelle='server'; return r.data; }
       var er=r && r.error, em=String((er && (er.message||er.details))||'');
-      if(er && (er.code==='PGRST205' || er.code==='42P01' || /does not exist|Could not find the table/i.test(em))) return null;
+      if(er && (er.code==='PGRST205' || er.code==='42P01' || /does not exist|Could not find the table/i.test(em))){ _lagenQuelle=null; return null; }
     }catch(e){}
   }
+  _lagenQuelle='cache';
   return lageCacheLesen(pid) || [];
 }
 /* Offene CCPs des Präsidiums (Anzahl je Lage, Koordinaten für die Nähe) — Fehler → []. */
@@ -1761,21 +1809,6 @@ async function eigeneLageId(){
   }catch(e){}
   return null;
 }
-/* Lage-Auswahl (Muster ccpJoinModal): {id} | {neu:true} | null (Abbrechen/Hintergrund). */
-function lageWahlModal(liste){
-  return new Promise(function(resolve){
-    var ov=document.createElement('div'); ov.className='modalov';
-    ov.innerHTML='<div class="modalbx" style="max-width:360px">'+lageWahlHtml(liste)+'</div>';
-    document.body.appendChild(ov);
-    function done(v){ modalDismiss(ov, function(){ resolve(v); }); }
-    ov.querySelectorAll('.mc-lage').forEach(function(btn){
-      btn.addEventListener('click', function(){ done({id:btn.getAttribute('data-lage')}); });
-    });
-    ov.querySelector('.mc-lageneu').addEventListener('click', function(){ done({neu:true}); });
-    ov.querySelector('.mc-cancel').addEventListener('click', function(){ done(null); });
-    ov.addEventListener('click', function(e){ if(e.target===ov) done(null); });
-  });
-}
 /* Warteschlange nachreichen (idempotent über p_id = clientseitige uuid, T-06.11-42).
  * Nur Einträge des aktuellen Präsidiums (der Zugang gilt je Präsidium); Müll wird
  * verworfen. ok → entfernen; ok:false → entfernen + Hinweis; Netz/Timeout → behalten.
@@ -1788,7 +1821,8 @@ function flushPendingLagen(){
       if(!arr.length) return 0;
       var client=sb();
       if(_schemaV<35 || !client || !netLikelyUp()) return arr.length;
-      function entfernen(id){ lagePendingSchreiben(lagePendingLesen().filter(function(x){ return !(x && x.id===id); })); }
+      var weg=0;   /* D6.11-13: nachgereichte/abgelehnte Einträge → Lage-Zeile/Menü neu zeichnen */
+      function entfernen(id){ weg++; lagePendingSchreiben(lagePendingLesen().filter(function(x){ return !(x && x.id===id); })); }
       var gut=arr.filter(function(x){ return x && typeof x==='object' && typeof x.id==='string' && x.id && x.praesidium_id && lageNameOk(x.name); });
       if(gut.length!==arr.length) lagePendingSchreiben(gut);   /* Müll verwerfen (synchron, kein await dazwischen) */
       var meine=lagePendingFuer(gut, _praesidiumId);
@@ -1801,10 +1835,12 @@ function flushPendingLagen(){
           entfernen(e.id);
           var mld=String(d.meldung||d.fehler||'abgelehnt');
           _lageAbgelehnt[e.id]=mld;
+          try{ var gw=lageWahlLesen(e.praesidium_id); if(gw && gw.id===e.id) lageWahlLoeschen(e.praesidium_id); }catch(x){}   /* D6.11-13: abgelehnte Lage bleibt nicht gewählt */
           toast('Lage „'+nm+'“ nicht angelegt: '+mld);
         }
         /* sonst: Netz/Timeout/unbekannter Fehler → Eintrag bleibt für den nächsten Lauf */
       }
+      if(weg>0 && typeof state!=='undefined' && state && (state.view==='start'||state.view==='lage')){ try{ render(); }catch(e){} }
     }catch(e){}
     return lagePendingLesen().length;
   })();
@@ -1813,45 +1849,177 @@ function flushPendingLagen(){
   lauf.then(frei, frei);
   return lauf;
 }
-/* Lage-Schritt beim Eröffnen eines CCP (D6.11-01/-02/-03):
- * {ohne:true} = kein Lage-Schritt (wie 0.35.9) · {id, name, neu} = gewählte/neue Lage · null = Abbruch.
- * Keine Lage → direkt die Namensabfrage; eine Lage → ein Tipp; mehrere → nach Nähe. */
-async function lageSchritt(){
+/* D6.11-13: Lage für „＋ Neue CCP eröffnen“ — die im Menü „Lage auswählen“ gewählte (gemerkte) Lage,
+ * ohne Rückfrage. {ohne:true} = Lagen gibt es hier nicht (v<35, kein Präsidium, keine Tabelle — wie 0.35.9)
+ * · {id, name} · null = Abbruch; der Grund ist bereits gezeigt (Hinweis bzw. Menü „Lage auswählen“).
+ * Eine noch nicht übertragene Lage wird zuerst nachgereicht (ohne Netz: Hinweis, kein CCP). Verworfen
+ * wird nur mit frischer Serverliste (T-06.11-83); mit der Cache-Liste scheitert das Anlegen ggf. am Netz. */
+async function lageFuerNeuenCcp(){
   var lagen=await ladeLagen();
   if(lagen===null) return {ohne:true};
-  var pid=_praesidiumId;
-  var liste=lagenFuerWahl(lagen, [], null, lagePendingLesen(), pid);
-  if(liste.length){
-    /* Position nur, wenn sortiert werden muss (≥ 2 Lagen) — eine Lage bleibt ein Tipp ohne Wartezeit. */
-    var hol=await Promise.all([ladeOffeneCcpsFuerLage(), liste.length>1 ? posHolen(2000) : Promise.resolve(null)]);
-    liste=lagenFuerWahl(lagen, hol[0], hol[1], lagePendingLesen(), pid);
-  }
-  var wahl=liste.length ? await lageWahlModal(liste) : {neu:true};
-  if(!wahl) return null;
-  var id=null, name='', neu=false, lokal=false;
-  if(wahl.neu){
-    var vorschlag=lageNameVorschlag(nowMs());
-    var nm=await promptModal('Neue Lage eröffnen — Name (z. B. „LebEL XY-Schule“; keine Personennamen):', vorschlag);
-    if(nm===null || nm===undefined) return null;
-    nm=lageNameNorm(nm); if(!lageNameOk(nm)) nm=vorschlag;
-    id=lageUuid(); name=nm; neu=true; lokal=true;
-    var q=lagePendingLesen(); q.push({id:id, praesidium_id:pid, name:nm, at:nowMs()}); lagePendingSchreiben(q);
-  }else{
-    for(var i=0;i<liste.length;i++){ if(liste[i].id===wahl.id){ id=liste[i].id; name=liste[i].name; lokal=liste[i].lokal; } }
-    if(!id) return null;
-  }
-  if(lokal){
+  var pid=_praesidiumId, quelle=_lagenQuelle;
+  var w=lageWahlLesen(pid);
+  if(!w){ toast('Zuerst die Lage wählen'); lageMenueOeffnen(); return null; }
+  function wartet(){ return lagePendingLesen().some(function(x){ return x && x.id===w.id; }); }
+  if(wartet()){
     try{ await flushPendingLagen(); }catch(e){}
-    if(_lageAbgelehnt[id]){
-      try{ await confirmModal('Die Lage „'+name+'“ wurde nicht angelegt: '+_lageAbgelehnt[id], 'OK'); }catch(e){}
+    if(_lageAbgelehnt[w.id]){
+      lageWahlLoeschen(pid);
+      try{ await confirmModal('Die Lage „'+w.name+'“ wurde nicht angelegt: '+_lageAbgelehnt[w.id], 'OK'); }catch(e){}
+      lageMenueOeffnen();
       return null;
     }
-    if(lagePendingLesen().some(function(x){ return x && x.id===id; })){
-      try{ await confirmModal('Keine Verbindung — die Lage „'+name+'“ ist auf diesem Gerät gespeichert und wird übertragen, sobald Netz besteht. Einen CCP eröffnen geht erst mit Verbindung.', 'OK'); }catch(e){}
+    if(wartet()){
+      try{ await confirmModal('Keine Verbindung — die Lage „'+w.name+'“ ist auf diesem Gerät gespeichert und wird übertragen, sobald Netz besteht. Einen CCP eröffnen geht erst mit Verbindung.', 'OK'); }catch(e){}
       return null;
     }
+    return {id:w.id, name:w.name};
   }
-  return {id:id, name:name, neu:neu};
+  if(quelle==='server' && lageWahlAbgleich(pid, lagen)==='weg'){
+    try{ await confirmModal('Die Lage „'+w.name+'“ ist abgeschlossen. Bitte eine offene Lage wählen.', 'OK'); }catch(e){}
+    lageMenueOeffnen();
+    return null;
+  }
+  return {id:w.id, name:w.name};
+}
+/* ── D6.11-13: Menü „Lage auswählen“ (Präsidium → Lage → Startseite) ─────────
+ * Nur mit lagenAktiv(); darunter (v<35, Training, ohne Präsidium/Backend) gibt es weder
+ * Menü noch Lage-Zeile — alles wie 0.35.9 (D6.11-10). Local-first: Das Menü erscheint
+ * sofort aus dem Cache und wartet nie auf Netz oder Standort (T-06.11-81). */
+function lagenAktiv(){ return !_training && _schemaV>=35 && !!_praesidiumId && !!sb(); }
+/* D6.11-11/-13: Training — simulierte Übungslagen NUR im Speicher (kein Server, keine Warteschlange,
+ * kein localStorage); Start und Ende des Trainings setzen sie zurück. */
+var _trainLagen=null, _trainLageId=null;
+function trainLagenListe(){
+  if(!Array.isArray(_trainLagen)) _trainLagen=[{id:'train-lage', name:'Übungslage Innenstadt', vor_ort:false, eroeffnet_at:nowMs()-1800000}];
+  return _trainLagen;
+}
+function trainLageAktuell(){
+  var l=trainLagenListe();
+  for(var i=0;i<l.length;i++){ if(l[i] && l[i].id===_trainLageId) return l[i]; }
+  return l[0];
+}
+function lageMenueOeffnen(ohneRender){
+  var pid=_praesidiumId;
+  if(_lagenMenue.pid!==pid) _lagenMenue={pid:pid, lagen:lageCacheLesen(pid), ccps:[], pos:null, laedt:true, quelle:null};
+  else _lagenMenue.laedt=true;
+  if(ohneRender) state.view='lage'; else go('lage');
+  try{ lageMenueLaden(); }catch(e){}
+}
+/* Lagen, CCPs und (nur bei ≥ 2 Lagen) Position nachladen; wirft nie. Verworfen wird eine
+ * gemerkte Lage nur mit frischer Serverliste (T-06.11-83). */
+async function lageMenueLaden(){
+  if(_training){ if(state.view==='lage') render(); return; }   /* D6.11-11: Übungslagen nur lokal */
+  try{
+    var pid=_praesidiumId, l, q;
+    try{ l=await ladeLagen(); q=_lagenQuelle; }catch(e){ l=[]; q=null; }
+    if(_praesidiumId!==pid) return;
+    if(l===null){
+      _lagenMenue.laedt=false;
+      if(state.view==='lage') go("start");
+      return;
+    }
+    var c=[]; try{ c=await ladeOffeneCcpsFuerLage(); }catch(e){ c=[]; }
+    var vor=lagenFuerWahl(l, c, null, lagePendingLesen(), pid);
+    var pos=null;
+    if(vor.length>1){ try{ pos=await posHolen(2000); }catch(e){ pos=null; } }   /* eine Lage: keine Standortabfrage */
+    if(_praesidiumId!==pid) return;
+    _lagenMenue={pid:pid, lagen:l, ccps:c, pos:pos, laedt:false, quelle:q};
+    if(q==='server') lageWahlAbgleich(pid, l);
+    if(state.view==='lage') render();
+  }catch(e){}
+}
+/* Lage-Zeile der Startseite (vStart); „Lage wechseln“ nur ohne CCP bzw. mit MasterToken. */
+function lageStartAnzeige(){
+  try{
+    if(_training) return lageStartHtml(trainLageAktuell(), {wechseln: !_ccpId || !!_isMaster});   /* D6.11-11: Übungslage */
+    if(!lagenAktiv()) return '';
+    var w=lageWahlLesen(_praesidiumId);
+    if(w) w.lokal=lagePendingLesen().some(function(x){ return x && x.id===w.id; });
+    return lageStartHtml(w, {wechseln: !_ccpId || !!_isMaster});
+  }catch(e){ return ''; }
+}
+/* „＋ Neue Lage eröffnen“ im Menü (D6.11-01/-02): Name vorbelegt „Lage HH:MM“, clientseitige uuid,
+ * bestehende Warteschlange argus_lage_pending, sofort nachreichen; offline bleibt sie gewählt
+ * („noch nicht übertragen“). Lehnt der Server ab, bleibt man mit Hinweis im Menü. */
+async function lageNeuAnlegen(){
+  if(_training){   /* D6.11-11: Übungslage nur im Speicher — kein Server, keine Warteschlange, nichts gemerkt */
+    var vsT=lageNameVorschlag(nowMs());
+    var nmT=await promptModal('Neue Lage eröffnen — Name (z. B. „LebEL XY-Schule“; keine Personennamen):', vsT);
+    if(nmT===null || nmT===undefined) return false;
+    nmT=lageNameNorm(nmT); if(!lageNameOk(nmT)) nmT=vsT;
+    var tlT=trainLagenListe(), idT='train-lage-neu-'+tlT.length;
+    tlT.push({id:idT, name:nmT, vor_ort:true, eroeffnet_at:nowMs()});
+    _trainLageId=idT;
+    go("start");
+    return true;
+  }
+  var pid=_praesidiumId; if(!pid) return false;
+  var vorschlag=lageNameVorschlag(nowMs());
+  var nm=await promptModal('Neue Lage eröffnen — Name (z. B. „LebEL XY-Schule“; keine Personennamen):', vorschlag);
+  if(nm===null || nm===undefined) return false;
+  nm=lageNameNorm(nm); if(!lageNameOk(nm)) nm=vorschlag;
+  var id=lageUuid();
+  var q=lagePendingLesen(); q.push({id:id, praesidium_id:pid, name:nm, at:nowMs()}); lagePendingSchreiben(q);
+  try{
+    var lief=!!_lageFlushBusy;   /* lief schon ein Nachreich-Lauf, kennt er den neuen Eintrag nicht → danach erneut */
+    await flushPendingLagen();
+    if(lief) await flushPendingLagen();
+  }catch(e){}
+  if(_lageAbgelehnt[id]){
+    try{ await confirmModal('Die Lage „'+nm+'“ wurde nicht angelegt: '+_lageAbgelehnt[id], 'OK'); }catch(e){}
+    try{ lageMenueLaden(); }catch(e){}
+    return false;
+  }
+  lageWahlSchreiben(pid, {id:id, name:nm, vor_ort:true});
+  if(lagePendingLesen().some(function(x){ return x && x.id===id; })) toast('Ohne Verbindung — Lage „'+nm+'“ gespeichert, wird übertragen, sobald Netz besteht');
+  go("start");
+  return true;
+}
+/* Weiche auf dem Weg zur Startseite (Präsidium gewählt, Code eingelöst, App-Start, Schema 35 erkannt):
+ * ohne gemerkte Lage ins Menü (true), sonst Startseite und Prüfung im Hintergrund (false). */
+function lageStartWeiche(ohneRender){
+  if(!lagenAktiv() || _ccpId) return false;
+  if(lageWahlLesen(_praesidiumId)){ try{ lageWahlPruefen(); }catch(e){} return false; }
+  lageMenueOeffnen(ohneRender);
+  return true;
+}
+/* Ist die gemerkte Lage noch offen? Nur eine FRISCHE Serverliste verwirft (T-06.11-83); eine noch nicht
+ * übertragene Lage wird nie geprüft. Abgeschlossen → Hinweis + Menü (nur auf Start/Menü, nicht im CCP).
+ * Rückgabe true = verworfen. Wirft nie; Sperre gegen Parallelaufrufe. */
+async function lageWahlPruefen(){
+  if(_lagePruefBusy) return false;
+  _lagePruefBusy=true;
+  try{
+    if(_training || !lagenAktiv()) return false;
+    var pid=_praesidiumId, w=lageWahlLesen(pid);
+    if(!w) return false;
+    if(lagePendingLesen().some(function(x){ return x && x.id===w.id; })) return false;
+    var l=await ladeLagen();
+    if(_lagenQuelle!=='server' || !Array.isArray(l) || _praesidiumId!==pid) return false;
+    if(lageWahlAbgleich(pid, l)!=='weg') return false;
+    if(state.view==='lage' || (state.view==='start' && (!_ccpId || _isMaster))){
+      toast('Lage „'+w.name+'“ ist abgeschlossen — bitte Lage wählen');
+      lageMenueOeffnen();
+    }
+    return true;
+  }catch(e){ return false; }
+  finally{ _lagePruefBusy=false; }
+}
+/* Nach „CCP verlassen“: wieder in der Lage des verlassenen CCP (aus dem Lagen-Cache), sonst die gemerkte;
+ * ohne beides ins Menü. Unter Schema 35 nur die Startseite (wie 0.35.9). */
+function lageNachVerlassen(lageAlt){
+  try{
+    if(!lagenAktiv()){ go("start"); return; }
+    var pid=_praesidiumId, w=lageWahlLesen(pid);
+    if(typeof lageAlt==='string' && lageAlt && (!w || w.id!==lageAlt)){
+      var c=lageCacheLesen(pid)||[];
+      for(var i=0;i<c.length;i++){ if(c[i] && c[i].id===lageAlt){ lageWahlSchreiben(pid, c[i]); break; } }
+    }
+    if(!lageWahlLesen(pid)){ lageMenueOeffnen(); return; }
+    go("start");
+    try{ lageWahlPruefen(); }catch(e){}
+  }catch(e){ go("start"); }
 }
 
 /* --- Standalone-Persistenz: localStorage-Speicher, wenn kein window.storage vorhanden (z.B. auf dem iPhone) --- */
@@ -2980,6 +3148,7 @@ async function probeSchema(n){
         if(vPrev<26 && _schemaV>=26){ try{ deviceHeartbeat(); }catch(e){} }   /* Geräte-RPCs neu verfügbar → sofort melden */
         if(_schemaV>=26){ try{ flushPendingLeave(); }catch(e){} try{ flushLatePatients(); }catch(e){} }   /* vorgemerkte Abmeldung + Nachzügler nachreichen (App-Start/Reconnect) */
         if(_schemaV>=35){ try{ flushPendingLagen(); }catch(e){} }   /* Phase 6.11 (D6.11-01): offline eröffnete Lagen idempotent nachreichen */
+        if(vPrev<35 && _schemaV>=35){ try{ if(state.view==='start' && !_ccpId) lageStartWeiche(); }catch(e){} }   /* Phase 6.11 (D6.11-13): Schema 35 erst jetzt erkannt → Lage wählen */
         var sv=Number(r.data.now);
         if(isFinite(sv) && sv>0) addClockSample(clockSample(t0, t1, sv));
       }else{
@@ -3349,35 +3518,6 @@ function lagenFuerWahl(lagen, ccps, pos, pending, pid){
   });
   return out;
 }
-/* Inhalt des Lage-Modals: eine Lage → ein großer Knopf (ein Tipp, D6.11-03);
- * mehrere → Karten mit Angaben; „Neue Lage eröffnen“ darunter (Dubletten vermeiden). */
-function lageWahlHtml(liste){
-  liste=Array.isArray(liste)?liste:[];
-  function pillen(e){
-    var p=[];
-    if(e.vor_ort) p.push('vor Ort eröffnet');
-    var n=e.n|0; p.push(n===1 ? '1 CCP' : n+' CCPs');
-    p.push((e.dist!==null && e.dist!==undefined && isFinite(e.dist)) ? distText(e.dist)+' entfernt' : 'eröffnet '+hhmm(e.eroeffnet_at));
-    if(e.lokal) p.push('noch nicht übertragen');
-    return p.map(function(t){ return '<span class="pill" style="background:var(--surf2);color:var(--mut)">'+esc(t)+'</span>'; }).join('');
-  }
-  var h='<div class="modalmsg" style="margin-bottom:14px">In welcher Lage eröffnest du den CCP?</div>';
-  if(liste.length===1){
-    var e1=liste[0];
-    h+='<button class="prim mc-lage" data-lage="'+esc(e1.id)+'" style="width:100%;margin:0 0 8px">In „'+esc(e1.name)+'“ eröffnen</button>';
-    h+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">'+pillen(e1)+'</div>';
-  }else{
-    liste.forEach(function(e){
-      h+='<button class="mc-lage card" data-lage="'+esc(e.id)+'" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:13px 14px">';
-      h+='<div style="font-size:18px;font-weight:700;color:var(--tx);line-height:1.2;margin-bottom:6px">'+esc(e.name)+'</div>';
-      h+='<div style="display:flex;flex-wrap:wrap;gap:6px">'+pillen(e)+'</div>';
-      h+='</button>';
-    });
-  }
-  h+='<button class="ghost mc-lageneu" style="width:100%;margin:0 0 8px">＋ Neue Lage eröffnen</button>';
-  h+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
-  return h;
-}
 /* D6.11-05: gleiche Lage? Ohne Lage (null/undefined/leer) gilt nur mit ohne Lage als gleich.
  * Die neue App ist damit strenger als der Server-Trigger 0035 (der null auf einer Seite zulässt). */
 function gleicheLage(a, b){ return (a||null)===(b||null); }
@@ -3437,6 +3577,109 @@ function lageJoinKopf(gr){
 /* D6.11-11: Übungslagen beim Befüllen der Schulungsumgebung (Kennungen A–F wie bisher). */
 function demoLagenPlan(){
   return [{name:'Übung Innenstadt', kennungen:['A','B','C','D']}, {name:'Übung Sportpark', kennungen:['E','F']}];
+}
+/* D6.11-13: Bildschirm „Lage auswählen“ (Aufbau wie die Präsidiumsauswahl), ohne appFooter.
+ * liste = lagenFuerWahl (Reihenfolge bleibt), o = {praesidium, schulung, gewaehlt, laedt, offline}.
+ * Je Lage ein großer Knopf mit Angaben; KEIN Warnhinweis bei großer Entfernung (D6.11-03);
+ * alle Texte aus Server/Nutzer escaped (T-06.11-80). */
+function lageMenueHtml(liste, o){
+  liste=Array.isArray(liste)?liste:[]; o=o||{};
+  var h='<div style="text-align:center;padding:32px 0 16px">';
+  h+='<img src="./icon-180.png" alt="ARGUS" style="width:72px;height:72px;border-radius:16px;margin-bottom:12px;display:block;margin-left:auto;margin-right:auto">';
+  h+='<div style="font-size:22px;font-weight:600;margin-bottom:4px">ARGUS</div>';
+  h+='<div class="hint" style="margin-bottom:6px">Lage auswählen</div>';
+  h+='<div style="font-size:14px;font-weight:600">🏗 '+esc(o.praesidium||'—')+'</div>';
+  h+='</div>';
+  if(o.schulung){
+    h+='<div style="background:#F2B600;color:#1b1d20;border-radius:10px;padding:12px 14px;margin-bottom:12px;text-align:center;font-weight:700;font-size:15px;border:2px solid #c9960a">';
+    h+='🎓 SCHULUNGSUMGEBUNG — keine echten Patientendaten';
+    h+='</div>';
+  }
+  var anzahl=0;
+  liste.forEach(function(e){
+    if(!e || typeof e!=='object') return;
+    anzahl++;
+    var teile=[];
+    if(e.vor_ort) teile.push('vor Ort eröffnet');
+    var n=e.n|0; teile.push(n===1 ? '1 CCP' : n+' CCPs');
+    if(e.eroeffnet_at) teile.push('eröffnet '+hhmm(e.eroeffnet_at));
+    if(e.dist!==null && e.dist!==undefined && isFinite(e.dist)) teile.push(distText(e.dist)+' entfernt');
+    if(e.lokal) teile.push('noch nicht übertragen');
+    var gew=!!(o.gewaehlt && e.id===o.gewaehlt);
+    h+='<button class="navbtn" data-action="selectlage" data-lage="'+esc(e.id)+'"'+(gew?' style="border-color:var(--acc)"':'')+'>';
+    h+='<span class="ic">⚑</span>';
+    h+='<span><span class="t">'+esc(e.name)+(gew?' ✓':'')+'</span>';
+    h+='<br><span class="s">'+esc(teile.join(' · '))+'</span></span>';
+    h+='</button>';
+  });
+  if(!anzahl){
+    if(o.laedt) h+='<p class="muted" style="text-align:center;margin-bottom:14px">Lade Lagen…</p>';
+    else h+='<p class="muted" style="text-align:center;margin-bottom:14px">Noch keine offene Lage in diesem Präsidium.<br>Im Regelfall eröffnet die FLZ die Lage — fehlt sie, hier eröffnen.</p>';
+  }
+  if(o.offline) h+='<p class="hint" style="text-align:center;margin:4px 0 10px">Ohne Verbindung — zuletzt bekannte Lagen.</p>';
+  h+='<button class="'+((!anzahl && !o.laedt)?'prim':'ghost')+'" data-action="lageneu" style="margin-top:6px">＋ Neue Lage eröffnen</button>';
+  h+='<button class="ghost" data-action="changepraesidium" style="margin-top:8px;font-size:13px">🏗 Präsidium wechseln</button>';
+  return h;
+}
+/* D6.11-13: Lage-Zeile oben auf der Startseite. w = {id, name, vor_ort, lokal} oder null,
+ * o.wechseln = „Lage wechseln“ erlaubt (kein CCP bzw. MasterToken). Name escaped. */
+function lageStartHtml(w, o){
+  o=o||{};
+  if(w && typeof w==='object'){
+    var h='<div class="banner" style="margin-bottom:10px"><span>⚑</span><div><span class="hint">Lage</span><br><span style="font-size:17px;font-weight:700">'+esc(w.name)+'</span>';
+    var z=[];
+    if(w.vor_ort) z.push('vor Ort eröffnet');
+    if(w.lokal) z.push('noch nicht übertragen');
+    if(z.length) h+='<br><span class="hint">'+z.join(' · ')+'</span>';
+    h+='</div></div>';
+    if(o.wechseln) h+='<button class="ghost" data-action="lagewechseln" style="margin-bottom:12px">⇆ Lage wechseln</button>';
+    else h+='<p class="hint" style="text-align:center;margin:0 0 12px">Lage wechseln nach „CCP verlassen“ (‹ im Hauptmenü).</p>';
+    return h;
+  }
+  if(!o.wechseln) return '';
+  return '<div class="banner" style="margin-bottom:10px"><span>⚑</span><div><span style="font-weight:600">Noch keine Lage gewählt</span><br><span class="hint">Präsidium → Lage → CCP</span></div></div>'+
+    '<button class="prim" data-action="lagewechseln" style="margin-bottom:12px">⚑ Lage auswählen</button>';
+}
+/* D6.11-13: Inhalt der Beitrittsauswahl (ohne modalbx-Hülle). Mit Gruppen und nurLage zuerst nur
+ * die CCPs dieser Lage (bzw. „In „…“ ist noch kein CCP offen.“) plus Umschalter „Alle Lagen anzeigen“;
+ * mit Gruppen ohne nurLage alle Lagen gruppiert (D6.11-03); sonst flache Liste wie 0.35.9. Ohne nurLage
+ * zeichengleich zum bisherigen ccpJoinModal. KEIN Warnhinweis; alle Texte escaped (T-06.11-100). */
+function joinModalHtml(list, gruppen, nurLage){
+  var h='<div class="modalmsg" style="margin-bottom:14px">CCP auswählen</div>';
+  function gruppe(gr){
+    h+=lageJoinKopf(gr);
+    (gr && Array.isArray(gr.eintraege) ? gr.eintraege : []).forEach(function(e){ h+=joinKarteHtml(e.ccp, (e.dist!==null && e.dist!==undefined) ? distText(e.dist) : ''); });
+  }
+  if(Array.isArray(gruppen) && gruppen.length){
+    if(nurLage && nurLage.id){
+      var eig=[], weitere=0;
+      gruppen.forEach(function(gr){
+        if(gr && gr.lage && gr.lage.id===nurLage.id) eig.push(gr);
+        else weitere+=(gr && Array.isArray(gr.eintraege)) ? gr.eintraege.length : 0;
+      });
+      if(eig[0]) gruppe(eig[0]);
+      else h+='<p class="hint" style="margin:0 2px 12px">In „'+esc(nurLage.name)+'“ ist noch kein CCP offen.</p>';
+      if(weitere>0) h+='<button class="ghost mc-allelagen" style="width:100%;margin:0 0 8px">Alle Lagen anzeigen · '+(weitere===1 ? '1 weiterer CCP' : weitere+' weitere CCPs')+'</button>';
+    }else gruppen.forEach(gruppe);
+  }else (Array.isArray(list) ? list : []).forEach(function(ccp){ h+=joinKarteHtml(ccp); });
+  h+='<button class="ghost mc-cancel" style="width:100%;margin-top:2px">Abbrechen</button>';
+  return h;
+}
+/* D6.11-13: Lage des in „CCP beitreten“ gewählten CCP (data-id = Haupt-CCP; Verbund: auch jedes
+ * Mitglied) aus den Gruppen von joinLagenGruppen → {id, name, vor_ort}; „Ohne Lage“/unbekannt → null. */
+function lageVonJoinWahl(gruppen, selId){
+  if(!Array.isArray(gruppen) || !selId) return null;
+  for(var i=0;i<gruppen.length;i++){
+    var gr=gruppen[i];
+    if(!gr || !Array.isArray(gr.eintraege)) continue;
+    var treffer=gr.eintraege.some(function(e){
+      var c=e && e.ccp; if(!c) return false;
+      if(c.id===selId) return true;
+      return Array.isArray(c._members) && c._members.some(function(m){ return !!(m && m.id===selId); });
+    });
+    if(treffer) return (gr.lage && gr.lage.id) ? {id:gr.lage.id, name:gr.lage.name, vor_ort:!!gr.lage.vor_ort} : null;
+  }
+  return null;
 }
 /* D6.9-04: Haupt-CCP eines Verbunds = Mitglied mit id = merge_group_id;
  * Rückfall (Altbestand): kleinste Kennung (fehlende zuletzt), Gleichstand → erstes. */
@@ -5707,6 +5950,7 @@ function render(){
   if(v==="locked")h=vLocked();
   else if(v==="install")h=vInstall();
   else if(v==="praesidium")h=vPraesidium();
+  else if(v==="lage")h=vLage();   /* Phase 6.11 (D6.11-13): Menü „Lage auswählen“ */
   else if(v==="admin")h=vAdmin();
   else if(v==="start")h=vStart();
   else if(v==="home")h=vHome();
@@ -6391,7 +6635,7 @@ function vHelp(){
   var h='<button class="ghost" data-action="showintro" style="margin-bottom:8px">▶ Einführung erneut ansehen</button>';
   h+='<button class="ghost" data-action="nav" data-view="datenschutz" style="margin-bottom:14px">🛡 Datenschutzhinweis</button>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kurzanleitung</div>'+
-    kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>. Beim Eröffnen wählst du zuerst die <b>Lage</b> (eine offene Lage ist schon ausgewählt; sonst „Neue Lage eröffnen“). <b>CCP beitreten</b> zeigt die CCPs nach Lage mit Entfernung. Zusammenführen geht nur innerhalb derselben Lage. Kennung und Funkspruch bleiben wie gewohnt.')+
+    kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>. Nach dem Präsidium wählst du die <b>Lage</b> im Menü „Lage auswählen“ (eine offene Lage = ein Tipp; sonst „Neue Lage eröffnen“). Die gewählte Lage steht auf der Startseite, ARGUS merkt sie sich je Präsidium; „Lage wechseln“ führt zurück ins Menü, solange du keinem CCP angehörst. Neue CCPs entstehen in dieser Lage. <b>CCP beitreten</b> zeigt zuerst die CCPs deiner Lage mit Entfernung („Alle Lagen anzeigen“ für die übrigen). Zusammenführen geht nur innerhalb derselben Lage. Kennung und Funkspruch bleiben wie gewohnt.')+
     kb('Patient erfassen','<b>Patient erfassen</b> → <b>tacSTART</b> (geführt) oder direkt eine <b>Kategorie</b> (T-1…T-5). Nummer kommt automatisch — auf die Haut notieren. Unten am zuletzt Angelegten: Prio · TQ · öffnen · Verwerfen.')+
     kb('Patient verwalten','Über <b>Patientenübersicht</b> (Kacheln, PRIO/gPA, „Alle Patienten") oder <b>öffnen</b>. Im Detail: Vitalwerte (+ Verlauf), Maßnahmen A–E, Verletzungen, <b>Foto</b> (antippen = Vollbild), Kategorie, Prio, TQ-Timer.')+
     kb('Abtransport','Im Patienten <b>Abtransport → gPA</b>, oder in der Kategorieliste alle transportfertigen sammeln. Ausgecheckte (gPA) lassen sich zurückholen.')+
@@ -6459,6 +6703,7 @@ function vStart(){
   h += '<div style="font-size:28px;font-weight:600;letter-spacing:-.5px;margin-bottom:5px">ARGUS</div>';
   h += '<div class="hint">Koordinierung · Sichtung · Transport</div>';
   h += '</div>';
+  h += lageStartAnzeige();   /* Phase 6.11 (D6.11-13) */
   var lm = readLeftMarker();
   var lmShow = !!(lm && (lm.training===!!_training) && (_training || (lm.praesidiumId||null)===(_praesidiumId||null)));
   if(lmShow){
@@ -6595,8 +6840,8 @@ var TRAIN_LESSONS=[
    * Person-Login wird im Training NICHT erzwungen (single-user, lokal, offline-first).
    * tacSTART-Lektionen unverändert (mdr-tacstart-accepted). */
   {t:'Willkommen', mode:'explain', x:'Du befindest dich in der Schulungsumgebung — der gelbe Banner oben bestätigt das. Dieses Training läuft nur auf DEINEM Gerät (nichts wird synchronisiert). Ich führe dich einmal durch den kompletten Ablauf. Mit „Weiter" geht es los.'},
-  {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du alle offenen CCPs in deinem Präsidium und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Im Training ist Beitreten gesperrt — gleich eröffnest du selbst einen.', sel:'[data-action="joinccp"]'},
-  {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste. Zuerst wählst du die Lage — im Einsatz die offene Lage deines Präsidiums (bei nur einer ist sie schon ausgewählt), sonst „Neue Lage eröffnen“. Danach fragt ARGUS nach dem Ort.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
+  {t:'CCP beitreten', mode:'explain', x:'„⇄ CCP beitreten": Hier siehst du die offenen CCPs deiner Lage („Alle Lagen anzeigen“ zeigt die übrigen) und kannst einem davon beitreten — dann teilt ihr dieselbe Patientenliste. Im Training ist Beitreten gesperrt — gleich eröffnest du selbst einen.', sel:'[data-action="joinccp"]'},
+  {t:'CCP eröffnen', mode:'do', x:'Eine CCP ist deine Verwundetensammelstelle. Lege eine Übungs-CCP an — Geräte im selben CCP teilen später dieselbe Patientenliste. Oben steht deine Lage: Im Einsatz wählst du sie nach dem Präsidium im Menü „Lage auswählen“ (bei nur einer offenen Lage ein Tipp, sonst „Neue Lage eröffnen“); „Lage wechseln“ führt zurück. Der CCP entsteht in dieser Lage — ARGUS fragt nur nach dem Ort.', sel:'[data-action="newccp"]', doit:'Tippe „Neue CCP eröffnen"', adv:function(){return !!_ccpId;}},
   {t:'Standort wird erfasst', mode:'explain', x:'Beim Eröffnen merkt sich ARGUS automatisch den Standort dieses CCP — einmalig per GPS, nur wenn dein Gerät es erlaubt; schlägt es fehl, passiert nichts. Gespeichert wird ausschließlich die Koordinate des CCP, KEINE Personendaten. In der Lage-Ansicht der Leitung/FLZ erscheint der CCP dadurch mit 📍 — ein Tipp kopiert die WGS84-Koordinate in deren eigene Lagekarte. So weiß die Leitstelle, wo deine Sammelstelle steht, ohne dass du etwas tun musst.'},
 
   {t:'Startbildschirm: Lage-Zähler', mode:'explain', x:'Wir gehen den Startbildschirm von oben nach unten durch. GANZ OBEN: je Sichtungskategorie die aktuelle Zahl — T-1 (sofort), T-2 (dringend), T-3 (leicht), T-5 (verstorben), dazu PRIO (prioritärer Transport) und gPA (abtransportiert). Ein Blick genügt für die Lage.', sel:'.countbar'},
@@ -6664,14 +6909,14 @@ function trainCount(){ return patients.filter(function(p){return p.training;}).l
 function trainSome(f){ return patients.some(function(p){return p.training && f(p);}); }
 function trainLoad(){ try{ _training=localStorage.getItem('argus_training')==='1'; _trainStep=parseInt(localStorage.getItem('argus_train_step')||'0',10)||0; if(_training)_photosAllowed=true; }catch(e){} }   /* Reload mitten im Training: Foto-Schalter lokal wieder an (s. Kommentar oben) */
 function trainSave(){ try{ localStorage.setItem('argus_training',_training?'1':'0'); localStorage.setItem('argus_train_step',String(_trainStep)); }catch(e){} }
-async function startTraining(){ if(!_training){ try{ meshStop('training'); }catch(e){} try{await trainReset();}catch(e){} clearLeftMarker(true); _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; mergeInfoReset(); state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; _photosAllowed=true; trainSave(); try{await loadPatients();}catch(e){} render(); }   /* Foto-Schalter lokal an (train-ccp synct nie → kein Cloud-Leck) */
+async function startTraining(){ if(!_training){ try{ meshStop('training'); }catch(e){} try{await trainReset();}catch(e){} clearLeftMarker(true); _trainStep=0; _trainMax=0; _trainCelebrate=false; if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; mergeInfoReset(); _trainLagen=null; _trainLageId=null; state.view='start'; }   /* frischer Start: ohne CCP, damit „CCP eröffnen" jedes Mal echt durchlaufen wird (kein manuelles Zurücksetzen) */ _training=true; _photosAllowed=true; trainSave(); try{await loadPatients();}catch(e){} render(); }   /* Foto-Schalter lokal an (train-ccp synct nie → kein Cloud-Leck) */
 async function trainReset(){ try{ var lk=await sList("ccp_pat_"); for(var i=0;i<lk.length;i++){ var pp=await sGet(lk[i]); if(pp && pp.training) await sDel(lk[i]); } }catch(e){} }
 async function endTraining(){
   /* Overlay (Spotlight + Panel) VOR dem Dialog entfernen, sonst liegt es im Vordergrund. */
   try{ trainClearSpot(); var pe=document.getElementById('train-coach'); if(pe&&pe.parentNode)pe.parentNode.removeChild(pe); }catch(e){}
   var ok=await confirmModal('Training beenden?\n\nDie Übungsdaten auf diesem Gerät werden entfernt. Echte CCPs sind nicht betroffen.','Beenden');
   if(!ok){ try{ renderCoach(); }catch(e){} return; }
-  _training=false; _photosAllowed=true; trainSave(); try{ trainTeardown(); }catch(e){}   /* Fotos bleiben dauerhaft an (v0.31.0) */ try{await trainReset();}catch(e){} clearLeftMarker(true); if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; mergeInfoReset(); try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} try{ meshStart(); }catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
+  _training=false; _photosAllowed=true; trainSave(); try{ trainTeardown(); }catch(e){}   /* Fotos bleiben dauerhaft an (v0.31.0) */ try{await trainReset();}catch(e){} clearLeftMarker(true); if(_channel){try{_channel.unsubscribe();}catch(e){} _channel=null;} _ccpId=null; _mergeGroupId=null; patients=[]; mergeInfoReset(); _trainLagen=null; _trainLageId=null; try{localStorage.removeItem('argus_ccp_id');}catch(e){} state.view='start'; try{await loadPatients();}catch(e){} try{ meshStart(); }catch(e){} render();   /* Übungs-CCP & -Daten weg → zurück zur Schulungs-Startseite, sauber für den nächsten Lauf */
 }
 function trainStep(d){
   if(d>0){ _trainStep=Math.min(_trainStep+1,TRAIN_LESSONS.length); if(_trainStep>_trainMax)_trainMax=_trainStep; }
@@ -7234,7 +7479,7 @@ document.addEventListener("click",async function(e){
     _ccpId=null; _channel=null;
     localStorage.removeItem('argus_ccp_id');
     clearLeftMarker();
-    await loadPatients(); await loadOpenCcpCount(); go("start"); return;
+    await loadPatients(); await loadOpenCcpCount(); try{ if(_schemaV<35) probeSchema(1); }catch(e){} if(!lageStartWeiche()) go("start"); return;   /* Phase 6.11 (D6.11-13): Präsidium → Lage */
   }
   if(a==="changepraesidium"){
     try{ flushPendingLeave(); }catch(e){}   /* vorgemerkte Abmeldung noch mit dem bisherigen Zugang senden */
@@ -7245,6 +7490,24 @@ document.addEventListener("click",async function(e){
     var pr=await sb().from('praesidien').select('id,name,schulung,schulungs_zwilling_id').order('name');
     _praesidienList=pr.data||[];
     go("praesidium"); return;
+  }
+  /* D6.11-13: Menü „Lage auswählen“ — gemerkt werden nur Einträge der eigenen Liste (T-06.11-82). */
+  if(a==="selectlage"){
+    if(_training){   /* D6.11-11: Übungslage nur im Speicher */
+      var slT=el.getAttribute("data-lage"), slTe=null;
+      trainLagenListe().forEach(function(e){ if(e && e.id===slT) slTe=e; });
+      if(slTe){ _trainLageId=slTe.id; go("start"); }
+      return;
+    }
+    var slLid=el.getAttribute("data-lage"), slM=_lagenMenue||{}, slEig=(slM.pid===_praesidiumId), slE=null;
+    lagenFuerWahl(slEig?slM.lagen:null, slEig?slM.ccps:[], null, lagePendingLesen(), _praesidiumId).forEach(function(e){ if(e.id===slLid) slE=e; });
+    if(!slE){ try{ lageMenueLaden(); }catch(e){} return; }
+    lageWahlSchreiben(_praesidiumId, slE); go("start"); return;
+  }
+  if(a==="lageneu"){ await lageNeuAnlegen(); return; }
+  if(a==="lagewechseln"){
+    if(_ccpId && !_isMaster){ toast('Lage wechseln geht nach „CCP verlassen“'); return; }
+    lageMenueOeffnen(); return;
   }
   if(a==="openapp"){
     /* Install-Screen → installierte ARGUS-App (argus://unlock#code=XXXX-XXXX); nur Code-Pfad */
@@ -7290,7 +7553,7 @@ document.addEventListener("click",async function(e){
           var voinv=await promptModal("Dein Kürzel:","");
           if(voinv&&voinv.trim()){operator=voinv.trim();await setOperatorStore(operator);}
         }
-        go("start");
+        try{ if(_schemaV<35) probeSchema(1); }catch(e){} if(!lageStartWeiche()) go("start");   /* Phase 6.11 (D6.11-13): Präsidium → Lage */
       }
     }else{toast(_lastExchangeError||"Ungültiger Code");}   /* Server-Klartext (z. B. „Code wurde gesperrt") nicht schlucken */
     return;
@@ -7352,17 +7615,8 @@ document.addEventListener("click",async function(e){
       /* 1.3: Benennung + Standorterfassung simuliert mitlaufen lassen — lokal,
        * ohne Server und ohne echtes GPS. Ort-Abfrage VOR dem Anlegen: „Abbrechen"
        * bricht die Eröffnung ab (genau wie im Ernstfall). */
-      /* Phase 6.11 (D6.11-11): Lage-Schritt simuliert — eine Übungslage vorausgewählt,
-       * „Neue Lage eröffnen“ nur lokal (kein Server, keine Warteschlange). */
-      var lwTr=null, lageTr='train-lage';
-      try{ lwTr=await lageWahlModal(lagenFuerWahl([{id:'train-lage', name:'Übungslage Innenstadt', vor_ort:false, eroeffnet_at:nowMs()-1800000}], [], null, [], '')); }catch(e){ lwTr=null; }
-      if(!lwTr){ toast("Abgebrochen — kein CCP angelegt"); render(); return; }
-      if(lwTr.neu){
-        var nmTr=null;
-        try{ nmTr=await promptModal('Neue Lage eröffnen — Name (z. B. „LebEL XY-Schule“; keine Personennamen):', lageNameVorschlag(nowMs())); }catch(e){ nmTr=null; }
-        if(nmTr===null){ toast("Abgebrochen — kein CCP angelegt"); render(); return; }
-        lageTr='train-lage-neu';
-      }
+      /* Phase 6.11 (D6.11-11/-13): Lage aus dem (simulierten) Menü — keine Rückfrage beim Eröffnen. */
+      var lageTr=trainLageAktuell().id;
       var ortTr=null;
       try{ ortTr=await promptModal("Wo steht dieser CCP? (Ort/Objekt — fürs Lagezentrum; überspringbar)",""); }catch(e){ ortTr=''; }
       if(ortTr===null){ toast("Abgebrochen — kein CCP angelegt"); render(); return; }   /* Ansicht bleibt, Lektion bleibt stehen */
@@ -7383,12 +7637,12 @@ document.addEventListener("click",async function(e){
     /* "Neue CCP eröffnen" legt IMMER einen neuen CCP an (nächste freie Kennung),
      * auch wenn schon einer aktiv ist. Den bestehenden führt "Aktive CCP
      * fortsetzen" (resumeccp) weiter. */
-    /* Phase 6.11 (D6.11-01/-03/-10): Lage wählen, BEVOR der bisherige CCP-Zustand
-     * abgebaut wird — Abbruch lässt Ansicht und CCP unverändert. Server < v35, ohne
-     * Präsidium oder ohne Tabelle → {ohne:true}: Ablauf und Insert wie 0.35.9. */
+    /* Phase 6.11 (D6.11-01/-10/-13): gemerkte Lage aus dem Menü „Lage auswählen“ — keine Rückfrage;
+     * geprüft, BEVOR der bisherige CCP-Zustand abgebaut wird. Server < v35, ohne Präsidium oder
+     * ohne Tabelle → {ohne:true}: Ablauf und Insert wie 0.35.9. */
     var lw=null;
-    try{ lw=await lageSchritt(); }catch(e){ lw={ohne:true}; }   /* nie blockieren (T-06.11-41) */
-    if(!lw){ toast('Abgebrochen — kein neuer CCP angelegt'); render(); return; }
+    try{ lw=await lageFuerNeuenCcp(); }catch(e){ lw={ohne:true}; }   /* nie blockieren (T-06.11-41/-91) */
+    if(!lw) return;   /* Grund ist bereits gezeigt (Hinweis bzw. Menü „Lage auswählen“) */
     /* Bisherigen Zustand sichern: Bricht der Nutzer die Ort-Abfrage ab (oder
      * scheitert das Anlegen), bleibt er in seinem alten CCP statt CCP-los. */
     var prevCcp={id:_ccpId, grp:_mergeGroupId, k:_ccpKennung, pats:patients};
@@ -7406,6 +7660,7 @@ document.addEventListener("click",async function(e){
       }else{
         toast("Abgebrochen — kein neuer CCP angelegt");
       }
+      if(/^Die gewählte Lage wurde inzwischen abgeschlossen/.test(_ccpCreateErr||'')){ lageWahlLoeschen(_praesidiumId); lageMenueOeffnen(); return; }   /* D6.11-13: Lage abgeschlossen → Menü */
       go("start"); return;   /* Abbruch → immer zurück auf den Präsidiums-Startbildschirm (nicht in irgendeine Home); der bisherige CCP bleibt über „Aktive CCP fortsetzen" erreichbar */
     }
     go("home");return;
@@ -7432,18 +7687,27 @@ document.addEventListener("click",async function(e){
     /* D6.11-03: ab Server-Schema 35 nach Lage gruppiert mit Entfernung (kein Warnhinweis; Position
      * nur lokal, T-06.11-54). Lagen nicht ladbar oder Lagenliste unvollständig (Cache) → flache
      * Liste wie 0.35.9 statt CCPs fälschlich unter „Ohne Lage“. */
-    var jg=null;
+    var jg=null, jNur=null;
     if(_schemaV>=35){
       try{
         var jl=await ladeLagen();
         if(jl){
           var jbek={}; jl.forEach(function(l){ if(l && l.id) jbek[l.id]=true; });
           var jfremd=jlist.some(function(c){ var h=(c._members && c._members.length>1) ? (verbundHaupt(c._members)||c) : c; return !!(h.einsatzlage_id && !jbek[h.einsatzlage_id]); });
-          if(!jfremd){ var jpos=await posHolen(1500); jg=joinLagenGruppen(jlist, jl, jpos); }
+          if(!jfremd){
+            var jpos=await posHolen(1500); jg=joinLagenGruppen(jlist, jl, jpos);
+            /* D6.11-13: zuerst die gemerkte Lage („Alle Lagen anzeigen“ für die übrigen); abgeschlossen laut
+             * FRISCHER Serverliste → verwerfen und alle Lagen zeigen; Cache verwirft nie (T-06.11-83). */
+            var jw=lageWahlLesen(_praesidiumId);
+            if(jw){
+              if(jl.some(function(l){ return l && l.id===jw.id; })) jNur=jw;
+              else if(_lagenQuelle==='server' && lageWahlAbgleich(_praesidiumId, jl)==='weg') toast('Lage „'+jw.name+'“ ist abgeschlossen — alle Lagen');
+            }
+          }
         }
-      }catch(e){ jg=null; }
+      }catch(e){ jg=null; jNur=null; }
     }
-    var selId=await ccpJoinModal(jlist, jg);
+    var selId=await ccpJoinModal(jlist, jg, jNur);
     if(!selId) return;
     _ccpId=selId; localStorage.setItem('argus_ccp_id',_ccpId);
     /* Phase 6.7 (D6.7-10): CCP-Geheimnis aus der bereits gelesenen Zeile sichern — kein zweiter Netzaufruf */
@@ -7458,6 +7722,7 @@ document.addEventListener("click",async function(e){
     subscribeRealtime();
     clearLeftMarker();
     try{ meshStart(); }catch(e){}   /* Phase 6.7: Mesh nach dem Beitritt (Gerätenummer aus loadPatients → ensureDeviceNo) */
+    try{ if(jg){ var jlw=lageVonJoinWahl(jg, selId); if(jlw) lageWahlSchreiben(_praesidiumId, jlw); } }catch(e){}   /* D6.11-13: nach „CCP verlassen“ in der Lage dieses CCP */
     go("home");return;
   }
   if(a==="setoperator"){e.preventDefault();var v=await promptModal("Bediener-Kürzel (z. B. Streife / Name):",operator||"");if(v!=null){operator=v.trim();await setOperatorStore(operator);if(!masterMedic&&operator){await setMasterMedic(operator);}render();}return;}
@@ -7609,6 +7874,7 @@ document.addEventListener("click",async function(e){
      * noch nicht übertragene Lagen dieses Präsidiums verwerfen. Fehler brechen nichts. */
     try{ localStorage.removeItem('argus_lagen_'+_praesidiumId); }catch(e){}
     try{ var srPid=_praesidiumId; lagePendingSchreiben(lagePendingLesen().filter(function(q){ return !(q && q.praesidium_id===srPid); })); }catch(e){}
+    try{ lageWahlLoeschen(_praesidiumId); }catch(e){}   /* D6.11-11/-13: Übungslagen geschlossen → gemerkte Lage verwerfen */
     _ccpLageId=null;
     _demoMerged=false; await sSet("ccp_merged",false);
     var slk=await sList("ccp_pat_"); for(var si=0;si<slk.length;si++){await sDel(slk[si]);}
@@ -7930,15 +8196,17 @@ async function back(){
       var nLeave=0; try{ nLeave=patients.filter(function(p){return p._dirty;}).length; }catch(e){}
       var okLeave=await confirmModal(leaveText(_ccpKennung, deviceNoSync(), nLeave, isMasterMedic()), "CCP verlassen");
       if(!okLeave) return;
+      var lageAlt=(_ccpLageFuer===_ccpId) ? _ccpLageId : undefined;   /* Phase 6.11 (D6.11-13) */
       await leaveCcpState();
       await loadOpenCcpCount();
-      go("start");
+      lageNachVerlassen(lageAlt);   /* Phase 6.11 (D6.11-13): wieder in der Lage des verlassenen CCP */
     }
   }
   else if(state.view==="funk"){go("home");}
   else if(state.view==="admin"){go("praesidium");}
   else if(state.view==="help"){ go(_ccpId?"home":"start"); }
   else if(state.view==="datenschutz"){ go("help"); }   /* einziger Einstieg: Hilfestellungen */
+  else if(state.view==="lage"){ go("start"); }   /* Phase 6.11 (D6.11-13): Menü „Lage auswählen“ → Startseite */
   else{go("home");}
 }
 
@@ -7954,7 +8222,7 @@ var _filePickerOpen=0;   /* Zeitstempel: Kamera/Dateiauswahl geöffnet → kein 
 document.addEventListener("click",function(e){ var t=e.target; if(t && t.tagName==="INPUT" && t.type==="file") _filePickerOpen=nowMs(); },true);
 document.addEventListener("change",function(e){ var t=e.target; if(t && t.tagName==="INPUT" && t.type==="file") _filePickerOpen=0; },true);
 setInterval(async function(){
-  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
+  if(state.view==="patient"||state.view==="checklist"||state.view==="locked"||state.view==="install"||state.view==="praesidium"||state.view==="lage"||state.view==="start"||state.view==="help"||state.view==="einsatzexport")return;
   /* Bugfix 2026-10-16 (Feedback PP Einsatz „Foto über Sofort-Option wird nicht
    * gespeichert"): Dieses Intervall rendert die Erfassungsansicht neu, während
    * die Kamera offen ist → das <input type=file> wird zerstört, das change-
@@ -8180,6 +8448,7 @@ setInterval(async function(){
   checkRevokedCode();          /* fire-and-forget (KEIN await) — der Start wartet nie auf den Re-Check */
   var storedCcp=localStorage.getItem('argus_ccp_id');
   if(storedCcp) _ccpId=storedCcp;
+  try{ if(state.view==='start') lageStartWeiche(true); }catch(e){}   /* Phase 6.11 (D6.11-13): ohne gemerkte Lage ins Menü „Lage auswählen“ */
 
   try{ flushLatePatients(); }catch(e){}   /* Nachzügler verlassener/abgeschlossener CCPs (Hintergrund, nie blockierend) */
   /* Opportunistischer Purge-Lauf — Fallback zu pg_cron (z. B. pausiertes
@@ -8258,6 +8527,7 @@ document.addEventListener('visibilitychange', function(){
   try{ deviceHeartbeat(); }catch(e){}   /* Lebenszeichen sofort nach Rückkehr in den Vordergrund */
   try{ meshStart(); }catch(e){}   /* Phase 6.7 (D6.7-08): Mesh nach Rückkehr in den Vordergrund neu starten (iOS trennt im Hintergrund) */
   try{ runLocalPurge(); }catch(e){}   /* Fristen prüfen, wenn die App wieder sichtbar wird */
+  try{ if(state.view==='start') lageWahlPruefen(); }catch(e){}   /* Phase 6.11 (D6.11-13): gemerkte Lage inzwischen abgeschlossen? */
 });
 
 /* Wiederverbindung: offline erfasste/bearbeitete Patienten nachschieben und
