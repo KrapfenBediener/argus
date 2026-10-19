@@ -1311,7 +1311,7 @@ async function loadZugaenge(){
       _praes=pr.data||[];
       var tk=await cl.from('access_tokens').select('short_code,label,is_master,is_admin,temporary,ttl_hours,single_use,used_at,revoked,praesidium_id,observer,created_at,gast,expires_at');
       if(tk.error){ _zugErr=tk.error.message||'Zugänge nicht lesbar'; }
-      else{ _tokens=tk.data||[]; }
+      else{ _tokens=tk.data||[]; await probeServerV(cl); }
     }
   }catch(e){ _zugErr='Abruf fehlgeschlagen — keine Verbindung?'; }
   if(state.section==='zugaenge') render();
@@ -1336,6 +1336,111 @@ function tokenStatus(t){
   }
   return '<span class="pill green">aktiv</span>';
 }
+/* ── Code-Notiz und Löschen (Quick 261019, Migration 0036) ──────────────────
+ * „Notiz“ ändert die Bezeichnung eines Codes (argus_master_code_notiz), „Aus
+ * Liste löschen“ entfernt gesperrte, abgelaufene und verbrauchte Codes
+ * (argus_master_code_loeschen; erst Protokoll admin_code_geloescht, dann
+ * delete). Beide nur mit MasterToken und erst ab Server-Schema 36 sichtbar —
+ * ein älterer Server blendet die Knöpfe aus. Der Server prüft jede Löschung
+ * selbst; codeLoeschGrund ist nur die Vorauswahl für die Anzeige. */
+var CODE_V=36;
+var _serverV=null;   /* null = ungeprüft, 0 = alter Server/unbekannt */
+async function probeServerV(cl){
+  if(_serverV!==null && _serverV>=CODE_V) return;
+  try{
+    var r=await cl.rpc('argus_server_time');
+    var v=(r && !r.error && r.data && typeof r.data==='object') ? +r.data.v : 0;
+    _serverV=isFinite(v) ? v : 0;
+  }catch(e){ _serverV=0; }
+}
+function codeAktionenAn(){ return (+_serverV||0)>=CODE_V; }
+/* Anmeldefrist eines eingelösten Codes — wie argus_exchange_code (0024) */
+function codeAnmeldeMs(t){
+  if(t.gast) return 24*3600000;
+  if(t.ttl_hours!=null) return (+t.ttl_hours)*3600000;
+  return 30*86400000;
+}
+/* 'gesperrt' | 'abgelaufen' | 'verbraucht' | null (nicht löschbar) —
+ * spiegelt die Regel von argus_master_code_loeschen: nie MasterToken, nie
+ * aktiv; verbraucht erst, wenn die damit ausgestellte Anmeldung abgelaufen ist. */
+function codeLoeschGrund(t, now){
+  if(!t || !t.short_code || t.is_master) return null;
+  if(now==null) now=Date.now();
+  if(t.revoked) return 'gesperrt';
+  if(t.expires_at!=null && +t.expires_at<=now) return 'abgelaufen';
+  if(t.single_use && t.used_at!=null && (+t.used_at)+codeAnmeldeMs(t)<=now) return 'verbraucht';
+  return null;
+}
+/* Bezeichnung = „<Präsidium> <Art>“ + optional „ — <Notiz>“ (so legen
+ * Einmal-Link, Dauerhaft-Code, FLZ-Zugang, Dauercode, Gast-Code und
+ * FLZ-Beobachter sie an). Ohne erkennbare Art ist die ganze Bezeichnung die Notiz. */
+var NOTIZ_RE=/^([\s\S]*?(?:Einmal-Link|Dauerhaft-Code|Dauercode|FLZ-Zugang|Gast-Code|FLZ-Beobachter))(?: — ([\s\S]*))?$/;
+function notizTeile(label){
+  var s=String(label||'');
+  var m=NOTIZ_RE.exec(s);
+  return m ? {basis:m[1], notiz:m[2]||''} : {basis:'', notiz:s};
+}
+function notizLabel(basis, notiz){
+  var n=String(notiz||'').replace(/\s+/g,' ').trim();
+  var b=String(basis||'');
+  return b ? (n ? b+' — '+n : b) : n;
+}
+function codeKnoepfe(t){
+  if(!codeAktionenAn() || !t.short_code) return '';
+  var h='<button class="btn ghost" data-action="codenotiz" data-sc="'+esc(t.short_code)+'" title="Notiz ändern">Notiz</button>';
+  if(codeLoeschGrund(t)) h+='<button class="btn ghost" data-action="codeloeschen" data-sc="'+esc(t.short_code)+'">Aus Liste löschen</button>';
+  return h;
+}
+function codeAusListe(sc){
+  return (_tokens||[]).filter(function(x){ return x.short_code===sc; })[0]||null;
+}
+async function editCodeNotiz(sc){
+  var t=codeAusListe(sc);
+  if(!t){ toast('Code nicht gefunden — bitte aktualisieren.'); return; }
+  var teile=notizTeile(t.label);
+  var neu=await promptModal('Notiz zu Code '+sc+(teile.basis?' ('+teile.basis+')':'')+' — erscheint in der Liste; leer = Notiz entfernen', teile.notiz);
+  if(neu===null) return;   /* Abbrechen = nichts ändern */
+  var lbl=notizLabel(teile.basis, neu);
+  if(lbl.length>200){ toast('Notiz zu lang — die Bezeichnung darf höchstens 200 Zeichen haben.'); return; }
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r; try{ r=await cl.rpc('argus_master_code_notiz',{p_short_code:sc, p_label:lbl}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error||!r.data){ toast('Notiz nicht gespeichert: '+(r.error?(r.error.message||'unbekannt'):'kein Ergebnis')); return; }
+  if(r.data.ok!==true){ toast('Notiz nicht gespeichert: '+(r.data.meldung||r.data.fehler||'unbekannt')); return; }
+  toast(r.data.unveraendert ? 'Notiz unverändert' : 'Notiz gespeichert');
+  loadZugaenge();
+}
+async function loescheCode(sc){
+  var t=codeAusListe(sc);
+  if(!t || !codeLoeschGrund(t)){ toast('Nur gesperrte, abgelaufene oder verbrauchte Codes lassen sich löschen.'); return; }
+  var ok=await confirmModal('Code '+sc+(t.label?' („'+t.label+'“)':'')+' aus der Liste löschen?\nDer Code wird endgültig entfernt und lässt sich nicht wiederherstellen. Der Eintrag im Protokoll bleibt erhalten.', 'Löschen');
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var r; try{ r=await cl.rpc('argus_master_code_loeschen',{p_short_code:sc}); }
+  catch(e){ r={error:{message:'keine Verbindung'}}; }
+  if(r.error||!r.data){ toast('Löschen fehlgeschlagen: '+(r.error?(r.error.message||'unbekannt'):'kein Ergebnis')); return; }
+  if(r.data.ok!==true){ toast('Löschen nicht möglich: '+(r.data.meldung||r.data.fehler||'unbekannt')); loadZugaenge(); return; }
+  toast('Code '+sc+' gelöscht');
+  loadZugaenge();
+}
+/* Alle löschbaren Codes eines Präsidiums nacheinander — jeder einzeln vom Server geprüft. */
+async function loescheCodesAlle(pid, pname){
+  var now=Date.now();
+  var list=(_tokens||[]).filter(function(t){ return t.praesidium_id===pid && codeLoeschGrund(t, now); });
+  if(!list.length){ toast('Keine gesperrten oder abgelaufenen Codes.'); return; }
+  var ok=await confirmModal(list.length+' gesperrte, abgelaufene oder verbrauchte Code'+(list.length===1?'':'s')+' von „'+pname+'“ aus der Liste löschen?\nDie Codes werden endgültig entfernt und lassen sich nicht wiederherstellen. Die Einträge im Protokoll bleiben erhalten.', 'Alle löschen');
+  if(!ok) return;
+  var cl=sb(); if(!cl){ toast('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  var n=0, fehl=0;
+  for(var i=0;i<list.length;i++){
+    var r; try{ r=await cl.rpc('argus_master_code_loeschen',{p_short_code:list[i].short_code}); }
+    catch(e){ r={error:{message:'keine Verbindung'}}; }
+    if(r && !r.error && r.data && r.data.ok===true) n++; else fehl++;
+  }
+  toast(n+' Code'+(n===1?'':'s')+' gelöscht'+(fehl?' · '+fehl+' nicht gelöscht (abgelehnt oder keine Verbindung)':''));
+  loadZugaenge();
+}
+
 function tokenRows(list){
   var h='<div class="tablewrap"><table><thead><tr><th>Code</th><th>Art</th><th>Bezeichnung</th><th>Status</th><th></th></tr></thead><tbody>';
   list.forEach(function(t){
@@ -1346,17 +1451,18 @@ function tokenRows(list){
     h+='<td>'+tokenStatus(t)+'</td>';
     if(t.is_master){
       /* Selbstaussperrung verhindern: MasterToken-Zeilen sind hier NICHT sperrbar. */
-      h+='<td class="hint">MasterToken — Sperrung nur direkt in der Datenbank</td>';
+      h+='<td class="hint">MasterToken — Sperrung nur direkt in der Datenbank'+(codeAktionenAn()?'<div style="margin-top:6px">'+codeKnoepfe(t)+'</div>':'')+'</td>';
     }else if(!t.short_code){
       h+='<td></td>';
     }else if(t.revoked){
-      h+='<td><button class="btn ghost" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="1">Entsperren</button></td>';
+      h+='<td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="1">Entsperren</button>'+codeKnoepfe(t)+'</div></td>';
     }else{
       var btnHtml='<div style="display:flex;gap:6px;flex-wrap:wrap">';
       if(t.gast && !t.revoked){
         btnHtml+='<button class="btn ghost" data-action="showgastqr" data-sc="'+esc(t.short_code)+'" data-lbl="'+esc(t.label||'')+'" title="QR anzeigen">QR</button>';
       }
       btnHtml+='<button class="btn warn" data-action="togglerevoke" data-sc="'+esc(t.short_code)+'" data-rev="0">Sperren</button>';
+      btnHtml+=codeKnoepfe(t);
       btnHtml+='</div>';
       h+='<td>'+btnHtml+'</td>';
     }
@@ -1427,6 +1533,10 @@ function secZugaenge(){
       h+='</div>';
       h+= shown.length ? tokenRows(shown)
         : '<div class="hint">'+(list.length?'Keine Codes passend zum Filter.':'Noch keine Codes für dieses Präsidium.')+'</div>';
+      var nLoesch=codeAktionenAn() ? list.filter(function(t){ return codeLoeschGrund(t); }).length : 0;
+      if(nLoesch>=2){
+        h+='<div style="margin-top:10px"><button class="btn ghost" data-action="codeloeschenalle" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Gesperrte/abgelaufene entfernen ('+nLoesch+')</button></div>';
+      }
     }
     h+='</div>';
   });
@@ -1441,6 +1551,9 @@ function secZugaenge(){
     h+='</div>';
   }
   h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Bei der Erstellung kann eine Zuteilung (Name/Dienstnr./Funktion) erfasst werden — sie erscheint als Bezeichnung und macht gezieltes Sperren möglich. Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
+  if(codeAktionenAn()){
+    h+='<p class="hint">„Notiz“ ändert die Bezeichnung eines Codes nachträglich. „Aus Liste löschen“ gibt es nur für gesperrte, abgelaufene und verbrauchte Codes (verbrauchte Einmal-Codes erst, wenn die damit erteilte Anmeldung abgelaufen ist): Der Code wird endgültig entfernt, der Eintrag im Protokoll bleibt erhalten. Aktive Codes und der MasterToken lassen sich nicht löschen.</p>';
+  }
   h+='<p class="hint">Sperren wirkt <b>sofort serverseitig</b> — auch bereits angemeldete Geräte verlieren den Zugriff umgehend (die App zeigt die Abmeldung spätestens beim nächsten Start/Reconnect an). Einzige Ausnahme: Anmeldungen aus der Zeit vor dem 12.06.2026 laufen noch bis zum Ablauf ihrer alten Anmeldung (max. 30 Tage) weiter.</p>';
   h+='<p class="hint">„FLZ-Zugang" = Code für den Sachbearbeiter der FLZ: öffnet die anonyme Lageansicht des Präsidiums (Lage-Seite und hier) und erlaubt, <b>Dauercodes</b> für das Präsidium auszugeben und zu sperren — auch für präsidiumsfremde Kräfte. Kein Zugriff auf Patientendaten. Funktioniert NICHT als Anmeldung in der Feld-App.</p>';
   return h;
@@ -1576,7 +1689,11 @@ async function makeLink(pid, pname, kind){
     if(rows.length && rows[0].short_code){
       sc=rows[0].short_code;
     }else{
-      var ins2=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+' Dauerhaft-Code',short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
+      /* Quick 261019: Notiz wie beim FLZ-Zugang (Bezeichnung „<Präsidium> Dauerhaft-Code — <Notiz>“) */
+      var notiz=await promptModal('Notiz zum neuen Dauerhaft-Code? (z. B. Einheit, Empfänger — erscheint in der Liste; leer = ohne Notiz)','');
+      if(notiz===null) return;   /* Abbrechen = nicht anlegen */
+      notiz=(notiz||'').trim();
+      var ins2=await cl.from('access_tokens').insert({token:genToken(),praesidium_id:pid,is_master:false,label:pname+' Dauerhaft-Code'+(notiz?' — '+notiz:''),short_code:genShortCode(),temporary:false,ttl_hours:null,single_use:false,used_at:null}).select('short_code').single();
       if(ins2.error||!ins2.data){ toast('Konnte Code nicht anlegen'+(ins2.error?' · '+ins2.error.message:'')); return; }
       sc=ins2.data.short_code;
     }
@@ -2759,6 +2876,9 @@ function actionLabel(a){
   if(a==='einsatzlage_angelegt') return 'Lage eröffnet';
   if(a==='einsatzlage_umbenannt') return 'Lage umbenannt';
   if(a==='einsatzlage_abgeschlossen') return 'Lage abgeschlossen';
+  /* Quick 261019 (Migration 0036): Code-Notiz geändert / Code gelöscht */
+  if(a==='admin_code_notiz') return 'Code-Notiz geändert';
+  if(a==='admin_code_geloescht') return 'Code gelöscht';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -2787,7 +2907,9 @@ function secProtokoll(){
     ['flz_merge','Zusammengeführt durch FLZ'],
     ['einsatzlage_angelegt','Lage eröffnet'],
     ['einsatzlage_umbenannt','Lage umbenannt'],
-    ['einsatzlage_abgeschlossen','Lage abgeschlossen']
+    ['einsatzlage_abgeschlossen','Lage abgeschlossen'],
+    ['admin_code_notiz','Code-Notiz geändert'],
+    ['admin_code_geloescht','Code gelöscht']
   ];
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
@@ -2836,6 +2958,7 @@ function secProtokoll(){
       }
       if(l.action==='flz_merge'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
       if(l.action==='einsatzlage_angelegt' || l.action==='einsatzlage_umbenannt' || l.action==='einsatzlage_abgeschlossen'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
+      if(l.action==='admin_code_notiz' || l.action==='admin_code_geloescht'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
       h+='</div>';
     });
     h+='</div>';
@@ -3013,6 +3136,13 @@ document.addEventListener('click', async function(e){
   if(a==='atmistprint'){ vAtmistPrint(); return; }
   if(a==='togglerevoke'){
     await toggleRevoke(el.getAttribute('data-sc'), el.getAttribute('data-rev')==='1');
+    return;
+  }
+  /* Quick 261019 (Migration 0036): Notiz ändern, Codes aus der Liste löschen */
+  if(a==='codenotiz'){ await editCodeNotiz(el.getAttribute('data-sc')); return; }
+  if(a==='codeloeschen'){ await loescheCode(el.getAttribute('data-sc')); return; }
+  if(a==='codeloeschenalle'){
+    await loescheCodesAlle(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
     return;
   }
   if(a==='einsreload'){ _detail=null; loadEinsaetze(); return; }
