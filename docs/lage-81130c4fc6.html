@@ -175,38 +175,6 @@
   .karte .leaflet-control-attribution{font-family:var(--sans);font-size:11px}
   .karte .leaflet-control-scale-line{font-family:var(--sans);font-weight:600}
   .kfehl{font-size:12.5px;color:var(--mut);margin:0 0 6px}
-  /* 6.9-MERGE-ANFANG */
-  /* D6.9-05 FLZ-Zusammenführung (nur FLZ-Seite): Kartenhülle als Zieh-/Ablagezone,
-   * Knopf „Zusammenführen mit …“, In-Page-Dialog wie der Ort-Dialog. */
-  .mzone{display:flex;flex-direction:column;min-width:0}
-  .mzone>.ka{flex:1}
-  .mzone[draggable="true"]{cursor:grab}
-  .mzone.mquelle{opacity:.55}
-  .mzone.mziel>.ka{outline:3px dashed var(--acc);outline-offset:3px}
-  .mbar{display:flex;justify-content:flex-end;margin-top:4px}
-  .mbtn{min-height:32px;padding:4px 12px;border-radius:8px;background:var(--surf2);color:var(--tx);font-size:12px;font-weight:600}
-  .mbtn:hover{filter:brightness(.95)}
-  .mdlg{background:#fff;color:#16181a;border-radius:14px;padding:18px;max-width:420px;width:100%;max-height:90vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.25)}
-  .mdlg .mdt{font-weight:700;font-size:15px;margin:0 0 10px}
-  .mdlg p{margin:0 0 8px;font-size:13px;line-height:1.4}
-  .mdlg .btn{display:block;width:100%;min-height:44px;margin-top:8px}
-  .mdlg .mab{background:var(--surf2);color:var(--tx)}
-  .mdlg .mzw{background:var(--bg);color:var(--tx);border:2px solid var(--acc);text-align:left}
-  .mdlg .mzw:hover{background:var(--surf2);filter:none}
-  body.gross .mbar{display:none}
-  /* 6.9-MERGE-ENDE */
-  /* 6.9-VERBUND-ANFANG */
-  /* D6.9-08/-09 Verbund lösen / Haupt-CCP wechseln (nur FLZ-Seite): Knöpfe an den
-   * Mitgliedszeilen, Mitgliedszeile ziehbar, Kopfband als Ablageziel. */
-  .mzone .vmem{flex-wrap:wrap}
-  .vmem[draggable="true"]{cursor:grab}
-  .vmem.vquelle{opacity:.55}
-  .kb.vziel{outline:3px dashed #fff;outline-offset:-4px}
-  .vmem .vakt{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
-  .vbtn{min-height:32px;padding:4px 10px;border-radius:8px;background:var(--surf2);color:var(--tx);font-size:12px;font-weight:600}
-  .vbtn:hover{filter:brightness(.95)}
-  body.gross .vakt{display:none}
-  /* 6.9-VERBUND-ENDE */
   /* 6.8-GROSSBILD */
   /* D6.8-05 Großbild für Leitstand-Bildschirm/Beamer. Zwei Teile: body.gross = Größen
    * (große Zahlen, breites Raster) in beiden Farbschemata; body.gross.ggedaempft = gedämpftes
@@ -378,7 +346,7 @@ function ccpsFuer(ccps, pid){
 /* geteilt — D6.8-02: Verbund-/Solo-Gruppen in Lieferreihenfolge. Solo-Schlüssel
  * mit praesidium_id qualifiziert (Kennungen sind nur je Präsidium eindeutig);
  * n = laufende Verbund-Nummer ab 1, Einzel-CCPs 0. D6.9-10: verwaiste
- * Ein-Mitglied-Gruppe = einzeln (wie argus_flz_merge/argus_flz_split, 0033/0034);
+ * Ein-Mitglied-Gruppe = einzeln (wie der Server);
  * der Schlüssel bleibt, die Nummer zählt nur echte Verbünde. */
 function lageGruppen(ccps){
   var idx={}, out=[], vn=0;
@@ -498,15 +466,14 @@ function summenLeiste(s){
   return h;
 }
 /* geteilt — D6.8-02/-04: CCP-Karte im Muster A („Kopfband“). g = Gruppe aus
- * lageGruppen, akt = gruppenAktualitaet(…), opts = {ortEdit, geoKlick, vnTotal, verbundAkt}.
+ * lageGruppen, akt = gruppenAktualitaet(…), opts = {ortEdit, geoKlick, vnTotal}.
  * Kennung als Buchstabe („CCP A“, D6.9-01); grau nur mit echtem Lebenszeichen
  * (akt.alt). Jede Zeichenkette über esc(), Zahlen über (+x||0)/toFixed.
  * D6.9-10 Verbund: Kopfband „CCP A+B · <Ort des Haupt-CCP>“ mit dessen Koordinaten
  * (Haupt = lageHaupt), darunter der Hinweis „Verbund“ (bei mehreren „Verbund 2“);
  * je Mitglied eine Zeile „CCP A · Ort · Haupt-CCP“ bzw. „CCP B · früher: Ort“.
- * opts.verbundAkt nur FLZ-Seite (Plan 06.9-10): data-vkopf am Kopfband, Nicht-Haupt-
- * Zeilen ziehbar (data-vmid/data-vgrp), Knöpfe vhaupt/vsplit. Die Verwaltung setzt
- * es nie (inertes Markup wie copygeo/editort). */
+ * Reine Anzeige (D6.9-11): keine Knöpfe, nichts ziehbar — Zusammenlegung entscheidet
+ * das Feld. */
 function karteA(g, akt, opts){
   g=g||{}; akt=akt||{modus:'ohne', t:null, alt:false, min:null}; opts=opts||{};
   var m=g.members||[], s=lageSummen(m), c0=m[0]||{}, h;
@@ -520,9 +487,9 @@ function karteA(g, akt, opts){
   function stift(c){
     return opts.ortEdit ? '<span class="ked" data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern">✏️</span>' : '';
   }
-  var hp=lageHaupt(m)||c0, grp=hp.verbund_gruppe||g.key||'';
+  var hp=lageHaupt(m)||c0;
   h='<div class="ka">';
-  h+='<div class="kb'+(akt.alt?' alt':'')+'"'+(g.verbund && opts.verbundAkt ? ' data-vkopf="'+esc(grp)+'"' : '')+'><span class="kbl">';
+  h+='<div class="kb'+(akt.alt?' alt':'')+'"><span class="kbl">';
   if(g.verbund){
     h+=ortZiel(hp, 'CCP '+m.map(function(c){ return esc(kennungKurz(c.kennung)); }).join('+')+(hp.ort?' · '+esc(hp.ort):''), 'kn');
   }else{
@@ -548,14 +515,10 @@ function karteA(g, akt, opts){
   if(g.verbund){
     m.forEach(function(c){
       var isH=(c===hp);
-      h+='<div class="vmem"'+(opts.verbundAkt && !isH ? ' draggable="true" data-vmid="'+esc(c.id||'')+'" data-vgrp="'+esc(grp)+'"' : '')+'>';
+      h+='<div class="vmem">';
       h+=ortZiel(c, isH
         ? 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+' · Haupt-CCP'
         : 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · früher: '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c);
-      if(opts.verbundAkt){
-        h+='<span class="vakt">'+(isH ? '' : '<button class="vbtn" data-action="vhaupt" data-vmid="'+esc(c.id||'')+'">Zum Haupt-CCP machen</button>')+
-          '<button class="vbtn" data-action="vsplit" data-vmid="'+esc(c.id||'')+'">Aus Verbund lösen</button></span>';
-      }
       h+='</div>';
     });
   }
@@ -585,164 +548,6 @@ function auswahlKacheln(a){
   return h;
 }
 /* ── Ende Phase-6.8-Bausteine (reine Funktionen) ── */
-/* ── Phase 6.9: Zusammenführen durch die FLZ (D6.9-05) — seitenspezifisch, NICHT geteilt ──
- * Failsafe, wenn der MasterMedic eines angefragten CCP fehlt: FLZ-Zugang/Master ordnet
- * einen EINZELNEN CCP einem CCP oder Verbund desselben Präsidiums zu (argus_flz_merge,
- * Migration 0033). Reine Funktionen: nur Parameter + esc()/kennungKurz(); Rückgabe der
- * Text-Bausteine roh (der Aufrufer escaped), HTML-Bausteine escapen selbst.
- * Keine Patientendaten (D6.9-06) — einzig das MasterMedic-Kürzel des Haupt-CCP. */
-/* Freigabe: FLZ-Zugang oder Master UND jeder CCP-Eintrag trägt die id aus 0033
- * (fehlt sie, kennt der Server argus_flz_merge noch nicht → Funktion ausgeblendet). */
-function mergeFaehig(ccps, global, admin){
-  return !!(global||admin) && Array.isArray(ccps) && ccps.length>0 &&
-    ccps.every(function(c){ return c && typeof c.id==='string' && c.id.length>0; });
-}
-/* Quelle ist nur ein einzelner CCP (Verbünde werden nie umgehängt) → id oder ''. */
-function mergeQuelle(g){
-  return (g && !g.verbund && g.members && g.members.length===1 && typeof g.members[0].id==='string') ? g.members[0].id : '';
-}
-/* Ziele für „Zusammenführen mit …“: jede andere Gruppe in Anzeige-Reihenfolge;
- * zu = id des ersten Mitglieds (der Server löst den Verbund selbst auf). */
-function mergeZiele(gruppen, vonId){
-  var r=[];
-  (gruppen||[]).forEach(function(g){
-    var m=(g && g.members)||[];
-    if(!m.length) return;
-    if(m.some(function(c){ return c && c.id===vonId; })) return;
-    var label;
-    if(g.verbund){
-      label='Verbund CCP '+m.map(function(c){ return kennungKurz(c.kennung); }).join(' + ');
-    }else{
-      label='CCP '+kennungKurz(m[0].kennung)+(m[0].ort ? ' · '+m[0].ort : '');
-    }
-    r.push({zu:m[0].id, label:label});
-  });
-  return r;
-}
-/* Wortlaut der Bestätigung aus der Server-Vorschau (argus_flz_merge ohne Ausführung). */
-function mergeFrage(v){
-  var K=kennungKurz, mm=v.haupt.master_medic;
-  var titel='CCP '+K(v.von.kennung)+' mit '+
-    (v.ziel.verbund ? 'Verbund CCP '+v.ziel.kennungen.map(K).join(' + ') : 'CCP '+K(v.ziel.kennungen[0]))+
-    ' zusammenführen?';
-  return {titel:titel, zeilen:[
-    'Haupt-CCP: '+K(v.haupt.kennung)+' ('+(mm ? 'MasterMedic '+mm : 'kein MasterMedic')+')',
-    'Danach: Verbund CCP '+v.verbund.map(K).join(' + ')+' — gemeinsame Patientenliste auf allen Geräten.',
-    mm ? 'MasterMedic des Verbunds: '+mm+' — im Feld jederzeit übernehmbar.' : 'Im Feld kann jederzeit jemand MasterMedic übernehmen.',
-    'Geräte ohne Verbindung übernehmen die Zuordnung beim nächsten Kontakt. Die Zuordnung wird protokolliert.'
-  ]};
-}
-/* Dialog-Inhalt (T-06.9-40): Titel und Zeilen über esc(). */
-function mergeDialogHtml(f, okText){
-  var h='<div class="mdlg">'+'<div class="mdt">'+esc(f.titel)+'</div>';
-  (f.zeilen||[]).forEach(function(z){ h+='<p>'+esc(z)+'</p>'; });
-  h+='<button class="btn" data-m="ok">'+esc(okText)+'</button>';
-  h+='<button class="btn mab" data-m="no">Abbrechen</button>';
-  return h+'</div>';
-}
-/* Erfolgsmeldung nach der Ausführung. */
-function mergeErgebnis(r){
-  return 'Zusammengeführt: Verbund CCP '+r.verbund.map(kennungKurz).join(' + ')+' — Haupt-CCP '+kennungKurz(r.haupt.kennung);
-}
-/* Kartenhülle: jede Karte ist Ablageziel (data-mzu), nur Einzel-CCPs sind ziehbar
- * und tragen „Zusammenführen mit …“. Inaktiv → Karte unverändert. */
-function mergeHuelle(g, inner, o){
-  if(!o || !o.aktiv) return inner;
-  var m=(g && g.members)||[], id0=(m[0] && m[0].id)||'';
-  /* q wie mergeQuelle(g) — hier eingebettet, damit der Baustein nur esc() braucht */
-  var q=(g && !g.verbund && m.length===1 && typeof m[0].id==='string') ? m[0].id : '';
-  return '<div class="mzone" data-mzu="'+esc(id0)+'"'+(q ? ' draggable="true" data-mvon="'+esc(q)+'"' : '')+'>'+inner+
-    (q ? '<div class="mbar"><button class="mbtn" data-action="mergemit" data-mvon="'+esc(q)+'">Zusammenführen mit …</button></div>' : '')+
-    '</div>';
-}
-/* ── Ende reine Zusammenführ-Bausteine ── */
-/* ── Phase 6.9: Verbund lösen / Haupt-CCP wechseln (D6.9-08/-09) — seitenspezifisch, NICHT geteilt ──
- * Die FLZ löst einen CCP aus dem Verbund (argus_flz_split) oder macht ein Mitglied
- * zum Haupt-CCP (argus_flz_haupt, Migration 0034). Reine Funktionen: nur Parameter +
- * kennungKurz(); Text-Bausteine roh (der Dialog escaped über mergeDialogHtml).
- * Keine Patientendaten (D6.9-06). */
-/* Freigabe: Zusammenführ-Freigabe (FLZ-Zugang/Master, 0033, nicht Großbild) UND
- * Server-Schema ≥ 34 (argus_server_time) — sonst bleiben die Knöpfe unsichtbar. */
-function verbundAktFaehig(mAktiv, serverV){
-  return !!mAktiv && (+serverV||0) >= 34;
-}
-/* Ziehen einer Mitgliedszeile: nur auf das Kopfband DERSELBEN Verbund-Karte. */
-function hauptZielOk(zieh, kopfGrp){
-  return !!(zieh && zieh.art==='haupt' && zieh.vm && kopfGrp && zieh.grp===kopfGrp);
-}
-/* Wortlaut der Bestätigung „Aus Verbund lösen“ aus der Server-Vorschau. */
-function splitFrage(v){
-  var K=kennungKurz, vorher=v.verbund_vorher||[], nachher=v.verbund_nachher||[], kc=K(v.ccp.kennung);
-  return {titel:'CCP '+kc+' aus Verbund CCP '+vorher.map(K).join('+')+' lösen?', zeilen:[
-    v.aufgeloest ?
-      'Danach: Verbund aufgelöst — CCP '+nachher.map(K).join(', CCP ')+' arbeitet wieder einzeln.' :
-      'Danach: Verbund CCP '+nachher.map(K).join('+')+' — Haupt-CCP '+K(v.haupt_nachher.kennung)+(v.haupt_wechsel ? ' (neu: kleinste Kennung)' : '')+'.',
-    'CCP '+kc+' hat danach keinen MasterMedic — im Feld „MasterMedic übernehmen“.',
-    'Patienten bleiben bei dem CCP, auf dem sie erfasst wurden.',
-    'Geräte ohne Verbindung übernehmen die Änderung beim nächsten Kontakt. Die Änderung wird protokolliert.'
-  ]};
-}
-/* Wortlaut der Bestätigung „Zum Haupt-CCP machen“ aus der Server-Vorschau. */
-function hauptFrage(v){
-  var K=kennungKurz, hv=v.haupt_vorher||{};
-  return {titel:'CCP '+K(v.ccp.kennung)+' zum Haupt-CCP machen?', zeilen:[
-    'Bisher: Haupt-CCP '+K(hv.kennung)+(hv.ort ? ' · '+hv.ort : '')+'.',
-    'Danach: Haupt-CCP '+K(v.ccp.kennung)+(v.ccp.ort ? ' · '+v.ccp.ort : '')+' — Punkt auf der Karte und Ort in „CCP beitreten“ wechseln dorthin.',
-    'Orte der CCPs und der MasterMedic des Verbunds bleiben unverändert.',
-    'Die Änderung wird protokolliert.'
-  ]};
-}
-/* Erfolgsmeldungen nach der Ausführung. */
-function splitErgebnis(r){
-  var K=kennungKurz;
-  if(r.aufgeloest) return 'CCP '+K(r.ccp.kennung)+' gelöst — Verbund aufgelöst';
-  return 'CCP '+K(r.ccp.kennung)+' gelöst — Verbund CCP '+(r.verbund_nachher||[]).map(K).join('+')+', Haupt-CCP '+K(r.haupt_nachher.kennung);
-}
-function hauptErgebnis(r){
-  return 'Haupt-CCP jetzt '+kennungKurz(r.ccp.kennung)+' — Verbund CCP '+(r.verbund||[]).map(kennungKurz).join('+');
-}
-/* ── Ende reine Verbund-Bausteine ── */
-
-/* Server-Aufruf (nicht rein): Vorschau (ausfuehren=false) oder Ausführung. Rolle und
- * Präsidium prüft der Server (SECURITY DEFINER, 0033) — die Seite blendet nur aus.
- * Rückgabe: Server-Antwort {ok, …} bzw. {ok:false, meldung}; null nach Logout. */
-async function flzMerge(von, zu, ausfuehren){
-  var jwt=sessionJwt();
-  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
-  try{
-    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_flz_merge',{
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
-      body:JSON.stringify({ p_from:von, p_to:zu, p_ausfuehren:!!ausfuehren })
-    });
-    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
-    var d=null; try{ d=await resp.json(); }catch(e){}
-    if(!resp.ok) return {ok:false, meldung:(d && d.message) || ('Server-Fehler '+resp.status)};
-    return d || {ok:false, meldung:'Unerwartete Antwort — nichts geändert.'};
-  }catch(e){
-    return {ok:false, meldung:'Keine Verbindung — nichts geändert.'};
-  }
-}
-/* D6.9-08/-09: Verbund lösen (art 'split') oder Haupt-CCP wechseln (art 'haupt') —
- * Vorschau (ausfuehren=false) oder Ausführung, Migration 0034. Rolle und Präsidium
- * prüft der Server; Fehlerbehandlung wie flzMerge. null nach Logout. */
-async function flzVerbund(art, ccp, ausfuehren){
-  var jwt=sessionJwt();
-  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
-  try{
-    var resp=await fetch(SUPA_URL+(art==='haupt' ? '/rest/v1/rpc/argus_flz_haupt' : '/rest/v1/rpc/argus_flz_split'),{
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
-      body:JSON.stringify({ p_ccp:ccp, p_ausfuehren:!!ausfuehren })
-    });
-    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
-    var d=null; try{ d=await resp.json(); }catch(e){}
-    if(!resp.ok) return {ok:false, meldung:(d && d.message) || ('Server-Fehler '+resp.status)};
-    return d || {ok:false, meldung:'Unerwartete Antwort — nichts geändert.'};
-  }catch(e){
-    return {ok:false, meldung:'Keine Verbindung — nichts geändert.'};
-  }
-}
 
 /* ── Sitzung: sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
  * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname / arguslg_pid / arguslg_global / arguslg_admin.
@@ -848,32 +653,12 @@ function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
  * Erfolg → Zahlen + „Stand HH:MM:SS"; Fehler → letzte Zahlen
  * WEITER anzeigen + roter Punkt „Keine Verbindung". 401/abgelaufene
  * Sitzung → zurück zum Login. */
-/* D6.9-08/-09: Fähigkeitsprobe — kennt der Server Migration 0034 (argus_server_time
- * v ≥ 34)? Anon-RPC, keine Daten. Solange v < 34 höchstens alle 5 min erneut; Fehler
- * still (Verbund-Knöpfe bleiben ausgeblendet). Ändert sich v → neu zeichnen. */
-var _serverV=0, _serverVAt=0;
-async function serverVHolen(){
-  if(_serverV>=34 || nowMs()-_serverVAt<300000) return;
-  _serverVAt=nowMs();
-  try{
-    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_server_time',{
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
-      body:'{}'
-    });
-    if(!resp.ok) return;
-    var d=null; try{ d=await resp.json(); }catch(e){}
-    var v=(+(d && d.v)||0)|0;
-    if(v!==_serverV){ _serverV=v; renderSpaeter(); }
-  }catch(e){}
-}
 async function poll(){
   if(_polling) return;
   var jwt=sessionJwt();
   if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
   /* Präsidienliste fehlt noch (Abruf gescheitert) → höchstens einmal je Minute neu versuchen */
   if(_praesidien===null && nowMs()-_praesAt>60000) loadPraesidien();
-  serverVHolen();   /* D6.9-08/-09: nicht awaiten — die Lage kommt unabhängig davon */
   _polling=true;
   try{
     var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage',{
@@ -890,7 +675,7 @@ async function poll(){
     _offline=true;
   }finally{
     _polling=false;
-    renderSpaeter();   /* D6.9-05: nicht während Ziehen/Zusammenführen */
+    render();
   }
 }
 function startPolling(){
@@ -923,7 +708,7 @@ async function loadPraesidien(){
     });
     if(!resp.ok) throw new Error('HTTP '+resp.status);
     var d=await resp.json();
-    if(Array.isArray(d) && sessionJwt()===jwt){ _praesidien=d; renderSpaeter(); }
+    if(Array.isArray(d) && sessionJwt()===jwt){ _praesidien=d; render(); }
   }catch(e){ /* bleibt null — nächster Versuch im Poll */ }
 }
 
@@ -1421,8 +1206,7 @@ function viewAuswahl(){
  * offene CCPs) + „Präsidium wechseln“. FLZ-Zugang/Beobachter: eigenes Präsidium,
  * Server liefert ohnehin nur dieses; Umgebung über die gespeicherte praesidium_id. */
 function viewPraesidium(pid){
-  var glob=isGlobal(), all=_data ? _data.ccps : [], list, sp, i, mAktiv=false;
-  _mergeGruppen=[];
+  var glob=isGlobal(), all=_data ? _data.ccps : [], list, sp, i;
   if(glob){
     list=ccpsFuer(all, pid);
     var pn='';
@@ -1452,15 +1236,9 @@ function viewPraesidium(pid){
       var opts={ortEdit: !isGlobal() && !isAdminSess(), geoKlick:true, vnTotal:vn};
       /* einmal berechnet — Karten und Lageskizze zeigen dieselbe Aktualität */
       var akts=gruppen.map(function(g){ return gruppenAktualitaet(g.members, _data.stand, seitPoll, LAGE_SCHWELLE_MS); });
-      /* D6.9-05: Zusammenführen nur für FLZ-Zugang/Master, nur mit 0033 (jeder Eintrag
-       * hat id) und nicht im Großbild — sonst bleibt die Karte unverändert. */
-      mAktiv=mergeFaehig(list, isGlobal(), isAdminSess()) && !grossVorliebe();
-      /* D6.9-08/-09: Verbund lösen / Haupt-CCP wechseln zusätzlich erst mit 0034 (v ≥ 34). */
-      opts.verbundAkt=verbundAktFaehig(mAktiv, _serverV);
-      _mergeGruppen = mAktiv ? gruppen : [];
       h+='<div class="lgrid">';
       gruppen.forEach(function(g, gi){
-        h+=mergeHuelle(g, karteA(g, akts[gi], opts), {aktiv:mAktiv});
+        h+=karteA(g, akts[gi], opts);
       });
       h+='</div>';
       /* Kartenmodul (Owner-Entscheid 19.10., ändert D6.8-06): Straßenkarte nur über die
@@ -1490,8 +1268,6 @@ function viewPraesidium(pid){
     }
     h+='<div class="note">Anonyme Übersichtszahlen — keine Personendaten. Keine Patientendetails, keine Namen/Fotos, nur Zahlen je Kategorie. Aktualisiert sich automatisch.'+
       (ohneAkt ? ' Aktualitätsanzeige folgt nach dem Server-Update — bis dahin zeigt jede Karte die letzte Änderung.' : '')+'</div>';
-    if(mAktiv) h+='<div class="note">Zusammenführen (Failsafe): einzelne CCP-Karte auf eine andere ziehen oder „Zusammenführen mit …“ — die Bestätigung zeigt vorher Haupt-CCP und MasterMedic. Jede Zuordnung wird protokolliert.</div>';
-    if(mAktiv && opts.verbundAkt) h+='<div class="note">Verbund bearbeiten: an einer Mitgliedszeile „Aus Verbund lösen“ oder „Zum Haupt-CCP machen“ — mit Maus auch die Zeile auf die Kopfzeile ziehen. Vorher zeigt die Seite die Folgen; jede Änderung wird protokolliert.</div>';
   }else if(!_offline){
     h+='<div class="empty">Wird geladen…</div>';
   }
@@ -1577,177 +1353,6 @@ async function setOrt(kennung, current){
     else flash('Speichern fehlgeschlagen'+(d&&d.message?': '+d.message:''));
   }catch(e){ flash('Keine Verbindung — Ort nicht gespeichert'); }
 }
-/* ── Phase 6.9: FLZ-Zusammenführung — Verdrahtung (D6.9-05) ──────────────
- * Während Ziehen (_zieh) oder laufender Zusammenführung (_mergeBusy) rendert der
- * 20-s-Poll nicht neu (das zerstörte Zieh-Quelle/Ziel); die Anzeige wird danach
- * nachgeholt. _mergeGruppen setzt viewPraesidium (Gruppen der angezeigten Liste). */
-var _zieh=null, _mergeBusy=false, _renderAus=false, _mergeGruppen=[];
-var ZIEH_MAX_MS=120000;   /* verwaistes Ziehen (dragend nie angekommen) blockiert höchstens 2 min */
-function renderSpaeter(){
-  if(_zieh && !(nowMs()-_zieh.t<ZIEH_MAX_MS)) _zieh=null;
-  if(_zieh || _mergeBusy){ _renderAus=true; return; }
-  render();
-}
-function renderNachholen(){
-  if(_renderAus && !_zieh && !_mergeBusy){ _renderAus=false; render(); }
-}
-/* In-Page-Overlay (Stil wie ortPrompt, keine nativen Dialoge). Ergebnis: data-z des
- * gewählten Ziels, 'ok' oder null (Abbrechen, Escape, Klick außerhalb). Fokus auf
- * „Abbrechen“ — ein versehentliches Enter führt nichts aus (T-06.9-42). */
-function mergeDialog(inner){
-  return new Promise(function(resolve){
-    var ov=document.createElement('div'), fertig=false;
-    ov.style.cssText='position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px';
-    ov.setAttribute('role', 'dialog');
-    ov.setAttribute('aria-modal', 'true');
-    ov.innerHTML=inner;
-    function taste(e){ if(e.key==='Escape'){ e.preventDefault(); done(null); } }
-    function done(v){
-      if(fertig) return; fertig=true;
-      document.removeEventListener('keydown', taste, true);
-      if(ov.parentNode) ov.parentNode.removeChild(ov);
-      resolve(v);
-    }
-    ov.addEventListener('click', function(e){
-      var z=e.target.closest('[data-z]'), m=e.target.closest('[data-m]');
-      if(z) done(z.getAttribute('data-z')||null);
-      else if(m) done(m.getAttribute('data-m')==='ok' ? 'ok' : null);
-      else if(e.target===ov) done(null);
-    });
-    document.addEventListener('keydown', taste, true);
-    document.body.appendChild(ov);
-    var ab=ov.querySelector('[data-m="no"]'); if(ab) ab.focus();
-  });
-}
-/* Bestätigung mit Server-Vorschau (Haupt-CCP, MasterMedic) → true nur bei „Zusammenführen“. */
-function mergeBestaetigen(f){
-  return mergeDialog(mergeDialogHtml(f, 'Zusammenführen')).then(function(v){ return v==='ok'; });
-}
-/* Zielauswahl ohne Maus („Zusammenführen mit …“) → id des Ziels oder null. */
-function mergeZielWahl(ziele){
-  if(!ziele || !ziele.length){ flash('Kein anderer CCP in diesem Präsidium.'); return Promise.resolve(null); }
-  var h='<div class="mdlg"><div class="mdt">Zusammenführen mit …</div>';
-  ziele.forEach(function(z){ h+='<button class="btn mzw" data-z="'+esc(z.zu)+'">'+esc(z.label)+'</button>'; });
-  h+='<button class="btn mab" data-m="no">Abbrechen</button></div>';
-  return mergeDialog(h);
-}
-/* Ablauf: Server-Vorschau → Bestätigung → Ausführung. Regelverstöße (Quelle im
- * Verbund, Kennung doppelt, abgeschlossen …) kommen als Server-Meldung; 401 → Login. */
-async function mergeStart(von, zu){
-  if(_mergeBusy || !von || !zu || von===zu) return;
-  _mergeBusy=true;
-  var erfolg=false;
-  try{
-    var v=await flzMerge(von, zu, false);
-    if(!v) return;
-    if(!v.ok){ flash(v.meldung||'Zusammenführen nicht möglich.'); return; }
-    if(!(await mergeBestaetigen(mergeFrage(v)))) return;
-    var r=await flzMerge(von, zu, true);
-    if(r && r.ok){ flash(mergeErgebnis(r)); erfolg=true; }
-    else flash((r && r.meldung)||'Zusammenführen fehlgeschlagen.');
-  }catch(e){
-    flash('Zusammenführen fehlgeschlagen.');
-  }finally{
-    _mergeBusy=false;
-    renderNachholen();
-  }
-  if(erfolg) poll();
-}
-/* D6.9-08/-09: Verbund lösen (art 'split') / Haupt-CCP wechseln (art 'haupt') —
- * Server-Vorschau → In-Page-Bestätigung → Ausführung. Teilt die Sperre _mergeBusy mit
- * dem Zusammenführen (kein Doppelstart, Poll rendert solange nicht neu). */
-async function verbundStart(art, ccp){
-  if(_mergeBusy || !ccp) return;
-  _mergeBusy=true;
-  var erfolg=false, haupt=(art==='haupt');
-  try{
-    var v=await flzVerbund(art, ccp, false);
-    if(!v) return;
-    if(!v.ok){ flash(v.meldung||'Nicht möglich.'); return; }
-    var f=haupt ? hauptFrage(v) : splitFrage(v);
-    if((await mergeDialog(mergeDialogHtml(f, haupt ? 'Zum Haupt-CCP machen' : 'Aus Verbund lösen')))!=='ok') return;
-    var r=await flzVerbund(art, ccp, true);
-    if(r && r.ok){ flash(haupt ? hauptErgebnis(r) : splitErgebnis(r)); erfolg=true; }
-    else flash((r && r.meldung)||'Änderung fehlgeschlagen.');
-  }catch(e){
-    flash('Änderung fehlgeschlagen.');
-  }finally{
-    _mergeBusy=false;
-    renderNachholen();
-  }
-  if(erfolg) poll();
-}
-/* Drag-and-Drop (Delegation): nur Einzel-CCPs sind ziehbar, jede andere Karte ist Ziel. */
-function mergeZone(t, sel){
-  var el=(t && t.nodeType===3) ? t.parentNode : t;
-  return (el && el.closest) ? el.closest(sel) : null;
-}
-document.addEventListener('dragstart', function(e){
-  var z=mergeZone(e.target, '.mzone[data-mvon]');
-  if(!z) return;
-  if(_mergeBusy || grossVorliebe()){ e.preventDefault(); return; }
-  var von=z.getAttribute('data-mvon')||'';
-  _zieh={von:von, t:nowMs()};
-  try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', von); }catch(err){}
-  z.classList.add('mquelle');
-});
-document.addEventListener('dragover', function(e){
-  if(!_zieh || !_zieh.von) return;
-  var z=mergeZone(e.target, '.mzone[data-mzu]');
-  if(!z || z.getAttribute('data-mzu')===_zieh.von) return;
-  e.preventDefault();
-  try{ e.dataTransfer.dropEffect='move'; }catch(err){}
-  z.classList.add('mziel');
-});
-document.addEventListener('dragleave', function(e){
-  var z=mergeZone(e.target, '.mzone.mziel');
-  if(z && !(e.relatedTarget && z.contains(e.relatedTarget))) z.classList.remove('mziel');
-});
-document.addEventListener('drop', function(e){
-  if(!_zieh || !_zieh.von) return;
-  var z=mergeZone(e.target, '.mzone[data-mzu]');
-  if(!z) return;
-  e.preventDefault();
-  var von=_zieh.von, zu=z.getAttribute('data-mzu')||'';
-  z.classList.remove('mziel');
-  mergeStart(von, zu);
-});
-/* D6.9-09: Mitgliedszeile (nicht Haupt) aufs Kopfband DERSELBEN Verbund-Karte ziehen =
- * Haupt-CCP wechseln. Das Karten-Zusammenführen oben reagiert darauf nicht (_zieh.von fehlt). */
-document.addEventListener('dragstart', function(e){
-  var m=mergeZone(e.target, '.vmem[data-vmid]');
-  if(!m) return;
-  if(_mergeBusy || grossVorliebe()){ e.preventDefault(); return; }
-  var vm=m.getAttribute('data-vmid')||'';
-  _zieh={art:'haupt', vm:vm, grp:m.getAttribute('data-vgrp')||'', t:nowMs()};
-  try{ e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain', vm); }catch(err){}
-  m.classList.add('vquelle');
-});
-document.addEventListener('dragover', function(e){
-  if(!_zieh || _zieh.art!=='haupt') return;
-  var k=mergeZone(e.target, '.kb[data-vkopf]');
-  if(!k || !hauptZielOk(_zieh, k.getAttribute('data-vkopf')||'')) return;
-  e.preventDefault();
-  try{ e.dataTransfer.dropEffect='move'; }catch(err){}
-  k.classList.add('vziel');
-});
-document.addEventListener('dragleave', function(e){
-  var k=mergeZone(e.target, '.kb.vziel');
-  if(k && !(e.relatedTarget && k.contains(e.relatedTarget))) k.classList.remove('vziel');
-});
-document.addEventListener('drop', function(e){
-  if(!_zieh || _zieh.art!=='haupt') return;
-  var k=mergeZone(e.target, '.kb[data-vkopf]');
-  if(!k || !hauptZielOk(_zieh, k.getAttribute('data-vkopf')||'')) return;
-  e.preventDefault();
-  k.classList.remove('vziel');
-  verbundStart('haupt', _zieh.vm);
-});
-document.addEventListener('dragend', function(){
-  Array.prototype.forEach.call(document.querySelectorAll('.mquelle,.mziel,.vquelle,.vziel'), function(el){ el.classList.remove('mquelle', 'mziel', 'vquelle', 'vziel'); });
-  _zieh=null;
-  renderNachholen();
-});
 document.addEventListener('click', function(e){
   var b=e.target.closest('[data-action]');
   if(!b) return;
@@ -1765,13 +1370,6 @@ document.addEventListener('click', function(e){
     if(kw==='karte') _karteFehler=false;
     render(); return;
   }
-  if(a==='mergemit'){
-    var mv=b.getAttribute('data-mvon')||'';
-    mergeZielWahl(mergeZiele(_mergeGruppen, mv)).then(function(z){ if(z) mergeStart(mv, z); });
-    return;
-  }
-  if(a==='vsplit'){ verbundStart('split', b.getAttribute('data-vmid')||''); return; }
-  if(a==='vhaupt'){ verbundStart('haupt', b.getAttribute('data-vmid')||''); return; }
   if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
   if(a==='copygeo'){
     var txt=b.getAttribute('data-lat')+', '+b.getAttribute('data-lng');

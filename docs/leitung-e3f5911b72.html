@@ -770,9 +770,9 @@ function karteA(g, akt, opts){
   function stift(c){
     return opts.ortEdit ? '<span class="ked" data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern">✏️</span>' : '';
   }
-  var hp=lageHaupt(m)||c0, grp=hp.verbund_gruppe||g.key||'';
+  var hp=lageHaupt(m)||c0;
   h='<div class="ka">';
-  h+='<div class="kb'+(akt.alt?' alt':'')+'"'+(g.verbund && opts.verbundAkt ? ' data-vkopf="'+esc(grp)+'"' : '')+'><span class="kbl">';
+  h+='<div class="kb'+(akt.alt?' alt':'')+'"><span class="kbl">';
   if(g.verbund){
     h+=ortZiel(hp, 'CCP '+m.map(function(c){ return esc(kennungKurz(c.kennung)); }).join('+')+(hp.ort?' · '+esc(hp.ort):''), 'kn');
   }else{
@@ -798,14 +798,10 @@ function karteA(g, akt, opts){
   if(g.verbund){
     m.forEach(function(c){
       var isH=(c===hp);
-      h+='<div class="vmem"'+(opts.verbundAkt && !isH ? ' draggable="true" data-vmid="'+esc(c.id||'')+'" data-vgrp="'+esc(grp)+'"' : '')+'>';
+      h+='<div class="vmem">';
       h+=ortZiel(c, isH
         ? 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+' · Haupt-CCP'
         : 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · früher: '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+stift(c);
-      if(opts.verbundAkt){
-        h+='<span class="vakt">'+(isH ? '' : '<button class="vbtn" data-action="vhaupt" data-vmid="'+esc(c.id||'')+'">Zum Haupt-CCP machen</button>')+
-          '<button class="vbtn" data-action="vsplit" data-vmid="'+esc(c.id||'')+'">Aus Verbund lösen</button></span>';
-      }
       h+='</div>';
     });
   }
@@ -1984,22 +1980,6 @@ function flzMergeEreignis(det){
   return 'Zusammengeführt durch '+(det && det.durch ? String(det.durch) : 'FLZ')+
     ' — CCP '+(det && det.von ? String(det.von) : '?')+' → Haupt-CCP '+(det && det.haupt ? String(det.haupt) : '?');
 }
-/* Phase 6.9 (D6.9-10): Ereignisse aus Migration 0034 (argus_flz_split, argus_flz_haupt).
- * detail flz_split {durch, rolle, ccp, verbund_vorher, verbund_nachher, aufgeloest,
- * haupt_vorher, haupt_nachher, gruppe_vorher, gruppe_nachher}; flz_haupt {durch, rolle,
- * haupt_vorher, haupt_nachher, verbund, gruppe_vorher, gruppe_nachher}.
- * Rohtext — die Ausgabe escaped; unbekannte Aktion → ''. */
-function flzVerbundEreignis(action, det){
-  var d=det||{}, durch=d.durch ? String(d.durch) : 'FLZ';
-  if(action==='flz_split'){
-    return 'Aus Verbund gelöst durch '+durch+' — CCP '+(d.ccp?String(d.ccp):'?')+
-      (d.aufgeloest===true ? ' (Verbund aufgelöst)' : (d.haupt_nachher && d.haupt_vorher && d.haupt_nachher!==d.haupt_vorher ? ' (neuer Haupt-CCP '+String(d.haupt_nachher)+')' : ''));
-  }
-  if(action==='flz_haupt'){
-    return 'Haupt-CCP gewechselt durch '+durch+' — '+(d.haupt_vorher?String(d.haupt_vorher):'?')+' → '+(d.haupt_nachher?String(d.haupt_nachher):'?');
-  }
-  return '';
-}
 /* Datenherkunft (Phase 6.5, S7, D6.5-09/-15): Geräte, Wege und Ereignisse aus
  * argus_governance_protokoll.devices/.herkunft. Fehlen beide Schlüssel (Server ohne 0026) → null.
  * Alle Werte stammen von Feld-Geräten: die Ausgabe in vDatenherkunft läuft ausschließlich über esc(). */
@@ -2038,9 +2018,6 @@ function herkunftModel(d, pats){
     }else if(e.action==='flz_merge'){
       /* D6.9-05: Zuordnung durch die FLZ — kein Gerät beteiligt (dev:null) */
       events.push({at:e.at, label:flzMergeEreignis(det), dev:null, kuerzel:e.kuerzel||'', open:null});
-    }else if(e.action==='flz_split' || e.action==='flz_haupt'){
-      /* D6.9-10: Herauslösen/Haupt-Wechsel durch die FLZ (0034) — kein Gerät beteiligt */
-      events.push({at:e.at, label:flzVerbundEreignis(e.action, det), dev:null, kuerzel:e.kuerzel||'', open:null});
     }else if(HERK_EV[e.action]){
       events.push({at:e.at, label:HERK_EV[e.action], dev:dev, kuerzel:e.kuerzel||'', open:(det.open_n!=null ? (det.open_n|0) : null)});
     }
@@ -2727,8 +2704,6 @@ function actionLabel(a){
   if(a==='admin_gast_revoke') return 'Admin: Gast-Code gesperrt';
   /* Phase 6.9 (D6.9-05): Zuordnung eines CCP durch die FLZ (Migration 0033) */
   if(a==='flz_merge') return 'Zusammengeführt durch FLZ';
-  if(a==='flz_split') return 'Aus Verbund gelöst durch FLZ';
-  if(a==='flz_haupt') return 'Haupt-CCP gewechselt durch FLZ';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -2754,9 +2729,7 @@ function secProtokoll(){
     ['admin_login','Admin-Login'],
     ['admin_gast_issue','Admin: Gast-Code ausgegeben'],
     ['admin_gast_revoke','Admin: Gast-Code gesperrt'],
-    ['flz_merge','Zusammengeführt durch FLZ'],
-    ['flz_split','Aus Verbund gelöst durch FLZ'],
-    ['flz_haupt','Haupt-CCP gewechselt durch FLZ']
+    ['flz_merge','Zusammengeführt durch FLZ']
   ];
   h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
   h+='<span class="hint" style="margin:0">Filter:</span>';
@@ -2803,7 +2776,7 @@ function secProtokoll(){
       if(l.action==='frist_verlaengert'){
         h+='<div class="hint" style="margin-top:2px">Begründung: '+esc(l.begruendung||'—')+(l.neue_frist!=null?' · neue Frist: '+fmtMs(l.neue_frist):'')+'</div>';
       }
-      if(l.action==='flz_merge' || l.action==='flz_split' || l.action==='flz_haupt'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
+      if(l.action==='flz_merge'){ h+='<div class="hint" style="margin-top:2px">'+esc(l.begruendung||'—')+'</div>'; }
       h+='</div>';
     });
     h+='</div>';
