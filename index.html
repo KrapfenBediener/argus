@@ -85,6 +85,11 @@
   .native-shell .topbar{padding-top:calc(12px + env(safe-area-inset-top))}
   .native-shell .toast{bottom:calc(22px + env(safe-area-inset-bottom))}
   .native-shell body{padding-bottom:env(safe-area-inset-bottom)}
+  /* iOS-Auto-Zoom-Fix: WebKit zoomt beim Fokus auf Felder < 16 px (z. B. Kürzel-/Ort-Dialog) und
+   * behält den Zoom danach. In der Hülle und der iOS-Standalone-PWA daher >= 16 px (überschreibt Inline-Größen). */
+  html.native-shell input,html.native-shell select,html.native-shell textarea,
+  html.ios-pwa input,html.ios-pwa select,html.ios-pwa textarea{font-size:16px !important}
+  .native-shell .grid3 input,.ios-pwa .grid3 input{padding-left:7px;padding-right:7px}
   .native-shell #train-coach{padding-bottom:env(safe-area-inset-bottom)}
   .banner{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:11px 13px;font-size:13px;color:var(--mut);margin-bottom:14px;display:flex;gap:10px;align-items:flex-start}
   .qbtn{flex:1;border-radius:12px;padding:18px;font-size:18px;font-weight:600;border:1px solid var(--line);background:var(--surf2)}
@@ -115,7 +120,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.35.5';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.35.6';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -145,6 +150,10 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.35.6': [
+    'Neue Patienten bekommen online jetzt zuverlässig die fortlaufende Nummer ohne Gerätekennung — auch direkt nach dem Wechsel in einen anderen CCP.',
+    'iPhone: Die App vergrößert beim Antippen von Eingabefeldern nicht mehr ungewollt die Ansicht.'
+  ],
   '0.35.5': [
     'Die Online-Nummer stimmt jetzt schon beim ersten Patienten nach dem Beitritt: keine Gerätekennung mehr (z. B. A-1 statt A-1-2), solange du Netz hast.',
     'Neu installierte Apps erkennen die Server-Funktionen sofort nach der Code-Eingabe.',
@@ -693,6 +702,26 @@ async function hydrateAccessFromKeychain(){
 }
 /* Safe-Area-Regeln im CSS hängen an html.native-shell (nur in der Hülle). */
 try{ if(isNativeShell()) document.documentElement.classList.add('native-shell'); }catch(e){}
+/* iOS-Auto-Zoom-Fix: Viewport-Meta (nur Hülle bekommt maximum-scale=1; PWA bleibt zoombar) und
+ * Eingabefeld-Mindestgröße (Hülle + iOS-Standalone-PWA). Reine Funktionen, testbar. */
+function viewportFor(native){
+  var base='width=device-width, initial-scale=1, viewport-fit=cover';
+  return native ? base+', maximum-scale=1' : base;
+}
+function iosInputGuard(native, ios, standalone){
+  return !!native || (!!ios && !!standalone);
+}
+try{
+  var _vpNative=isNativeShell();
+  if(_vpNative){
+    var _vpMeta=document.querySelector('meta[name="viewport"]');
+    if(_vpMeta) _vpMeta.setAttribute('content', viewportFor(true));
+  }
+  var _ua=navigator.userAgent||'';
+  var _isIOS=/iPad|iPhone|iPod/.test(_ua) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1);
+  var _isStd=window.navigator.standalone===true || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  if(!_vpNative && iosInputGuard(false, _isIOS, _isStd)) document.documentElement.classList.add('ios-pwa');
+}catch(e){}
 
 /* Hülle: Build-Nummer, Launch-URL — begrenzt durch withTimeout (T-06.6-13).
  * Außerhalb der Hülle oder ohne App-Plugin kehrt die Funktion sofort zurück. */
@@ -3872,7 +3901,10 @@ function prefetchNum(force, used){
       if(_ccpId!==ccpAt) return;
       if(d.reused && reservedTaken(d.start)){ backoff(1500); prefetchRetryLater(1600); return; }   /* echter Neuversuch statt nur Vormerkung (0.34.5) */   /* Patient mit dieser Nummer ist lokal da, aber noch nicht hochgeladen → gleich erneut fragen */
       _prefetchRetryAt=0;
-      if(!_nextReserved){
+      /* Owner-Befund 0.35.5: Eine Reservierung des VORHERIGEN CCP (Wechsel in derselben Sitzung) blockierte hier jede neue —
+       * bis zum Neustart lief jeder Online-Patient in den Offline-Zweig. Nur eine Reservierung DIESES CCP hat Vorrang;
+       * die alte bleibt in argus_resnum_<alter CCP> gespiegelt und wird bei der Rückkehr wiederhergestellt. */
+      if(!_nextReserved || _nextReserved.ccp!==ccpAt){
         _nextReserved={ccp:ccpAt,num:d.start}; resNumSave(ccpAt,d.start);
         /* Kein Neuaufbau, solange Kamera/Dateiauswahl offen ist (sonst geht das Foto verloren). */
         if(!(_filePickerOpen && nowMs()-_filePickerOpen<180000)){ try{ render(); }catch(e){} }
