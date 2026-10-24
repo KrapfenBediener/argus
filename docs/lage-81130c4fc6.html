@@ -1023,6 +1023,61 @@ async function identWechsel(pid){
     _identBusy=false;
   }
 }
+/* Phase 6.12 (D6.12-25, Migration 0047): persönliche Sitzungen laufen 30 Tage und verlängern
+ * sich still, solange die Seite genutzt wird — wie die Feld-App: Restlaufzeit < 7 Tage → nach
+ * einem erfolgreichen Abruf rpc/argus_sitzung_erneuern (gleiche Sitzung/jti, gleiche Form,
+ * frische Laufzeit). Höchstens ein Versuch je 10 min. 401 bzw. fehler 'sitzung' (Person oder
+ * Code gesperrt) → abmelden; sonst (Netz, Server ohne 0047) still weiter — die Sitzung läuft
+ * dann wie bisher zu ihrem Ablauf aus. „Abmelden“ beendet sie wie bisher. Bestandssitzungen
+ * (Beobachter, FLZ-Zugang, MasterToken) erneuern sich nicht. */
+var ERNEUERN_VOR_MS=7*24*3600*1000, ERNEUERN_PAUSE_MS=600000, _erneuertAt=0, _erneuerBusy=false;
+/* rein: Erneuerung fällig? (Ablauf in ms bekannt und Restlaufzeit unter 7 Tagen) */
+function erneuernFaellig(expMs, jetzt){
+  return typeof expMs==='number' && expMs>0 && expMs-jetzt<ERNEUERN_VOR_MS;
+}
+async function identErneuern(){
+  if(!isIdent() || _identBusy || _erneuerBusy) return;
+  var jwt=sessionJwt();
+  if(!jwt) return;
+  var exp=parseInt(sessionStorage.getItem('arguslg_jwt_exp')||'0',10);
+  if(!erneuernFaellig(exp, nowMs()) || nowMs()-_erneuertAt<ERNEUERN_PAUSE_MS) return;
+  _erneuertAt=nowMs();
+  _erneuerBusy=true;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_sitzung_erneuern',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:'{}'
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    var d=null; try{ d=await resp.json(); }catch(e){}
+    if(!d || d.ok!==true || !d.jwt){
+      if(d && d.fehler==='sitzung') doLogout(anmeldeMeldungFlz(d));
+      return;
+    }
+    /* inzwischen gewechselt oder abgemeldet → Antwort verwerfen */
+    if(sessionStorage.getItem('arguslg_jwt')!==jwt) return;
+    var pidVorher=sessionStorage.getItem('arguslg_pid')||'';
+    sessionStorage.setItem('arguslg_jwt', d.jwt);
+    sessionStorage.setItem('arguslg_jwt_exp', String((+d.exp||0)*1000));
+    sessionStorage.setItem('arguslg_global', d.global ? '1' : '');
+    sessionStorage.setItem('arguslg_admin', d.global ? '' : '1');
+    sessionStorage.setItem('arguslg_pid', d.praesidium_id||'');
+    sessionStorage.setItem('arguslg_pname', d.praesidium_name||'');
+    if(Array.isArray(d.praesidien)) sessionStorage.setItem('arguslg_praesidien', JSON.stringify(identListe(d.praesidien)));
+    if((d.praesidium_id||'')!==pidVorher){
+      /* Präsidium nicht mehr im Bereich → Auswahl: Zahlen des vorigen Präsidiums nie weiter zeigen */
+      pselSet('');
+      _data=null; _lastOkAt=null; _offline=false;
+      render();
+      poll();
+    }
+  }catch(e){
+    /* still — nächster Versuch frühestens in 10 min */
+  }finally{
+    _erneuerBusy=false;
+  }
+}
 
 /* ── Login: persönlicher Code (6.12) → sonst Beobachter-Code → Observer-JWT ──
  * Phase 6.12 (D6.12-02/-21): zuerst rpc/argus_anmelden (p_oberflaeche 'flz');
@@ -1126,6 +1181,7 @@ async function poll(){
     /* Präsidium inzwischen gewechselt (6.12): Antwort der vorigen Sitzung verwerfen, neu abfragen */
     if(sessionJwt()!==jwt){ _pollNeu=true; return; }
     _data=data; _lastOkAt=nowMs(); _offline=false;
+    identErneuern();   /* D6.12-25: still verlängern, wenn fällig (nicht abwarten) */
   }catch(e){
     _offline=true;
   }finally{
@@ -1632,7 +1688,7 @@ function viewLogin(){
   if(_configError) h+='<div class="lerr">Konfiguration fehlt (config.js) — kein Backend verbunden.</div>';
   h+='<label class="fieldlab" for="logininp">Zugangscode</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
-  h+='<label class="keeprow"><input type="checkbox" id="keepme"> Angemeldet bleiben — nur auf diesem Gerät (bis zum Ablauf des Zugangs, max. 30 Tage; „Abmelden" beendet es)</label>';
+  h+='<label class="keeprow"><input type="checkbox" id="keepme"> Angemeldet bleiben — nur auf diesem Gerät (bis „Abmelden" oder zum Ablauf des Zugangs; persönliche Anmeldung verlängert sich bei Nutzung selbst)</label>';
   h+='<div style="display:flex;gap:8px;margin-top:14px">';
   h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
   h+='</div>';
