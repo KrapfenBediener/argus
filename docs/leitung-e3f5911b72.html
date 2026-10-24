@@ -243,16 +243,67 @@
   .ptitle .pcount{font-weight:600;font-size:12px;color:var(--mut)}
   .ptitle.ohne{border-left-color:#6b7178}
   /* 6.12-VERWALTUNG — Übersicht „Was braucht Aufmerksamkeit“ (nur Verwaltung) */
-  .uebraster{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   .card.ueb{margin-bottom:0;border-left:6px solid var(--acc)}
-  .card.ueb.neutral{border-left-color:#6b7178}
   .card.ueb.leer{border-left-color:var(--t3);font-weight:600}
-  .ueb .uebk{display:flex;align-items:baseline;gap:10px}
-  .ueb .uebn{font-family:var(--mono);font-size:22px;font-weight:700;min-width:28px}
-  .ueb .uebt{font-weight:600;font-size:14px}
-  .ueb .uebli{margin:8px 0 0;padding-left:18px;font-size:13px}
-  .ueb .uebakt{margin-top:10px}
-  @media(max-width:900px){ .uebraster{grid-template-columns:1fr} }
+  /* Quick 261024 (Vorschlag 2): Aufgabenliste in zwei Gruppen — „Dringend“ roter Seitenstrich, „Aufräumen“ neutral */
+  .card.aufgl{padding:4px 14px}
+  .aufgz{border-left:5px solid #6b7178;border-bottom:1px solid var(--line);padding:8px 4px 8px 10px}
+  .aufgz:last-child{border-bottom:0}
+  .aufgz.d{border-left-color:var(--t1)}
+  .aufg{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap}
+  .aufg .auk{display:flex;align-items:baseline;gap:10px;flex:1 1 260px;min-width:0}
+  .aufg .auk.fold{cursor:pointer;user-select:none}
+  .aufg .chev{flex:0 0 10px;color:var(--mut);font-size:10px;display:inline-block;transition:transform .15s}
+  .aufgz.open .chev{transform:rotate(90deg)}
+  .aufg .n{font-family:var(--mono);font-weight:700;font-size:18px;min-width:26px}
+  .aufg .t{font-weight:600}
+  .aufg .wo{margin-left:auto;text-align:right}
+  .aufgz .uebli{margin:6px 0 2px 46px;padding-left:18px;font-size:13px}
+  /* Quick 261024 (Verwaltung übersichtlich) — nur vorhandene Bausteine, nur Verwaltung:
+   * Reiterzeile in „Personen & Zugänge“ (Optik wie .side .it, waagerecht), Zähler je Reiter */
+  .tabs{display:flex;gap:4px;flex-wrap:wrap;margin:0 0 12px;border-bottom:1px solid var(--line);padding-bottom:8px}
+  .tabs .it{background:none;color:var(--tx);padding:7px 12px;border-radius:8px;font-size:13.5px;display:flex;gap:6px;align-items:center}
+  .tabs .it:hover{background:var(--surf2)}
+  .tabs .it.on{background:var(--acc);color:#fff}
+  .tabs .cnt{font-family:var(--mono);font-size:11px;color:var(--mut)}
+  .tabs .it.on .cnt{color:#fff;opacity:.8}
+  /* Hinweiszeile direkt unter dem Kopf (UI-Review B12: Klasse statt Inline-Stil) */
+  .mhint{font-size:12px;color:var(--mut);margin:-6px 0 12px}
+  /* Zähler in der Seitennavigation (Vorschlag 3): rechts am Eintrag; neutral, wenn nichts dringend ist */
+  .side .it{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .wvz.neutral{background:#6b7178}
+  /* Filterzeile (Vorschlag 4): Präsidium · Suche · Filter · „n von m“ — eine .card mit 10/14 px Innenabstand */
+  .card.fbar{padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .fbar .fsuche{flex:1 1 180px;min-width:150px;width:auto;padding:6px 10px;font-size:13px}
+  .fbar .fzahl{margin-left:auto;white-space:nowrap}
+  /* Formulare als In-App-Dialog (Vorschlag 5): vorhandenes Modal, breiter */
+  .modalbx.breit{max-width:560px;max-height:calc(100vh - 32px);overflow:auto}
+  .dlgtitel{font-weight:700;font-size:15px;margin-bottom:6px}
+  .mh .mhakt{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  /* Vorschlag 6 (UI-Review B7/B14): kompakte Knöpfe in Tabellenzeilen, seltene Aktion als leiser Textknopf */
+  .btn.sm{padding:6px 10px;font-size:12.5px;white-space:nowrap}
+  .btn.leise{background:none;color:var(--mut);padding:6px 8px}
+  .btn.leise:hover{filter:none;color:var(--tx);text-decoration:underline}
+  .zakt{display:flex;gap:6px;flex-wrap:wrap}
+  .zakt.pakt{flex-wrap:nowrap}
+  /* Vorschlag 7 (UI-Review B9): lange Listen — „Weitere N anzeigen“, Präsidiums-Gruppen einklappbar */
+  .mehrz{margin:8px 0 4px}
+  .ptitle.fold{cursor:pointer;user-select:none}
+  .ptitle .chev{display:inline-block;font-size:9px;margin-right:6px;color:var(--mut);transition:transform .15s}
+  .ptitle.fold.open .chev{transform:rotate(90deg)}
+  /* Vorschlag 8 (UI-Review B12/B15): gemeinsame Fehlerkarte (immer „Neu laden“), --prio nur „Teilweise verfügbar“,
+   * Erklärsätze auf einen Satz + „ⓘ Mehr“ */
+  .card.errcard{border-color:var(--t1)}
+  .errcard .et{color:var(--t1);font-weight:600}
+  .card.teilcard{border-color:var(--prio)}
+  .teilcard .et{font-weight:600}
+  .errcard .hint,.teilcard .hint{margin-top:4px}
+  .errcard .ea{margin-top:10px}
+  .mhint.innen{margin:0 0 8px}
+  .mhint .infob{padding:0 4px;font-size:12px;vertical-align:baseline}
+  .card.mehrtext{padding:10px 14px;margin:-2px 0 12px;font-size:12px;color:var(--mut)}
+  .card.mehrtext p{margin:0 0 6px}
+  .card.mehrtext p:last-child{margin:0}
   @media(max-width:900px){ .lgrid{grid-template-columns:1fr 1fr} .sumbar{grid-template-columns:repeat(3,minmax(0,1fr))} }
   @media(max-width:760px){
     .layout{grid-template-columns:1fr}
@@ -706,7 +757,9 @@ var SUPA_KEY = _configError ? '' : _cfg.anonKey;
 
 var _sb = null;
 var _sbJwt = null;
-var state = { section:'zugaenge' };   /* Direkteinstieg: Zugänge — keine Übersichtsseite */
+var state = { section:'zugaenge',   /* Direkteinstieg: Zugänge — keine Übersichtsseite */
+  /* Quick 261024 (Verwaltung übersichtlich): gewählter Reiter in „Personen & Zugänge“ (Merkort, endet mit der Sitzung) */
+  zugTab:(function(){ try{ return sessionStorage.getItem('argusl_zugtab')||''; }catch(e){ return ''; } })() };
 
 /* ── Rollen-Helfer (Plan 04.14-02) ──────────────────────────────
  * sessionRole() liefert 'admin' oder Default 'master'.
@@ -1529,7 +1582,10 @@ function sideNav(){
   secs.forEach(function(s){
     if(s.nurRoute) return;   /* Phase 6.12 (06.12-10): Route ohne eigenen Navigationspunkt */
     if(s.grp!==grp){ grp=s.grp; h+='<div class="sh grp">'+esc(s.grp)+'</div>'; }
-    h+='<div class="it'+(state.section===s.id?' on':'')+'" data-nav="'+s.id+'">'+esc(s.label)+'</div>';
+    /* Quick 261024 (Vorschlag 3, UI-Review B5): Zähler offener Punkte laut zuletzt geladener Übersicht */
+    var z=(_uebNav && typeof _uebNav==='object' && _uebNav[s.id]) ? _uebNav[s.id] : null;
+    var zb=(z && z.n>0) ? '<span class="wvz'+(z.dringend ? '' : ' neutral')+'" title="offene Punkte laut Übersicht">'+esc(String(z.n))+'</span>' : '';
+    h+='<div class="it'+(state.section===s.id?' on':'')+'" data-nav="'+s.id+'"><span>'+esc(s.label)+'</span>'+zb+'</div>';
   });
   h+='</nav>';
   return h;
@@ -1562,7 +1618,10 @@ function render(){
   else if(state.section==='admin-lage')   h+=secAdminLage();
   else if(state.section==='noview')       h+=secNoView();
   h+='</main></div>';
+  formWerteSichern();     /* Quick 261024: offene Dialog-Formulare behalten ihre Eingaben */
+  var fz=fokusMerken();   /* Quick 261024: Suche filtert beim Tippen — Fokus bleibt im Feld */
   app.innerHTML=h;
+  fokusZurueck(fz);
 }
 function loadSection(){
   /* Präsidienliste fürs Band des FLZ-Zugangs (nicht blockierend; Fehler → Heuristik) */
@@ -1592,35 +1651,44 @@ function loadSection(){
  * Karte mit Anzahl, kurzer Liste und Sprung in den passenden Bereich. Alle
  * Server-Texte über esc() (T-06.12-0903). */
 var UEBERSICHT_TEXTE={
-  wiedervorlage:            { titel:'Einsatzprotokolle in Wiedervorlage (Löschfrist ≤ 24 h)', ziel:'einsaetze' },
+  wiedervorlage:            { titel:'Einsatzprotokolle in Wiedervorlage (Löschfrist ≤ 24 h)', ziel:'einsaetze', gruppe:'dringend' },
   ohne_export:              { titel:'Echtbetrieb-Einsätze noch nicht exportiert', ziel:'einsaetze' },
-  foto_frist:               { titel:'Fotos werden in < 24 h gelöscht', ziel:'einsaetze' },
-  codes_loeschbar:          { titel:'Gesperrte oder abgelaufene Codes löschbar', ziel:'zugaenge' },
-  identitaeten_gesperrt:    { titel:'Gesperrte Personen', ziel:'zugaenge' },
+  foto_frist:               { titel:'Fotos werden in < 24 h gelöscht', ziel:'einsaetze', gruppe:'dringend' },
+  codes_loeschbar:          { titel:'Gesperrte oder abgelaufene Codes löschbar', ziel:'zugaenge', tab:'weitere' },
+  identitaeten_gesperrt:    { titel:'Gesperrte Personen', ziel:'zugaenge', tab:'personen' },
   lagen_ohne_ccp:           { titel:'Offene Lagen ohne offenen CCP — in der FLZ abschließen', ziel:'einsaetze' },
-  kennung_doppelt:          { titel:'Kennung doppelt (offline eröffnet)', ziel:'einsaetze' },
+  kennung_doppelt:          { titel:'Kennung doppelt (offline eröffnet)', ziel:'einsaetze', gruppe:'dringend' },
   offline_eroeffnet:        { titel:'Offline eröffnete CCPs', ziel:'einsaetze' },
   verbund_konflikt:         { titel:'Zusammenlegung ohne Netz widersprach dem Serverstand (7 Tage)', ziel:'protokoll' },
   geraete_abgemeldet:       { titel:'Abgemeldete Geräte in offenen CCPs', ziel:'einsaetze' },
   auffangnetz:              { titel:'Offene CCPs ohne Aktivität seit > 50 Tagen', ziel:'einsaetze' },
   praesidien_ohne_zwilling: { titel:'Präsidien ohne Schulungs-Zwilling', ziel:'praesidien' },
-  selbstregistrierungen:    { titel:'Neue Selbstregistrierungen (7 Tage)', ziel:'zugaenge' },
-  zugangscode_ablauf:       { titel:'Präsidiums-/Fremdkräfte-Code läuft bald ab', ziel:'zugaenge' },
-  anmeldesperren:           { titel:'Gesperrte Anmeldeversuche', ziel:'zugaenge' }
+  selbstregistrierungen:    { titel:'Neue Selbstregistrierungen (7 Tage)', ziel:'zugaenge', tab:'personen' },
+  zugangscode_ablauf:       { titel:'Präsidiums-/Fremdkräfte-Code läuft bald ab', ziel:'zugaenge', tab:'codes', gruppe:'dringend' },
+  anmeldesperren:           { titel:'Gesperrte Anmeldeversuche', ziel:'zugaenge', tab:'sperren', gruppe:'dringend' }
 };
-/* Rein: Übersicht u ({ok, punkte}), Sperren (Liste oder null), sicht = sichtbare
- * Bereichs-IDs der Rolle (sektionenFuer) → HTML. Reihenfolge wie vom Server;
- * Sprung nur in sichtbare Bereiche (sonst nur Text). */
-function uebersichtPunkte(u, sperren, sicht){
+/* Rein: gültige Punkte der Übersicht u ({ok, punkte}) in Server-Reihenfolge; Sperren aus
+ * argus_vw_anmeldesperren (nur aktive) werden ergänzt, wenn die Übersicht sie nicht schon enthält.
+ * (Quick 261024: aus uebersichtPunkte herausgelöst — auch Quelle der Navigationszähler.) */
+function uebersichtListe(u, sperren){
   var punkte=(u && Array.isArray(u.punkte)) ? u.punkte.filter(function(p){ return !!p && typeof p==='object' && typeof p.art==='string' && !!p.art; }) : [];
-  sicht=Array.isArray(sicht) ? sicht : [];
-  /* Sperren aus argus_vw_anmeldesperren nur, wenn die Übersicht sie nicht schon enthält */
   if(Array.isArray(sperren) && !punkte.some(function(p){ return p.art==='anmeldesperren'; })){
     var akt=sperren.filter(function(x){ return !!x && typeof x==='object' && (x.aktiv===true || (+x.rest_s||0)>0); });
     if(akt.length) punkte=punkte.concat([{ art:'anmeldesperren', anzahl:akt.length, liste:akt.map(function(x){
       return { kurzkennung:x.kurzkennung, praesidium_name:x.ziel_praesidium_name, bis:x.gesperrt_bis };
     }) }]);
   }
+  return punkte;
+}
+/* Rein: Übersicht u, Sperren (Liste oder null), sicht = sichtbare Bereichs-IDs der Rolle
+ * (sektionenFuer) → HTML. Quick 261024 (Vorschlag 2, UI-Review B11): kurze Aufgabenliste statt
+ * Kachelraster — zwei Gruppen „Dringend“ (UEBERSICHT_TEXTE[art].gruppe, roter Seitenstrich) und
+ * „Aufräumen“ (neutral, auch unbekannte Arten), je Punkt eine Zeile Zahl · Titel · Präsidium ·
+ * „Öffnen →“; Einzelheiten (höchstens 5) klappen per .chev auf (offen(art) → true). Reihenfolge
+ * wie vom Server; Sprung nur in sichtbare Bereiche (sonst nur Text). */
+function uebersichtPunkte(u, sperren, sicht, offen){
+  var punkte=uebersichtListe(u, sperren);
+  sicht=Array.isArray(sicht) ? sicht : [];
   if(!punkte.length) return '<div class="card ueb leer">Nichts offen — alles im grünen Bereich.</div>';
   var ARTEN={ praesidiums_code:'Präsidiums-Code', fremdkraefte_code:'Fremdkräfte-Code' };
   function zeit(ms){
@@ -1640,36 +1708,71 @@ function uebersichtPunkte(u, sperren, sicht){
     if(e.bis) t.push('bis '+esc(zeit(e.bis)));
     return '<li>'+t.join(' · ')+'</li>';
   }
-  var h='<div class="uebraster">';
-  punkte.forEach(function(p){
+  /* Präsidien der Einzelheiten als Kurzangabe („PP A, PP B +2“) */
+  function wo(l){
+    var n=[];
+    l.forEach(function(e){ var x=(e && typeof e==='object' && e.praesidium_name) ? String(e.praesidium_name) : ''; if(x && n.indexOf(x)<0) n.push(x); });
+    return n.slice(0,2).map(esc).join(', ')+(n.length>2 ? ' +'+(n.length-2) : '');
+  }
+  function zeile(p){
     var tx=Object.prototype.hasOwnProperty.call(UEBERSICHT_TEXTE, p.art) ? UEBERSICHT_TEXTE[p.art] : null;
     var l=Array.isArray(p.liste) ? p.liste : [];
-    h+='<div class="card ueb'+(tx ? '' : ' neutral')+'">';
-    h+='<div class="uebk"><span class="uebn">'+esc(String(+p.anzahl||0))+'</span><span class="uebt">'+esc(tx ? tx.titel : p.art)+'</span></div>';
-    if(l.length){
-      h+='<ul class="uebli">'+l.slice(0,5).map(eintrag).join('')+'</ul>';
-      if(l.length>5) h+='<div class="hint">… und '+(l.length-5)+' weitere</div>';
+    var auf=l.length>0 && typeof offen==='function' && offen(p.art)===true;
+    var x='<div class="aufgz'+(tx && tx.gruppe==='dringend' ? ' d' : '')+(tx ? '' : ' neutral')+(auf ? ' open' : '')+'"><div class="aufg">';
+    x+= l.length
+      ? '<span class="auk fold" data-action="togglecard" data-key="ueb-'+esc(p.art)+'" data-def="1" role="button" aria-expanded="'+(auf?'true':'false')+'" title="Einzelheiten">'
+      : '<span class="auk"><span class="chev" style="visibility:hidden"></span>';
+    if(l.length) x+='<span class="chev">▶</span>';
+    x+='<span class="n">'+esc(String(+p.anzahl||0))+'</span><span class="t">'+esc(tx ? tx.titel : p.art)+'</span></span>';
+    var w=wo(l);
+    if(w) x+='<span class="hint wo">'+w+'</span>';
+    if(tx && sicht.indexOf(tx.ziel)>=0) x+='<button class="btn ghost" data-nav="'+esc(tx.ziel)+'"'+(tx.tab ? ' data-tab="'+esc(tx.tab)+'"' : '')+'>Öffnen →</button>';
+    x+='</div>';
+    if(auf){
+      x+='<ul class="uebli">'+l.slice(0,5).map(eintrag).join('')+'</ul>';
+      if(l.length>5) x+='<div class="hint" style="margin-left:46px">… und '+(l.length-5)+' weitere</div>';
     }
-    if(tx && sicht.indexOf(tx.ziel)>=0) h+='<div class="uebakt"><button class="btn ghost" data-nav="'+esc(tx.ziel)+'">Öffnen</button></div>';
-    h+='</div>';
-  });
-  return h+'</div>';
+    return x+'</div>';
+  }
+  var dr=punkte.filter(function(p){ var t=UEBERSICHT_TEXTE[p.art]; return Object.prototype.hasOwnProperty.call(UEBERSICHT_TEXTE, p.art) && t.gruppe==='dringend'; });
+  var au=punkte.filter(function(p){ return dr.indexOf(p)<0; });
+  var h='';
+  if(dr.length) h+='<div class="sech">Dringend ('+dr.length+')</div><div class="card aufgl">'+dr.map(zeile).join('')+'</div>';
+  if(au.length) h+='<div class="sech">Aufräumen ('+au.length+')</div><div class="card aufgl">'+au.map(zeile).join('')+'</div>';
+  return h;
 }
 var _ueb=null, _uebSperren=null, _uebErr=null;
+/* Quick 261024 (Vorschlag 3): Zähler der Seitennavigation — aus der zuletzt erfolgreich geladenen
+ * Übersicht (kein weiterer Abruf); bleibt beim Neuladen bis zur nächsten Antwort stehen. */
+var _uebNav=null;
+/* Rein: Punkte (uebersichtListe) → je Bereich {n, dringend}; „uebersicht“ = alle Punkte. Gezählt
+ * werden Punkte (Aufgaben), nicht deren Anzahl. Unbekannte Arten zählen nur in der Übersicht. */
+function navZaehler(punkte){
+  var out={ uebersicht:{ n:0, dringend:false } };
+  (Array.isArray(punkte) ? punkte : []).forEach(function(p){
+    if(!p || typeof p!=='object' || typeof p.art!=='string') return;
+    var tx=Object.prototype.hasOwnProperty.call(UEBERSICHT_TEXTE, p.art) ? UEBERSICHT_TEXTE[p.art] : null;
+    var d=!!(tx && tx.gruppe==='dringend');
+    out.uebersicht.n++; if(d) out.uebersicht.dringend=true;
+    if(!tx) return;
+    if(!out[tx.ziel]) out[tx.ziel]={ n:0, dringend:false };
+    out[tx.ziel].n++; if(d) out[tx.ziel].dringend=true;
+  });
+  return out;
+}
 function uebersichtSperrenSichtbar(){
   var r=sessionRole();
   return r==='master' || (r==='ident' && irolleVw()==='administrator');
 }
 function secUebersicht(){
   var h='<div class="mh"><h2>Übersicht · Was braucht Aufmerksamkeit</h2><button class="btn ghost" data-action="uebersichtreload">↻ Aktualisieren</button></div>';
-  h+='<div class="hint" style="margin:-6px 0 12px">Nur Zähler und Kennungen im eigenen Bereich — keine Patientendaten.'+((_ueb && _ueb.stand) ? ' Stand '+esc(fmtMs(_ueb.stand))+'.' : '')+'</div>';
+  h+='<div class="mhint">Nur Zähler und Kennungen im eigenen Bereich — keine Patientendaten.'+((_ueb && _ueb.stand) ? ' Stand '+esc(fmtMs(_ueb.stand))+'.' : '')+'</div>';
   if(_uebErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_uebErr)+'</div>';
-    h+='<div style="margin-top:10px"><button class="btn" data-action="uebersichtreload">Neu laden</button></div></div>';
-    return h;
+    return h+fehlerKarte('Abruf fehlgeschlagen', _uebErr, 'uebersichtreload');
   }
   if(_ueb===null) return h+'<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
-  return h+uebersichtPunkte(_ueb, _uebSperren, sektionenFuer(sessionRole(), irolleVw()).map(function(s){ return s.id; }));
+  return h+uebersichtPunkte(_ueb, _uebSperren, sektionenFuer(sessionRole(), irolleVw()).map(function(s){ return s.id; }),
+    function(art){ return !isCollapsed('ueb-'+art, true); });
 }
 async function loadUebersicht(){
   _ueb=null; _uebSperren=null; _uebErr=null;
@@ -1690,6 +1793,7 @@ async function loadUebersicht(){
           if(!sp.error && sp.data && sp.data.ok===true && Array.isArray(sp.data.sperren)) _uebSperren=sp.data.sperren;
         }catch(e){}
       }
+      _uebNav=navZaehler(uebersichtListe(_ueb, _uebSperren));
     }
   }catch(e){ _uebErr='Abruf fehlgeschlagen — keine Verbindung?'; }
   if(state.section==='uebersicht') render();
@@ -1740,7 +1844,7 @@ var _praes=null, _tokens=null, _zugErr=null;
  * sessionStorage — überlebt Bereichswechsel, endet mit der Sitzung. */
 var _collapsed={};
 try{ _collapsed=JSON.parse(sessionStorage.getItem('arguslt_collapsed')||'{}')||{}; }catch(e){ _collapsed={}; }
-function isCollapsed(key, defCollapsed){ return (key in _collapsed) ? !!_collapsed[key] : !!defCollapsed; }
+function isCollapsed(key, defCollapsed){ return (_collapsed && (key in _collapsed)) ? !!_collapsed[key] : !!defCollapsed; }
 function toggleCard(key, defCollapsed){
   _collapsed[key]=!isCollapsed(key, defCollapsed);
   try{ sessionStorage.setItem('arguslt_collapsed', JSON.stringify(_collapsed)); }catch(e){}
@@ -1750,7 +1854,7 @@ function toggleCard(key, defCollapsed){
  * Rein clientseitig auf den geladenen _tokens; bei aktivem Filter werden
  * die Karten zwangsweise aufgeklappt, sonst wäre das Ergebnis unsichtbar. */
 var _zugFilter={art:'alle',status:'alle',sort:'neu'};
-function zugFilterActive(){ return _zugFilter.art!=='alle' || _zugFilter.status!=='alle'; }
+function zugFilterActive(){ return _zugFilter.art!=='alle' || _zugFilter.status!=='alle' || !!(_suche && String(_suche.weitere||'').trim()); }
 function tokenArtKey(t){
   /* Phase 6.12 (06.12-10): persönliche Codes und Monats-Codes aus argus_vw_codes */
   if(t.art==='persoenlich' || t.art==='person_alt') return 'person';
@@ -1771,6 +1875,9 @@ function tokenStatusKey(t){
 function tokenMatches(t){
   if(_zugFilter.art!=='alle'    && tokenArtKey(t)!==_zugFilter.art) return false;
   if(_zugFilter.status!=='alle' && tokenStatusKey(t)!==_zugFilter.status) return false;
+  /* Quick 261024 (Vorschlag 4, B8): Suche in Kurzcode, Bezeichnung/Notiz, Kürzel und Art */
+  var q=(_suche && _suche.weitere) ? String(_suche.weitere) : '';
+  if(q.trim() && !sucheTreffer(q, [t.short_code, t.label, t.kuerzel, t.art_anzeige])) return false;
   return true;
 }
 function sortTokens(list){
@@ -2076,6 +2183,8 @@ function codeMarkAlle(pid){
   var sicht=codeGruppe(pid).filter(tokenMatches).filter(codeMarkierbar);
   var alle=sicht.length>0 && sicht.every(function(t){ return codeMarkiert(t.short_code); });
   sicht.forEach(function(t){ if(alle) delete _codeMark[t.short_code]; else _codeMark[t.short_code]=true; });
+  /* Quick 261024 (Vorschlag 7): markierte Codes nie hinter „Weitere anzeigen“ verstecken */
+  if(!alle && _mehr) _mehr[pid ? 'zug-'+pid : 'zug-rest']=true;
   _codeErg={};
   render();
 }
@@ -2184,15 +2293,21 @@ function zugcodeRechte(p, sicht){
   }
   return n;
 }
-/* Rein: Abschnitt (A) „Zugangscodes“ — Liste aus argus_vw_praesidien. */
-function zugangscodesHtml(liste, sicht, fk){
-  var reihe=praesReihenfolge(liste);
+/* Rein: Zeilen des Abschnitts „Zugangscodes“ — Präsidien, deren Monats-Codes die Sitzung sehen darf
+ * (Quick 261024: auch Zähler des Reiters). */
+function zugcodeZeilen(liste, sicht){
+  return praesReihenfolge(liste).filter(function(e){ var r=zugcodeRechte(e.p, sicht); return r.praes || r.fremd; });
+}
+/* Rein: Abschnitt (A) „Zugangscodes“ — Liste aus argus_vw_praesidien; f = {praes, wurzel, q}
+ * (Quick 261024: Filterzeile, optional). */
+function zugangscodesHtml(liste, sicht, fk, f){
   var fkN={};
   (Array.isArray(fk) ? fk : []).forEach(function(x){ if(x && x.praesidium_id) fkN[x.praesidium_id]=+x.aktiv||0; });
-  var h='<div class="sech">Zugangscodes</div>';
-  h+='<div class="hint" style="margin:-4px 0 8px">Präsidiums-Code: neue Geräte registrieren sich einmal mit Kürzel. Fremdkräfte-Code: 72 h Zugang nur für dieses Präsidium. Beide wechseln monatlich; jede Anzeige wird protokolliert.</div>';
-  var zeilen=reihe.filter(function(e){ var r=zugcodeRechte(e.p, sicht); return r.praes || r.fremd; });
+  var h='';
+  var zeilen=zugcodeZeilen(liste, sicht);
   if(!zeilen.length) return h+'<div class="card"><p class="hint" style="margin:0">Keine Zugangscodes in Ihrem Bereich.</p></div>';
+  if(f && (f.praes || f.q)) zeilen=zeilen.filter(function(e){ return praesPasst(e.p.id, f.praes, f.wurzel) && sucheTreffer(f.q, [e.p.name]); });
+  if(!zeilen.length) return h+'<div class="card"><p class="hint" style="margin:0">Keine Zugangscodes passend zum Filter. <button class="btn ghost" data-action="filterreset" data-bereich="codes">✕ Filter zurücksetzen</button></p></div>';
   h+='<div class="tablewrap"><table><thead><tr><th>Präsidium</th><th>Präsidiums-Code</th><th>Fremdkräfte-Code</th></tr></thead><tbody>';
   zeilen.forEach(function(e){
     var p=e.p, r=zugcodeRechte(p, sicht), pid=esc(p.id), pn=esc(p.name||'');
@@ -2200,8 +2315,9 @@ function zugangscodesHtml(liste, sicht, fk){
     h+='<td>';
     if(r.praes){
       h+='<div class="hint" style="margin:0 0 4px">'+(p.praesidiums_code_bis ? 'gültig bis '+esc(datumKurz(p.praesidiums_code_bis)) : 'entsteht beim ersten Anzeigen')+'</div>';
-      h+='<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" data-action="zugcodezeigen" data-pid="'+pid+'" data-art="praesidiums_code">Präsidiums-Code anzeigen</button>';
-      if(r.praesNeu) h+='<button class="btn ghost" data-action="zugcodeerneuern" data-pid="'+pid+'" data-art="praesidiums_code" data-pname="'+pn+'">Erneuern</button>';
+      /* Quick 261024 (Vorschlag 6, B14): „Anzeigen“ — die Spalte nennt den Code; „Erneuern“ selten, daher leise */
+      h+='<div class="zakt"><button class="btn ghost sm" title="Präsidiums-Code anzeigen" data-action="zugcodezeigen" data-pid="'+pid+'" data-art="praesidiums_code">Anzeigen</button>';
+      if(r.praesNeu) h+='<button class="btn leise sm" title="Präsidiums-Code erneuern" data-action="zugcodeerneuern" data-pid="'+pid+'" data-art="praesidiums_code" data-pname="'+pn+'">Erneuern</button>';
       h+='</div>';
     }else{
       h+='<span class="hint">'+(p.schulung ? 'nur Echtbetrieb (Zwilling eingeschlossen)' : '—')+'</span>';
@@ -2210,8 +2326,8 @@ function zugangscodesHtml(liste, sicht, fk){
     if(r.fremd){
       h+='<div class="hint" style="margin:0 0 4px">'+(p.fremdkraefte_code_bis ? 'gültig bis '+esc(datumKurz(p.fremdkraefte_code_bis)) : 'entsteht beim ersten Anzeigen')
         +(fkN[p.id] ? ' · '+fkN[p.id]+' laufende Fremdkraft-Sitzung'+(fkN[p.id]===1 ? '' : 'en') : '')+'</div>';
-      h+='<div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ghost" data-action="zugcodezeigen" data-pid="'+pid+'" data-art="fremdkraefte_code">Fremdkräfte-Code anzeigen</button>';
-      if(r.fremdNeu) h+='<button class="btn ghost" data-action="zugcodeerneuern" data-pid="'+pid+'" data-art="fremdkraefte_code" data-pname="'+pn+'">Erneuern</button>';
+      h+='<div class="zakt"><button class="btn ghost sm" title="Fremdkräfte-Code anzeigen" data-action="zugcodezeigen" data-pid="'+pid+'" data-art="fremdkraefte_code">Anzeigen</button>';
+      if(r.fremdNeu) h+='<button class="btn leise sm" title="Fremdkräfte-Code erneuern" data-action="zugcodeerneuern" data-pid="'+pid+'" data-art="fremdkraefte_code" data-pname="'+pn+'">Erneuern</button>';
       h+='</div>';
     }else{
       h+='<span class="hint">—</span>';
@@ -2296,15 +2412,20 @@ async function gebeSperreFrei(schluessel, kurz){
  * Die Aktionen provision, mkreset und meshkeyerneuern sind aus „Zugänge“ hierher
  * verlegt (gleiche Namen und Funktionen). Kein Code, kein Schlüssel im Klartext. */
 var _praesVwErr=null, _praesForm=null;
-function praesidienListeHtml(liste, inst){
+function praesidienListeHtml(liste, inst, q){
   var reihe=praesReihenfolge(liste);
-  var h='';
-  if(inst){
-    h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-    h+='<button class="btn ghost" data-action="provision">Schulungs-Zwillinge anlegen/prüfen</button>';
-    h+='<button class="btn" data-action="praesidiumneu" data-op="auf" style="margin-left:auto">＋ Präsidium anlegen</button>';
-    h+='</div>';
+  /* Quick 261024 (Vorschlag 4): Suche nach Namen (Zwilling bleibt bei Treffer seines Präsidiums sichtbar) */
+  if(q && String(q).trim()){
+    var treffer={};
+    reihe.forEach(function(e){ if(sucheTreffer(q, [e.p.name])){ treffer[e.p.id]=true; if(e.p.schulungs_zwilling_id) treffer[e.p.schulungs_zwilling_id]=true; } });
+    var gesamt=reihe.length;
+    reihe=reihe.filter(function(e){ return !!treffer[e.p.id]; });
+    if(gesamt && !reihe.length){
+      return '<div class="card"><p class="hint" style="margin:0">Keine Präsidien passend zur Suche. <button class="btn ghost" data-action="filterreset" data-bereich="praesidien">✕ Filter zurücksetzen</button></p></div>';
+    }
   }
+  /* Quick 261024 (Vorschlag 5): provision und praesidiumneu stehen jetzt im Kopf (secPraesidien) */
+  var h='';
   if(!reihe.length) return h+'<div class="card"><p class="hint" style="margin:0">Keine Präsidien in Ihrem Bereich.</p></div>';
   h+='<div class="tablewrap"><table><thead><tr><th>Präsidium</th><th>Bestand</th><th>Präsidiums-Schlüssel</th><th>Monats-Codes</th><th></th></tr></thead><tbody>';
   reihe.forEach(function(e){
@@ -2323,31 +2444,39 @@ function praesidienListeHtml(liste, inst){
     h+='</div></td></tr>';
   });
   h+='</tbody></table></div>';
-  h+='<p class="hint">Präsidiums-Schlüssel (Mesh ohne Netz): nur bei Geräteverlust erneuern — kein automatischer Ablauf; Geräte holen den neuen Schlüssel beim nächsten Netzkontakt. „Schulung leeren“ löscht Patienten und Checklisten der offenen Übungs-CCPs des Zwillings.</p>';
   return h;
 }
 /* Rein: Formular „Präsidium anlegen“ (f = {name, zwilling, fehler}). */
 function praesidiumFormHtml(f){
   f=f || {};
-  var h='<div class="card" style="border-color:var(--acc)"><div style="font-weight:700;margin-bottom:4px">Präsidium anlegen</div>';
+  var h='<div class="dlgtitel">Präsidium anlegen</div>';
   h+='<label class="fieldlab" for="praes-neu-name">Name (2–80 Zeichen)</label>';
   h+='<input id="praes-neu-name" value="'+esc(f.name||'')+'" placeholder="z. B. PP Musterstadt" autocomplete="off">';
   h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px"><input type="checkbox" id="praes-neu-zwilling"'+(f.zwilling===false ? '' : ' checked')+' style="width:18px;height:18px;margin:0"> mit Schulungs-Zwilling („&lt;Name&gt; — Schulung“)</label>';
   if(f.fehler) h+='<div style="color:var(--t1);font-weight:600;margin-top:8px">'+esc(f.fehler)+'</div>';
   h+='<div class="modalrow" style="margin-top:12px"><button class="btn ghost" data-action="praesidiumneu" data-op="zu">Abbrechen</button><button class="btn" data-action="praesidiumneu" data-op="senden">Anlegen</button></div>';
-  return h+'</div>';
+  return h;
 }
 function secPraesidien(){
   var inst=!!(_vwPraesD && _vwPraesD.darf_anlegen===true);
-  var h='<div class="mh"><h2>Präsidien</h2><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><button class="btn ghost" data-nav="praesidien">↻ Aktualisieren</button></span></div>';
-  h+='<div class="hint" style="margin:-6px 0 12px">Präsidien in Ihrem Bereich mit Schulungs-Zwilling, Präsidiums-Schlüssel und Monats-Codes.</div>';
+  /* Quick 261024 (Vorschlag 5): Werkzeuge und Hauptaktion rechts im Kopf (nur instanzweit) */
+  var h='<div class="mh"><h2>Präsidien</h2><span class="mhakt">'+
+    (inst ? '<button class="btn ghost" data-action="provision">Schulungs-Zwillinge anlegen/prüfen</button>' : '')+
+    '<button class="btn ghost" data-action="praesreload">↻ Aktualisieren</button>'+
+    (inst ? '<button class="btn" data-action="praesidiumneu" data-op="auf">＋ Präsidium anlegen</button>' : '')+'</span></div>';
+  h+=mehrInfo('praesidien', 'Präsidien in Ihrem Bereich mit Schulungs-Zwilling, Präsidiums-Schlüssel und Monats-Codes.',
+    '<p>Präsidiums-Schlüssel (Mesh ohne Netz): nur bei Geräteverlust erneuern — kein automatischer Ablauf; Geräte holen den neuen Schlüssel beim nächsten Netzkontakt.</p>'
+    +'<p>„Schulung leeren“ löscht Patienten und Checklisten der offenen Übungs-CCPs des Zwillings.</p><p>Die Monats-Codes zeigen und erneuern Sie unter „Personen &amp; Zugänge“ → Zugangscodes.</p>');
   if(_praesVwErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_praesVwErr)+'</div></div>';
-    return h;
+    return h+fehlerKarte('Abruf fehlgeschlagen', _praesVwErr, 'praesreload');
   }
   if(_vwPraes===null) return h+'<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
-  if(inst && _praesForm) h+=praesidiumFormHtml(_praesForm);
-  return h+praesidienListeHtml(_vwPraes, inst);
+  if(inst && _praesForm) h+=formDialogHtml(praesidiumFormHtml(_praesForm), 'Präsidium anlegen');
+  var q=(_suche && _suche.praesidien) || '';
+  var nP=_vwPraes.filter(function(p){ return !!p && sucheTreffer(q, [p.name]); }).length;
+  h+=fbarHtml({ suche:{ key:'praesidien', wert:q, ph:'Präsidium suchen …' }, reset:String(q).trim() ? { bereich:'praesidien' } : null,
+    n:nP, m:_vwPraes.length, einheit:'Präsidien' });
+  return h+praesidienListeHtml(_vwPraes, inst, q);
 }
 async function loadPraesidienVw(){
   _vwPraes=null; _vwPraesD=null; _praesVwErr=null;
@@ -2359,7 +2488,7 @@ async function loadPraesidienVw(){
 /* op: auf | zu | senden (argus_vw_praesidium_anlegen, nur instanzweit). */
 async function doPraesidiumNeu(op){
   if(op==='zu'){ _praesForm=null; render(); return; }
-  if(op!=='senden'){ _praesForm={ name:'', zwilling:true, fehler:null }; render(); return; }
+  if(op!=='senden'){ _praesForm={ name:'', zwilling:true, fehler:null }; render(); dialogFokus('praes-neu-name'); return; }
   var ne=document.getElementById('praes-neu-name'), ze=document.getElementById('praes-neu-zwilling');
   var name=String(ne ? ne.value : '').replace(/\s+/g,' ').trim(), zw=ze ? !!ze.checked : true;
   if(!_praesForm) _praesForm={ name:'', zwilling:true, fehler:null };
@@ -2380,33 +2509,292 @@ function praesOderZugNeuLaden(){
 }
 
 /* ── Bereich „Personen & Zugänge“ (Phase 6.12, Plan 06.12-10, D6.12-04) ──────
- * Reihenfolge: (A) Zugangscodes (Präsidiums-/Fremdkräfte-Code je Präsidium,
+ * Abschnitte: (A) Zugangscodes (Präsidiums-/Fremdkräfte-Code je Präsidium,
  * D6.12-13), (B) Personen, (C) Gesperrte Anmeldeversuche (D6.12-14/-19),
- * (D) Weitere Zugänge (Alt-Codes). Trainer sehen nur (A) mit den erlaubten Codes. */
+ * (D) Weitere Zugänge (Alt-Codes). Trainer sehen nur (A) mit den erlaubten Codes.
+ * Quick 261024 (Verwaltung übersichtlich, Vorschlag 1 — UI-Review B1/B2/B10): statt einer
+ * langen Seite eine Reiterzeile Personen · Zugangscodes · Gesperrte Versuche · Weitere
+ * Zugänge mit Zählern; sichtbar ist immer genau ein Abschnitt (Merkort state.zugTab).
+ * Inhalte und Aktionen der Abschnitte unverändert. */
+/* ── Quick 261024 (Vorschlag 8, UI-Review B12/B15/B16): Fehlerkarte und kurze Erklärungen ──
+ * fehlerKarte: ein Baustein für alle Abruffehler der Verwaltungsbereiche, immer mit „Neu laden“
+ * (aktion = data-action des Bereichs); teilKarte (--prio) nur für „Teilweise verfügbar“. Texte
+ * vom Server nur über esc(). mehrInfo: ein Satz, der Rest hinter „ⓘ Mehr“ (togglecard, Merkort). */
+function fehlerKarte(titel, text, aktion){
+  return '<div class="card errcard" role="alert"><div class="et">'+esc(titel||'Abruf fehlgeschlagen')+'</div>'
+    +(text ? '<div class="hint">'+esc(text)+'</div>' : '')
+    +'<div class="ea"><button class="btn" data-action="'+esc(aktion)+'">Neu laden</button></div></div>';
+}
+function teilKarte(text){
+  return '<div class="card teilcard"><div class="et">Teilweise verfügbar</div><div class="hint">'+esc(text||'')+'</div></div>';
+}
+/* kurz/lang sind feste Texte der Seite (HTML erlaubt), nie Server-Texte. */
+function mehrInfo(key, kurz, lang, innen){
+  var auf=!isCollapsed('info-'+key, true);
+  return '<div class="mhint'+(innen ? ' innen' : '')+'">'+kurz+' <button type="button" class="btn leise infob" data-action="togglecard" data-key="info-'+esc(key)+'" data-def="1" aria-expanded="'+(auf?'true':'false')+'">ⓘ '+(auf ? 'Weniger' : 'Mehr')+'</button></div>'
+    +(auf ? '<div class="card mehrtext">'+lang+'</div>' : '');
+}
+
+/* ── Quick 261024 (Vorschlag 7, UI-Review B9): lange Listen ──────────────────────────
+ * Zuerst MEHR_N Einträge, darunter „Weitere N anzeigen“ (zeigt den Rest; Merkort _mehr je Liste,
+ * endet mit dem Neuladen der Seite). Nichts wird verborgen: Zähler und Filter gelten für alle. */
+var MEHR_N=20, _mehr={};
+/* Rein: Teil der Liste und Zahl der übrigen (alle = true → alles). */
+function mehrTeil(list, alle){
+  var l=Array.isArray(list) ? list : [], n=(typeof MEHR_N==='number' && MEHR_N>0) ? MEHR_N : 20;
+  if(alle===true || l.length<=n) return { zeigen:l, rest:0 };
+  return { zeigen:l.slice(0, n), rest:l.length-n };
+}
+function mehrOffen(key){ return !!(_mehr && _mehr[key]===true); }
+function mehrKnopf(key, rest){
+  return (+rest>0) ? '<div class="mehrz"><button class="btn ghost" data-action="mehrzeigen" data-key="'+esc(key)+'">Weitere '+esc(String(+rest))+' anzeigen</button></div>' : '';
+}
+
+/* ── Quick 261024 (Vorschlag 5, UI-Review B13): Hauptaktion im Kopf, Formulare als Dialog ──
+ * Die Hauptaktion steht rechts im Kopf neben „↻ Aktualisieren“ (einziger gefüllter Knopf). „Person
+ * anlegen“ und „Präsidium anlegen“ öffnen im vorhandenen Modal statt mitten in der Liste; Zustand,
+ * Felder (IDs) und Aktionen (mkperson, praesidiumneu) bleiben, render() übernimmt Eingaben. */
+function formDialogHtml(inner, titel){
+  return '<div class="modalov vwdlg" role="dialog" aria-modal="true" aria-label="'+esc(titel||'')+'"><div class="modalbx breit">'+inner+'</div></div>';
+}
+/* Eingaben offener Formulare vor dem Neuzeichnen sichern (sonst gingen sie bei render() verloren). */
+function formWerteSichern(){
+  if(typeof document==='undefined' || !document || typeof document.getElementById!=='function') return;
+  if(_persForm && document.getElementById('pers-usbnk')) _persForm.werte=personFormLesen('pers-');
+  var ne=document.getElementById('praes-neu-name'), ze=document.getElementById('praes-neu-zwilling');
+  if(_praesForm && ne){ _praesForm.name=String(ne.value||''); if(ze) _praesForm.zwilling=!!ze.checked; }
+}
+/* Erstes Feld eines frisch geöffneten Dialogs fokussieren. */
+function dialogFokus(id){
+  var el=(typeof document!=='undefined' && document && document.getElementById) ? document.getElementById(id) : null;
+  if(el && el.focus) el.focus();
+}
+
+/* ── Quick 261024 (Vorschlag 4, UI-Review B6/B8): einheitliche Filterzeile ──────────
+ * Unter dem Kopf jedes Bereichs eine .card.fbar in fester Reihenfolge: Präsidium ▾ · Suche
+ * (filtert beim Tippen) · bereichseigene Filter · rechts „n von m“. Rein clientseitig auf den
+ * geladenen Daten — Rechte und Daten bestimmt weiter der Server. Die Präsidiums-Auswahl ist
+ * eine gemeinsame Merkstelle (_vwf.praes, Echtbetrieb-Präsidium; sein Schulungs-Zwilling
+ * zählt dazu), die Umgebung bleibt allein in der Bandzeile. */
+var _vwf={ praes:'', pstatus:'alle', estatus:'alle' };
+var _suche={};
+/* Rein: Präsidien → Auswahl (Wurzeln = Echtbetrieb-Präsidien bzw. Schulungs-Präsidien ohne
+ * bekanntes Echtbetrieb-Präsidium, nach Name) und Zuordnung id → Wurzel (Zwilling über echt_id,
+ * schulungs_zwilling_id oder Namensmuster „<Name> — Schulung“). */
+function praesWahl(liste){
+  var l=(Array.isArray(liste) ? liste : []).filter(function(p){ return !!p && typeof p==='object' && p.id!=null && p.id!==''; });
+  var wurzel={}, opt=[], nachName={};
+  l.forEach(function(p){ if(!p.schulung){ wurzel[p.id]=p.id; nachName[String(p.name||'')]=p.id; } });
+  l.forEach(function(p){ if(!p.schulung && p.schulungs_zwilling_id) wurzel[p.schulungs_zwilling_id]=p.id; });
+  l.forEach(function(p){
+    if(!p.schulung || Object.prototype.hasOwnProperty.call(wurzel, p.id)) return;
+    var m=/^([\s\S]*) — Schulung$/.exec(String(p.name||''));
+    if(p.echt_id && Object.prototype.hasOwnProperty.call(wurzel, p.echt_id)) wurzel[p.id]=p.echt_id;
+    else if(m && Object.prototype.hasOwnProperty.call(nachName, m[1])) wurzel[p.id]=nachName[m[1]];
+    else wurzel[p.id]=p.id;
+  });
+  var drin={};
+  l.forEach(function(p){ if(wurzel[p.id]===p.id && !drin[p.id]){ drin[p.id]=true; opt.push({ id:String(p.id), name:String(p.name==null ? '' : p.name) }); } });
+  opt.sort(function(a, z){ return a.name.localeCompare(z.name, 'de'); });
+  return { opt:opt, wurzel:wurzel };
+}
+/* Rein: Auswahl nur für die gezeigten Präsidien (z. B. der gewählten Umgebung) — Wert bleibt die
+ * Wurzel, Bezeichnung ist der gezeigte Name (im Modus Schulung also der Zwilling). */
+function praesOptAus(pw, liste){
+  var out=[], drin={}, w=(pw && pw.wurzel) || {};
+  (Array.isArray(liste) ? liste : []).forEach(function(p){
+    if(!p || p.id==null || p.id==='') return;
+    var r=String(Object.prototype.hasOwnProperty.call(w, p.id) ? w[p.id] : p.id);
+    if(drin[r]) return;
+    drin[r]=true; out.push({ id:r, name:String(p.name==null ? '' : p.name) });
+  });
+  out.sort(function(a, z){ return a.name.localeCompare(z.name, 'de'); });
+  return out;
+}
+/* Rein: passt Präsidium pid zur Auswahl sel (leer = alle)? */
+function praesPasst(pid, sel, wurzel){
+  if(!sel) return true;
+  if(pid==null || pid==='') return false;
+  var w=(wurzel && Object.prototype.hasOwnProperty.call(wurzel, pid)) ? wurzel[pid] : pid;
+  return String(w)===String(sel);
+}
+/* Rein: Suchtext q (ohne Groß-/Kleinschreibung) in einem der Felder? Leer = Treffer. */
+function sucheTreffer(q, felder){
+  var x=String(q==null ? '' : q).trim().toLowerCase();
+  if(!x) return true;
+  return (Array.isArray(felder) ? felder : []).some(function(f){ return f!=null && String(f).toLowerCase().indexOf(x)>=0; });
+}
+/* Präsidien für die Auswahl aus den geladenen Daten (Verwaltung, sonst Präsidienliste, sonst Sitzung). */
+function vwPraesQuelle(){
+  if(Array.isArray(_vwPraes) && _vwPraes.length) return _vwPraes;
+  if(Array.isArray(_praes) && _praes.length) return _praes;
+  return identPraesVw();
+}
+/* Gewähltes Präsidium, sofern in der Auswahl vorhanden (sonst alle). */
+function praesSel(opt){
+  var v=(_vwf && _vwf.praes) || '';
+  return (Array.isArray(opt) && opt.some(function(o){ return o.id===v; })) ? v : '';
+}
+/* Rein: Filterzeile. o = { praes:{opt, wert} (nur ab zwei Präsidien), suche:{key, wert, ph, id},
+ * extra (fertiges HTML der bereichseigenen Filter), reset:{aktion, bereich} (nur bei aktivem
+ * Filter), n, m, einheit }. Werte escaped; data-vwf/data-suche lesen die Handler. */
+function fbarHtml(o){
+  o=o || {};
+  var h='<div class="card fbar">';
+  if(o.praes && Array.isArray(o.praes.opt) && o.praes.opt.length>1){
+    h+='<select data-vwf="praes" title="Präsidium" aria-label="Präsidium"><option value="">Alle Präsidien</option>';
+    o.praes.opt.forEach(function(p){ h+='<option value="'+esc(p.id)+'"'+(o.praes.wert===p.id ? ' selected' : '')+'>'+esc(p.name)+'</option>'; });
+    h+='</select>';
+  }
+  if(o.suche){
+    h+='<input type="search" class="fsuche"'+(o.suche.id ? ' id="'+esc(o.suche.id)+'"' : '')+' data-suche="'+esc(o.suche.key)+'" value="'+esc(o.suche.wert||'')+'" placeholder="'+esc(o.suche.ph||'Suchen …')+'" aria-label="'+esc(o.suche.ph||'Suchen')+'" autocomplete="off" spellcheck="false">';
+  }
+  if(o.extra) h+=o.extra;
+  if(o.reset) h+='<button class="btn ghost" data-action="'+esc(o.reset.aktion||'filterreset')+'"'+(o.reset.bereich ? ' data-bereich="'+esc(o.reset.bereich)+'"' : '')+'>✕ Filter zurücksetzen</button>';
+  if(o.m!=null) h+='<span class="hint fzahl">'+esc(String(+o.n||0))+' von '+esc(String(+o.m||0))+(o.einheit ? ' '+esc(o.einheit) : '')+'</span>';
+  return h+'</div>';
+}
+/* Rein: Auswahlfeld eines bereichseigenen Filters (data-vwf). */
+function vwfSel(key, wert, opts, titel){
+  var h='<select data-vwf="'+esc(key)+'"'+(titel ? ' title="'+esc(titel)+'" aria-label="'+esc(titel)+'"' : '')+'>';
+  (opts||[]).forEach(function(o){ h+='<option value="'+esc(o[0])+'"'+(wert===o[0] ? ' selected' : '')+'>'+esc(o[1])+'</option>'; });
+  return h+'</select>';
+}
+/* Suchtext je Bereich setzen (Personen: bisheriger Kürzel-Filter _persFilter.k). */
+function sucheSetzen(key, v){
+  var t=String(v==null ? '' : v).slice(0, 80);
+  if(key==='personen') _persFilter.k=t; else _suche[key]=t;
+}
+/* Filter eines Bereichs zurücksetzen (Quick 261024, B16: auch aus der Leerzeile). */
+function filterZuruecksetzen(bereich){
+  _vwf.praes='';
+  if(bereich==='personen'){ _persFilter.k=''; _persFilter.rolle='alle'; _vwf.pstatus='alle'; }
+  else if(bereich==='einsaetze'){ _suche.einsaetze=''; _vwf.estatus='alle'; }
+  else if(bereich==='weitere'){ _suche.weitere=''; _zugFilter={art:'alle',status:'alle',sort:_zugFilter.sort}; }
+  else if(bereich) _suche[bereich]='';
+}
+/* Fokus und Cursor des Eingabefelds über render() hinweg halten (Suche filtert beim Tippen). */
+function fokusMerken(){
+  var a=(typeof document!=='undefined' && document) ? document.activeElement : null;
+  if(!a || !a.getAttribute || !/^(INPUT|SELECT|TEXTAREA)$/.test(String(a.tagName||''))) return null;
+  var sel=null;
+  if(a.getAttribute('data-suche')) sel='[data-suche="'+String(a.getAttribute('data-suche')).replace(/["\\]/g,'')+'"]';
+  else if(a.getAttribute('data-action') && a.getAttribute('data-field')) sel='[data-action="'+String(a.getAttribute('data-action')).replace(/["\\]/g,'')+'"][data-field="'+String(a.getAttribute('data-field')).replace(/["\\]/g,'')+'"]';
+  if(!a.id && !sel) return null;
+  var f={ id:a.id||'', sel:sel, s:null, e:null };
+  try{ f.s=a.selectionStart; f.e=a.selectionEnd; }catch(e){}
+  return f;
+}
+function fokusZurueck(f){
+  if(!f) return;
+  var el=f.id ? document.getElementById(f.id) : null;
+  if(!el && f.sel) el=document.querySelector(f.sel);
+  if(!el || !el.focus) return;
+  el.focus();
+  try{ if(f.s!=null && el.setSelectionRange) el.setSelectionRange(f.s, f.e); }catch(e){}
+}
+var ZUG_TABS=[
+  { id:'personen', label:'Personen' },
+  { id:'codes',    label:'Zugangscodes' },
+  { id:'sperren',  label:'Gesperrte Versuche' },
+  { id:'weitere',  label:'Weitere Zugänge' }
+];
+/* Rein: Reiter der Sitzung (Administrator/MasterToken alle, sonst nur „Zugangscodes“) mit
+ * Zähler n (null = noch nicht geladen); warn = rote Zahl (aktive Sperren). */
+function zugTabs(sicht, zahlen){
+  var s=sicht || {}, z=(zahlen && typeof zahlen==='object') ? zahlen : {};
+  return ZUG_TABS.filter(function(t){ return s.admin===true || t.id==='codes'; }).map(function(t){
+    var n=(z[t.id]==null || !isFinite(+z[t.id])) ? null : Math.max(0, Math.floor(+z[t.id]));
+    return { id:t.id, label:t.label, n:n, warn:t.id==='sperren' && n>0 };
+  });
+}
+/* Rein: gültiger Reiter — gemerkter, sofern für die Sitzung sichtbar, sonst der erste. */
+function zugTabAktiv(sicht, tab){
+  var t=zugTabs(sicht, null);
+  for(var i=0;i<t.length;i++){ if(t[i].id===tab) return tab; }
+  return t.length ? t[0].id : 'codes';
+}
+/* Rein: Reiterzeile (Aktion zugtab, data-tab nur aus ZUG_TABS). */
+function zugTabsHtml(tabs, aktiv){
+  var h='<div class="tabs" role="tablist">';
+  (Array.isArray(tabs) ? tabs : []).forEach(function(t){
+    var on=t.id===aktiv;
+    h+='<button type="button" class="it'+(on?' on':'')+'" role="tab" aria-selected="'+(on?'true':'false')+'" data-action="zugtab" data-tab="'+esc(t.id)+'">'+esc(t.label);
+    if(t.n!=null) h+=' <span class="'+(t.warn?'wvz':'cnt')+'">'+esc(String(t.n))+'</span>';
+    h+='</button>';
+  });
+  return h+'</div>';
+}
+/* Zähler der Reiter aus den geladenen Daten (kein Abruf). */
+function zugTabZahlen(sicht){
+  var z={ codes: _vwPraes ? zugcodeZeilen(_vwPraes, sicht).length : null };
+  z.personen=(_pers && Array.isArray(_pers.personen)) ? _pers.personen.length : null;
+  z.sperren=Array.isArray(_sperren) ? _sperren.filter(function(x){ return !!x && (x.aktiv===true || (+x.rest_s||0)>0); }).length : null;
+  z.weitere=(Array.isArray(_tokens) && Array.isArray(_praes)) ? _tokens.filter(function(t){
+    var p=_praes.filter(function(q){ return q.id===t.praesidium_id; })[0];
+    if(!p) return true;
+    var u=umgebungVon(p); return u===_umg || u==='unbekannt';
+  }).length : null;
+  return z;
+}
+/* Abschnitt (A) mit Filterzeile (Präsidium · Suche · „n von m“). */
+function zugcodesAbschnittHtml(sicht){
+  var pw=praesWahl(_vwPraes), sel=praesSel(pw.opt), q=_suche.codes||'';
+  var alle=zugcodeZeilen(_vwPraes, sicht);
+  var n=alle.filter(function(e){ return praesPasst(e.p.id, sel, pw.wurzel) && sucheTreffer(q, [e.p.name]); }).length;
+  var h=mehrInfo('codes', 'Präsidiums-Code für neue Geräte, Fremdkräfte-Code für 72 h Zugang — beide wechseln monatlich.',
+    '<p>Präsidiums-Code: neue Geräte registrieren sich einmal mit Kürzel; registrierte Geräte brauchen ihn danach nicht mehr.</p>'
+    +'<p>Fremdkräfte-Code: 72 h Zugang nur für dieses Präsidium. Beide Codes wechseln monatlich; jede Anzeige wird protokolliert.</p>', true);
+  h+=fbarHtml({ praes:{ opt:pw.opt, wert:sel }, suche:{ key:'codes', wert:q, ph:'Präsidium suchen …' },
+    reset:(sel || String(q).trim()) ? { bereich:'codes' } : null, n:n, m:alle.length, einheit:'Präsidien' });
+  return h+zugangscodesHtml(_vwPraes, sicht, _fkSitz, { praes:sel, wurzel:pw.wurzel, q:q });
+}
+/* Abschnitt (C) „Gesperrte Anmeldeversuche“ */
+function sperrenAbschnittHtml(){
+  var pw=praesWahl(vwPraesQuelle()), sel=praesSel(pw.opt), q=_suche.sperren||'';
+  var alle=Array.isArray(_sperren) ? _sperren.filter(function(x){ return !!x && typeof x==='object'; }) : [];
+  var shown=alle.filter(function(x){ return praesPasst(x.ziel_praesidium_id, sel, pw.wurzel) && sucheTreffer(q, [x.kurzkennung, x.ziel_praesidium_name]); });
+  var aktivF=!!sel || !!String(q).trim();
+  var h=mehrInfo('sperren', 'Geräte nach wiederholt falschen Codes vorübergehend gesperrt — die Sperre endet von selbst.',
+    '<p>5 Fehlversuche → 15 min, dann 1 h, dann 24 h. „Freigeben“ hebt eine Sperre sofort auf und wird protokolliert.</p>', true);
+  h+=fbarHtml({ praes:{ opt:pw.opt, wert:sel }, suche:{ key:'sperren', wert:q, ph:'Gerät suchen …' },
+    reset:aktivF ? { bereich:'sperren' } : null, n:shown.length, m:Array.isArray(_sperren) ? alle.length : null, einheit:'Geräte' });
+  if(_sperrenErr) h+=fehlerKarte('Gesperrte Versuche nicht abrufbar', _sperrenErr, 'zugreload');
+  else if(_sperren===null) h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
+  else if(aktivF && alle.length && !shown.length) h+='<div class="card"><p class="hint" style="margin:0">Keine Sperren passend zum Filter. <button class="btn ghost" data-action="filterreset" data-bereich="sperren">✕ Filter zurücksetzen</button></p></div>';
+  else{ var st=mehrTeil(shown, mehrOffen('sperren')); h+='<div class="card">'+sperrenListeHtml(st.zeigen)+mehrKnopf('sperren', st.rest)+'</div>'; }
+  return h;
+}
 function secZugaenge(){
   var sicht=vwSicht();
-  var h='<div class="mh"><h2>Personen &amp; Zugänge</h2><span style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">'+
-    '<button class="btn ghost" data-action="zugreload">↻ Aktualisieren</button></span></div>';
+  var tab0=zugTabAktiv(sicht, state.zugTab);
+  /* Quick 261024 (Vorschlag 5): Hauptaktion des Reiters rechts im Kopf */
+  var h='<div class="mh"><h2>Personen &amp; Zugänge</h2><span class="mhakt">'+
+    '<button class="btn ghost" data-action="zugreload">↻ Aktualisieren</button>'+
+    ((sicht.admin && tab0==='personen' && _vwPraes!==null && !_zugErr) ? '<button class="btn" data-action="mkperson" data-op="auf">＋ Person anlegen</button>' : '')+'</span></div>';
   if(_zugErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_zugErr)+'</div></div>';
-    return h;
+    return h+fehlerKarte('Abruf fehlgeschlagen', _zugErr, 'zugreload');
   }
   if(_vwPraes===null){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
     return h;
   }
-  h+=zugangscodesHtml(_vwPraes, sicht, _fkSitz);
+  var tab=zugTabAktiv(sicht, state.zugTab);
+  h+=zugTabsHtml(zugTabs(sicht, zugTabZahlen(sicht)), tab);
   if(!sicht.admin){
+    h+=zugcodesAbschnittHtml(sicht);
     h+='<div class="card"><p class="hint" style="margin:0">Personen und weitere Zugänge verwaltet ein Administrator.</p></div>';
     return h;
   }
-  h+=personenAbschnittHtml();
-  h+='<div class="sech">Gesperrte Anmeldeversuche</div>';
-  h+='<div class="hint" style="margin:-4px 0 8px">Geräte, die nach wiederholt falschen Codes vorübergehend gesperrt sind (5 Fehlversuche → 15 min, dann 1 h, dann 24 h; die Sperre endet von selbst). „Freigeben“ hebt sie sofort auf und wird protokolliert.</div>';
-  if(_sperrenErr) h+='<div class="card"><p class="hint" style="margin:0">'+esc(_sperrenErr)+'</p></div>';
-  else if(_sperren===null) h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
-  else h+='<div class="card">'+sperrenListeHtml(_sperren)+'</div>';
-  return h+weitereZugaengeHtml();
+  if(tab==='personen') return h+personenAbschnittHtml();
+  if(tab==='sperren')  return h+sperrenAbschnittHtml();
+  if(tab==='weitere')  return h+weitereZugaengeHtml();
+  return h+zugcodesAbschnittHtml(sicht);
+}
+/* Reiter wählen (Quick 261024) — reiner Anzeigewechsel, kein Abruf. */
+function zugTabSetzen(tab){
+  state.zugTab=zugTabAktiv(vwSicht(), tab);
+  try{ sessionStorage.setItem('argusl_zugtab', state.zugTab); }catch(e){}
 }
 
 /* Abschnitt „Weitere Zugänge“ (bisheriges Kartenmuster, Daten aus argus_vw_codes):
@@ -2422,26 +2810,40 @@ function weitereZugaengeHtml(){
       ? '<span class="hint">Schulungs-Zwillinge anlegen und leeren: Bereich „Präsidien“</span>'
       : '<span class="hint">Schulungs-Präsidien: oben auf ‚Schulung‘ umschalten</span>')+
     '</span></div>';
-  h+='<div class="hint" style="margin:-4px 0 8px">Bisherige Code-Arten und persönliche Codes je Präsidium. Neu ausgegeben werden nur noch Dauercodes und Einmal-Links (Übergang bis zum Präsidiums-Code).</div>';
-  /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) */
-  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  h+='<span class="hint" style="margin:0">Filter:</span>';
-  h+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['admin','FLZ-Zugang'],['master','MasterToken'],['gast','Gast (alt)'],['beobachter','Beobachter (alt)'],['person','Persönlich/Person'],['monat','Präsidiums-/Fremdkräfte-Code']]);
-  h+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht'],['abgelaufen','abgelaufen']]);
-  h+='<span class="hint" style="margin:0 0 0 8px">Sortierung:</span>';
-  h+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst']]);
-  if(zugFilterActive()) h+='<button class="btn ghost" data-action="zugfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
-  h+='</div>';
+  /* Quick 261024 (Vorschlag 8): ein Satz, die bisherigen Erklärungen unten hinter „ⓘ Mehr“ */
+  var mehrTxt='<p>„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Bei der Erstellung kann eine Zuteilung (Name/Dienstnr./Funktion) erfasst werden — sie erscheint als Bezeichnung und macht gezieltes Sperren möglich. Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
+  if(codeAktionenAn()){
+    mehrTxt+='<p>„Notiz“ ändert die Bezeichnung eines Codes nachträglich. „Aus Liste löschen“ und das Kästchen zum Markieren gibt es nur für gesperrte, abgelaufene und verbrauchte Codes (verbrauchte Einmal-Codes erst, wenn die damit erteilte Anmeldung abgelaufen ist): Der Code wird endgültig entfernt, der Eintrag im Protokoll bleibt erhalten. „Alle löschbaren markieren“ wählt die sichtbaren löschbaren Codes eines Präsidiums, „Markierte löschen“ löscht sie nach einer Rückfrage nacheinander. Aktive Codes und der MasterToken lassen sich nicht löschen.</p>';
+  }
+  mehrTxt+='<p>Sperren wirkt <b>sofort serverseitig</b> — auch bereits angemeldete Geräte verlieren den Zugriff umgehend (die App zeigt die Abmeldung spätestens beim nächsten Start/Reconnect an). Einzige Ausnahme: Anmeldungen aus der Zeit vor dem 12.06.2026 laufen noch bis zum Ablauf ihrer alten Anmeldung (max. 30 Tage) weiter.</p>';
+  mehrTxt+='<p>„FLZ-Zugang" (alt) = Code für den Sachbearbeiter der FLZ: öffnet die anonyme Lageansicht des Präsidiums (Lage-Seite und hier) und erlaubt, <b>Dauercodes</b> für das Präsidium auszugeben und zu sperren. Neue FLZ-Zugänge werden nicht mehr ausgegeben — bestehende gelten bis zur Übergabe; neue Sachbearbeiter erhalten einen persönlichen Code oder registrieren sich mit dem Präsidiums-Code.</p>';
+  h+=mehrInfo('weitere', 'Bisherige Code-Arten und persönliche Codes je Präsidium — neu ausgegeben werden nur Dauercodes und Einmal-Links.', mehrTxt, true);
+  /* Filter-/Sortier-Leiste (wirkt auf alle Karten; aktiver Filter klappt auf) — Quick 261024 (Vorschlag 4):
+   * als Filterzeile Präsidium · Suche · Art · Status · Sortierung · „n von m“ (Zahl erst nach dem Laden) */
+  var pw=praesWahl(vwPraesQuelle()), sel=praesSel(pw.opt);
+  var fx='';
+  fx+=zugSel('art',[['alle','Alle Arten'],['dauerhaft','Dauerhaft'],['einmal','Einmalig'],['admin','FLZ-Zugang'],['master','MasterToken'],['gast','Gast (alt)'],['beobachter','Beobachter (alt)'],['person','Persönlich/Person'],['monat','Präsidiums-/Fremdkräfte-Code']]);
+  fx+=zugSel('status',[['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt'],['verbraucht','verbraucht'],['abgelaufen','abgelaufen']]);
+  fx+=zugSel('sort',[['neu','Neueste zuerst'],['alt','Älteste zuerst']]);
+  var fbo={ praes:{ opt:pw.opt, wert:sel }, suche:{ key:'weitere', wert:(_suche && _suche.weitere)||'', ph:'Code, Notiz oder Kürzel suchen …' },
+    extra:fx, reset:(zugFilterActive() || sel) ? { aktion:'zugfilterreset' } : null, einheit:'Codes' };
   if(_codesErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Codes nicht abrufbar</div><div class="hint" style="margin-top:4px">'+esc(_codesErr)+'</div></div>';
-    return h;
+    h+=fbarHtml(fbo);
+    return h+fehlerKarte('Codes nicht abrufbar', _codesErr, 'zugreload');
   }
   if(_praes===null || _tokens===null){
+    h+=fbarHtml(fbo);
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
     return h;
   }
+  var kopf=h; h='';
+  var zN=0, zM=0;
   /* „unbekannt“ (Flag fehlt) erscheint in beiden Modi — mit Hinweis, nie still versteckt */
   var praesU=_praes.filter(function(p){ var u=umgebungVon(p); return u===_umg || u==='unbekannt'; });
+  var praesAlle=praesU;
+  fbo.praes.opt=praesOptAus(pw, praesAlle); sel=praesSel(fbo.praes.opt); fbo.praes.wert=sel;
+  praesU.forEach(function(p){ zM+=_tokens.filter(function(t){ return t.praesidium_id===p.id; }).length; });
+  if(sel) praesU=praesU.filter(function(p){ return praesPasst(p.id, sel, pw.wurzel); });
   if(!_praes.length){
     h+='<div class="card"><p class="hint" style="margin:0">Keine Präsidien angelegt.</p></div>';
   }else if(!praesU.length){
@@ -2452,12 +2854,13 @@ function weitereZugaengeHtml(){
     var list=_tokens.filter(function(t){ return t.praesidium_id===p.id; });
     list.forEach(function(t){ used[t.short_code||('tok'+Math.random())]=true; });
     var shown=sortTokens(list.filter(tokenMatches));
+    zN+=shown.length;
     var nRev=list.filter(function(t){return t.revoked;}).length;
     var sum=zugFilterActive()
       ? shown.length+' von '+list.length+' Code'+(list.length===1?'':'s')
       : list.length+' Code'+(list.length===1?'':'s')+(nRev?' · '+nRev+' gesperrt':'');
     var key='zug-'+p.id;
-    var open=zugFilterActive() || !isCollapsed(key, true);
+    var open=zugFilterActive() || !!sel || !isCollapsed(key, true);
     if(umgebungVon(p)==='unbekannt') sum='Umgebung unbekannt · '+sum;
     h+='<div class="card">';
     h+=foldHead(key, true, esc(p.name), sum, open);
@@ -2475,7 +2878,8 @@ function weitereZugaengeHtml(){
         h+='<button class="btn ghost" data-action="mklink" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'" data-kind="once">Einmal-Link</button>';
       }
       h+='</div>';
-      h+= shown.length ? tokenRows(shown)
+      var tt=mehrTeil(shown, mehrOffen(key));   /* Quick 261024 (Vorschlag 7): erst 20 Codes je Präsidium */
+      h+= shown.length ? tokenRows(tt.zeigen)+mehrKnopf(key, tt.rest)
         : '<div class="hint">'+(list.length?'Keine Codes passend zum Filter.':'Noch keine Codes für dieses Präsidium.')+'</div>';
       /* Quick 261024: Markieren + „Markierte löschen“ ersetzt „Gesperrte/abgelaufene entfernen (N)“ */
       h+=codeMarkLeiste(p.id, p.name, list, shown);
@@ -2483,21 +2887,21 @@ function weitereZugaengeHtml(){
     h+='</div>';
   });
   var rest=_tokens.filter(function(t){ return !_praes.some(function(p){return p.id===t.praesidium_id;}); });
-  if(rest.length){
+  zM+=rest.length;
+  if(rest.length && !sel) zN+=rest.filter(tokenMatches).length;
+  if(praesAlle.length && !praesU.length) h+='<div class="card"><p class="hint" style="margin:0">Kein Präsidium passend zum Filter. <button class="btn ghost" data-action="zugfilterreset">✕ Filter zurücksetzen</button></p></div>';
+  if(rest.length && !sel){
     var restShown=sortTokens(rest.filter(tokenMatches));
     var restOpen=zugFilterActive() || !isCollapsed('zug-rest', true);
     h+='<div class="card">';
     h+=foldHead('zug-rest', true, 'Ohne Präsidium (MasterToken u. a.)',
       (zugFilterActive()? restShown.length+' von ':'')+rest.length+' Code'+(rest.length===1?'':'s'), restOpen);
-    if(restOpen) h+='<div style="margin-top:8px">'+(restShown.length?tokenRows(restShown):'<div class="hint">Keine Codes passend zum Filter.</div>')+codeMarkLeiste('', 'Ohne Präsidium', rest, restShown)+'</div>';
+    var rt=mehrTeil(restShown, mehrOffen('zug-rest'));
+    if(restOpen) h+='<div style="margin-top:8px">'+(restShown.length?tokenRows(rt.zeigen)+mehrKnopf('zug-rest', rt.rest):'<div class="hint">Keine Codes passend zum Filter.</div>')+codeMarkLeiste('', 'Ohne Präsidium', rest, restShown)+'</div>';
     h+='</div>';
   }
-  h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Bei der Erstellung kann eine Zuteilung (Name/Dienstnr./Funktion) erfasst werden — sie erscheint als Bezeichnung und macht gezieltes Sperren möglich. Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
-  if(codeAktionenAn()){
-    h+='<p class="hint">„Notiz“ ändert die Bezeichnung eines Codes nachträglich. „Aus Liste löschen“ und das Kästchen zum Markieren gibt es nur für gesperrte, abgelaufene und verbrauchte Codes (verbrauchte Einmal-Codes erst, wenn die damit erteilte Anmeldung abgelaufen ist): Der Code wird endgültig entfernt, der Eintrag im Protokoll bleibt erhalten. „Alle löschbaren markieren“ wählt die sichtbaren löschbaren Codes eines Präsidiums, „Markierte löschen“ löscht sie nach einer Rückfrage nacheinander. Aktive Codes und der MasterToken lassen sich nicht löschen.</p>';
-  }
-  h+='<p class="hint">Sperren wirkt <b>sofort serverseitig</b> — auch bereits angemeldete Geräte verlieren den Zugriff umgehend (die App zeigt die Abmeldung spätestens beim nächsten Start/Reconnect an). Einzige Ausnahme: Anmeldungen aus der Zeit vor dem 12.06.2026 laufen noch bis zum Ablauf ihrer alten Anmeldung (max. 30 Tage) weiter.</p>';
-  h+='<p class="hint">„FLZ-Zugang" (alt) = Code für den Sachbearbeiter der FLZ: öffnet die anonyme Lageansicht des Präsidiums (Lage-Seite und hier) und erlaubt, <b>Dauercodes</b> für das Präsidium auszugeben und zu sperren. Neue FLZ-Zugänge werden nicht mehr ausgegeben — bestehende gelten bis zur Übergabe; neue Sachbearbeiter erhalten einen persönlichen Code oder registrieren sich mit dem Präsidiums-Code.</p>';
+  fbo.n=zN; fbo.m=zM;
+  h=kopf+fbarHtml(fbo)+h;
   return h;
 }
 
@@ -2936,16 +3340,16 @@ function secEinsaetze(){
   /* Phase 6.12 (Plan 06.12-11, D6.12-05): geöffnete Einsatzmappe einer Lage */
   if(_mappe) return mappeHtml(mappeModell(_mappe));
   var h='<div class="mh"><h2>Einsätze</h2><button class="btn ghost" data-action="einsreload">↻ Aktualisieren</button></div>';
-  h+='<div class="card"><div class="hint" style="margin:0">Jeder Aufruf eines Einsatzprotokolls oder einer Einsatzmappe wird mit Kürzel und Zeitpunkt protokolliert. Die Einsatzmappe einer Lage ist ein Verzeichnis ohne Patientendaten. Der Übergabe-Export beim Abschluss ist der dauerhafte Weg in die Trägerdokumentation — die Protokolle hier sind ein Durchgangsspeicher mit Löschfrist.</div></div>';
+  h+=mehrInfo('einsaetze', 'Jeder Aufruf eines Einsatzprotokolls oder einer Einsatzmappe wird mit Kürzel und Zeitpunkt protokolliert.',
+    '<p>Die Einsatzmappe einer Lage ist ein Verzeichnis ohne Patientendaten.</p><p>Der Übergabe-Export beim Abschluss ist der dauerhafte Weg in die Trägerdokumentation — die Protokolle hier sind ein Durchgangsspeicher mit Löschfrist.</p>');
   /* Phase 6.12 (06.12-11): nach Lagen gegliedert; ohne Lagen-Verzeichnis (älterer Server,
    * Abruf gescheitert) bleibt die bisherige Liste darunter unverändert (D6.12-21). */
   if(_mliste) return h+einsaetzeLagenHtml();
   if(_mlisteErr && Array.isArray(_eins)){
-    h+='<div class="card" style="border-color:var(--prio)"><div class="hint" style="margin:0;color:var(--tx)">Einsatzmappen nicht abrufbar ('+esc(_mlisteErr)+') — bisherige Liste der Einsatzprotokolle.</div></div>';
+    h+=teilKarte('Einsatzmappen nicht abrufbar ('+_mlisteErr+') — bisherige Liste der Einsatzprotokolle.');
   }
   if(_einsErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div><div class="hint" style="margin-top:4px">'+esc(_einsErr)+'</div></div>';
-    return h;
+    return h+fehlerKarte('Abruf fehlgeschlagen', _einsErr, 'einsreload');
   }
   if(_eins===null){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
@@ -2970,7 +3374,7 @@ function secEinsaetze(){
   }
   function anzahl(n){ return n+(n===1?' Einsatz':' Einsätze'); }
   if(_ccpPraesErr || !Array.isArray(_praes)){
-    h+='<div class="card" style="border-color:var(--prio)"><div class="hint" style="margin:0;color:var(--tx)">'+esc(_ccpPraesErr||'Präsidienliste nicht abrufbar — alle Einsätze stehen unter ‚Ohne Präsidiumszuordnung‘')+'</div></div>';
+    h+=teilKarte(_ccpPraesErr||'Präsidienliste nicht abrufbar — alle Einsätze stehen unter ‚Ohne Präsidiumszuordnung‘');
   }
   var sichtbar=[];
   r.bloecke.forEach(function(b){ sichtbar=sichtbar.concat(b.keys); });
@@ -3241,26 +3645,62 @@ function einsaetzeLagenHtml(){
     b.lagen.forEach(function(l){ if(lageWieder(l, now)) nw++; });
     b.ohne.forEach(function(e){ if(einsatzWieder(e, now)) nw++; });
   });
+  /* Quick 261024 (Vorschlag 4): Filterzeile Präsidium · Suche (Lage, CCP) · Status · „n von m“ —
+   * die Wiedervorlage oben zählt weiter alles (nichts wird verborgen). */
+  var pw=praesWahl(vwPraesQuelle().concat(r.bloecke.map(function(b){ return { id:b.pid, name:b.name, schulung:_umg==='schulung' }; })));
+  var popt=praesOptAus(pw, r.bloecke.map(function(b){ return { id:b.pid, name:b.name }; }));
+  var sel=praesSel(popt), q=(_suche && _suche.einsaetze) || '', est=(_vwf && _vwf.estatus) || 'alle';
+  function lagePasst(l){
+    if(est==='offen' && l.abgeschlossen_at!=null) return false;
+    if(est==='abgeschlossen' && l.abgeschlossen_at==null) return false;
+    if(est==='wiedervorlage' && !lageWieder(l, now)) return false;
+    return sucheTreffer(q, [l.name].concat((Array.isArray(l.einsaetze)?l.einsaetze:[]).map(function(e){ return e && e.kennung; })));
+  }
+  function ohnePasst(e){
+    if(est==='offen') return false;
+    if(est==='wiedervorlage' && !einsatzWieder(e, now)) return false;
+    return sucheTreffer(q, [e.kennung, e.kennung!=null ? 'CCP '+kennungKurz(e.kennung) : '']);
+  }
+  var lm=0, ln=0, om=0, on=0;
+  var bl=r.bloecke.map(function(b){
+    lm+=b.lagen.length; om+=b.ohne.length;
+    if(!praesPasst(b.pid, sel, pw.wurzel)) return null;
+    var x={ pid:b.pid, name:b.name, lagen:b.lagen.filter(lagePasst), ohne:b.ohne.filter(ohnePasst) };
+    ln+=x.lagen.length; on+=x.ohne.length;
+    return (x.lagen.length || x.ohne.length) ? x : null;
+  }).filter(function(x){ return !!x; });
+  var aktivF=!!sel || !!String(q).trim() || est!=='alle';
+  var fz=fbarHtml({ praes:{ opt:popt, wert:sel }, suche:{ key:'einsaetze', wert:q, ph:'Lage oder CCP suchen …' },
+    extra:vwfSel('estatus', est, [['alle','Alle Lagen'],['offen','offen'],['abgeschlossen','abgeschlossen'],['wiedervorlage','Wiedervorlage']], 'Status'),
+    reset:aktivF ? { bereich:'einsaetze' } : null, n:ln, m:lm, einheit:(lm===1?'Lage':'Lagen')+(om ? ' · '+on+' von '+om+' ohne Lage' : '') });
+  if(r.bloecke.length) h+=fz;
   if(nw){
     h+='<div class="wieder"><div class="wt">Wiedervorlage — Frist abgelaufen / läuft ab</div>';
     h+='<div class="hint" style="margin:0">'+anz(nw, 'Lage bzw. Einsatz ist', 'Lagen bzw. Einsätze sind')+' unten rot markiert. Frist nur mit Begründung verlängern oder Löschung geschehen lassen — der Übergabe-Export beim Abschluss ist der dauerhafte Weg.</div></div>';
   }
-  r.bloecke.forEach(function(b){
-    h+='<div class="ptitle"><span>'+esc(b.name||'Ohne Präsidium')+'</span><span class="pcount">'+anz(b.lagen.length, 'Lage', 'Lagen')+(b.ohne.length?' · '+anz(b.ohne.length, 'Einsatz', 'Einsätze')+' ohne Lage':'')+'</span></div>';
+  if(r.bloecke.length && !bl.length) h+='<div class="card"><p class="hint" style="margin:0">Keine Lagen oder Einsätze passend zum Filter. <button class="btn ghost" data-action="filterreset" data-bereich="einsaetze">✕ Filter zurücksetzen</button></p></div>';
+  bl.forEach(function(b){
+    /* Quick 261024 (Vorschlag 7): Präsidiums-Gruppe einklappbar (togglecard), bei aktivem Filter offen;
+     * erst 20 Lagen bzw. Einsätze ohne Lage, dann „Weitere N anzeigen“ */
+    var gk='einsp-'+(b.pid==null ? '' : b.pid), gOffen=aktivF || !isCollapsed(gk, false);
+    h+='<div class="ptitle fold'+(gOffen?' open':'')+'" data-action="togglecard" data-key="'+esc(gk)+'" data-def="0" role="button" aria-expanded="'+(gOffen?'true':'false')+'"><span><span class="chev">▶</span>'+esc(b.name||'Ohne Präsidium')+'</span><span class="pcount">'+anz(b.lagen.length, 'Lage', 'Lagen')+(b.ohne.length?' · '+anz(b.ohne.length, 'Einsatz', 'Einsätze')+' ohne Lage':'')+'</span></div>';
+    if(!gOffen) return;
     if(b.lagen.length){
+      var lt=mehrTeil(b.lagen, mehrOffen('eins-'+b.pid));
       h+='<div class="eliste">';
-      b.lagen.forEach(function(l){ h+=lageKarteVw(l, now); });
-      h+='</div>';
+      lt.zeigen.forEach(function(l){ h+=lageKarteVw(l, now); });
+      h+='</div>'+mehrKnopf('eins-'+b.pid, lt.rest);
     }
     if(b.ohne.length){
       h+='<div class="hint" style="margin:10px 0 6px;font-weight:600">Ohne Lage (Bestand) — einzelne Einsätze</div>';
       var gg=einsatzGruppen(b.ohne.map(function(e){ return mappeEinsatzZeile(e, zMap['k'+e.ccp_id]); }));
+      var ot=mehrTeil(gg.order, mehrOffen('einso-'+b.pid));
       h+='<div class="eliste">';
-      gg.order.forEach(function(k){
+      ot.zeigen.forEach(function(k){
         var s=fristStatus(gg.groups[k].purge_after, now);
         h+=einsatzCard(gg.groups[k], now, s==='abgelaufen'||s==='bald');
       });
-      h+='</div>';
+      h+='</div>'+mehrKnopf('einso-'+b.pid, ot.rest);
     }
   });
   if(!r.bloecke.length){
@@ -4248,52 +4688,65 @@ function vwSicht(){
 }
 /* Rein: Personenliste (argus_vw_personen → personen[]) mit Filter sicht {k, rolle}.
  * Knöpfe nur bei bearbeitbar === true und nicht bei der eigenen Identität. */
-function personenListeHtml(liste, sicht){
+/* Rein: Filter der Personenliste f = {k (Kürzel oder Notiz), rolle, status (alle|aktiv|gesperrt),
+ * praes (Wurzel-Präsidium), wurzel} — Quick 261024 (Vorschlag 4): Suche ohne Groß-/Kleinschreibung
+ * auch in der Notiz; Präsidium über Stamm oder zusätzliche Präsidien, Bereich „alle“ passt immer. */
+function personenFiltern(liste, f){
   var l=(Array.isArray(liste) ? liste : []).filter(function(p){ return !!p && typeof p==='object'; });
-  var f=sicht || {};
-  var k=String(f.k||'').trim().toUpperCase(), ro=f.rolle||'alle';
-  var shown=l.filter(function(p){
-    if(k && String(p.kuerzel||'').toUpperCase().indexOf(k)<0) return false;
+  f=f || {};
+  var ro=f.rolle||'alle', st=f.status||'alle';
+  return l.filter(function(p){
+    if(!sucheTreffer(f.k, [p.kuerzel, p.notiz])) return false;
     if(ro!=='alle' && p.rolle!==ro) return false;
+    if(st==='aktiv' && p.gesperrt_at!=null) return false;
+    if(st==='gesperrt' && p.gesperrt_at==null) return false;
+    if(f.praes && p.bereich_alle!==true && !praesPasst(p.stamm_praesidium_id, f.praes, f.wurzel)
+      && !(Array.isArray(p.bereiche) ? p.bereiche : []).some(function(b){ return !!b && praesPasst(b.id, f.praes, f.wurzel); })) return false;
     return true;
   });
+}
+function personenListeHtml(liste, sicht){
+  var l=(Array.isArray(liste) ? liste : []).filter(function(p){ return !!p && typeof p==='object'; });
+  var shown=personenFiltern(l, sicht || {});
   if(!l.length) return '<div class="hint">Noch keine Personen in Ihrem Bereich.</div>';
-  if(!shown.length) return '<div class="hint">Keine Personen passend zum Filter.</div>';
-  var h='<div class="tablewrap"><table><thead><tr><th>Kürzel</th><th>Rolle</th><th>Stamm</th><th>Bereich</th><th>Status</th><th>Letzte Anmeldung</th><th>Codes</th><th>Notiz</th><th></th></tr></thead><tbody>';
+  if(!shown.length) return '<div class="hint">Keine Personen passend zum Filter. <button class="btn ghost" data-action="filterreset" data-bereich="personen">✕ Filter zurücksetzen</button></div>';
+  var teil=mehrTeil(shown, (sicht || {}).mehr===true);   /* Quick 261024 (Vorschlag 7): erst 20 */
+  shown=teil.zeigen;
+  /* Quick 261024 (Vorschlag 6, UI-Review B7): 7 statt 9 Spalten — Notiz unter dem Kürzel, Stamm (fett)
+   * und zusätzliche Präsidien in „Bereich“; kürzere Knopftexte (Titel nennt die volle Aktion). */
+  var h='<div class="tablewrap"><table><thead><tr><th>Kürzel</th><th>Rolle</th><th>Bereich</th><th>Status</th><th>Letzte Anmeldung</th><th>Codes</th><th></th></tr></thead><tbody>';
   shown.forEach(function(p){
     var codes=Array.isArray(p.codes) ? p.codes : [];
     var aktiv=codes.filter(function(c){ return c && !c.revoked; }).length;
     var selbstReg=p.quelle==='selbst' || codes.some(function(c){ return c && c.herkunft==='selbst'; });
     var ber=Array.isArray(p.bereiche) ? p.bereiche : [];
-    var bereich=p.bereich_alle===true ? 'alle'
-      : (esc(p.stamm_name||'—')+(ber.length ? ' + '+ber.map(function(b){ return esc(b && b.name); }).join(', ') : ''));
+    var bereich=p.bereich_alle===true ? '<b>alle</b><div class="hint">ganze Instanz</div>'
+      : ('<b>'+esc(p.stamm_name||'—')+'</b>'+(ber.length ? '<div class="hint">+ '+ber.map(function(b){ return esc(b && b.name); }).join(', ')+'</div>' : ''));
     var gesperrt=p.gesperrt_at!=null;
     h+='<tr>';
-    h+='<td><b>'+esc(p.kuerzel||'—')+'</b></td>';
+    h+='<td><b>'+esc(p.kuerzel||'—')+'</b>'+(p.notiz ? '<div class="hint">'+esc(p.notiz)+'</div>' : '')+'</td>';
     h+='<td><span class="pill" style="'+rolleColor(p.rolle)+'">'+rolleLabel(p.rolle)+'</span></td>';
-    h+='<td>'+esc(p.stamm_name||(p.bereich_alle===true ? '—' : ''))+'</td>';
     h+='<td>'+bereich+'</td>';
     h+='<td>'+(gesperrt ? '<span class="pill red">GESPERRT</span>' : '<span class="pill green">aktiv</span>')+'</td>';
     h+='<td class="hint">'+(p.letzte_anmeldung!=null ? esc(fmtMs(p.letzte_anmeldung)) : '—')+'</td>';
     h+='<td class="hint">'+aktiv+' aktiv'+(codes.length>aktiv ? ' · '+(codes.length-aktiv)+' gesperrt' : '')+(selbstReg ? ' · selbst registriert' : '')+'</td>';
-    h+='<td>'+esc(p.notiz||'')+'</td>';
     if(p.selbst===true){
       h+='<td class="hint">eigene Identität</td>';
     }else if(p.bearbeitbar!==true){
       h+='<td></td>';
     }else{
       var id=esc(p.id);
-      h+='<td><div style="display:flex;gap:6px;flex-wrap:wrap">';
-      h+='<button class="btn ghost" data-action="personrole" data-id="'+id+'">Rolle/Bereich</button>';
-      h+='<button class="btn ghost" data-action="personnotiz" data-id="'+id+'">Notiz</button>';
-      if(!gesperrt) h+='<button class="btn ghost" data-action="personcode" data-id="'+id+'">Code ersetzen</button>';
-      h+='<button class="btn '+(gesperrt ? 'ghost' : 'warn')+'" data-action="personrevoke" data-id="'+id+'" data-gesperrt="'+(gesperrt ? '1' : '0')+'">'+(gesperrt ? 'Entsperren' : 'Sperren')+'</button>';
-      h+='<button class="btn ghost" data-action="personloeschen" data-id="'+id+'">Löschen</button>';
+      h+='<td><div class="zakt pakt">';
+      h+='<button class="btn ghost sm" title="Rolle und Bereich ändern" data-action="personrole" data-id="'+id+'">Rolle</button>';
+      h+='<button class="btn ghost sm" title="Notiz ändern" data-action="personnotiz" data-id="'+id+'">Notiz</button>';
+      if(!gesperrt) h+='<button class="btn ghost sm" title="Persönlichen Code ersetzen" data-action="personcode" data-id="'+id+'">Neuer Code</button>';
+      h+='<button class="btn '+(gesperrt ? 'ghost' : 'warn')+' sm" data-action="personrevoke" data-id="'+id+'" data-gesperrt="'+(gesperrt ? '1' : '0')+'">'+(gesperrt ? 'Entsperren' : 'Sperren')+'</button>';
+      h+='<button class="btn ghost sm" title="Person löschen" data-action="personloeschen" data-id="'+id+'">Löschen</button>';
       h+='</div></td>';
     }
     h+='</tr>';
   });
-  return h+'</tbody></table></div>';
+  return h+'</tbody></table></div>'+mehrKnopf('personen', teil.rest);
 }
 /* Rein: offene Phase-5-Personen-Codes (nur instanzweit, D6.12-15) mit „Bestand übertragen“. */
 function offenUebertragungHtml(offen){
@@ -4348,7 +4801,7 @@ function personFelderHtml(px, w, praes, sicht, opt){
  * Kürzel vergeben → Server-Meldung und Knopf „Vorschlag übernehmen“ (D6.12-17). */
 function personFormHtml(f, praes, sicht){
   var w=(f && f.werte) || {};
-  var h='<div class="card" style="border-color:var(--acc)"><div style="font-weight:700;margin-bottom:4px">Person anlegen</div>';
+  var h='<div class="dlgtitel">Person anlegen</div>';
   h+='<div class="hint" style="margin:0 0 6px">Kürzel 2–20 Zeichen A–Z/0–9 (USBNK), kein Klarname. Der persönliche Code erscheint einmal nach dem Anlegen.</div>';
   h+='<label class="fieldlab" for="pers-usbnk">Kürzel</label>';
   h+='<input id="pers-usbnk" value="'+esc(w.kuerzel||'')+'" placeholder="z. B. MM" autocomplete="off" spellcheck="false" style="text-transform:uppercase">';
@@ -4360,7 +4813,7 @@ function personFormHtml(f, praes, sicht){
   h+='<label class="fieldlab" for="pers-label">Notiz (optional)</label>';
   h+='<input id="pers-label" value="'+esc(w.notiz||'')+'" placeholder="z. B. Funktion, Dienststelle" autocomplete="off">';
   h+='<div class="modalrow" style="margin-top:12px"><button class="btn ghost" data-action="mkperson" data-op="zu">Abbrechen</button><button class="btn" data-action="mkperson" data-op="senden">Anlegen</button></div>';
-  return h+'</div>';
+  return h;
 }
 /* Felder eines Personen-Formulars (Präfix px) aus dem DOM lesen. */
 function personFormLesen(px){
@@ -4380,24 +4833,27 @@ function personFormLesen(px){
 /* Abschnitt „Personen“ (Personen & Zugänge bzw. Route identitaeten). */
 function personenAbschnittHtml(){
   var sicht=vwSicht();
-  var h='<div class="sech">Personen</div>';
-  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">';
-  h+='<input id="pers-search" value="'+esc(_persFilter.k)+'" placeholder="Kürzel filtern…" autocomplete="off" spellcheck="false" style="text-transform:uppercase;flex:1;min-width:140px">';
-  h+='<button class="btn ghost" data-action="usbnksearch" style="white-space:nowrap">Filtern</button>';
-  h+='<select id="pers-filter-rolle">';
+  var h='';
+  /* Quick 261024 (Vorschlag 4): Filterzeile — Präsidium · Suche (beim Tippen, statt „Filtern“;
+   * Enter im Feld übernimmt weiter über usbnksearch) · Rolle · Status · „n von m“ */
+  var pw=praesWahl(vwPraesQuelle()), sel=praesSel(pw.opt);
+  var pf={ k:_persFilter.k, rolle:_persFilter.rolle||'alle', status:_vwf.pstatus||'alle', praes:sel, wurzel:pw.wurzel, mehr:mehrOffen('personen') };
+  var alleP=(_pers && Array.isArray(_pers.personen)) ? _pers.personen : [];
+  var ex='<select id="pers-filter-rolle" title="Rolle" aria-label="Rolle">';
   [['alle','Alle Rollen'],['administrator','Administrator'],['trainer','Trainer'],['sachbearbeiter','Sachbearbeiter']].forEach(function(o){
-    h+='<option value="'+o[0]+'"'+(_persFilter.rolle===o[0] ? ' selected' : '')+'>'+o[1]+'</option>';
+    ex+='<option value="'+o[0]+'"'+(pf.rolle===o[0] ? ' selected' : '')+'>'+o[1]+'</option>';
   });
-  h+='</select>';
-  if(!_persForm) h+='<button class="btn" data-action="mkperson" data-op="auf" style="margin-left:auto">＋ Person anlegen</button>';
-  h+='</div>';
-  if(_persForm) h+=personFormHtml(_persForm, _vwPraes, sicht);
+  ex+='</select>';
+  ex+=vwfSel('pstatus', pf.status, [['alle','Jeder Status'],['aktiv','aktiv'],['gesperrt','gesperrt']], 'Status');
+  var aktivF=!!String(pf.k||'').trim() || pf.rolle!=='alle' || pf.status!=='alle' || !!sel;
+  h+=fbarHtml({ praes:{ opt:pw.opt, wert:sel }, suche:{ key:'personen', id:'pers-search', wert:_persFilter.k, ph:'Kürzel oder Notiz suchen …' },
+    extra:ex, reset:aktivF ? { bereich:'personen' } : null, n:personenFiltern(alleP, pf).length, m:_pers ? alleP.length : null, einheit:'Personen' });
+  if(_persForm) h+=formDialogHtml(personFormHtml(_persForm, _vwPraes, sicht), 'Person anlegen');
   if(_persErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div style="color:var(--t1);font-weight:600">Personen nicht abrufbar</div><div class="hint" style="margin-top:4px">'+esc(_persErr)+'</div></div>';
-    return h;
+    return h+fehlerKarte('Personen nicht abrufbar', _persErr, 'zugreload');
   }
   if(_pers===null) return h+'<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
-  h+='<div class="card">'+personenListeHtml(_pers.personen, _persFilter)+'</div>';
+  h+='<div class="card">'+personenListeHtml(_pers.personen, pf)+'</div>';
   if(sicht.inst) h+=offenUebertragungHtml(_pers.offen_uebertragung);
   return h;
 }
@@ -4430,8 +4886,8 @@ function personAusListe(id){
 }
 
 function secIdentitaeten(){
-  var h='<div class="mh"><h2>Personen</h2></div>';
-  h+='<div class="hint" style="margin:-6px 0 12px">Gilt für alle Umgebungen und Präsidien. Personen verwalten Sie auch unter „Personen &amp; Zugänge“.</div>';
+  var h='<div class="mh"><h2>Personen</h2><span class="mhakt"><button class="btn" data-action="mkperson" data-op="auf">＋ Person anlegen</button></span></div>';
+  h+='<div class="mhint">Gilt für alle Umgebungen und Präsidien. Personen verwalten Sie auch unter „Personen &amp; Zugänge“.</div>';
   return h+personenAbschnittHtml();
 }
 
@@ -4442,7 +4898,7 @@ async function doMkPerson(op){
   if(op==='zu'){ _persForm=null; render(); return; }
   if(op!=='senden' && op!=='vorschlag'){
     _persForm={ werte:{ kuerzel:'', rolle:'sachbearbeiter', stamm:'', alle:false, bereiche:[], notiz:'' }, fehler:null, vorschlag:null };
-    render(); return;
+    render(); dialogFokus('pers-usbnk'); return;
   }
   if(!_persForm) _persForm={ werte:null, fehler:null, vorschlag:null };
   var w=personFormLesen('pers-');
@@ -4626,22 +5082,27 @@ function secAudit(){
   ];
 
   var h='<div class="mh"><h2>Audit-Log</h2><button class="btn ghost" data-action="auditreload">↻ Aktualisieren</button></div>';
-  h+='<div class="hint" style="margin:-6px 0 12px">Gilt für alle Umgebungen und Präsidien.</div>';
-  h+='<div class="hint" style="margin-bottom:10px">Personenscharfes T4-Protokoll (USBNK/Zeit/Aktion/CCP/Patient) — append-only, 12-Monats-Frist (§ 73 PolG BW). Sichtbar für MasterToken und Administratoren (nur ihr Bereich).</div>';
+  h+=mehrInfo('audit', 'Gilt für alle Umgebungen und Präsidien.',
+    '<p>Personenscharfes T4-Protokoll (USBNK/Zeit/Aktion/CCP/Patient) — append-only, 12-Monats-Frist (§ 73 PolG BW). Sichtbar für MasterToken und Administratoren (nur ihr Bereich).</p>');
 
   /* Filter-Leiste (Phase 6.12, 06.12-11: + Präsidium, Zeitraum; Aktion/Präsidium/Zeitraum filtert der Server) */
   var filterActive=_auditFilter.action!=='alle'||!!_auditFilter.usbnk||!!_auditFilter.praes||!!_auditFilter.von||!!_auditFilter.bis;
-  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
-  h+='<span class="hint" style="margin:0">Filter:</span>';
+  /* Quick 261024 (Vorschlag 4): Filterzeile Präsidium · USBNK (beim Tippen) · Aktion · Zeitraum · „n von m“ */
+  h+='<div class="card fbar" style="margin-bottom:0">';
+  h+=nachweisPraesFeld('auditfilter', _auditFilter);
+  h+='<input type="search" class="fsuche" placeholder="USBNK suchen …" aria-label="USBNK suchen" value="'+esc(_auditFilter.usbnk)+'" data-action="auditfilter" data-field="usbnk" autocomplete="off" spellcheck="false" style="text-transform:uppercase">';
   h+='<select data-action="auditfilter" data-field="action" id="auditfilter-action">';
   AUDIT_ACTIONS.forEach(function(o){
     h+='<option value="'+o[0]+'"'+(_auditFilter.action===o[0]?' selected':'')+'>'+o[1]+'</option>';
   });
   h+='</select>';
-  h+='<input type="text" placeholder="USBNK…" value="'+esc(_auditFilter.usbnk)+'" data-action="auditfilter" data-field="usbnk" style="width:140px;padding:6px 9px;font-size:13px;text-transform:uppercase">';
-  h+=nachweisFilterFelder('auditfilter', _auditFilter);
+  h+=nachweisZeitFelder('auditfilter', _auditFilter);
   if(filterActive){
-    h+='<button class="btn ghost" data-action="auditfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
+    h+='<button class="btn ghost" data-action="auditfilterreset">✕ Filter zurücksetzen</button>';
+  }
+  if(Array.isArray(_audit)){
+    var aN=_audit.filter(function(l){ return (_auditFilter.action==='alle' || l.action===_auditFilter.action) && (!_auditFilter.usbnk || (l.usbnk||'').toUpperCase().includes(_auditFilter.usbnk.toUpperCase())); }).length;
+    h+='<span class="hint fzahl">'+aN+' von '+_audit.length+' Einträgen</span>';
   }
   h+='</div>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"><span class="hint" style="margin:0">Export für den DSB (Präsidium, Zeitraum, Aktion; wird protokolliert):</span>'+
@@ -4656,9 +5117,7 @@ function secAudit(){
   });
 
   if(_auditErr){
-    h+='<div class="card" style="border-color:var(--t1);margin-top:8px"><div style="color:var(--t1);font-weight:600">Abruf fehlgeschlagen</div>';
-    h+='<div class="hint" style="margin-top:4px">'+esc(_auditErr)+'</div></div>';
-    return h;
+    return h+'<div style="margin-top:8px">'+fehlerKarte('Abruf fehlgeschlagen', _auditErr, 'auditreload')+'</div>';
   }
   if(_audit===null){
     h+='<div class="card" style="margin-top:8px"><p class="hint" style="margin:0">Wird geladen…</p></div>';
@@ -4734,12 +5193,19 @@ function nachweisPraesOptionen(){
   if(alle && Array.isArray(_praes)) return praesListeVw(_praes);
   return identPraesVw();
 }
-function nachweisFilterFelder(akt, f){
+/* Quick 261024 (Vorschlag 4): Präsidium und Zeitraum getrennt, damit die Filterzeile mit dem
+ * Präsidium beginnt; nachweisFilterFelder liefert beide wie bisher. */
+function nachweisFilterFelder(akt, f){ return nachweisPraesFeld(akt, f)+nachweisZeitFelder(akt, f); }
+function nachweisPraesFeld(akt, f){
   var x=(f && typeof f==='object') ? f : {}, ps=nachweisPraesOptionen(), h='';
   h+='<select data-action="'+akt+'" data-field="praes" title="Präsidium"><option value="">Alle Präsidien (Bereich)</option>';
   ps.forEach(function(p){ h+='<option value="'+esc(p.id)+'"'+(x.praes===p.id?' selected':'')+'>'+esc(p.name)+'</option>'; });
   if(x.praes && !ps.some(function(p){ return p.id===x.praes; })) h+='<option value="'+esc(x.praes)+'" selected>'+esc(x.praes)+'</option>';
   h+='</select>';
+  return h;
+}
+function nachweisZeitFelder(akt, f){
+  var x=(f && typeof f==='object') ? f : {}, h='';
   h+='<span class="hint" style="margin:0">von</span><input type="date" data-action="'+akt+'" data-field="von" value="'+esc(x.von||'')+'" style="padding:5px 7px;font-size:13px">';
   h+='<span class="hint" style="margin:0">bis</span><input type="date" data-action="'+akt+'" data-field="bis" value="'+esc(x.bis||'')+'" style="padding:5px 7px;font-size:13px">';
   return h;
@@ -4873,7 +5339,7 @@ function purgeReasonLabel(r){
 
 function secProtokoll(){
   var h='<div class="mh"><h2>Protokoll</h2><button class="btn ghost" data-action="protoreload">↻ Aktualisieren</button></div>';
-  h+='<div class="hint" style="margin:-6px 0 12px">Gilt für alle Umgebungen und Präsidien.</div>';
+  h+='<div class="mhint">Gilt für alle Umgebungen und Präsidien.</div>';
 
   /* ── Filter-Leiste (Plan 04.14-03, Task 3B) ── */
   var GLOG_ACTIONS=[
@@ -4903,18 +5369,23 @@ function secProtokoll(){
     ['einsatzmappe_view','Einsatzmappe geöffnet'],
     ['nachweis_export','Nachweis exportiert']
   ];
-  h+='<div class="card" style="padding:10px 14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:0">';
-  h+='<span class="hint" style="margin:0">Filter:</span>';
+  /* Quick 261024 (Vorschlag 4): Filterzeile Präsidium · Kürzel (beim Tippen) · Aktion · Zeitraum · „n von m“ */
+  h+='<div class="card fbar" style="margin-bottom:0">';
+  h+=nachweisPraesFeld('glogfilter', _glogFilter);
+  h+='<input type="search" class="fsuche" placeholder="Kürzel suchen …" aria-label="Kürzel suchen" value="'+esc(_glogFilter.kuerzel)+'" data-action="glogfilter" data-field="kuerzel" autocomplete="off" spellcheck="false">';
   h+='<select data-action="glogfilter" data-field="action">';
   GLOG_ACTIONS.forEach(function(o){
     h+='<option value="'+o[0]+'"'+(_glogFilter.action===o[0]?' selected':'')+'>'+o[1]+'</option>';
   });
   h+='</select>';
-  h+='<input type="text" placeholder="Kürzel…" value="'+esc(_glogFilter.kuerzel)+'" data-action="glogfilter" data-field="kuerzel" style="width:120px;padding:6px 9px;font-size:13px">';
   /* Phase 6.12 (06.12-11): + Präsidium, Zeitraum (Server); Aktion ebenfalls serverseitig */
-  h+=nachweisFilterFelder('glogfilter', _glogFilter);
+  h+=nachweisZeitFelder('glogfilter', _glogFilter);
   if(_glogFilter.action!=='alle'||_glogFilter.kuerzel||_glogFilter.praes||_glogFilter.von||_glogFilter.bis){
-    h+='<button class="btn ghost" data-action="glogfilterreset" style="margin-left:auto">✕ Filter zurücksetzen</button>';
+    h+='<button class="btn ghost" data-action="glogfilterreset">✕ Filter zurücksetzen</button>';
+  }
+  if(Array.isArray(_glog)){
+    var gN=_glog.filter(function(l){ return (_glogFilter.action==='alle' || l.action===_glogFilter.action) && (!_glogFilter.kuerzel || (l.kuerzel||'').toLowerCase().includes(_glogFilter.kuerzel.toLowerCase())); }).length;
+    h+='<span class="hint fzahl">'+gN+' von '+_glog.length+' Einträgen</span>';
   }
   h+='</div>';
   h+='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px"><span class="hint" style="margin:0">Export für den DSB (Präsidium, Zeitraum, Aktion; wird protokolliert):</span>'+
@@ -4939,7 +5410,7 @@ function secProtokoll(){
   if(!glogOpen){
     /* zugeklappt */
   }else if(_glogErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_glogErr)+'</div></div>';
+    h+=fehlerKarte('Protokoll nicht abrufbar', _glogErr, 'protoreload');
   }else if(_glog===null){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
   }else if(!glogShown.length){
@@ -4971,7 +5442,7 @@ function secProtokoll(){
   if(!plogOpen){
     /* zugeklappt */
   }else if(_plogErr){
-    h+='<div class="card" style="border-color:var(--t1)"><div class="hint" style="color:var(--t1)">'+esc(_plogErr)+'</div></div>';
+    h+=fehlerKarte('Lösch-Läufe nicht abrufbar', _plogErr, 'protoreload');
   }else if(_plog===null){
     h+='<div class="card"><p class="hint" style="margin:0">Wird geladen…</p></div>';
   }else if(!_plog.length){
@@ -5082,8 +5553,11 @@ document.addEventListener('click', async function(e){
   if(nav){
     clearAdminLageTimer();   /* Lage-Intervall beim Bereichswechsel sauber clearen */
     state.section=nav.getAttribute('data-nav');
+    /* Quick 261024: Sprungziel aus der Übersicht wählt den Reiter in „Personen & Zugänge“ */
+    if(nav.getAttribute('data-tab') && state.section==='zugaenge') zugTabSetzen(nav.getAttribute('data-tab'));
     _detail=null;   /* geöffnetes Protokoll beim Bereichswechsel schließen */
     _mappe=null;    /* Phase 6.12 (06.12-11): ebenso die geöffnete Einsatzmappe */
+    _persForm=null; _praesForm=null;   /* Quick 261024: offene Formular-Dialoge beim Bereichswechsel schließen */
     render(); loadSection();
     return;
   }
@@ -5109,11 +5583,19 @@ document.addEventListener('click', async function(e){
     }catch(err){ setLoginError('Zwischenablage nicht lesbar — bitte Token eintippen.'); }
     return;
   }
-  if(a==='zugreload'){ loadZugaenge(); return; }
+  if(a==='zugreload'){ if(state.section==='identitaeten') loadIdentitaeten(); else loadZugaenge(); return; }   /* Quick 261024: auch Fehlerkarte der Route Identitäten */
+  /* Quick 261024 (Vorschlag 8): „Neu laden“ der Fehlerkarte im Bereich Präsidien */
+  if(a==='praesreload'){ loadPraesidienVw(); return; }
+  /* Quick 261024 (Verwaltung übersichtlich): Reiter in „Personen & Zugänge“ */
+  if(a==='zugtab'){ zugTabSetzen(el.getAttribute('data-tab')); render(); return; }
   /* Phase 6.12 (Plan 06.12-09): Übersicht neu laden */
   if(a==='uebersichtreload'){ loadUebersicht(); return; }
   if(a==='togglecard'){ toggleCard(el.getAttribute('data-key'), el.getAttribute('data-def')==='1'); return; }
-  if(a==='zugfilterreset'){ _zugFilter={art:'alle',status:'alle',sort:_zugFilter.sort}; render(); return; }
+  if(a==='zugfilterreset'){ filterZuruecksetzen('weitere'); render(); return; }   /* Quick 261024: auch Suche und Präsidium */
+  /* Quick 261024 (Vorschlag 4/8): Filterzeile bzw. Leerzeile „Filter zurücksetzen“ */
+  /* Quick 261024 (Vorschlag 7): lange Liste ganz zeigen */
+  if(a==='mehrzeigen'){ _mehr[el.getAttribute('data-key')||'']=true; render(); return; }
+  if(a==='filterreset'){ filterZuruecksetzen(el.getAttribute('data-bereich')||''); render(); return; }
   if(a==='mklink'){
     await makeLink(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'', el.getAttribute('data-kind'));
     return;
@@ -5246,6 +5728,9 @@ document.addEventListener('change', function(e){
   }
   var pf=e.target.closest('select#pers-filter-rolle');
   if(pf){ _persFilter.rolle=pf.value||'alle'; render(); return; }
+  /* Quick 261024 (Vorschlag 4): Präsidium und bereichseigene Filter der Filterzeile */
+  var vf=e.target.closest('select[data-vwf]');
+  if(vf){ var vk=vf.getAttribute('data-vwf'); if(Object.prototype.hasOwnProperty.call(_vwf, vk)) _vwf[vk]=vf.value||''; render(); return; }
 });
 /* Protokoll-Filter Freitext-Kürzel: live filtern bei Eingabe */
 document.addEventListener('input', function(e){
@@ -5254,12 +5739,20 @@ document.addEventListener('input', function(e){
   /* Audit-Log-Filter Freitext-USBNK: live filtern */
   var au=e.target.closest('input[data-action="auditfilter"][data-field="usbnk"]');
   if(au){ _auditFilter.usbnk=au.value; render(); return; }
+  /* Quick 261024 (Vorschlag 4): Suche der Filterzeile filtert beim Tippen (ohne Knopf) */
+  var su=e.target.closest('input[data-suche]');
+  if(su){ sucheSetzen(su.getAttribute('data-suche'), su.value); render(); return; }
 });
 $('logininp') && $('logininp').focus();
 document.addEventListener('keydown', function(e){
   if(e.key==='Enter' && document.activeElement && document.activeElement.id==='logininp'){
     doLogin(document.activeElement.value);
   }
+  /* Quick 261024 (Vorschlag 5): Escape schließt die Formular-Dialoge (wie „Abbrechen“) */
+  if(e.key==='Escape' && _persForm && !document.querySelector('.modalov:not(.vwdlg)')){ doMkPerson('zu'); return; }
+  if(e.key==='Escape' && _praesForm && !document.querySelector('.modalov:not(.vwdlg)')){ doPraesidiumNeu('zu'); return; }
+  /* Quick 261024: Enter im Personen-Suchfeld übernimmt wie früher „Filtern“ (usbnksearch) */
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='pers-search') doUsbnkSearch();
 });
 
 /* Start: abgelaufene/fehlende Sitzung → Login, sonst direkt Zugänge (D-10).
