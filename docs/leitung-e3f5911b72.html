@@ -1750,6 +1750,7 @@ async function loadZugaenge(){
         var co=res[0];
         if(co.ok){
           _tokens=(Array.isArray(co.codes) ? co.codes : []).filter(function(c){ return !!c && typeof c==='object'; }).map(codeZuToken);
+          codeMarkBeschneiden();   /* Quick 261024 */
           _zugAlteAus=co.alte_codes_aus===true;
           _fkSitz=Array.isArray(co.fremdkraft_sitzungen) ? co.fremdkraft_sitzungen : [];
         }else{ _tokens=[]; _codesErr=co.meldung; }
@@ -1916,25 +1917,105 @@ async function loescheCode(sc){
   toast('Code '+sc+' gelöscht');
   loadZugaenge();
 }
-/* Alle löschbaren Codes eines Präsidiums — der Server prüft jeden Code einzeln
- * (argus_vw_codes_loeschen_alle, Regel 0036; persönliche Codes nach den Personen-Regeln). */
-async function loescheCodesAlle(pid, pname){
-  var now=Date.now();
-  var list=(_tokens||[]).filter(function(t){ return t.praesidium_id===pid && codeLoeschGrund(t, now); });
-  if(!list.length){ toast('Keine gesperrten oder abgelaufenen Codes.'); return; }
-  var ok=await confirmModal(list.length+' gesperrte, abgelaufene oder verbrauchte Code'+(list.length===1?'':'s')+' von „'+pname+'“ aus der Liste löschen?\nDie Codes werden endgültig entfernt und lassen sich nicht wiederherstellen. Die Einträge im Protokoll bleiben erhalten.', 'Alle löschen');
+/* ── Codes markieren und gesammelt löschen (Quick 261024, Owner-Wunsch 24.10.2026) ──
+ * Ersetzt den Sammel-Knopf „Gesperrte/abgelaufene entfernen (N)“ (codeloeschenalle,
+ * loescheCodesAlle). Kontrollkästchen nur für löschbare Codes (codeLoeschGrund =
+ * Server-Regel aus argus_vw_codes), nie MasterToken, nie aktive Codes. Nach EINER
+ * In-App-Bestätigung wird je Code nacheinander argus_vw_code_loeschen aufgerufen —
+ * der Server prüft jeden Code selbst (Rechte des MasterTokens bzw. der persönlichen
+ * Sitzung, Regel 0036). Gruppe = Präsidiums-ID, '' = „Ohne Präsidium“. */
+var _codeMark={}, _codeLauf=null, _codeErg={};
+function codeMarkierbar(t){ return !!t && !!t.short_code && !t.is_master && !!codeLoeschGrund(t); }
+function codeMarkiert(sc){ return !!(_codeMark && _codeMark[sc]===true); }
+function markierteCodes(list){ return (list||[]).filter(function(t){ return codeMarkierbar(t) && codeMarkiert(t.short_code); }); }
+function codeGruppe(pid){
+  var l=_tokens||[];
+  if(pid) return l.filter(function(t){ return t.praesidium_id===pid; });
+  return l.filter(function(t){ return !(_praes||[]).some(function(p){ return p.id===t.praesidium_id; }); });
+}
+/* nach dem Laden: nur Markierungen noch vorhandener, weiterhin löschbarer Codes behalten */
+function codeMarkBeschneiden(){
+  var neu={};
+  (_tokens||[]).forEach(function(t){ if(codeMarkierbar(t) && codeMarkiert(t.short_code)) neu[t.short_code]=true; });
+  _codeMark=neu;
+}
+function codeMarkBox(t){
+  if(!codeAktionenAn() || !codeMarkierbar(t)) return '';
+  return '<input type="checkbox" data-action="codemark" data-sc="'+esc(t.short_code)+'" aria-label="Code '+esc(t.short_code)+' markieren" title="Zum Löschen markieren" style="width:22px;height:22px;margin:0;cursor:pointer"'+(codeMarkiert(t.short_code)?' checked':'')+'>';
+}
+/* Leiste je Karte: „Alle löschbaren markieren“ (wirkt auf die sichtbaren, d. h. gefilterten
+ * Codes), Zähler „N markiert“, „Markierte löschen“; während des Löschens der Fortschritt,
+ * danach das Ergebnis. */
+function codeMarkLeiste(pid, pname, list, shown){
+  if(!codeAktionenAn()) return '';
+  var key=pid||'';
+  var loeschbar=(list||[]).filter(codeMarkierbar);
+  var erg=_codeErg ? _codeErg[key] : null;
+  var lauf=!!(_codeLauf && _codeLauf.pid===key);
+  if(!loeschbar.length && !erg && !lauf) return '';
+  var h='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px">';
+  if(lauf){
+    h+='<span class="hint" style="margin:0">Wird gelöscht … '+(+_codeLauf.i||0)+' von '+(+_codeLauf.n||0)+'</span>';
+  }else if(loeschbar.length){
+    var sicht=(shown||[]).filter(codeMarkierbar);
+    var m=markierteCodes(list).length;
+    var alle=sicht.length>0 && sicht.every(function(t){ return codeMarkiert(t.short_code); });
+    if(sicht.length) h+='<button class="btn ghost" data-action="codemarkalle" data-pid="'+esc(key)+'">'+(alle?'Markierung aufheben':'Alle löschbaren markieren ('+sicht.length+')')+'</button>';
+    h+='<span class="hint" style="margin:0">'+m+' markiert</span>';
+    h+='<button class="btn warn" data-action="codemarkloeschen" data-pid="'+esc(key)+'" data-pname="'+esc(pname||'')+'"'+(m?'':' disabled')+'>Markierte löschen'+(m?' ('+m+')':'')+'</button>';
+  }
+  if(erg && !lauf) h+='<span class="hint" style="margin:0">'+esc(erg)+'</span>';
+  return h+'</div>';
+}
+function codeMarkSetzen(sc, an){
+  var t=codeAusListe(sc);
+  if(an && codeMarkierbar(t)) _codeMark[sc]=true; else delete _codeMark[sc];
+  _codeErg={};
+  render();
+}
+function codeMarkAlle(pid){
+  var sicht=codeGruppe(pid).filter(tokenMatches).filter(codeMarkierbar);
+  var alle=sicht.length>0 && sicht.every(function(t){ return codeMarkiert(t.short_code); });
+  sicht.forEach(function(t){ if(alle) delete _codeMark[t.short_code]; else _codeMark[t.short_code]=true; });
+  _codeErg={};
+  render();
+}
+async function loescheMarkierte(pid, pname){
+  if(_codeLauf) return;   /* läuft schon */
+  var key=pid||'';
+  var list=markierteCodes(codeGruppe(key));
+  if(!list.length){ toast('Keine Codes markiert.'); return; }
+  var n=list.length;
+  var ok=await confirmModal((n===1?'1 markierten Code':n+' markierte Codes')+(pname?' von „'+pname+'“':'')+' aus der Liste löschen?\n'+(n===1?'Der Code wird':'Die Codes werden')+' endgültig entfernt und lässt sich nicht wiederherstellen. Die Einträge im Protokoll bleiben erhalten.', n===1?'1 Code löschen':n+' Codes löschen');
   if(!ok) return;
-  var r=await vwRpc('argus_vw_codes_loeschen_alle',{p_praesidium_id:pid});
-  if(!r.ok){ toast('Löschen nicht möglich: '+r.meldung); loadZugaenge(); return; }
-  var n=+r.geloescht||0, fehl=Math.max(0, list.length-n);
-  toast(n+' Code'+(n===1?'':'s')+' gelöscht'+(fehl?' · '+fehl+' nicht gelöscht (abgelehnt)':''));
-  loadZugaenge();
+  var geloescht=0, nicht=0, grund='', abbruch=false;
+  _codeErg={};
+  _codeLauf={ pid:key, i:0, n:n };
+  try{
+    for(var i=0;i<n;i++){
+      _codeLauf.i=i+1; render();
+      var sc=list[i].short_code;
+      var r=await vwRpc('argus_vw_code_loeschen',{p_short_code:sc});
+      if(r.ok){ geloescht++; delete _codeMark[sc]; continue; }
+      if(r.fehler==='sitzung'){ nicht+=n-i; abbruch=true; break; }   /* abgemeldet — Rest nicht versuchen */
+      nicht++;
+      if(!grund && r.meldung) grund=String(r.meldung);
+    }
+  }finally{ _codeLauf=null; }
+  var txt=geloescht+' gelöscht, '+nicht+' nicht löschbar'+(grund?' ('+grund+')':'');
+  _codeErg[key]=txt;
+  toast(txt);
+  if(abbruch) return;
+  await loadZugaenge();
 }
 
 function tokenRows(list){
-  var h='<div class="tablewrap"><table><thead><tr><th>Code</th><th>Art</th><th>Bezeichnung</th><th>Status</th><th></th></tr></thead><tbody>';
+  /* Quick 261024: erste Spalte = Kontrollkästchen (nur löschbare Codes) */
+  var mk=codeAktionenAn();
+  var h='<div class="tablewrap"><table><thead><tr>'+(mk?'<th title="Zum Löschen markieren"></th>':'')+'<th>Code</th><th>Art</th><th>Bezeichnung</th><th>Status</th><th></th></tr></thead><tbody>';
   list.forEach(function(t){
     h+='<tr>';
+    if(mk) h+='<td style="width:30px">'+codeMarkBox(t)+'</td>';
     h+='<td class="mono" style="font-weight:600;white-space:nowrap">'+esc(t.short_code||'—')+'</td>';
     h+='<td>'+esc(tokenArt(t))+'</td>';
     h+='<td>'+(t.kuerzel ? '<b>'+esc(t.kuerzel)+'</b> ' : '')+esc(t.label||'')+'</td>';
@@ -2297,10 +2378,8 @@ function weitereZugaengeHtml(){
       h+='</div>';
       h+= shown.length ? tokenRows(shown)
         : '<div class="hint">'+(list.length?'Keine Codes passend zum Filter.':'Noch keine Codes für dieses Präsidium.')+'</div>';
-      var nLoesch=codeAktionenAn() ? list.filter(function(t){ return codeLoeschGrund(t); }).length : 0;
-      if(nLoesch>=2){
-        h+='<div style="margin-top:10px"><button class="btn ghost" data-action="codeloeschenalle" data-pid="'+esc(p.id)+'" data-pname="'+esc(p.name)+'">Gesperrte/abgelaufene entfernen ('+nLoesch+')</button></div>';
-      }
+      /* Quick 261024: Markieren + „Markierte löschen“ ersetzt „Gesperrte/abgelaufene entfernen (N)“ */
+      h+=codeMarkLeiste(p.id, p.name, list, shown);
     }
     h+='</div>';
   });
@@ -2311,12 +2390,12 @@ function weitereZugaengeHtml(){
     h+='<div class="card">';
     h+=foldHead('zug-rest', true, 'Ohne Präsidium (MasterToken u. a.)',
       (zugFilterActive()? restShown.length+' von ':'')+rest.length+' Code'+(rest.length===1?'':'s'), restOpen);
-    if(restOpen) h+='<div style="margin-top:8px">'+(restShown.length?tokenRows(restShown):'<div class="hint">Keine Codes passend zum Filter.</div>')+'</div>';
+    if(restOpen) h+='<div style="margin-top:8px">'+(restShown.length?tokenRows(restShown):'<div class="hint">Keine Codes passend zum Filter.</div>')+codeMarkLeiste('', 'Ohne Präsidium', rest, restShown)+'</div>';
     h+='</div>';
   }
   h+='<p class="hint">„Einmal-Link" = nur einmal einlösbar (danach verbraucht), dann 24 h Zugang. Empfänger: Link kopieren → in ARGUS „📋 Einfügen". Bei der Erstellung kann eine Zuteilung (Name/Dienstnr./Funktion) erfasst werden — sie erscheint als Bezeichnung und macht gezieltes Sperren möglich. Verbrauchte Einmal-Codes werden 6 Monate nach Einlösung automatisch aus dieser Liste gelöscht.</p>';
   if(codeAktionenAn()){
-    h+='<p class="hint">„Notiz“ ändert die Bezeichnung eines Codes nachträglich. „Aus Liste löschen“ gibt es nur für gesperrte, abgelaufene und verbrauchte Codes (verbrauchte Einmal-Codes erst, wenn die damit erteilte Anmeldung abgelaufen ist): Der Code wird endgültig entfernt, der Eintrag im Protokoll bleibt erhalten. Aktive Codes und der MasterToken lassen sich nicht löschen.</p>';
+    h+='<p class="hint">„Notiz“ ändert die Bezeichnung eines Codes nachträglich. „Aus Liste löschen“ und das Kästchen zum Markieren gibt es nur für gesperrte, abgelaufene und verbrauchte Codes (verbrauchte Einmal-Codes erst, wenn die damit erteilte Anmeldung abgelaufen ist): Der Code wird endgültig entfernt, der Eintrag im Protokoll bleibt erhalten. „Alle löschbaren markieren“ wählt die sichtbaren löschbaren Codes eines Präsidiums, „Markierte löschen“ löscht sie nach einer Rückfrage nacheinander. Aktive Codes und der MasterToken lassen sich nicht löschen.</p>';
   }
   h+='<p class="hint">Sperren wirkt <b>sofort serverseitig</b> — auch bereits angemeldete Geräte verlieren den Zugriff umgehend (die App zeigt die Abmeldung spätestens beim nächsten Start/Reconnect an). Einzige Ausnahme: Anmeldungen aus der Zeit vor dem 12.06.2026 laufen noch bis zum Ablauf ihrer alten Anmeldung (max. 30 Tage) weiter.</p>';
   h+='<p class="hint">„FLZ-Zugang" (alt) = Code für den Sachbearbeiter der FLZ: öffnet die anonyme Lageansicht des Präsidiums (Lage-Seite und hier) und erlaubt, <b>Dauercodes</b> für das Präsidium auszugeben und zu sperren. Neue FLZ-Zugänge werden nicht mehr ausgegeben — bestehende gelten bis zur Übergabe; neue Sachbearbeiter erhalten einen persönlichen Code oder registrieren sich mit dem Präsidiums-Code.</p>';
@@ -4748,10 +4827,10 @@ document.addEventListener('click', async function(e){
   /* Quick 261019 (Migration 0036): Notiz ändern, Codes aus der Liste löschen */
   if(a==='codenotiz'){ await editCodeNotiz(el.getAttribute('data-sc')); return; }
   if(a==='codeloeschen'){ await loescheCode(el.getAttribute('data-sc')); return; }
-  if(a==='codeloeschenalle'){
-    await loescheCodesAlle(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
-    return;
-  }
+  /* Quick 261024: Codes markieren und gesammelt löschen (ersetzt codeloeschenalle) */
+  if(a==='codemark'){ codeMarkSetzen(el.getAttribute('data-sc'), !!el.checked); return; }
+  if(a==='codemarkalle'){ codeMarkAlle(el.getAttribute('data-pid')||''); return; }
+  if(a==='codemarkloeschen'){ await loescheMarkierte(el.getAttribute('data-pid')||'', el.getAttribute('data-pname')||''); return; }
   /* Phase 6.10 (Migration 0037): Präsidiums-Schlüssel erneuern — MasterToken/FLZ-Zugang */
   if(a==='meshkeyerneuern'){
     await erneuerePraesSchluessel(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'');
