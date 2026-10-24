@@ -78,11 +78,65 @@
     /* Phase 6.12 (06.12-11): Einsatzmappe — nur das eigene Druck-Overlay (ein Dokument je Lage) */
     body[data-mappe-print] .layout,body[data-mappe-print] .ubar{display:none!important}
     body[data-mappe-print] #mappe-print-overlay{display:block!important}
+    /* Quick 261024-mappe-druck: weißer Seitengrund, nie Toast/Modal; Mappe und AT-MIST nur das Overlay */
+    html,body{background:#fff!important}
+    .toast,.modalov{display:none!important}
+    body[data-mappe-print]>*:not(#mappe-print-overlay){display:none!important}
+    body[data-atmist-print]>*:not(#atmist-print-overlay){display:none!important}
+    /* Anmelde-Codes nie auf Papier: Bildschirmwert aus, maskierter Wert an (kzHtml) */
+    .nurschirm{display:none!important}
+    .nurdruck{display:inline!important}
   }
+  /* Quick 261024-mappe-druck: A4 mit festen Rändern; Seitenzahl nur in der Einsatzmappe */
+  @page{size:A4;margin:12mm 11mm 13mm}
+  @page mappe{@bottom-right{content:"Seite " counter(page) " von " counter(pages);font-size:8pt;color:#5d6368}}
+  .nurdruck{display:none}
   /* AT-MIST-Overlay nur im Druckmodus sichtbar */
   #atmist-print-overlay{display:none}
   /* Phase 6.12 (06.12-11): Mappe-Overlay nur im Druckmodus der Einsatzmappe sichtbar */
   #mappe-print-overlay{display:none}
+  /* Einsatzmappe-Druck (Quick 261024-mappe-druck): A4-taugliche Tabellen ohne Abschneiden,
+   * Umbrüche ohne verwaiste Überschriften/geteilte Zeilen, Marken ohne Hintergrundgrafiken lesbar
+   * (farbiger Rahmen + farbiger Text; print-color-adjust nur als Zugabe). */
+  .mpdoc{page:mappe;font-size:11px;line-height:1.4;color:var(--tx);background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .mpdoc .mp-titel{font-weight:700;font-size:16px;margin:0 0 2px}
+  .mpdoc .mp-meta{font-size:10.5px;color:var(--mut);margin:0 0 2px}
+  .mpdoc .mp-hinw{font-size:10.5px;font-weight:700;margin:0 0 8px}
+  .mpdoc .mp-anh{font-size:14px;font-weight:700;margin:0 0 8px;padding:0 0 4px;border-bottom:2px solid var(--acc);break-after:avoid;page-break-after:avoid}
+  .mpdoc .mp-anh .mp-meta{font-weight:400;margin:2px 0 0}
+  .mpdoc .mp-h{font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 5px;break-after:avoid;page-break-after:avoid}
+  .mpdoc .mp-h .hint{text-transform:none;letter-spacing:0;font-weight:400}
+  .mpdoc .mp-h2{font-size:12px;font-weight:700;margin:10px 0 5px;padding:1px 0 1px 8px;border-left:4px solid var(--acc);break-after:avoid;page-break-after:avoid}
+  .mpdoc .mp-h2 .hint{font-weight:400}
+  .mpdoc .mp-neu{break-before:page;page-break-before:always}
+  .mpdoc .mp-block{break-inside:avoid;page-break-inside:avoid}
+  .mpdoc .tablewrap{overflow:visible;border-radius:6px}
+  .mpdoc table{font-size:10.5px;width:100%;background:#fff}
+  .mpdoc th,.mpdoc td{padding:4px 6px}
+  .mpdoc th{font-size:9px;letter-spacing:.3px;white-space:normal;border-bottom:1.5px solid #b9bfc5}
+  .mpdoc thead{display:table-header-group}
+  .mpdoc tr{break-inside:avoid;page-break-inside:avoid}
+  .mpdoc .nw{white-space:nowrap}
+  .mpdoc .mp-sub{display:block;font-size:9.5px;color:var(--mut);white-space:nowrap;font-weight:400;font-family:var(--sans)}
+  .mpdoc .card{border-radius:6px;padding:8px 10px;margin-bottom:8px;background:#fff}
+  .mpdoc .mp-zeile{font-size:10.5px;padding:2px 0;border-bottom:1px solid #e4e7ea}
+  .mpdoc .mp-zeile:last-child{border-bottom:0}
+  .mpdoc .mp-2sp{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+  .mpdoc .mp-karten{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:start}
+  .mpdoc .mp-karten .card{margin:0;padding:7px 9px;break-inside:avoid;page-break-inside:avoid}
+  .mpdoc .hint{font-size:10px}
+  .mpdoc .atr{padding:3px 0!important;gap:7px!important}
+  .mpdoc .atb{background:#fff!important;color:var(--acc)!important;border:1.5px solid var(--acc);width:18px!important;height:18px!important;font-size:10.5px!important;border-radius:4px!important}
+  .mpdoc .atv{font-size:11px!important;line-height:1.35!important}
+  .mpdoc .atv .mono{font-family:var(--sans);font-weight:600}
+  .mpdoc .atv div{font-size:10px!important}
+  .dk{display:inline-block;border:1.5px solid #9aa1a8;border-left-width:7px;border-radius:4px;padding:0 6px;font-size:10px;font-weight:700;color:var(--tx);background:#fff;white-space:nowrap;line-height:1.45;vertical-align:1px}
+  .dk.t1{border-color:var(--t1);color:var(--t1)}
+  .dk.t2{border-color:var(--t2);color:#7a5a00}
+  .dk.t3{border-color:var(--t3);color:var(--t3)}
+  .dk.t5{border-color:var(--t5);color:var(--t5)}
+  .dk.prio,.dk.fk{border-color:var(--prio);color:#b23c00}
+  .dk.grau{color:var(--mut)}
   .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
   .btn:hover{filter:brightness(1.25)}
   .btn.ghost{background:var(--surf2);color:var(--tx)}
@@ -1188,10 +1242,55 @@ async function sitzungAktualisieren(){
   if(d.kuerzel!=null && d.kuerzel!=='') sessionStorage.setItem('argusl_kuerzel', String(d.kuerzel));
   var nachher=['argusl_kuerzel','argusl_irolle','argusl_ialle','argusl_istamm','argusl_ipraes'].map(function(k){ return sessionStorage.getItem(k); }).join('|');
   if(vorher!==nachher){ render(); loadSection(); }
+  sitzungErneuernVw();   /* D6.12-25: still verlängern, wenn fällig (nicht abwarten) */
 }
 function sitzungsPruefungStarten(){
   if(_sitzTimer) return;
   _sitzTimer=setInterval(sitzungAktualisieren, 300000);
+}
+/* Phase 6.12 (D6.12-25, Migration 0047): persönliche Verwaltungs-Sitzungen laufen 30 Tage und
+ * verlängern sich still, solange die Seite offen ist — wie die Feld-App: Restlaufzeit < 7 Tage →
+ * nach der Sitzungsprüfung rpc/argus_sitzung_erneuern (gleiche Sitzung/jti, frische Laufzeit).
+ * Höchstens ein Versuch je 10 min. 401 bzw. fehler 'sitzung'/'rolle' (Person oder Code
+ * gesperrt, Rolle ohne Verwaltung) → abmelden mit Hinweis; sonst (Netz, Server ohne 0047)
+ * still weiter — die Sitzung läuft dann wie bisher zu ihrem Ablauf aus. „Abmelden“ beendet sie
+ * wie bisher; MasterToken-/FLZ-Zugang-/Phase-5-Sitzungen erneuern sich nicht. */
+var ERNEUERN_VOR_MS=7*24*3600*1000, ERNEUERN_PAUSE_MS=600000, _erneuertAt=0, _erneuerBusy=false;
+/* rein: Erneuerung fällig? (Ablauf in ms bekannt und Restlaufzeit unter 7 Tagen) */
+function erneuernFaellig(expMs, jetzt){
+  return typeof expMs==='number' && expMs>0 && expMs-jetzt<ERNEUERN_VOR_MS;
+}
+async function sitzungErneuernVw(){
+  if(sessionRole()!=='ident' || _erneuerBusy) return;
+  var jwt=sessionJwt();
+  if(!jwt) return;
+  var exp=parseInt(sessionStorage.getItem('argusl_jwt_exp')||'0',10);
+  if(!erneuernFaellig(exp, nowMs()) || nowMs()-_erneuertAt<ERNEUERN_PAUSE_MS) return;
+  _erneuertAt=nowMs();
+  _erneuerBusy=true;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_sitzung_erneuern',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:'{}'
+    });
+    if(resp.status===401){ doLogout('Sitzung beendet — bitte neu anmelden.'); return; }
+    var d=null; try{ d=await resp.json(); }catch(e){}
+    if(!d || d.ok!==true || !d.jwt){
+      if(d && (d.fehler==='sitzung' || d.fehler==='rolle')){
+        doLogout((typeof d.meldung==='string' && d.meldung) ? d.meldung : 'Sitzung beendet — bitte neu anmelden.');
+      }
+      return;
+    }
+    /* inzwischen abgemeldet bzw. neu angemeldet → Antwort verwerfen */
+    if(sessionStorage.getItem('argusl_jwt')!==jwt) return;
+    sessionStorage.setItem('argusl_jwt', d.jwt);
+    sessionStorage.setItem('argusl_jwt_exp', String((+d.exp||0)*1000));
+  }catch(e){
+    /* still — nächster Versuch frühestens in 10 min */
+  }finally{
+    _erneuerBusy=false;
+  }
 }
 
 /* ── Phase 6.12 (Plan 06.12-10): Hülle für die Verwaltungs-RPCs (0041–0043) ──
@@ -1621,7 +1720,7 @@ function vLogin(){
   if(_configError){ h+='<div class="lerr" style="text-align:center">⚠️ Konfiguration fehlt (config.js) — kein Backend verbunden.</div>'; }
   h+='<label class="fieldlab" for="logininp">Zugangs-Token</label>';
   h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
-  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)"><input type="checkbox" id="keepme" style="width:18px;height:18px;margin:0"> Angemeldet bleiben — nur auf diesem Gerät (bis zum Ablauf des Zugangs, max. 30 Tage; „Abmelden" beendet es)</label>';
+  h+='<label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)"><input type="checkbox" id="keepme" style="width:18px;height:18px;margin:0"> Angemeldet bleiben — nur auf diesem Gerät (bis „Abmelden" oder zum Ablauf des Zugangs; persönliche Anmeldung verlängert sich bei Nutzung selbst)</label>';
   h+='<div class="modalrow" style="justify-content:stretch;gap:8px">';
   h+='<button class="btn ghost" data-action="pastetoken" style="flex:1">📋 Einfügen</button>';
   h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
@@ -2922,6 +3021,70 @@ function mappeZeitKurz(ms){
   function z(n){ return (n<10?'0':'')+n; }
   return z(t.getDate())+'.'+z(t.getMonth()+1)+'. '+z(t.getHours())+':'+z(t.getMinutes());
 }
+/* ── Druck (Quick 261024-mappe-druck) ──
+ * Anmelde-Codes nie auf Papier — für ALLE Sitzungen, auch MasterToken (der Server liefert dem
+ * Master Herkunfts-Kürzel ungefiltert, 0045 6.12-MASKE). Rein: Kürzel → Art wie argus_intern.
+ * mappe_durch, soweit ohne Server erkennbar („FK-…“ → Fremdkraft, Code-/jti-förmig → Code);
+ * Personen-, Bediener- und Art-Kürzel bleiben. */
+function druckKuerzel(s){
+  var v=(s==null) ? '' : String(s).trim();
+  if(v==='') return '';
+  if(/^FK-?[A-Za-z0-9]{8}$/i.test(v)) return 'Fremdkraft';
+  if(/^[A-Za-z0-9]{4}-[A-Za-z0-9]{4}$/.test(v)) return 'Code';
+  if(/^[A-Za-z0-9]{8}$/.test(v) && /[0-9]/.test(v) && /[A-Za-z]/.test(v)) return 'Code';
+  if(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)) return 'Code';
+  if(v.length>=12 && /^[A-Za-z0-9_.~+\/=-]+$/.test(v) && /[0-9]/.test(v)) return 'Code';
+  return v;
+}
+/* Rein: Codes in Freitext (Hinweise, Ereignistexte) ersetzen; übriger Text bleibt. */
+function druckText(s){
+  if(s==null) return '';
+  return String(s)
+    .replace(/\bFK-?[A-Z0-9]{8}\b/g, 'Fremdkraft')
+    .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, 'Code')
+    .replace(/\b[A-Za-z0-9]{4}-[A-Za-z0-9]{4}\b/g, function(m){ return (/[0-9]/.test(m) || m===m.toUpperCase()) ? 'Code' : m; });
+}
+/* Escapte Ausgabe eines Kürzels (text: Freitext). druck → nur der maskierte Wert; Bildschirm →
+ * unverändert, bei Abweichung zusätzlich der maskierte Wert für Druck-CSS (.nurschirm/.nurdruck),
+ * damit auch „Drucken“ der Bildschirmansicht keinen Code zeigt. */
+function kzHtml(s, druck, text){
+  var roh=(s==null) ? '' : String(s), m=text ? druckText(roh) : druckKuerzel(roh);
+  if(druck) return esc(m);
+  if(m===(text ? roh : roh.trim())) return esc(roh);
+  return '<span class="nurschirm">'+esc(roh)+'</span><span class="nurdruck">'+esc(m)+'</span>';
+}
+/* Rein: Zeitpunkt für den Druck „TT.MM.JJJJ HH:MM“ (schmaler als fmtMs). */
+function fmtDruck(ms){
+  if(ms==null || ms==='' || !isFinite(+ms)) return '—';
+  var t=new Date(+ms);
+  if(!isFinite(t.getTime())) return '—';
+  function z(n){ return (n<10?'0':'')+n; }
+  return z(t.getDate())+'.'+z(t.getMonth()+1)+'.'+t.getFullYear()+' '+z(t.getHours())+':'+z(t.getMinutes());
+}
+/* Druck-Marken ohne Hintergrundgrafiken lesbar: Text + farbiger Rahmen (.dk). */
+function katMarke(cat){
+  var c=CATS[cat]||null;
+  return c ? '<span class="dk '+String(cat).toLowerCase()+'">'+c.label+'</span>' : '<span class="dk grau">'+esc(String(cat||'—'))+'</span>';
+}
+/* Rein: Patienten je CCP (Kennung ohne Gerätesuffix „A~3“; sonst über ccp_id) — Gruppen nach
+ * Kennung, darin erst ohne, dann je Gerätesuffix, jeweils nach Nummer. [{kennung, pats}] */
+function patGruppen(pats, ccps){
+  var kennCcp={}, gr={}, order=[];
+  (Array.isArray(ccps) ? ccps : []).forEach(function(c){ if(c && c.id!=null && c.kennung) kennCcp[String(c.id)]=String(c.kennung); });
+  function dev(p){ var c=String(p.ccp==null ? '' : p.ccp), i=c.indexOf('~'); return i<0 ? 0 : (parseInt(c.slice(i+1),10)||0); }
+  (Array.isArray(pats) ? pats : []).forEach(function(p){
+    if(!p) return;
+    var c=String(p.ccp==null ? '' : p.ccp), i=c.indexOf('~'), k=(i<0 ? c : c.slice(0,i)).trim();
+    if(!k && p.ccp_id!=null) k=kennCcp[String(p.ccp_id)]||'';
+    k=k||'?';
+    if(!gr[k]){ gr[k]=[]; order.push(k); }
+    gr[k].push(p);
+  });
+  order.sort(function(a, b){ return a==='?' ? 1 : (b==='?' ? -1 : a.localeCompare(b, 'de')); });
+  return order.map(function(k){
+    return { kennung:k, pats:gr[k].slice().sort(function(a, b){ return (dev(a)-dev(b)) || ((+a.num||0)-(+b.num||0)); }) };
+  });
+}
 /* Wiedervorlage wie der Server (0045): Einsatz MIT Protokoll, Löschfrist ≤ 24 h. */
 function einsatzWieder(e, now){
   if(!e || e.status!=='protokoll') return false;
@@ -3196,30 +3359,44 @@ function mappeStatusPill(s){
 function mappeKennung(g){
   return (g && Array.isArray(g.kennungen) && g.kennungen.length) ? g.kennungen.map(function(k){ return esc(kennungKurz(k)); }).join(' + ') : '?';
 }
-/* Rein: Zeitleiste, Geräteregister, Lösch-Läufe — gleich für Bildschirm und Druck (ohne Knöpfe). */
-function mappeZeitleisteHtml(m){
+/* Rein: Zeitleiste, Geräteregister, Lösch-Läufe — gleich für Bildschirm und Druck (ohne Knöpfe).
+ * druck (Quick 261024-mappe-druck): schmale Zeitangaben, „durch“/Hinweis ohne Anmelde-Codes,
+ * Gerät je CCP („A·1“), Kennzeichen als Druck-Marke; Bildschirm unverändert. */
+function mappeZeitleisteHtml(m, druck){
   var z=(m && Array.isArray(m.zeitleiste)) ? m.zeitleiste : [];
-  var h='<div class="sech">Zeitleiste ('+z.length+')</div>';
+  var h=druck ? '<div class="mp-h">Zeitleiste ('+z.length+')</div>' : '<div class="sech">Zeitleiste ('+z.length+')</div>';
   if(!z.length) return h+'<div class="card"><p class="hint" style="margin:0">Keine Ereignisse erfasst.</p></div>';
   h+='<div class="tablewrap"><table><thead><tr><th>Zeitpunkt</th><th>Ereignis</th><th>CCP</th><th>durch</th><th>Hinweis</th></tr></thead><tbody>';
   z.forEach(function(e){
-    h+='<tr><td class="mono" style="white-space:nowrap">'+esc(fmtMs(e.at))+'</td><td>'+esc(e.titel)+'</td>'+
+    h+='<tr><td class="mono" style="white-space:nowrap">'+esc(druck ? fmtDruck(e.at) : fmtMs(e.at))+'</td><td>'+esc(e.titel)+'</td>'+
       '<td class="mono">'+(e.kennung!=null && e.kennung!=='' ? esc(kennungKurz(e.kennung)) : '—')+'</td>'+
-      '<td>'+esc(e.durch==null||e.durch==='' ? '—' : String(e.durch))+'</td><td class="hint">'+esc(e.text==null ? '' : String(e.text))+'</td></tr>';
+      '<td>'+(e.durch==null||e.durch==='' ? '—' : kzHtml(e.durch, druck))+'</td><td class="hint">'+(e.text==null ? '' : kzHtml(e.text, druck, true))+'</td></tr>';
   });
   return h+'</tbody></table></div>';
 }
-function mappeGeraeteHtml(m){
+function mappeGeraeteHtml(m, druck){
   var g=(m && Array.isArray(m.geraete)) ? m.geraete : [], n=0;
   g.forEach(function(b){ n+=b.geraete.length; });
-  var h='<div class="sech">Geräteregister ('+n+')</div>';
+  var h=druck ? '<div class="mp-h">Geräteregister ('+n+')</div>' : '<div class="sech">Geräteregister ('+n+')</div>';
   if(!n) return h+'<div class="card"><p class="hint" style="margin:0">Keine Geräte erfasst.</p></div>';
-  h+='<div class="tablewrap"><table><thead><tr><th>CCP</th><th>Gerät</th><th>Bediener</th><th>Erstes Signal</th><th>Letztes Signal</th><th>Status</th><th>App</th><th>Kennzeichen</th></tr></thead><tbody>';
+  var f=druck ? fmtDruck : fmtMs;
+  h+=druck ? '<div class="tablewrap"><table><thead><tr><th>Gerät</th><th>Bediener</th><th>Erstes Signal</th><th>Letztes Signal</th><th>Status</th><th>App</th><th>Kennzeichen</th></tr></thead><tbody>'
+    : '<div class="tablewrap"><table><thead><tr><th>CCP</th><th>Gerät</th><th>Bediener</th><th>Erstes Signal</th><th>Letztes Signal</th><th>Status</th><th>App</th><th>Kennzeichen</th></tr></thead><tbody>';
   g.forEach(function(b){
+    var kn=(b.kennung!=null && b.kennung!=='') ? kennungKurz(b.kennung) : '';
     b.geraete.forEach(function(d){
-      var st= d.left_at!=null ? 'verlassen '+fmtMs(d.left_at) : (d.lost_at!=null ? 'abgemeldet '+fmtMs(d.lost_at) : 'zuletzt gesehen '+fmtMs(d.last_seen));
-      h+='<tr><td class="mono">'+(b.kennung!=null && b.kennung!=='' ? esc(kennungKurz(b.kennung)) : '—')+'</td>'+
-        '<td class="mono" style="font-weight:600">'+esc(String(d.device_no==null ? '?' : d.device_no))+'</td>'+
+      var st= d.left_at!=null ? 'verlassen '+f(d.left_at) : (d.lost_at!=null ? 'abgemeldet '+f(d.lost_at) : 'zuletzt gesehen '+f(d.last_seen));
+      var nr=String(d.device_no==null ? '?' : d.device_no);
+      if(druck){
+        h+='<tr><td class="mono nw" style="font-weight:600">'+esc(kn ? kn+'·'+nr : nr)+'</td>'+
+          '<td>'+(d.operator==null||d.operator==='' ? '—' : kzHtml(d.operator, true))+'</td>'+
+          '<td class="nw">'+esc(f(d.first_seen))+'</td><td class="nw">'+esc(f(d.last_seen))+'</td>'+
+          '<td>'+esc(st)+'</td><td class="mono">'+esc(d.app_version==null ? '—' : String(d.app_version))+'</td>'+
+          '<td>'+(d.fremdkraft===true ? '<span class="dk fk">Fremdkraft</span>' : '—')+'</td></tr>';
+        return;
+      }
+      h+='<tr><td class="mono">'+(kn ? esc(kn) : '—')+'</td>'+
+        '<td class="mono" style="font-weight:600">'+esc(nr)+'</td>'+
         '<td>'+esc(d.operator==null||d.operator==='' ? '—' : String(d.operator))+'</td>'+
         '<td class="hint" style="white-space:nowrap">'+esc(fmtMs(d.first_seen))+'</td><td class="hint" style="white-space:nowrap">'+esc(fmtMs(d.last_seen))+'</td>'+
         '<td>'+esc(st)+'</td><td class="mono">'+esc(d.app_version==null ? '—' : String(d.app_version))+'</td>'+
@@ -3228,13 +3405,13 @@ function mappeGeraeteHtml(m){
   });
   return h+'</tbody></table></div>';
 }
-function mappeLoeschHtml(m){
+function mappeLoeschHtml(m, druck){
   var l=(m && Array.isArray(m.loeschungen)) ? m.loeschungen : [];
-  var h='<div class="sech">Lösch-Läufe ('+l.length+')</div>';
+  var h=druck ? '<div class="mp-h">Lösch-Läufe ('+l.length+')</div>' : '<div class="sech">Lösch-Läufe ('+l.length+')</div>';
   if(!l.length) return h+'<div class="card"><p class="hint" style="margin:0">Noch keine Löschungen in dieser Lage.</p></div>';
   h+='<div class="tablewrap"><table><thead><tr><th>Zeitpunkt</th><th>CCP</th><th>Grund</th></tr></thead><tbody>';
   l.forEach(function(e){
-    h+='<tr><td class="mono" style="white-space:nowrap">'+esc(fmtMs(e.at))+'</td><td class="mono">'+(e.kennung!=null && e.kennung!=='' ? esc(kennungKurz(e.kennung)) : '—')+'</td><td>'+purgeReasonLabel(e.reason)+'</td></tr>';
+    h+='<tr><td class="mono" style="white-space:nowrap">'+esc(druck ? fmtDruck(e.at) : fmtMs(e.at))+'</td><td class="mono">'+(e.kennung!=null && e.kennung!=='' ? esc(kennungKurz(e.kennung)) : '—')+'</td><td>'+purgeReasonLabel(e.reason)+'</td></tr>';
   });
   return h+'</tbody></table></div>';
 }
@@ -3316,30 +3493,103 @@ async function oeffneMappe(lageId){
  * EIN Dokument je Lage über ein eigenes Druck-Overlay (Muster AT-MIST: window.print,
  * Aufräumen per afterprint + 60-s-Rückfall). Variante „mit Einsatzprotokollen“ ruft je
  * Einsatz mit Protokoll argus_governance_protokoll (jeder Abruf protokolliert, Hinweis
- * vorher) und nutzt die bisherige Protokoll-Darstellung (vProtokollDetail) — ohne Knöpfe,
+ * vorher) und hängt je Einsatz ein Druck-Protokoll an (mappeProtokollHtml) — ohne Knöpfe,
  * nie mit Fotos (T-06.12-1103). „Als PDF sichern“ im Druckdialog des Browsers. */
+/* Quick 261024-mappe-druck: Anhang je Einsatz eigens für Papier (A4) statt der Bildschirm-Darstellung —
+ * CCP-Kopf, Patientenübersicht je CCP, AT-MIST-Detail je Patient (gemeinsamer Baustein mit
+ * „AT-MIST drucken“, dazu Notizen), Datenherkunft ohne Anmelde-Codes, Checklisten je CCP.
+ * Nie Fotos, nie Foto-Hinweis, keine Knöpfe; _detail bleibt unberührt. */
 function mappeProtokollHtml(prot, ccpId){
-  var alt=_detail, h='';
-  try{
-    _detail={ ccpId:ccpId, data:(prot && typeof prot==='object') ? prot : {} };
-    h=vProtokollDetail();
-  }finally{ _detail=alt; }
-  return String(h).replace(/<button\b[^>]*>[\s\S]*?<\/button>/g, '');
+  var d=(prot && typeof prot==='object') ? prot : {};
+  var ccps=Array.isArray(d.ccps) ? d.ccps.filter(Boolean) : [];
+  var pats=activePats(d);   /* Grabsteine nie als Patienten */
+  var cls=Array.isArray(d.checklists) ? d.checklists : [];
+  var now=nowMs(), h='';
+  var kennCcp={}; ccps.forEach(function(c){ if(c.id!=null && c.kennung) kennCcp[String(c.id)]=String(c.kennung); });
+  if(ccps.length){
+    h+='<div class="tablewrap mp-block"><table><thead><tr><th>CCP</th><th>Typ</th><th>Einsatzort</th><th>Abgeschlossen</th><th>Protokoll-Frist</th><th>Foto-Frist</th></tr></thead><tbody>';
+    ccps.forEach(function(c){
+      var fst=fristStatus(c.photo_purge_after, now);
+      h+='<tr><td class="mono" style="font-weight:700">'+esc(kennungKurz(c.kennung)||'?')+'</td><td>'+typLabel(c.einsatz_typ)+'</td><td>'+(c.ort ? esc(String(c.ort)) : '—')+'</td>'+
+        '<td class="nw">'+esc(fmtDruck(c.closed_at))+'</td><td class="nw">'+esc(fmtDruck(c.purge_after))+'</td>'+
+        '<td>'+(fst==='abgelaufen' ? 'abgelaufen — Fotos endgültig gelöscht' : esc(fmtDruck(c.photo_purge_after)))+'</td></tr>';
+    });
+    h+='</tbody></table></div>';
+  }
+  var gruppen=patGruppen(pats, ccps), mehr=gruppen.length>1;
+  h+='<div class="mp-h">Patienten ('+pats.length+')'+((+d.verworfen_n>0) ? ' <span class="hint">· verworfen: '+esc(String(+d.verworfen_n))+'</span>' : '')+'</div>';
+  if(!pats.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Patientendaten (mehr) vorhanden.</p></div>';
+  }else{
+    var anyName=pats.some(function(p){ return p.name && String(p.name).trim()!==''; });
+    gruppen.forEach(function(g){
+      h+='<div class="mp-h2">CCP '+esc(kennungKurz(g.kennung))+' <span class="hint">· '+g.pats.length+' '+(g.pats.length===1 ? 'Patient' : 'Patienten')+'</span></div>';
+      h+='<div class="tablewrap"><table><thead><tr><th>Nr.</th><th>Kat.</th><th>Status</th>'+(anyName ? '<th>Name</th>' : '')+'<th>Letzte Sichtung</th><th>Vitalwerte</th><th>Verletzungen</th></tr></thead><tbody>';
+      g.pats.forEach(function(p){
+        var c=String(p.ccp==null ? '' : p.ccp), i=c.indexOf('~'), dv=i<0 ? 0 : (parseInt(c.slice(i+1),10)||0);
+        h+='<tr><td class="mono nw" style="font-weight:700">'+esc(String(p.num!=null ? p.num : '?'))+(dv ? '<span class="mp-sub">Gerät '+dv+'</span>' : '')+'</td>';
+        h+='<td>'+katMarke(p.cat)+'</td>';
+        h+='<td>'+patStatusLabel(p.status)+(p.prio ? ' <span class="dk prio">PRIO</span>' : '')+(p.tq_start ? '<span class="mp-sub">Tourniquet ab '+esc(hhmmMs(p.tq_start))+'</span>' : '')+'</td>';
+        if(anyName) h+='<td>'+(p.name && String(p.name).trim()!=='' ? esc(String(p.name)) : '—')+'</td>';
+        h+='<td class="nw">'+esc(fmtDruck(p.last_triage))+'</td><td>'+vitCompact(p.vit)+'</td><td>'+injCompact(p)+'</td></tr>';
+      });
+      h+='</tbody></table></div>';
+    });
+    h+='<div class="mp-h">Patienten im Detail (AT-MIST)</div>';
+    gruppen.forEach(function(g){
+      if(mehr) h+='<div class="mp-h2">CCP '+esc(kennungKurz(g.kennung))+'</div>';
+      h+='<div class="mp-karten">'+atmistKartenHtml(d, g.pats, { druck:true, notizen:true })+'</div>';
+    });
+  }
+  h+=vDatenherkunft(d, pats, true);
+  h+='<div class="mp-h">Checkliste CCP ('+cls.length+')</div>';
+  if(!cls.length){
+    h+='<div class="card"><p class="hint" style="margin:0">Keine Checklisten-Daten (mehr) vorhanden.</p></div>';
+  }else{
+    cls.forEach(function(cle){
+      var data=(cle && cle.data && typeof cle.data==='object') ? cle.data : {};
+      var hd=(data.hdr && typeof data.hdr==='object') ? data.hdr : {};
+      var items=(data.items && typeof data.items==='object') ? data.items : {};
+      var kn=(cle && cle.ccp_id!=null && kennCcp[String(cle.ccp_id)]) ? kennCcp[String(cle.ccp_id)] : '';
+      h+='<div class="card mp-block">';
+      h+='<div style="font-weight:700">'+(kn ? 'CCP '+esc(kennungKurz(kn)) : 'Checkliste')+'</div>';
+      h+='<div class="hint">Einsatzort: '+(hd.ort ? esc(String(hd.ort)) : '—')+' · MasterMedic: '+(hd.mm ? esc(String(hd.mm)) : '—')+' · Doorman: '+(hd.door ? esc(String(hd.door)) : '—')+' · Assistent: '+(hd.ass ? esc(String(hd.ass)) : '—')+'</div>';
+      h+='<div class="mp-2sp" style="margin-top:4px">';
+      var offen=false;
+      CHK.forEach(function(it){
+        if(it[0]==='sec'){
+          if(offen) h+='</div>';
+          h+='<div><div style="font-size:10px;font-weight:700;color:var(--acc);letter-spacing:.4px;margin:4px 0 2px">'+esc(it[1])+'</div>';
+          offen=true;
+          return;
+        }
+        if(!offen){ h+='<div>'; offen=true; }
+        var st=items[it[0]]||{};
+        h+='<div class="mp-zeile">'+(st.done ? '<b style="color:var(--t3)">✓</b>' : '<span class="hint">○</span>')+' '+esc(it[1]);
+        if(st.note && String(st.note).trim()!=='') h+='<div class="hint" style="margin-left:14px">Notiz: '+esc(String(st.note))+'</div>';
+        h+='</div>';
+      });
+      if(offen) h+='</div>';
+      h+='</div></div>';
+    });
+  }
+  return h;
 }
 /* Rein: Druckdokument der Mappe; protokolle = {ccp_id: Antwort argus_governance_protokoll} oder null. */
 function mappeDruckHtml(m, protokolle){
   var k=(m && m.kopf) ? m.kopf : {}, now=nowMs();
   var ein=(m && Array.isArray(m.einsaetze)) ? m.einsaetze : [];
-  var h='<div class="mpdoc" style="padding:12px">';
-  h+='<div style="font-weight:700;font-size:16px;margin-bottom:2px">ARGUS · Einsatzmappe · Lage '+esc(k.name==null||k.name==='' ? '—' : String(k.name))+'</div>';
-  h+='<div style="font-size:11.5px;color:var(--mut);margin-bottom:2px">Präsidium: '+esc(k.praesidium_name==null ? '—' : String(k.praesidium_name))+' · '+(k.schulung ? 'Schulung' : 'Echtbetrieb')+' · gedruckt '+esc(fmtMs(now))+'</div>';
-  h+='<div style="font-size:11.5px;font-weight:700;margin-bottom:10px">Verzeichnis — Patientendaten nur in angehängten Einsatzprotokollen</div>';
-  h+='<div class="tablewrap"><table><tbody>';
-  h+='<tr><th>Eröffnet</th><td>'+esc(fmtMs(k.eroeffnet_at))+(k.vor_ort ? ' (vor Ort)' : ' (FLZ)')+'</td></tr>';
-  h+='<tr><th>Abgeschlossen</th><td>'+(k.abgeschlossen_at!=null ? esc(fmtMs(k.abgeschlossen_at)) : 'offen')+'</td></tr>';
+  var name=esc(k.name==null||k.name==='' ? '—' : String(k.name));
+  var h='<div class="mpdoc">';
+  h+='<div class="mp-titel">ARGUS · Einsatzmappe · Lage '+name+'</div>';
+  h+='<div class="mp-meta">Präsidium: '+esc(k.praesidium_name==null ? '—' : String(k.praesidium_name))+' · Umgebung: '+(k.schulung ? 'Schulung' : 'Echtbetrieb')+' · gedruckt '+esc(fmtMs(now))+'</div>';
+  h+='<div class="mp-hinw">Verzeichnis — Patientendaten nur in angehängten Einsatzprotokollen</div>';
+  h+='<div class="tablewrap mp-block"><table><tbody>';
+  h+='<tr><th style="width:26%">Eröffnet</th><td>'+esc(fmtDruck(k.eroeffnet_at))+(k.vor_ort ? ' (vor Ort)' : ' (FLZ)')+'</td></tr>';
+  h+='<tr><th>Abgeschlossen</th><td>'+(k.abgeschlossen_at!=null ? esc(fmtDruck(k.abgeschlossen_at)) : 'offen')+'</td></tr>';
   h+='<tr><th>Einsätze</th><td>'+(+k.n||0)+' · '+(+k.protokolle||0)+' mit Protokoll · '+(+k.geloescht||0)+' gelöscht'+(k.offen ? ' · '+(+k.offen)+' offen' : '')+'</td></tr>';
   h+='</tbody></table></div>';
-  h+='<div class="sech">Einsätze ('+ein.length+')</div>';
+  h+='<div class="mp-h">Einsätze ('+ein.length+')</div>';
   if(!ein.length){
     h+='<p class="hint">Noch kein CCP in dieser Lage.</p>';
   }else{
@@ -3351,18 +3601,18 @@ function mappeDruckHtml(m, protokolle){
       if(g.offline) fl.push('offline eröffnet');
       if(g.vor_ort) fl.push('vor Ort zusammengelegt');
       var st=g.status==='protokoll' ? 'Einsatzprotokoll' : (g.status==='offen' ? 'offen' : 'Protokoll gelöscht');
-      h+='<tr><td class="mono" style="font-weight:600">'+mappeKennung(g)+'</td><td>'+st+'</td><td>'+typLabel(g.einsatz_typ)+'</td>'+
-        '<td>'+(+g.patienten_n||0)+'</td><td>'+(+g.geraete_n||0)+'</td><td>'+esc(fmtMs(g.closed_at))+'</td>'+
-        '<td>'+(g.status==='protokoll' ? esc(fmtMs(g.purge_after)) : '—')+'</td><td>'+(g.exported_at ? esc(fmtMs(g.exported_at)) : '—')+'</td><td>'+esc(fl.join(' · '))+'</td></tr>';
+      h+='<tr><td class="mono nw" style="font-weight:600">'+mappeKennung(g)+'</td><td>'+st+'</td><td>'+typLabel(g.einsatz_typ)+'</td>'+
+        '<td>'+(+g.patienten_n||0)+'</td><td>'+(+g.geraete_n||0)+'</td><td>'+esc(fmtDruck(g.closed_at))+'</td>'+
+        '<td>'+(g.status==='protokoll' ? esc(fmtDruck(g.purge_after)) : '—')+'</td><td>'+(g.exported_at ? esc(fmtDruck(g.exported_at)) : '—')+'</td><td>'+esc(fl.join(' · '))+'</td></tr>';
     });
     h+='</tbody></table></div>';
   }
-  h+=mappeZeitleisteHtml(m)+mappeGeraeteHtml(m)+mappeLoeschHtml(m);
+  h+=mappeZeitleisteHtml(m, true)+mappeGeraeteHtml(m, true)+mappeLoeschHtml(m, true);
   if(protokolle && typeof protokolle==='object'){
     ein.forEach(function(g){
       if(g.status!=='protokoll' || !Object.prototype.hasOwnProperty.call(protokolle, g.ccp_id)) return;
-      h+='<div style="page-break-before:always;margin-top:18px">';
-      h+='<div style="font-size:11.5px;color:var(--mut)">ARGUS · Einsatzmappe · Lage '+esc(k.name==null ? '—' : String(k.name))+' · Anhang: Einsatzprotokoll CCP '+mappeKennung(g)+' (ohne Fotos)</div>';
+      h+='<div class="mp-neu" style="page-break-before:always">';
+      h+='<div class="mp-anh">Anhang: Einsatzprotokoll CCP '+mappeKennung(g)+' (ohne Fotos)<div class="mp-meta">ARGUS · Einsatzmappe · Lage '+name+'</div></div>';
       h+=mappeProtokollHtml(protokolle[g.ccp_id], g.ccp_id);
       h+='</div>';
     });
@@ -3536,6 +3786,36 @@ function herkunftModel(d, pats){
   /* Phase 6.10 (Migration 0038): Kennungen der geladenen CCPs — Herkunft im Verbund nennt den CCP des Ursprungsgeräts */
   var kennCcp={}; ((d && Array.isArray(d.ccps)) ? d.ccps : []).forEach(function(c){ if(c && c.id!=null && c.kennung) kennCcp[String(c.id)]=String(c.kennung); });
   var nCcp=Object.keys(kennCcp).length;
+  /* Quick 261024-mappe-druck: im Verbund (mehrere Kennungen) tragen Geräte je CCP eigene Nummern —
+   * Herkunft und Ereignisse daher je CCP („A·1“, „B·1“). Der CCP eines Ereignisses: ccp_id (falls
+   * geliefert) → eindeutige Gerätenummer → Patienten-IDs (direkt/nachgereicht/Nachfrist) →
+   * Zeitpunkt verlassen/abgemeldet der Geräteliste; sonst ohne CCP (wie bisher). */
+  var verbund=merged || nCcp>1;
+  var patCcp={}; (pats||[]).forEach(function(p){
+    if(!p || p.id==null) return;
+    var c=String(p.ccp==null ? '' : p.ccp), i=c.indexOf('~'), k=(p.ccp_id!=null && kennCcp[String(p.ccp_id)]) ? kennCcp[String(p.ccp_id)] : (i<0 ? c : c.slice(0,i));
+    if(k) patCcp[String(p.id)]=k;
+  });
+  var devKenn={}; devs.forEach(function(x){ if(x && x.kennung && x.device_no!=null){ (devKenn[x.device_no]=devKenn[x.device_no]||{})[x.kennung]=true; } });
+  function evKenn(e, det, dev){
+    if(!verbund) return '';
+    if(e.ccp_id!=null && kennCcp[String(e.ccp_id)]) return kennCcp[String(e.ccp_id)];
+    var ks=Object.keys(devKenn[dev]||{});
+    if(ks.length===1) return ks[0];
+    if(e.action==='herkunft' && det.weg!=='mesh'){
+      var z={}, best='', bn=0;
+      (Array.isArray(det.ids)?det.ids:[]).forEach(function(id){ var k=patCcp[String(id)]; if(k) z[k]=(z[k]||0)+1; });
+      Object.keys(z).forEach(function(k){ if(z[k]>bn){ best=k; bn=z[k]; } });
+      if(best) return best;
+    }
+    var hit='';
+    devs.forEach(function(x){
+      if(!x || !x.kennung || (parseInt(x.device_no,10)||0)!==dev) return;
+      if((e.action==='geraet_verlassen' && x.left_at!=null && +x.left_at===+e.at) || (e.action==='geraet_abgemeldet' && x.lost_at!=null && +x.lost_at===+e.at))
+        hit=(hit && hit!==x.kennung) ? '?' : x.kennung;
+    });
+    return hit==='?' ? '' : hit;
+  }
   var rows=devs.filter(Boolean).map(function(x){
     var st;
     if(x.left_at) st='verlassen '+hhmmMs(x.left_at);
@@ -3549,8 +3829,9 @@ function herkunftModel(d, pats){
     if(!e || typeof e!=='object') return;
     var det=(e.detail && typeof e.detail==='object') ? e.detail : {};
     var dev=parseInt(det.dev,10)||0;
+    var ek=evKenn(e, det, dev), dk=(ek ? ek+'·' : '')+dev;
     if(e.action==='herkunft'){
-      var h=herk[dev]||(herk[dev]={direkt:{}, nachgereicht:{}, nachfrist:{}, mesh:{}});
+      var h=herk[dk]||(herk[dk]={dev:dev, kenn:ek, direkt:{}, nachgereicht:{}, nachfrist:{}, mesh:{}});
       if(det.weg==='mesh'){
         /* Phase 6.7 (D6.7-04): Gateway-Upload aus dem Mesh — Ursprungsgerät je Satz unter mesh[fuer] sammeln.
          * Phase 6.10 (0038): im Verbund zusätzlich nach CCP des Ursprungsgeräts (detail.fuer_ccp) — nur wenn
@@ -3567,9 +3848,9 @@ function herkunftModel(d, pats){
       }
     }else if(e.action==='flz_merge'){
       /* D6.9-05: Zuordnung durch die FLZ — kein Gerät beteiligt (dev:null) */
-      events.push({at:e.at, label:flzMergeEreignis(det), dev:null, kuerzel:e.kuerzel||'', open:null});
+      events.push({at:e.at, label:flzMergeEreignis(det), dev:null, devLabel:'', kuerzel:e.kuerzel||'', open:null});
     }else if(HERK_EV[e.action]){
-      events.push({at:e.at, label:HERK_EV[e.action], dev:dev, kuerzel:e.kuerzel||'', open:(det.open_n!=null ? (det.open_n|0) : null)});
+      events.push({at:e.at, label:HERK_EV[e.action], dev:dev, devLabel:dk, kuerzel:e.kuerzel||'', open:(det.open_n!=null ? (det.open_n|0) : null)});
     }
   });
   function names(set){
@@ -3578,21 +3859,27 @@ function herkunftModel(d, pats){
     known.sort(function(a,b){ return a<b?-1:a>b?1:0; });
     return {known:known, more:more};
   }
-  var herkRows=Object.keys(herk).map(Number).sort(function(a,b){return a-b;}).map(function(dev){
-    var h=herk[dev];
+  var herkRows=Object.keys(herk).sort(function(a,b){
+    var x=herk[a], y=herk[b];
+    return (x.kenn===y.kenn ? 0 : (!x.kenn ? 1 : (!y.kenn ? -1 : (x.kenn<y.kenn ? -1 : 1)))) || (x.dev-y.dev);
+  }).map(function(k){
+    var h=herk[k], dev=h.dev;
     var mesh=Object.keys(h.mesh).map(function(k){ return h.mesh[k]; }).sort(function(a,b){
       return (a.fuer-b.fuer) || (a.ccp<b.ccp?-1:a.ccp>b.ccp?1:0);
     }).map(function(g){
       var nm=names(g.ids); return {fuer:g.fuer, ccp:g.ccp, known:nm.known, more:nm.more, n:Object.keys(g.ids).length};
     });
-    return {dev:dev, direktN:Object.keys(h.direkt).length, nach:names(h.nachgereicht), nf:names(h.nachfrist), mesh:mesh};
+    return {dev:dev, label:k, ccpUnbekannt:(verbund && !h.kenn), direktN:Object.keys(h.direkt).length, nach:names(h.nachgereicht), nf:names(h.nachfrist), mesh:mesh};
   });
   events.sort(function(a,b){ return (+a.at||0)-(+b.at||0); });
   return {rows:rows, herk:herkRows, events:events};
 }
-function vDatenherkunft(d, pats){
+/* druck (Quick 261024-mappe-druck): Einsatzmappe — schmale Zeiten, Kürzel/Texte ohne Anmelde-Codes,
+ * Blöcke ungeteilt. Bildschirm: Werte wie bisher, Codes zusätzlich maskiert für Druck-CSS (kzHtml). */
+function vDatenherkunft(d, pats, druck){
   var m=herkunftModel(d, pats);
-  var h='<div class="sech">Datenherkunft</div>';
+  var h=druck ? '<div class="mp-h">Datenherkunft</div>' : '<div class="sech">Datenherkunft</div>';
+  var zeit=druck ? fmtDruck : fmtMs;
   if(!m){
     return h+'<div class="card"><p class="hint" style="margin:0">Keine Herkunftsdaten (Server-Migration 0026 fehlt).</p></div>';
   }
@@ -3602,14 +3889,17 @@ function vDatenherkunft(d, pats){
   if(m.rows.length){
     h+='<div class="tablewrap"><table><thead><tr><th>Gerät</th><th>Bediener</th><th>Erstes Signal</th><th>Letztes Signal</th><th>Status</th><th>Offen beim letzten Signal</th></tr></thead><tbody>';
     m.rows.forEach(function(r){
-      h+='<tr><td class="mono" style="font-weight:600">'+esc(r.label)+'</td><td>'+(r.op?esc(r.op):'—')+'</td>'+
-        '<td class="hint" style="white-space:nowrap">'+esc(fmtMs(r.first))+'</td><td class="mono">'+esc(hhmmMs(r.last))+'</td>'+
-        '<td>'+esc(r.status)+'</td><td>'+esc(String(r.open))+'</td></tr>';
+      h+='<tr><td class="mono" style="font-weight:600'+(druck ? ';white-space:nowrap' : '')+'">'+esc(r.label)+'</td><td>'+(r.op?kzHtml(r.op, druck):'—')+'</td>'+
+        '<td class="hint" style="white-space:nowrap">'+esc(zeit(r.first))+'</td><td class="mono">'+esc(hhmmMs(r.last))+'</td>'+
+        '<td>'+kzHtml(r.status, druck, true)+'</td><td>'+esc(String(r.open))+'</td></tr>';
     });
     h+='</tbody></table></div>';
   }
+  function zeile(inhalt){
+    return druck ? '<div class="mp-zeile">'+inhalt+'</div>' : '<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)">'+inhalt+'</div>';
+  }
   if(m.herk.length){
-    h+='<div class="card" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Herkunft der Patienten je Gerät</div>';
+    h+='<div class="card'+(druck ? ' mp-block' : '')+'" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Herkunft der Patienten je Gerät</div>';
     m.herk.forEach(function(r){
       var parts=[];
       if(r.direktN) parts.push('direkt '+r.direktN+' '+(r.direktN===1?'Patient':'Patienten'));
@@ -3620,15 +3910,15 @@ function vDatenherkunft(d, pats){
       (r.mesh||[]).forEach(function(mm){
         if(mm.known.length||mm.more) parts.push('für Gerät '+esc(String(mm.fuer))+(mm.ccp ? ' · CCP '+esc(mm.ccp) : '')+' (Mesh): '+mm.n+' '+(mm.n===1?'Patient':'Patienten')+' — '+lst(mm));
       });
-      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)">Gerät '+esc(String(r.dev||'?'))+': '+(parts.length?parts.join(' · '):'—')+'</div>';
+      h+=zeile('Gerät '+esc(String(r.dev ? r.label : '?'))+(r.ccpUnbekannt ? ' (CCP nicht bestimmbar)' : '')+': '+(parts.length?parts.join(' · '):'—'));
     });
     h+='</div>';
   }
   if(m.events.length){
-    h+='<div class="card" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Ereignisse</div>';
+    h+='<div class="card'+(druck ? ' mp-block' : '')+'" style="margin-top:8px"><div style="font-weight:600;margin-bottom:4px">Ereignisse</div>';
     m.events.forEach(function(e){
-      h+='<div style="font-size:12.5px;padding:3px 0;border-bottom:1px solid var(--surf2)"><span class="mono">'+esc(fmtMs(e.at))+'</span>'+(e.dev!==null ? ' · Gerät '+esc(String(e.dev||'?'))+' ' : ' · ')+esc(e.label)+
-        (e.kuerzel?(' · '+esc(e.kuerzel)):'')+(e.open!=null?(' · offen: '+esc(String(e.open))):'')+'</div>';
+      h+=zeile('<span class="mono">'+esc(zeit(e.at))+'</span>'+(e.dev!==null ? ' · Gerät '+esc(String(e.dev ? (e.devLabel||e.dev) : '?'))+' ' : ' · ')+kzHtml(e.label, druck, true)+
+        (e.kuerzel?(' · '+kzHtml(e.kuerzel, druck)):'')+(e.open!=null?(' · offen: '+esc(String(e.open))):''));
     });
     h+='</div>';
   }
@@ -3715,19 +4005,19 @@ function vProtokollDetail(){
  * (argus_governance_protokoll liefert ohnehin kein photo-Feld, nur has_photo).
  * Vorlage: exportPrintCard der Feld-App; fehlende Helper (fmtDur/ageStr/pno/
  * Maßnahmen-Labels) als Inline-Varianten portiert. */
-function vAtmistPrint(){
-  var d=_detail && _detail.data;
-  if(!d) return;
-  var pats=activePats(d);   /* Grabsteine nie als Patienten */
-  if(!pats.length){ toast('Keine Patientendaten (mehr) vorhanden.'); return; }
-  var ccps=Array.isArray(d.ccps)?d.ccps:[];
-  var kenn=ccps.map(function(c){return c.kennung||'?';}).sort().join(', ')||'?';
+/* Rein (Quick 261024-mappe-druck): AT-MIST-Karten der übergebenen Patienten in der gegebenen
+ * Reihenfolge — gemeinsamer Baustein von „AT-MIST drucken“ (vAtmistPrint) und dem Anhang der
+ * Einsatzmappe. opt.druck: Marken ohne Hintergrundgrafiken lesbar (.dk); opt.notizen: zusätzlich
+ * Notizen. Ohne opt Markup wie bisher (nur die Klassen atb/atv für das Mappe-Druck-CSS). */
+function atmistKartenHtml(d, pats, opt){
+  opt=opt||{};
+  var ccps=(d && Array.isArray(d.ccps))?d.ccps:[];
   /* row()-Helper — 1:1 aus exportPrintCard der Feld-App */
   function row(letter,label,val){
-    return '<div style="display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line)">'+
-      '<span class="mono" style="width:22px;height:22px;border-radius:6px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+letter+'</span>'+
+    return '<div class="atr" style="display:flex;gap:9px;padding:7px 0;border-top:1px solid var(--line)">'+
+      '<span class="mono atb" style="width:22px;height:22px;border-radius:6px;background:var(--acc);color:#fff;font-weight:700;font-size:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0">'+letter+'</span>'+
       '<div style="flex:1;min-width:0"><div style="font-size:9.5px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px;font-weight:700">'+label+'</div>'+
-      '<div style="font-size:13.5px;line-height:1.4">'+val+'</div></div></div>';
+      '<div class="atv" style="font-size:13.5px;line-height:1.4">'+val+'</div></div></div>';
   }
   /* Inline-Helper (in der Leitungs-Seite nicht vorhanden — bewusst lokal) */
   function pno(p){ return esc(String(p.num!=null?p.num:'?'))+(p.ccp?' <span style="font-size:13px;color:var(--mut)">('+ccpDisp(p.ccp)+')</span>':''); }
@@ -3751,9 +4041,8 @@ function vAtmistPrint(){
    * medizinisch irreführend ("TQ seit 53 h"). Referenz ist daher closed_at des
    * zugehörigen CCP (Fallback now, falls die Row unerwartet offen wäre). */
   var ccpClose={}; ccps.forEach(function(c){ if(c&&c.id&&c.closed_at)ccpClose[c.id]=+c.closed_at; });
-  var h='<div style="padding:12px"><div style="font-weight:700;font-size:15px;margin-bottom:2px">AT-MIST · CCP '+esc(kenn)+'</div>';
-  h+='<div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">Einsatzprotokoll · gedruckt '+new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr · '+pats.length+' Patient(en) · ohne Fotos</div>';
-  pats.slice().sort(function(a,b){ return (+a.num||0)-(+b.num||0); }).forEach(function(p){
+  var h='';
+  (pats||[]).forEach(function(p){
     var c=CATS[p.cat]||null;
     var dim='<span style="color:#9aa0a6;font-style:italic">— nicht erfasst</span>';
     var ap=[]; if(p.age)ap.push(esc(String(p.age))+' J');
@@ -3765,6 +4054,7 @@ function vAtmistPrint(){
     var tqRef=ccpClose[p.ccp_id]||now;
     /* TQ nicht mehr unter „Zeiten" (AT-MIST: das Tourniquet ist eine Maßnahme → tl unten). */
     if(p.created)tp.push('erfasst '+ageStr(p.created));
+    if(opt.druck && p.last_triage && +p.last_triage!==+p.created)tp.push('letzte Sichtung '+ageStr(p.last_triage));
     var il=[];
     if(Array.isArray(p.inj))p.inj.forEach(function(it){ if(it)il.push(esc(String(it.r||'?'))+' – '+esc(String(it.a||'?'))); });
     if(p.injury&&String(p.injury).trim())il.push(esc(String(p.injury)));
@@ -3790,13 +4080,22 @@ function vAtmistPrint(){
       Object.keys(TXL).forEach(function(k){ if(p.tx[k])tl.push(esc(TXL[k])); });
     }
     h+='<div class="card" style="padding:10px 13px;margin-bottom:10px;page-break-inside:avoid">';
-    h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
-       '<span class="mono" style="font-size:18px;font-weight:700">'+pno(p)+'</span>'+
-       (c?'<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+c.label+'</span>':'<span class="pill gray">'+esc(String(p.cat||'—'))+'</span>')+
-       (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
-       (p.status==='gpa'?'<span class="pill gray">gPA</span>':'')+
-       (p.name&&String(p.name).trim()!==''?'<span style="font-size:12.5px;color:var(--mut)">Name: '+esc(String(p.name))+'</span>':'')+
-       '</div>';
+    if(opt.druck){
+      h+='<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">'+
+         '<span class="mono" style="font-size:15px;font-weight:700">'+pno(p)+'</span>'+katMarke(p.cat)+
+         (p.prio?'<span class="dk prio">PRIO</span>':'')+
+         (p.status==='gpa'?'<span class="dk grau">abtransportiert (gPA)</span>':'')+
+         (p.name&&String(p.name).trim()!==''?'<span style="font-size:11px;color:var(--mut)">Name: '+esc(String(p.name))+'</span>':'')+
+         '</div>';
+    }else{
+      h+='<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+
+         '<span class="mono" style="font-size:18px;font-weight:700">'+pno(p)+'</span>'+
+         (c?'<span class="pill" style="background:'+c.bg+';color:'+c.fg+'">'+c.label+'</span>':'<span class="pill gray">'+esc(String(p.cat||'—'))+'</span>')+
+         (p.prio?'<span class="pill" style="background:var(--prio);color:#fff">PRIO</span>':'')+
+         (p.status==='gpa'?'<span class="pill gray">gPA</span>':'')+
+         (p.name&&String(p.name).trim()!==''?'<span style="font-size:12.5px;color:var(--mut)">Name: '+esc(String(p.name))+'</span>':'')+
+         '</div>';
+    }
     h+='<div style="margin-top:6px">';
     h+=row('A','Alter / Geschlecht', ap.length?ap.join(' · '):dim);
     h+=row('T','Zeiten', tp.length?tp.join(' · '):dim);
@@ -3804,8 +4103,23 @@ function vAtmistPrint(){
     h+=row('I','Verletzungen', il.length?il.join('<br>'):dim);
     h+=row('S','Befund / Vitalwerte', sVal);
     h+=row('T','Maßnahmen', tl.length?tl.map(function(x){return '▸ '+x;}).join('<br>'):dim);
+    if(opt.notizen && p.notes && String(p.notes).trim()!=='') h+=row('N','Notizen', esc(String(p.notes)));
     h+='</div></div>';
   });
+  return h;
+}
+function vAtmistPrint(){
+  var d=_detail && _detail.data;
+  if(!d) return;
+  var pats=activePats(d);   /* Grabsteine nie als Patienten */
+  if(!pats.length){ toast('Keine Patientendaten (mehr) vorhanden.'); return; }
+  var ccps=Array.isArray(d.ccps)?d.ccps:[];
+  var kenn=ccps.map(function(c){return c.kennung||'?';}).sort().join(', ')||'?';
+  var h='<div style="padding:12px"><div style="font-weight:700;font-size:15px;margin-bottom:2px">AT-MIST · CCP '+esc(kenn)+'</div>';
+  h+='<div style="font-size:11.5px;color:var(--mut);margin-bottom:10px">Einsatzprotokoll · gedruckt '+new Date().toLocaleString('de-DE',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})+' Uhr · '+pats.length+' Patient(en) · ohne Fotos</div>';
+  /* Quick 261024 (Druck-Korrektur): Reihenfolge je CCP (im Verbund nicht mehr gemischt), Karten aus
+   * dem gemeinsamen Baustein atmistKartenHtml (Markup unverändert). */
+  patGruppen(pats, ccps).forEach(function(g){ h+=atmistKartenHtml(d, g.pats); });
   h+='</div>';
   var overlay=document.getElementById('atmist-print-overlay');
   if(!overlay){ overlay=document.createElement('div'); overlay.id='atmist-print-overlay'; document.body.appendChild(overlay); }
