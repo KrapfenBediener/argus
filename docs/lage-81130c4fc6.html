@@ -1,0 +1,1980 @@
+<!doctype html>
+<!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ARGUS · FLZ</title>
+<meta name="robots" content="noindex, nofollow, noarchive">
+<meta name="googlebot" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" type="image/png" href="../assets/icon-flz-192.png">
+<link rel="apple-touch-icon" href="../assets/icon-flz-180.png">
+<meta name="apple-mobile-web-app-title" content="ARGUS FLZ">
+<link rel="stylesheet" href="../vendor/leaflet/leaflet.css">
+<style>
+  /* Optik 1:1 nach docs/UI-AUSBLICK.html (PC — FLZ-Lagedashboard), Fonts lokal */
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-sans-600.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/ibm-plex-sans-700.woff2) format('woff2')}
+  @font-face{font-family:'IBM Plex Mono';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/ibm-plex-mono-600.woff2) format('woff2')}
+  :root{
+    --bg:#fff; --surf:#f6f7f8; --surf2:#eef0f2; --line:#d9dde1;
+    --tx:#16181a; --mut:#5d6368;
+    --t1:#C62828; --t2:#F2B600; --t3:#2E7D32; --t5:#1b1d20; --t5b:#3a3d41;
+    --prio:#E65100; --ready:#1565C0; --acc:#1f2530;
+    --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',monospace;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--surf);color:var(--tx);font-family:var(--sans);line-height:1.5;font-size:14px}
+  button{font-family:var(--sans);cursor:pointer;border:0}
+  input{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
+  input:focus{outline:2px solid var(--acc);outline-offset:0;border-color:var(--acc)}
+  .mono{font-family:var(--mono)}
+  /* Topbar — wie Mockup: Schiefer, Punkt, eine Zeile */
+  .topbar{background:var(--acc);color:#fff;display:flex;align-items:center;gap:8px;padding:8px 12px;font-size:13px;position:sticky;top:0;z-index:50}
+  .topbar .dot{width:9px;height:9px;border-radius:50%;background:#ffffff55;flex:0 0 auto}
+  .topbar .dot.ok{background:var(--t3)}
+  .topbar .dot.off{background:var(--t1)}
+  .topbar .tt{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .topbar .right{margin-left:auto;display:flex;align-items:center;gap:12px;white-space:nowrap}
+  .topbar .stand{opacity:.85;font-size:12px}
+  .topbar button{background:#ffffff1d;color:#fff;border-radius:8px;padding:5px 12px;font-size:12px;font-weight:600}
+  .topbar button:hover{background:#ffffff30}
+  /* Hauptfläche — Mockup .main */
+  .main{padding:14px;max-width:920px;margin:0 auto;width:100%}
+  .keeprow{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--mut)}
+  .keeprow input{width:18px;height:18px;margin:0}
+  /* CCP-Raster — Karten selbst im Baustein-Block (Muster A, Phase 6.8) */
+  .lgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  /* Hinweis-Note — Mockup .note */
+  .note{background:#fff;border:1px solid var(--line);border-left:4px solid var(--ready);border-radius:10px;padding:11px 14px;margin:14px 0 0;font-size:13px}
+  .note.err{border-left-color:var(--t1);color:var(--t1);font-weight:600;margin:0 0 12px}
+  .empty{background:#fff;border:1px solid var(--line);border-radius:11px;padding:14px;color:var(--mut);font-size:13px}
+  /* Login */
+  .loginwrap{min-height:calc(100vh - 40px);display:flex;align-items:flex-start;justify-content:center;padding:60px 14px}
+  .loginbox{background:#fff;border:1px solid var(--line);border-radius:14px;padding:26px 24px;max-width:380px;width:100%;box-shadow:0 6px 22px rgba(0,0,0,.06)}
+  .loginbox h1{font-size:18px;margin:0 0 4px}
+  .arg-logo{width:52px;height:52px;border-radius:13px;background:var(--acc);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;margin:0 auto 14px;letter-spacing:1px}
+  .hint{font-size:12px;color:var(--mut)}
+  .fieldlab{display:block;font-size:12px;color:var(--mut);margin:12px 0 5px;font-weight:600}
+  .lerr{color:var(--t1);font-size:12.5px;font-weight:600;margin-top:10px;min-height:18px}
+  .btn{background:var(--acc);color:#fff;border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600}
+  .btn:hover{filter:brightness(1.25)}
+  .btn[disabled]{opacity:.5;cursor:default}
+  /* 6.8-BAUSTEINE-ANFANG */
+  /* Geteilt mit der Verwaltung (Drift-Test): Klassen der Bausteine umgebungsBand,
+   * summenLeiste, karteA. Hintergründe über Variablen (Großbild überschreibt nur diese). */
+  .uband{padding:8px 14px;font-weight:700;font-size:13px;letter-spacing:.3px;line-height:1.35;border-left:10px solid transparent}
+  .uband.u-echt{background:#39404b;color:#fff;border-left-color:var(--t1)}
+  .uband.u-schulung{background:#F2B600;color:#1b1d20;border-left-color:#1b1d20}
+  .uband.u-unbekannt{background:#c9cdd2;color:#1b1d20;border-left-color:#6b7178}
+  /* Summenleiste D6.8-03: sechs große Kacheln + schmale Nebenzeile */
+  .sumbar{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:0 0 6px}
+  .sumbar .sum{background:var(--bg);border-radius:10px;padding:12px 6px 10px;text-align:center;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  /* Infokacheln (abtransportiert, offene CCPs): nur umrandet, ohne Füllung, in der Textfarbe des Modus */
+  .sumbar .sum.info{background:transparent;border:2px solid var(--tx);color:var(--tx);box-shadow:none}
+  .sumbar .n{font-family:var(--mono);font-weight:700;font-size:38px;line-height:1.05;color:inherit}
+  .sumbar .l{font-size:13px;font-weight:700;color:inherit}
+  .sumneben{font-size:12.5px;color:var(--mut);margin:0 0 12px;padding:0 2px}
+  .sumneben b{font-family:var(--mono);font-weight:600;color:var(--tx)}
+  /* Kartenmuster A D6.8-02: 2-px-Rahmen, dunkles Kopfband, Kategorien, Metazeile */
+  .ka{background:var(--bg);border:2px solid var(--acc);border-radius:10px;overflow:hidden;display:flex;flex-direction:column}
+  .kb{background:var(--acc);color:#fff;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:2px 10px;padding:7px 10px;font-weight:700;font-size:14px;line-height:1.3}
+  .kb.alt{background:#6b7178}
+  .kb.rot{background:var(--t1)}
+  .kb .kbl{min-width:0;overflow-wrap:anywhere}
+  .kbr{flex:0 0 auto;margin-left:auto;font-weight:600;font-size:12px;white-space:nowrap}
+  .ka .geo{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:3px}
+  .ka .ked{cursor:pointer;font-size:13px;opacity:.85;margin-left:4px}
+  .kz{display:flex;gap:5px;padding:9px 10px 5px}
+  .kz .k{flex:1;border-radius:6px;text-align:center;color:#fff;padding:6px 0 5px}
+  .kz .k .n{display:block;font-family:var(--mono);font-weight:700;font-size:22px;line-height:1.05}
+  .kz .k .l{font-size:10px;font-weight:600;opacity:.95}
+  .kmeta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 10px;padding:3px 10px 8px;font-size:12px;color:var(--mut)}
+  .kmeta b{font-family:var(--mono);font-weight:600;color:var(--tx)}
+  /* Verbund: je Mitglied eine Standortzeile (eine Patientenliste, mehrere Orte) */
+  .vmem{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--mut);padding:5px 10px;border-top:1px dashed var(--line)}
+  .vmem .nm2{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vmem .ked{margin-left:auto}
+  /* Verbund D6.9-10: kleiner Hinweis „Verbund“ unter dem Kopfband */
+  .vhin{padding:4px 10px 0;font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut)}
+  .vhin .vort{color:var(--tx)}
+  /* D6.10-08: Anzeige-Zusatz „Kennung doppelt“ (Pille) am CCP-Kopf und an der Mitgliedszeile */
+  .kdop{display:inline-block;margin-left:6px;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700;letter-spacing:.3px;background:#F2B600;color:#1b1d20;white-space:nowrap;vertical-align:1px}
+  .vmem .kdop{flex:0 0 auto}
+  /* Lagen D6.11-08/-10: Abschnitt je Lage mit Kopf (Name, „vor Ort eröffnet“, CCPs, Eröffnung) */
+  .labschnitt{margin:18px 0 0}
+  .lkopf{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin:0 0 8px;padding:8px 12px;border-left:8px solid var(--acc);border-radius:6px;background:var(--surf2);color:var(--tx);font-size:15px;font-weight:700}
+  .lkopf.ohne{border-left-color:#9aa1a8}
+  .lkopf .lkn{min-width:0;overflow-wrap:anywhere}
+  .lkopf .lvo{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);border:1px solid var(--line);border-radius:5px;padding:1px 6px}
+  .lkopf .lkr{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--mut)}
+  .lkhin{font-size:12px;color:var(--mut);margin:-4px 0 8px 2px}
+  .lgesamt{font-size:12px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);margin:0 0 6px}
+  /* 6.8-BAUSTEINE-ENDE */
+  /* Lage-eigene Klassen (Phase 6.8, D6.8-01): Band-Bereich und Auswahlbildschirm */
+  .ubar{position:sticky;top:var(--toph,37px);z-index:40;display:flex;align-items:stretch;box-shadow:0 2px 6px rgba(0,0,0,.12)}
+  .ubar .uband{flex:1;display:flex;align-items:center;min-width:0}
+  .ubar .btn{border-radius:0;padding:8px 16px;white-space:nowrap}
+  .uband.u-wahl{background:var(--surf2);color:var(--tx);border-left-color:var(--acc)}
+  .pblock{margin:16px 0 6px}
+  .pblock > h2{margin:0 0 10px;padding:7px 12px;font-size:14px;font-weight:700;letter-spacing:.3px;border-radius:6px;border-left:10px solid transparent}
+  .pblock.u-echt > h2{background:#39404b;color:#fff;border-left-color:var(--t1)}
+  .pblock.u-schulung > h2{background:#F2B600;color:#1b1d20;border-left-color:#1b1d20}
+  .pblock.u-unbekannt > h2{background:#c9cdd2;color:#1b1d20;border-left-color:#6b7178}
+  .pblock .phint{font-size:12px;color:var(--mut);margin:-4px 0 8px}
+  .pblock .pleer{font-size:13px;color:var(--mut);padding:4px 2px}
+  .ptiles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+  .ptile{min-height:72px;text-align:left;background:var(--bg);color:var(--tx);border:2px solid var(--acc);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;justify-content:space-between;gap:6px}
+  .ptile:hover{background:var(--surf2)}
+  .ptile .pn{font-weight:700;font-size:15px;line-height:1.25}
+  .ptile .pz{font-size:12px;color:var(--mut)}
+  .ptile .pz b{font-family:var(--mono);font-size:15px;color:var(--tx)}
+  .ptile .pz .pt1 b{color:var(--t1)}
+  .ptile.leer{border-color:var(--line);border-style:dashed}
+  .ptile.leer .pn{color:var(--mut)}
+  /* 6.8-SKIZZE */
+  /* D6.8-06 Lageskizze (Inline-SVG, kein Kartendienst): Farben über Variablen,
+   * funktioniert damit auch im Großbild. */
+  .skab{margin:18px 0 0}
+  .skab h3{margin:0;font-size:14px;font-weight:700;letter-spacing:.3px;color:var(--tx)}
+  .skkopf{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 8px}
+  .skizze{display:block;width:100%;height:auto;max-height:75vh}
+  .skizze .skrahmen{fill:var(--bg);stroke:var(--line);stroke-width:1}
+  .skizze text{font-family:var(--mono);font-weight:700;font-size:12px}
+  .skizze .sknord{fill:var(--mut);font-family:var(--sans);font-size:13px}
+  .skp circle{stroke:#fff;stroke-width:2}
+  .skp text{fill:#fff;font-size:11px}
+  .sk-t1 circle{fill:var(--t1)}
+  .sk-t2 circle{fill:var(--t2)}
+  .sk-t3 circle{fill:var(--t3)}
+  .sk-t5 circle{fill:var(--t5)}
+  .sk-leer circle{fill:var(--bg);stroke:var(--mut)}
+  .sk-grau circle{fill:#9aa1a8}
+  .sk-t2 text{fill:#1b1d20}
+  .sk-leer text{fill:var(--tx)}
+  .skmass line{stroke:var(--tx);stroke-width:3}
+  .skmass text{fill:var(--tx);font-family:var(--sans);font-size:13px;font-weight:700;stroke:var(--bg);stroke-width:4px;paint-order:stroke;stroke-linejoin:round}
+  .skizze .sklab{fill:var(--tx);font-family:var(--sans);font-size:13px;font-weight:600;stroke:var(--bg);stroke-width:4px;paint-order:stroke;stroke-linejoin:round}
+  .skdist line{stroke:var(--mut);stroke-width:1.5;stroke-dasharray:5 4}
+  .skizze .skdl{fill:var(--mut);font-family:var(--sans);font-size:12px;font-weight:600;stroke:var(--bg);stroke-width:4px;paint-order:stroke;stroke-linejoin:round}
+  .skhinw{font-size:13px;color:var(--tx);margin-top:6px}
+  .skohne{font-size:12.5px;color:var(--mut);margin-top:6px}
+  .skleer{background:var(--bg);border:1px dashed var(--line);border-radius:10px;padding:12px 14px;font-size:13px;color:var(--mut)}
+  .skwarn{background:#FFF4D1;border:1px solid #E0B84A;border-left:5px solid #F2B600;border-radius:10px;color:#3A2C00;font-size:13.5px;padding:12px 14px}
+  .skwarn b{font-weight:700}
+  .skohne.skwarn{margin-top:8px;padding:9px 12px}
+  .sklegende{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--mut);margin-top:6px}
+  .sklegende i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px;border:1px solid var(--line)}
+  .sklegende .lg-t1{background:var(--t1)}
+  .sklegende .lg-t2{background:var(--t2)}
+  .sklegende .lg-t3{background:var(--t3)}
+  .sklegende .lg-t5{background:var(--t5)}
+  .sklegende .lg-leer{background:var(--bg);border-color:var(--mut)}
+  .sklegende .lg-grau{background:#9aa1a8}
+  /* 6.8-KARTE */
+  /* Kartenmodul (Passform karte-config.js): Leaflet-Karte statt Skizze. Eigener
+   * Stapelkontext, damit Leaflet-Ebenen (z-index bis 1000) unter Kopfzeile und Band
+   * bleiben. Kacheln werden nie eingefärbt/invertiert (auch nicht im Großbild). */
+  .kschalter{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;flex:0 0 auto}
+  .kschalter button{background:var(--bg);color:var(--tx);font-size:12px;font-weight:600;padding:4px 12px}
+  .kschalter button + button{border-left:1px solid var(--line)}
+  .kschalter button[aria-pressed="true"]{background:var(--acc);color:#fff}
+  .kartehalter{position:relative;z-index:0;isolation:isolate}
+  .karte{height:440px;border:1px solid var(--line);border-radius:10px;background:#e8eaed;font-family:var(--sans)}
+  .karte .leaflet-tooltip.kartelab{font-family:var(--sans);font-size:13px;font-weight:600;color:#16181a;background:#fff;border:1px solid #9aa1a8;border-radius:6px;padding:2px 7px;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .karte .leaflet-control-attribution{font-family:var(--sans);font-size:11px}
+  .karte .leaflet-control-scale-line{font-family:var(--sans);font-weight:600}
+  .kfehl{font-size:12.5px;color:var(--mut);margin:0 0 6px}
+  /* 6.11-LAGEN */
+  /* D6.11-08 Reiter „Alle | <Lage> | … | Ohne Lage“ (nur FLZ-Seite; Abschnitte/Kopf im Baustein-Block) */
+  .lreiter{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+  .lreiter button{background:var(--bg);color:var(--tx);border:2px solid var(--acc);border-radius:8px;padding:6px 12px;font-size:13px;font-weight:700}
+  .lreiter button[aria-pressed="true"]{background:var(--acc);color:#fff}
+  .labschnitt .lgrid > .empty{grid-column:1/-1}
+  /* 6.11-LAGEN-VERWALTEN */
+  /* D6.11-07 Lage anlegen/umbenennen/abschließen — nur FLZ-Zugang/Master, nie im Großbild */
+  .lgleiste{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px}
+  .lgleiste .lgneu{margin:0 0 12px auto}
+  .lgakt{display:flex;gap:6px;margin:-4px 0 8px}
+  .lgbtn{background:var(--bg);color:var(--acc);border:1px solid var(--acc);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600}
+  .lgleer{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin:10px 0 0}
+  .lgdlg{position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px}
+  .lgdlg-box{background:#fff;color:#16181a;border-radius:14px;padding:18px;max-width:420px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)}
+  .lgdlg-t{font-weight:600;margin-bottom:8px}
+  .lgdlg-tx{margin:0 0 6px}
+  .lgdlg-in{width:100%;margin:8px 0 10px}
+  .lgdlg-hw{margin:0 0 12px}
+  .lgdlg-kn{display:flex;gap:8px}
+  .lgdlg-kn .btn{flex:1}
+  .lgdlg .lgdlg-no{background:var(--surf2);color:var(--tx)}
+  /* 6.8-GROSSBILD */
+  /* D6.8-05 Großbild für Leitstand-Bildschirm/Beamer. Zwei Teile: body.gross = Größen
+   * (große Zahlen, breites Raster) in beiden Farbschemata; body.gross.ggedaempft = gedämpftes
+   * Farbschema: nur der Seitenhintergrund wird ein ruhiges Off-White, alles andere (weiße
+   * CCP-Karten mit dunklem Kopfband, Summenleiste, veraltet, Skizze, Karte) bleibt exakt wie
+   * in der Normalansicht. Ohne ggedaempft bleibt das helle Normaldesign (Umschalter
+   * „Großbild: hell | gedämpft“, Wahl in localStorage). Nur eigene Regeln mit body.gross —
+   * der geteilte Baustein-Block bleibt unverändert. */
+  body.gross .main{max-width:none;padding:18px 22px}
+  body.gross .lgrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  body.gross .kb{font-size:22px;padding:9px 12px}
+  body.gross .kbr{font-size:20px}
+  body.gross .kdop{font-size:16px}
+  body.gross .vhin{font-size:15px}
+  body.gross .kz .k .n{font-size:44px}
+  body.gross .kz .k .l{font-size:14px}
+  body.gross .kmeta{font-size:15px}
+  body.gross .sumbar .n{font-size:48px}
+  body.gross .sumbar .l{font-size:15px}
+  body.gross .sumneben{font-size:16px}
+  body.gross .uband{font-size:18px}
+  body.gross .skab h3{font-size:18px}
+  body.gross .karte{height:62vh}
+  body.gross .karte .leaflet-tooltip.kartelab{font-size:15px}
+  body.gross .kschalter button{font-size:14px}
+  body.gross .lreiter button{font-size:18px;padding:8px 16px}
+  body.gross .lkopf{font-size:22px}
+  body.gross .lkopf .lkr{font-size:16px}
+  body.gross .lgesamt{font-size:15px}
+  body.gross .kfehl{font-size:15px}
+  body.gross .sklegende,body.gross .skohne{font-size:15px}
+  body.gross .skwarn{font-size:16px}
+  body.gross .skhinw{font-size:15px}
+  body.gross .skizze .sklab{font-size:15px}
+  body.gross .skizze .skdl{font-size:14px}
+  /* Gedämpft: Off-White (wärmer/grauer als Weiß, 1,2:1 zur weißen Karte). Die weißen Karten
+   * heben sich durch ihren 2-px-Rahmen in Schiefer ab; die hellen Linien von Karte, Kartenschalter
+   * und Skizze würden auf Off-White verschwinden und bekommen ein mittleres Grau. */
+  body.gross.ggedaempft{--surf:#E9E7E1}
+  body.gross.ggedaempft .karte{border-color:#9aa1a8}
+  body.gross.ggedaempft .kschalter{border-color:#9aa1a8}
+  body.gross.ggedaempft .skizze .skrahmen{stroke:#9aa1a8}
+  /* Umschalter „Großbild: hell | gedämpft“ in der Kopfzeile (nur im Großbild sichtbar) */
+  .topbar .gthema{display:inline-flex;align-items:center;gap:4px}
+  .topbar .gthema .gtl{font-size:12px;opacity:.85}
+  .topbar .gthema button[aria-pressed="true"]{background:#fff;color:var(--acc)}
+  /* Wachhalte-Zustand in der Kopfzeile (sichtbarer Fallback, Pitfall 7) */
+  .topbar .wach{display:inline-flex;align-items:center;gap:8px;font-size:12px;max-width:42vw;overflow:hidden;text-overflow:ellipsis}
+  .topbar .wach .wt{overflow:hidden;text-overflow:ellipsis}
+  .topbar .wach .wt.warn{color:#F2B600;font-weight:600}
+  .topbar .wach .wt.ok{opacity:.85}
+  /* 6.12-ANMELDUNG (nur FLZ-Seite): Kürzel · Rolle der persönlichen Sitzung */
+  .topbar .ident{font-size:12px;opacity:.9;white-space:nowrap}
+  @media(max-width:720px){ .sumbar{grid-template-columns:repeat(3,minmax(0,1fr))} }
+  @media(max-width:560px){ .lgrid{grid-template-columns:1fr 1fr} .ptiles{grid-template-columns:1fr 1fr} .main{padding:10px} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="dot" id="statdot"></span>
+  <span class="tt" id="toptitle">ARGUS · FLZ</span>
+  <span class="right">
+    <span class="stand" id="stattxt"></span>
+    <span class="wach" id="wachtxt"></span>
+    <span id="gthema" class="gthema" style="display:none"><span class="gtl">Großbild:</span><button id="gthell" data-action="gthema" data-thema="hell" aria-pressed="false" title="Großbild hell">hell</button><button id="gtgedaempft" data-action="gthema" data-thema="gedaempft" aria-pressed="true" title="Großbild gedämpft">gedämpft</button></span>
+    <button id="grossbtn" data-action="gross" style="display:none" title="Großbild für Leitstand/Beamer. Browser-Vollbild: Ctrl+Cmd+F (Mac) bzw. F11 (Windows)">Großbild</button>
+    <span id="identtxt"></span>
+    <button id="logoutbtn" data-action="logout" style="display:none">Abmelden</button>
+  </span>
+</div>
+<div id="app"></div>
+<script src="../config.js"></script>
+<script src="../karte-config.js"></script>
+<script src="../vendor/leaflet/leaflet.js"></script>
+<script>
+"use strict";
+
+/* ============================================================
+ * ARGUS · Lageübersicht — read-only Beobachter-Seite für FLZ/ILS (Stufe a)
+ * Optik nach dem Mockup docs/UI-AUSBLICK.html („PC — FLZ-Lagedashboard"),
+ * seit Phase 6.8: Auswahl Echtbetrieb/Schulung je Präsidium, Umgebungsband,
+ * Summenleiste, CCP-Karten im Kopfband-Muster (A), Hinweis-Note unten.
+ * Zugang nur mit Beobachter-Code (Observer-JWT, Migration 0005);
+ * Zahlen ausschließlich aus dem Aggregat-RPC argus_lage — die
+ * Seite kennt keine Patientendaten. Sitzung flüchtig
+ * (sessionStorage); Pull/Polling alle 20 s, kein Realtime.
+ * ============================================================ */
+
+/* Backend-Konfiguration zentral aus ../config.js (Phase 4.11, D-01).
+ * Kein supabase.js nötig: die Seite spricht genau zwei RPCs per fetch. */
+var _cfg = window.ARGUS_CONFIG || null;
+var _configError = !(_cfg && typeof _cfg.url==='string' && _cfg.url.indexOf('https://')===0 && _cfg.anonKey);
+var SUPA_URL = _configError ? '' : _cfg.url;
+var SUPA_KEY = _configError ? '' : _cfg.anonKey;
+
+var POLL_MS = 20000;          /* 20 s — Diskretionsentscheid (Spanne 15–30 s) */
+var _timer = null;
+var _data = null;             /* letzte erfolgreiche argus_lage-Antwort */
+var _lastOkAt = null;         /* ms des letzten erfolgreichen Polls */
+var _offline = false;
+var _polling = false;
+var _pollNeu = false;          /* 6.12: Poll lief beim Präsidiumswechsel noch → sofort neu */
+
+/* ── Hilfsfunktionen ─────────────────────────────────────────── */
+function $(id){ return document.getElementById(id); }
+function nowMs(){ return Date.now(); }
+/* HTML-Escaping JEDES dynamischen Werts — kennung/ort kommen von Feld-Geräten. */
+function esc(s){
+  if(s==null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function fmtClock(ms){
+  return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+function fmtHM(ms){
+  return new Date(+ms).toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ── Phase 6.8: reine Bausteine (geteilt mit der Verwaltung — Drift-Test in tests/verwaltung.test.cjs) ──
+ * Ab hier bis zum Abschnittsende: keine Globals außer LAGE_SCHWELLE_MS, esc() und fmtHM();
+ * Zeit und Daten kommen nur als Parameter. Die mit
+ * „geteilt“ markierten Funktionen werden byte-gleich in die Verwaltung kopiert. */
+/* geteilt — D6.8-04: ab 3 min ohne Lebenszeichen wird das Kopfband grau (Owner justiert). */
+var LAGE_SCHWELLE_MS = 180000;
+/* geteilt — D6.9-01: Kennung als Buchstabe („CCP A“); die Buchstabiertafel bleibt
+ * dem Funkspruch der Feld-App vorbehalten. „a / e“ → „A/E“. Kein Escaping — der
+ * Aufrufer escaped. */
+function kennungKurz(k){
+  if(k===null || k===undefined || k==='') return '';
+  return String(k).split('/').map(function(teil){ return teil.trim().toUpperCase(); }).join('/');
+}
+/* geteilt — D6.8-01: Umgebung eines Präsidiums. Das Flag praesidien.schulung
+ * gewinnt; ohne Flag nur POSITIVE Schulungs-Erkennung über das Namensmuster
+ * („… — Schulung“, „Schulungsumgebung“), sonst „unbekannt“ — nie still „echt“. */
+function umgebungVon(p){
+  if(p && typeof p.schulung==='boolean') return p.schulung ? 'schulung' : 'echt';
+  var n=String((p && p.name) || '');
+  if(/\s—\s*Schulung$/.test(n) || n==='Schulungsumgebung') return 'schulung';
+  return 'unbekannt';
+}
+/* geteilt — D6.8-01: Präsidium der Sitzung (FLZ-Zugang/Beobachter) über die beim
+ * Login gespeicherte praesidium_id; Altsitzungen ohne id per Namensabgleich;
+ * ohne Präsidienliste nur Namensheuristik. */
+function sitzungsPraesidium(pid, pname, praesidien){
+  var liste=Array.isArray(praesidien) ? praesidien : [], hit=null, i;
+  if(pid){ for(i=0;i<liste.length;i++){ if(liste[i] && liste[i].id===pid){ hit=liste[i]; break; } } }
+  if(!hit && pname){ for(i=0;i<liste.length;i++){ if(liste[i] && liste[i].name===pname){ hit=liste[i]; break; } } }
+  if(hit) return {id:hit.id, name:hit.name, umgebung:umgebungVon(hit)};
+  return {id:pid||'', name:pname||'', umgebung:umgebungVon({name:pname})};
+}
+/* D6.8-01: Auswahlkacheln des Masters — JEDES Präsidium der Liste (auch ohne
+ * offene CCPs), Zählwerte aus der Lage; CCPs eines nicht gelisteten Präsidiums
+ * ergeben Einträge aus den Lagedaten (Umgebung nur per Namensmuster). */
+function lageAuswahl(ccps, praesidien){
+  var out={echt:[], schulung:[], unbekannt:[]}, idx={}, order=[];
+  (Array.isArray(praesidien) ? praesidien : []).forEach(function(p){
+    if(!p || idx['k'+p.id]) return;
+    idx['k'+p.id]={e:{id:p.id, name:p.name||'', ccps:0, t1:0}, u:umgebungVon(p)};
+    order.push(idx['k'+p.id]);
+  });
+  (ccps||[]).forEach(function(c){
+    var id=c.praesidium_id||'', x=idx['k'+id];
+    if(!x){
+      x={e:{id:id, name:c.praesidium_name||'', ccps:0, t1:0}, u:umgebungVon({name:c.praesidium_name})};
+      idx['k'+id]=x; order.push(x);
+    }
+    x.e.ccps++; x.e.t1+=(+c.t1||0);
+  });
+  order.forEach(function(x){ out[x.u].push(x.e); });
+  ['echt','schulung','unbekannt'].forEach(function(b){
+    out[b].sort(function(a,z){ return String(a.name).localeCompare(String(z.name),'de'); });
+  });
+  return out;
+}
+/* D6.8-01: nur die CCPs des gewählten Präsidiums. */
+function ccpsFuer(ccps, pid){
+  return (ccps||[]).filter(function(c){ return (c.praesidium_id||'')===(pid||''); });
+}
+/* geteilt — D6.8-02: Verbund-/Solo-Gruppen in Lieferreihenfolge. Solo-Schlüssel
+ * mit praesidium_id qualifiziert (Kennungen sind nur je Präsidium eindeutig);
+ * n = laufende Verbund-Nummer ab 1, Einzel-CCPs 0. D6.9-10: verwaiste
+ * Ein-Mitglied-Gruppe = einzeln (wie der Server);
+ * der Schlüssel bleibt, die Nummer zählt nur echte Verbünde. */
+function lageGruppen(ccps){
+  var idx={}, out=[], vn=0;
+  (ccps||[]).forEach(function(c){
+    var key=c.verbund_gruppe || ('solo-'+(c.praesidium_id||'')+'-'+c.kennung);
+    var g=idx['k'+key];
+    if(!g){ g={key:key, verbund:!!c.verbund_gruppe, n:0, members:[]}; idx['k'+key]=g; out.push(g); }
+    g.members.push(c);
+  });
+  out.forEach(function(g){
+    if(g.verbund && g.members.length<2) g.verbund=false;
+    if(g.verbund) g.n=++vn;
+  });
+  return out;
+}
+/* geteilt — D6.9-10: Haupt-CCP = Mitglied mit id = verbund_gruppe (Konvention 0033),
+ * sonst kleinste Kennung (Altbestand, wie Server und Feld-App). Nur Objekte zählen;
+ * fehlende/leere Kennung zuletzt, Gleichstand → das erste; leer → null. */
+function lageHaupt(members){
+  var m=(Array.isArray(members) ? members : []).filter(function(c){ return !!c && typeof c==='object'; });
+  var best=null, i;
+  if(!m.length) return null;
+  for(i=0;i<m.length;i++){ if(m[i].id && m[i].id===m[i].verbund_gruppe) return m[i]; }
+  function kenn(c){ return (c.kennung===null || c.kennung===undefined || c.kennung==='') ? null : String(c.kennung); }
+  best=m[0];
+  for(i=1;i<m.length;i++){
+    var a=kenn(m[i]), b=kenn(best);
+    if(a!==null && (b===null || a<b)) best=m[i];
+  }
+  return best;
+}
+/* geteilt — D6.8-03: Summen (robust gegen Strings/null); pat = T1+T2+T3+T5+abtransportiert. */
+function lageSummen(list){
+  var s={t1:0,t2:0,t3:0,t5:0,gpa:0,prio:0,ready:0,pat:0,ccps:0};
+  (list||[]).forEach(function(c){
+    s.t1+=(+c.t1||0); s.t2+=(+c.t2||0); s.t3+=(+c.t3||0); s.t5+=(+c.t5||0);
+    s.gpa+=(+c.gpa||0); s.prio+=(+c.prio||0); s.ready+=(+c.ready||0);
+  });
+  s.pat=s.t1+s.t2+s.t3+s.t5+s.gpa;
+  s.ccps=(list||[]).length;
+  return s;
+}
+/* geteilt — D6.11-08/-10: Abschnitte je Lage; Verbund → Lage des Haupt-CCP; unbekannte/fehlende Lage → „Ohne Lage“.
+ * gruppen aus lageGruppen, lagen = einsatzlagen der Lage-Antwort (nur Objekte mit
+ * Zeichenketten-id). Reihenfolge: Eröffnungszeit, dann Name, dann id. Je Lage (auch
+ * ohne CCP) {key, lage, gis, s}; zuletzt höchstens ein {key:'ohne', lage:null, gis, s}
+ * — nur mit mindestens einer Gruppe. gis = Indizes in gruppen, s = lageSummen. */
+function lagenAbschnitte(gruppen, lagen){
+  var gr=Array.isArray(gruppen) ? gruppen : [], idx={}, out=[], ohne={key:'ohne', lage:null, gis:[], s:null}, ohneM=[];
+  var ls=(Array.isArray(lagen) ? lagen : []).filter(function(l){ return !!l && typeof l==='object' && typeof l.id==='string'; });
+  ls.sort(function(a, b){
+    var d=(+a.eroeffnet_at||0)-(+b.eroeffnet_at||0);
+    if(d) return d<0 ? -1 : 1;
+    d=String(a.name||'').localeCompare(String(b.name||''), 'de');
+    if(d) return d;
+    return a.id<b.id ? -1 : (a.id>b.id ? 1 : 0);
+  });
+  ls.forEach(function(l){
+    if(idx['k'+l.id]) return;
+    var ab={key:l.id, lage:{id:l.id, name:l.name, vor_ort:l.vor_ort, eroeffnet_at:l.eroeffnet_at}, gis:[], s:null, m:[]};
+    idx['k'+l.id]=ab; out.push(ab);
+  });
+  gr.forEach(function(g, gi){
+    var m=(g && g.members) || [], hp=lageHaupt(m), lid=hp && hp.einsatzlage_id;
+    var ab=(typeof lid==='string' && idx['k'+lid]) || null;
+    if(ab){ ab.gis.push(gi); ab.m=ab.m.concat(m); }
+    else{ ohne.gis.push(gi); ohneM=ohneM.concat(m); }
+  });
+  out.forEach(function(ab){ ab.s=lageSummen(ab.m); delete ab.m; });
+  if(ohne.gis.length){ ohne.s=lageSummen(ohneM); out.push(ohne); }
+  return out;
+}
+/* geteilt — D6.11-08/-10: Kopf eines Lage-Abschnitts — Lagename (escaped), Kennzeichen
+ * „vor Ort eröffnet“, Zahl der CCPs, Eröffnungszeit; „Ohne Lage“ mit Hinweis.
+ * Reine Anzeige: kein Aktions-Markup (Verwalten nur seitenspezifisch). */
+function lageKopf(ab){
+  ab=ab||{};
+  var l=ab.lage, n=+((ab.s||{}).ccps)||0;
+  var h='<div class="lkopf'+(l?'':' ohne')+'"><span class="lkn">'+(l ? esc(l.name||'') : 'Ohne Lage')+'</span>';
+  if(l && l.vor_ort===true) h+='<span class="lvo">vor Ort eröffnet</span>';
+  h+='<span class="lkr">'+n+(n===1?' CCP':' CCPs')+(l && +l.eroeffnet_at ? ' · eröffnet '+fmtHM(+l.eroeffnet_at) : '')+'</span></div>';
+  if(!l) h+='<div class="lkhin">CCPs ohne Lage-Zuordnung (ältere App-Versionen)</div>';
+  return h;
+}
+/* geteilt — D6.8-04: Aktualität eines CCP. Feld-Präsenz-Fallback: ohne den
+ * 0032-Schlüssel zuletzt_gesehen → modus 'ohne' und NIE grau (Patientenstempel
+ * sind kein Lebenszeichen). Mit Schlüssel: Alter = Server-stand + Zeit seit dem
+ * Poll − jüngster Stempel (nicht die PC-Uhr); grau ab > schwelleMs. */
+function ccpAktualitaet(c, standMs, seitPollMs, schwelleMs){
+  function zahl(v){
+    if(typeof v==='number') return isFinite(v) ? v : null;
+    if(typeof v==='string' && v.trim()!=='' && isFinite(+v)) return +v;
+    return null;
+  }
+  c=c||{};
+  var la=zahl(c.letzte_aenderung);
+  if(!('zuletzt_gesehen' in c)) return {modus:'ohne', t:la, alt:false, min:null};
+  var hb=zahl(c.zuletzt_gesehen), t=null;
+  if(hb!==null) t=hb;
+  if(la!==null && (t===null || la>t)) t=la;
+  if(t===null) return {modus:'mit', t:null, alt:true, min:null};
+  var alter=Math.max(0, (+standMs||0) + Math.max(0, +seitPollMs||0) - t);
+  return {modus:'mit', t:t, alt:alter>schwelleMs, min:Math.floor(alter/60000)};
+}
+/* geteilt — D6.8-04: Aktualität einer Gruppe (Verbund) = frischestes Mitglied;
+ * modus 'mit', sobald mindestens ein Mitglied den 0032-Schlüssel trägt. */
+function gruppenAktualitaet(members, standMs, seitPollMs, schwelleMs){
+  function zahl(v){
+    if(typeof v==='number') return isFinite(v) ? v : null;
+    if(typeof v==='string' && v.trim()!=='' && isFinite(+v)) return +v;
+    return null;
+  }
+  var la=null, zg=null, hat=false;
+  (members||[]).forEach(function(c){
+    if(!c) return;
+    var a=zahl(c.letzte_aenderung);
+    if(a!==null && (la===null || a>la)) la=a;
+    if('zuletzt_gesehen' in c){
+      hat=true;
+      var g=zahl(c.zuletzt_gesehen);
+      if(g!==null && (zg===null || g>zg)) zg=g;
+    }
+  });
+  var syn={letzte_aenderung:la};
+  if(hat) syn.zuletzt_gesehen=zg;
+  return ccpAktualitaet(syn, standMs, seitPollMs, schwelleMs);
+}
+/* geteilt — D6.8-04: Alterstext fürs Kopfband. */
+function fmtAlter(min, hhmm){
+  if(min===null || min===undefined) return 'noch keine Meldung';
+  if(min<90) return 'Stand vor '+min+' min';
+  return 'letzte Meldung '+hhmm;
+}
+/* geteilt — D6.8-01: Umgebungsband unter der Kopfzeile. Schulung amber,
+ * Echtbetrieb neutral mit rotem Marker, alles andere „Umgebung unbekannt“. */
+function umgebungsBand(umgebung, text){
+  var u=(umgebung==='echt' || umgebung==='schulung') ? umgebung : 'unbekannt';
+  var label= u==='schulung' ? 'SCHULUNG — keine echten Patientendaten' : (u==='echt' ? 'ECHTBETRIEB' : 'Umgebung unbekannt');
+  return '<div class="uband u-'+u+'">'+label+(text?' · '+esc(text):'')+'</div>';
+}
+/* geteilt — D6.8-03: Summenleiste je Präsidium — T1, T2, T3, T5, abtransportiert,
+ * offene CCPs groß; darunter Nebenzeile Prio/transportfertig/Patienten gesamt. */
+function summenLeiste(s){
+  s=s||{};
+  /* T1/T2/T3/T5: gefüllte Kategoriekacheln wie die Karten, Schrift mit Kontrast (T2 dunkel auf Gelb).
+   * Ohne bg: umrandete Infokachel (.info) ohne Füllung — klar abgesetzt von der T5-Kachel. */
+  function kachel(n, label, bg, fg, cls){
+    return '<div class="sum'+(cls?' '+cls:'')+'"'+(bg?' style="background:'+bg+';color:'+fg+'"':'')+'><div class="n">'+(+n||0)+'</div><div class="l">'+label+'</div></div>';
+  }
+  var h='<div class="sumbar">';
+  h+=kachel(s.t1, 'T1', 'var(--t1)', '#fff');
+  h+=kachel(s.t2, 'T2', 'var(--t2)', '#3A2C00');
+  h+=kachel(s.t3, 'T3', 'var(--t3)', '#fff');
+  h+=kachel(s.t5, 'T5', 'var(--t5)', '#fff', 's-t5');
+  h+=kachel(s.gpa, 'abtransportiert', '', '', 'info');
+  h+=kachel(s.ccps, 'offene CCPs', '', '', 'info');
+  h+='</div>';
+  h+='<div class="sumneben">Prio-Transport <b>'+(+s.prio||0)+'</b> · transportfertig <b>'+(+s.ready||0)+'</b> · Patienten gesamt <b>'+(+s.pat||0)+'</b></div>';
+  return h;
+}
+/* geteilt — D6.8-02/-04: CCP-Karte im Muster A („Kopfband“). g = Gruppe aus
+ * lageGruppen, akt = gruppenAktualitaet(…), opts = {ortEdit, geoKlick, vnTotal}.
+ * Kennung als Buchstabe („CCP A“, D6.9-01); grau nur mit echtem Lebenszeichen
+ * (akt.alt). Jede Zeichenkette über esc(), Zahlen über (+x||0)/toFixed.
+ * D6.9-10 Verbund: Kopfband „CCP A+B · <Ort des Haupt-CCP>“ mit dessen Koordinaten
+ * (Haupt = lageHaupt), darunter der Hinweis „Verbund“ (bei mehreren „Verbund 2“);
+ * je Mitglied eine Zeile „CCP A · Ort · Haupt-CCP“ bzw. „CCP B · früher: Ort“.
+ * Reine Anzeige (D6.9-11): keine Knöpfe, nichts ziehbar — Zusammenlegung entscheidet
+ * das Feld. */
+function karteA(g, akt, opts){
+  g=g||{}; akt=akt||{modus:'ohne', t:null, alt:false, min:null}; opts=opts||{};
+  var m=g.members||[], s=lageSummen(m), c0=m[0]||{}, h;
+  function geo(c){ return typeof c.lat==='number' && typeof c.lng==='number' && isFinite(c.lat) && isFinite(c.lng); }
+  function ortZiel(c, text, cls){
+    if(opts.geoKlick && geo(c)){
+      return '<span class="'+cls+' geo" data-action="copygeo" data-lat="'+(+c.lat).toFixed(5)+'" data-lng="'+(+c.lng).toFixed(5)+'" title="Koordinaten kopieren">📍 '+text+'</span>';
+    }
+    return '<span class="'+cls+'">'+text+'</span>';
+  }
+  function stift(c){
+    return opts.ortEdit ? '<span class="ked" data-action="editort" data-kennung="'+esc(c.kennung)+'" data-ort="'+esc(c.ort||'')+'" title="Ort eintragen/ändern">✏️</span>' : '';
+  }
+  /* D6.10-08: Kennung beim Nachreichen doppelt → nur Anzeige-Zusatz, nie umbenennen
+   * (Nummer auf der Haut). Fester Text, nur bei kennung_kollision === true. */
+  function dop(c){
+    return (c && c.kennung_kollision===true) ? '<span class="kdop" title="Kennung doppelt — per Funk klären">Kennung doppelt</span>' : '';
+  }
+  var hp=lageHaupt(m)||c0;
+  h='<div class="ka">';
+  h+='<div class="kb'+(akt.alt?' alt':'')+'"><span class="kbl">';
+  if(g.verbund){
+    h+=ortZiel(hp, 'CCP '+m.map(function(c){ return esc(kennungKurz(c.kennung)); }).join('+')+(hp.ort?' · '+esc(hp.ort):''), 'kn');
+    if(m.some(function(c){ return c && c.kennung_kollision===true; })) h+=dop({kennung_kollision:true});
+  }else{
+    h+=ortZiel(c0, 'CCP '+esc(kennungKurz(c0.kennung))+(c0.ort?' · '+esc(c0.ort):''), 'kn')+dop(c0)+stift(c0);
+  }
+  h+='</span><span class="kbr">'+(akt.alt ? esc(fmtAlter(akt.min, akt.t?fmtHM(akt.t):'—'))+' · ' : '')+s.pat+' Pat.</span></div>';
+  /* D6.10-12 (argus_lage ab 0038): vor Ort ohne Netz zusammengelegt — reiner Anzeige-Zusatz
+   * am Verbund-Hinweis, nur wenn ein Mitglied einen Zeitpunkt (Zahl > 0) trägt. */
+  var vort=m.some(function(c){ return c && typeof c.verbund_vor_ort_at==='number' && c.verbund_vor_ort_at>0; });
+  if(g.verbund) h+='<div class="vhin">Verbund'+(opts.vnTotal>1?' '+(+g.n||0):'')+(vort?'<span class="vort"> · '+esc('vor Ort zusammengelegt (ohne Netz)')+'</span>':'')+'</div>';
+  h+='<div class="kz">';
+  h+='<div class="k" style="background:var(--t1)"><span class="n">'+s.t1+'</span><span class="l">T1</span></div>';
+  h+='<div class="k" style="background:var(--t2);color:#3A2C00"><span class="n">'+s.t2+'</span><span class="l">T2</span></div>';
+  h+='<div class="k" style="background:var(--t3)"><span class="n">'+s.t3+'</span><span class="l">T3</span></div>';
+  h+='<div class="k" style="background:var(--t5);border:1px solid var(--t5b)"><span class="n">'+s.t5+'</span><span class="l">T5</span></div>';
+  h+='</div>';
+  var rechts;
+  if(akt.modus==='mit'){
+    var ger=0;
+    m.forEach(function(c){ ger+=(+c.geraete_aktiv||0); });
+    rechts='Geräte '+ger+' · '+(akt.t ? 'Stand '+fmtHM(akt.t) : 'noch keine Meldung');
+  }else{
+    rechts='Geräte — · letzte Änderung '+(akt.t ? fmtHM(akt.t) : '—');
+  }
+  h+='<div class="kmeta"><span>abtransportiert <b>'+s.gpa+'</b> · Prio <b>'+s.prio+'</b> · fertig <b>'+s.ready+'</b></span><span>'+rechts+'</span></div>';
+  if(g.verbund){
+    m.forEach(function(c){
+      var isH=(c===hp);
+      h+='<div class="vmem">';
+      h+=ortZiel(c, isH
+        ? 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · '+esc(c.ort):' · <i>Ort fehlt</i>')+' · Haupt-CCP'
+        : 'CCP '+esc(kennungKurz(c.kennung))+(c.ort?' · früher: '+esc(c.ort):' · <i>Ort fehlt</i>'), 'nm2')+dop(c)+stift(c);
+      h+='</div>';
+    });
+  }
+  return h+'</div>';
+}
+/* D6.8-01 (nur Lage): Auswahlbildschirm des Masters — Block „Echtbetrieb“, Block
+ * „Schulung“, Block „Umgebung unbekannt“ nur bei Einträgen. Je Präsidium eine
+ * große Kachel (Name, offene CCPs, T1-Summe), auch ohne offene CCPs. */
+function auswahlKacheln(a){
+  a=a||{};
+  function kachel(e){
+    var n=+e.ccps||0;
+    return '<button class="ptile'+(n?'':' leer')+'" data-action="pselect" data-pid="'+esc(e.id)+'">'+
+      '<span class="pn">'+(e.name?esc(e.name):'<i>(ohne Präsidium)</i>')+'</span>'+
+      '<span class="pz"><b>'+n+'</b> '+(n===1?'offener CCP':'offene CCPs')+' · <span class="pt1">T1 <b>'+(+e.t1||0)+'</b></span></span>'+
+      '</button>';
+  }
+  function block(u, titel, liste, hinweis){
+    var h='<section class="pblock u-'+u+'"><h2>'+titel+'</h2>';
+    if(hinweis) h+='<div class="phint">'+hinweis+'</div>';
+    if(!liste || !liste.length) h+='<div class="pleer">Keine Präsidien in dieser Umgebung.</div>';
+    else h+='<div class="ptiles">'+liste.map(kachel).join('')+'</div>';
+    return h+'</section>';
+  }
+  var h=block('echt', 'Echtbetrieb', a.echt)+block('schulung', 'Schulung', a.schulung);
+  if(a.unbekannt && a.unbekannt.length) h+=block('unbekannt', 'Umgebung unbekannt', a.unbekannt, 'Präsidienliste nicht abrufbar — Zuordnung nach Namen');
+  return h;
+}
+/* ── Ende Phase-6.8-Bausteine (reine Funktionen) ── */
+
+/* ── Phase 6.11 (nur FLZ-Seite, NICHT geteilt): Lagen-Reiter ──────────────────
+ * D6.11-08: Bei zwei oder mehr Abschnitten Reiter „Alle | <Lage> | … | Ohne Lage“;
+ * die Wahl gilt je Präsidium für die Sitzung (sessionStorage arguslg_lagewahl, kein
+ * Sitzungsschlüssel) und auch im Großbild. D6.11-09: der FLZ-Zugang sieht alle Lagen
+ * seines Präsidiums; der Master nur die des gewählten Präsidiums. */
+function lagenFuer(einsatzlagen, pid){
+  return (Array.isArray(einsatzlagen) ? einsatzlagen : []).filter(function(l){
+    return !!l && typeof l==='object' && (!pid || l.praesidium_id===pid);
+  });
+}
+/* rein: Reiterleiste — '' unter zwei Abschnitten; Namen und data-lage escaped. */
+function lageReiter(abschnitte, wahl){
+  var ab=Array.isArray(abschnitte) ? abschnitte : [];
+  if(ab.length<2) return '';
+  function knopf(key, text){
+    return '<button data-action="lagewahl" data-lage="'+esc(key)+'" aria-pressed="'+(wahl===key ? 'true' : 'false')+'">'+text+'</button>';
+  }
+  var h='<nav class="lreiter" aria-label="Lagen">'+knopf('alle', 'Alle');
+  ab.forEach(function(a){
+    a=a||{};
+    h+=knopf(a.key, (a.lage ? esc(a.lage.name||'') : 'Ohne Lage')+' ('+(+((a.s||{}).ccps)||0)+')');
+  });
+  return h+'</nav>';
+}
+/* rein: gespeicherte Wahl nur, wenn es den Abschnitt noch gibt — sonst „alle“. */
+function lageWahlGueltig(wahl, abschnitte){
+  if(wahl==='alle') return 'alle';
+  var ab=Array.isArray(abschnitte) ? abschnitte : [], i;
+  for(i=0;i<ab.length;i++){ if(ab[i] && typeof wahl==='string' && ab[i].key===wahl) return wahl; }
+  return 'alle';
+}
+function lageWahlGet(pid){
+  try{
+    var o=JSON.parse(sessionStorage.getItem('arguslg_lagewahl')||'null');
+    return (o && o.pid===pid && typeof o.w==='string') ? o.w : 'alle';
+  }catch(e){ return 'alle'; }
+}
+function lageWahlSet(pid, w){
+  try{ sessionStorage.setItem('arguslg_lagewahl', JSON.stringify({pid:pid, w:String(w||'alle')})); }catch(e){}
+}
+/* Präsidium, für das die Reiterwahl gilt: Master = gewähltes Präsidium, sonst das der Sitzung. */
+function lagePidKey(){
+  if(isGlobal()) return pselGet();
+  try{ return sessionStorage.getItem('arguslg_pid')||'eigen'; }catch(e){ return 'eigen'; }
+}
+/* ── Phase 6.11 (D6.11-07): FLZ legt Lagen an, benennt sie um und schließt sie ab —
+ * rein organisatorisch, kein CCP-Eingriff (D6.11-06, D6.9-11) ───────────────────
+ * Nur FLZ-Seite. Bedienelemente nur mit Server-Fähigkeit (argus_lage liefert
+ * einsatzlagen), nur für FLZ-Zugang und Master, nie im Großbild. Ob die Aktion
+ * erlaubt ist, entscheidet ausschließlich der Server (Migration 0035). */
+function lageVerwaltbar(faehig, glob, adm, gross){
+  return !!faehig && (!!glob || !!adm) && !gross;
+}
+/* rein: Name wie der Server ihn speichert — Leerraum zusammengefasst, Ränder gekürzt. */
+function lageNameNorm(s){
+  return String(s==null ? '' : s).replace(/\s+/g, ' ').trim();
+}
+function lageNameOk(s){
+  var n=lageNameNorm(s).length;
+  return n>=1 && n<=80;
+}
+/* Clientseitige uuid v4 → Anlegen ist beim Wiederholen idempotent (Server: on conflict). */
+function lageNeueId(){
+  try{ if(typeof crypto!=='undefined' && crypto && typeof crypto.randomUUID==='function') return String(crypto.randomUUID()); }catch(e){}
+  var b=new Uint8Array(16), i, h='';
+  try{ crypto.getRandomValues(b); }catch(e){ for(i=0;i<16;i++) b[i]=Math.floor(Math.random()*256); }
+  b[6]=(b[6]&0x0f)|0x40;
+  b[8]=(b[8]&0x3f)|0x80;
+  for(i=0;i<16;i++){
+    h+=(b[i]<16 ? '0' : '')+b[i].toString(16);
+    if(i===3 || i===5 || i===7 || i===9) h+='-';
+  }
+  return h;
+}
+/* rein: Server-Meldung roh (der Dialog escaped), sonst neutraler Text. */
+function lageRpcFehler(d){
+  return d && d.meldung ? String(d.meldung) : 'Aktion fehlgeschlagen.';
+}
+/* rein: Inhalt des Dialog-Overlays. Eingabe (cfg.eingabe), Frage, Info (cfg.info: nur OK).
+ * Alle Werte über esc(); keine data-action — die Knöpfe gehören nur dem Dialog. */
+function lageDialogHtml(cfg){
+  cfg=cfg||{};
+  var h='<div class="lgdlg-box" role="dialog" aria-modal="true">'+
+    '<div class="lgdlg-t">'+esc(cfg.titel||'')+'</div>';
+  if(cfg.text) h+='<p class="lgdlg-tx">'+esc(cfg.text)+'</p>';
+  if(cfg.eingabe) h+='<input class="lgdlg-in" maxlength="80" autocomplete="off" value="'+esc(cfg.wert||'')+'">';
+  if(cfg.hinweis) h+='<p class="hint lgdlg-hw">'+esc(cfg.hinweis)+'</p>';
+  h+='<div class="lgdlg-kn"><button class="btn lgdlg-ok">'+esc(cfg.ok||'OK')+'</button>';
+  if(!cfg.info) h+='<button class="btn lgdlg-no">Abbrechen</button>';
+  return h+'</div></div>';
+}
+/* Schreibaufruf nur an die drei Lage-RPCs (Positivliste). 401 → Abmeldung (null);
+ * HTTP-/Netzfehler → {ok:false, meldung}; sonst die Server-Antwort. */
+async function lageRpc(fn, args){
+  if(['argus_einsatzlage_anlegen', 'argus_einsatzlage_umbenennen', 'argus_einsatzlage_abschliessen'].indexOf(fn)<0){
+    return {ok:false, meldung:'Unbekannte Aktion.'};
+  }
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+  var resp, d;
+  try{
+    resp=await fetch(SUPA_URL+'/rest/v1/rpc/'+fn,{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify(args||{})
+    });
+  }catch(e){
+    return {ok:false, meldung:'Keine Verbindung — bitte erneut versuchen.'};
+  }
+  if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+  if(!resp.ok) return {ok:false, meldung:'Server-Fehler (HTTP '+resp.status+').'};
+  try{ d=await resp.json(); }catch(e){ d=null; }
+  return (d && typeof d==='object') ? d : {ok:false, meldung:'Unerwartete Antwort.'};
+}
+/* In-Page-Dialog (kein natives prompt/confirm): Overlay an document.body wie ortPrompt —
+ * übersteht das 20-s-Neuzeichnen von #app. Enter = OK, Escape = Abbrechen (Info: OK),
+ * Klick auf den Hintergrund = Abbrechen. Ergebnis: Eingabe → Text | null,
+ * Frage → true | null, Info → true. */
+function lageDialog(cfg){
+  cfg=cfg||{};
+  return new Promise(function(resolve){
+    var ov=document.createElement('div'), fertig=false, nein=cfg.info ? true : null;
+    ov.className='lgdlg';
+    ov.innerHTML=lageDialogHtml(cfg);
+    document.body.appendChild(ov);
+    var inp=ov.querySelector('.lgdlg-in'), ok=ov.querySelector('.lgdlg-ok');
+    function done(v){
+      if(fertig) return;
+      fertig=true;
+      document.removeEventListener('keydown', taste, true);
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+      resolve(v);
+    }
+    function ja(){ done(inp ? inp.value : true); }
+    function taste(e){
+      if(e.key==='Enter'){ e.preventDefault(); e.stopPropagation(); ja(); }
+      else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); done(nein); }
+    }
+    document.addEventListener('keydown', taste, true);
+    ov.addEventListener('click', function(e){
+      var t=e.target;
+      if(t && t.closest && t.closest('.lgdlg-ok')) ja();
+      else if(t && t.closest && t.closest('.lgdlg-no')) done(nein);
+      else if(t===ov) done(nein);
+    });
+    if(inp){ inp.focus(); if(inp.select) inp.select(); }
+    else if(ok) ok.focus();
+  });
+}
+function lageHinweis(titel, text){
+  return lageDialog({titel:titel, text:text, info:true, ok:'OK'});
+}
+/* Sperre gegen Doppelklick (ein Ablauf zur Zeit); offene Anlage merkt sich ihre uuid,
+ * damit eine Wiederholung nach Verbindungsfehler keine zweite Lage erzeugt. */
+var _lageBusy=false, _lageNeuOffen=null;
+/* D6.11-01: Regelfall — die FLZ legt die Lage an, bevor vor Ort ein CCP eröffnet wird. */
+async function lageAnlegen(pid){
+  if(_lageBusy) return;
+  _lageBusy=true;
+  try{
+    var roh=await lageDialog({titel:'Lage anlegen', text:'Name der Lage, z. B. „LebEL XY-Schule“ oder „MANV Hauptbahnhof“.',
+      hinweis:'Nur Anlass oder Objekt — keine Personennamen.', eingabe:true, wert:'', ok:'Anlegen'});
+    if(roh==null) return;
+    if(!lageNameOk(roh)){ await lageHinweis('Lage anlegen', 'Bitte einen Namen angeben (höchstens 80 Zeichen).'); return; }
+    var name=lageNameNorm(roh), p=pid||null, o=_lageNeuOffen;
+    var id=(o && o.pid===p && o.name===name) ? o.id : lageNeueId();
+    _lageNeuOffen={pid:p, name:name, id:id};
+    var d=await lageRpc('argus_einsatzlage_anlegen', {p_id:id, p_praesidium_id:p, p_name:name});
+    if(!d) return;
+    if(d.ok){ _lageNeuOffen=null; flash('Lage „'+name+'“ angelegt'); poll(); return; }
+    if(d.fehler) _lageNeuOffen=null;   /* Server hat abgelehnt → nächster Versuch mit neuer uuid */
+    await lageHinweis('Lage anlegen', lageRpcFehler(d));
+  }finally{
+    _lageBusy=false;
+  }
+}
+async function lageUmbenennen(lage){
+  if(_lageBusy || !lage || !lage.id) return;
+  _lageBusy=true;
+  try{
+    var roh=await lageDialog({titel:'Lage umbenennen', text:'Neuer Name der Lage.',
+      hinweis:'Nur Anlass oder Objekt — keine Personennamen.', eingabe:true, wert:lage.name||'', ok:'Umbenennen'});
+    if(roh==null) return;
+    if(!lageNameOk(roh)){ await lageHinweis('Lage umbenennen', 'Bitte einen Namen angeben (höchstens 80 Zeichen).'); return; }
+    var d=await lageRpc('argus_einsatzlage_umbenennen', {p_id:lage.id, p_name:lageNameNorm(roh)});
+    if(!d) return;
+    if(d.ok){ flash(d.unveraendert ? 'Name unverändert' : 'Lage umbenannt'); poll(); return; }
+    await lageHinweis('Lage umbenennen', lageRpcFehler(d));
+  }finally{
+    _lageBusy=false;
+  }
+}
+/* D6.11-07: Abschluss nur durch die FLZ, ohne Timer/Automatik; der Server lehnt ab,
+ * solange ein CCP der Lage offen ist („Die Lage hat noch N offene CCPs …“). */
+async function lageAbschliessen(lage){
+  if(_lageBusy || !lage || !lage.id) return;
+  _lageBusy=true;
+  try{
+    var ja=await lageDialog({titel:'Lage „'+(lage.name||'')+'“ abschließen?',
+      text:'Sie erscheint im Feld danach nicht mehr zur Auswahl. Abschließen geht nur, wenn kein CCP der Lage mehr offen ist.', ok:'Abschließen'});
+    if(ja!==true) return;
+    var d=await lageRpc('argus_einsatzlage_abschliessen', {p_id:lage.id});
+    if(!d) return;
+    if(d.ok){ flash(d.bereits ? 'Lage war bereits abgeschlossen' : 'Lage abgeschlossen'); poll(); return; }
+    await lageHinweis('Lage abschließen', lageRpcFehler(d));
+  }finally{
+    _lageBusy=false;
+  }
+}
+/* rein: Aktionen je Lage-Abschnitt (seitenspezifisch, nicht im geteilten lageKopf). */
+function lageAktionen(lage){
+  var id=esc((lage||{}).id||'');
+  return '<span class="lgakt"><button class="lgbtn" data-action="lageumben" data-lage="'+id+'">Umbenennen</button>'+
+    '<button class="lgbtn" data-action="lageabschl" data-lage="'+id+'">Abschließen</button></span>';
+}
+
+/* ── Sitzung: sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
+ * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname / arguslg_pid / arguslg_global / arguslg_admin.
+ * Standard: Tab zu = Sitzung weg. Opt-in (Owner 2026-10-14): mit gesetztem
+ * arguslg_keep werden die Sitzungsschlüssel zusätzlich in localStorage gespiegelt
+ * und beim nächsten Öffnen wiederhergestellt — bis zum Ablauf des JWT (Master:
+ * 30 Tage), bis „Abmelden" oder bis der Server mit 401 ablehnt (Sofortsperre).
+ * Explizite Schlüsselliste statt Präfix-Scan: Leitungs- und Lage-Seite teilen
+ * sich denselben Origin (localStorage), argusl_ ist Präfix von arguslg_. */
+var SESS_KEYS=['arguslg_jwt','arguslg_jwt_exp','arguslg_pname','arguslg_pid','arguslg_global','arguslg_admin','arguslg_keep',
+  'arguslg_ident','arguslg_kuerzel','arguslg_rolle','arguslg_praesidien'];
+function sessWipeLocal(){ try{ SESS_KEYS.forEach(function(k){ localStorage.removeItem(k); }); }catch(e){} }
+function sessRestore(){   /* Tab frisch, aber persistierte Sitzung vorhanden → übernehmen */
+  try{
+    if(sessionStorage.getItem('arguslg_jwt')) return;
+    if(localStorage.getItem('arguslg_keep')!=='1' || !localStorage.getItem('arguslg_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=localStorage.getItem(k); if(v!=null) sessionStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessMirror(){    /* Opt-in aktiv → Sitzung nach localStorage spiegeln (nur bei Änderung) */
+  try{
+    if(sessionStorage.getItem('arguslg_keep')!=='1') return;
+    if(localStorage.getItem('arguslg_jwt')===sessionStorage.getItem('arguslg_jwt')) return;
+    SESS_KEYS.forEach(function(k){ var v=sessionStorage.getItem(k); if(v!=null) localStorage.setItem(k,v); });
+  }catch(e){}
+}
+function sessionJwt(){
+  sessRestore();
+  var jwt=sessionStorage.getItem('arguslg_jwt');
+  var exp=parseInt(sessionStorage.getItem('arguslg_jwt_exp')||'0',10);
+  if(!jwt||!exp) return null;
+  if(exp<=nowMs()){ sessionStorage.clear(); sessWipeLocal(); return null; }
+  sessMirror();
+  return jwt;
+}
+function doLogout(msg){
+  sessionStorage.clear(); sessWipeLocal();
+  wachAus();   /* D6.8-05: Wachhalten endet mit der Sitzung; die Großbild-Vorliebe bleibt stehen */
+  karteAbbauen(); _karteFehler=false;
+  if(_timer){ clearInterval(_timer); _timer=null; }
+  _data=null; _lastOkAt=null; _offline=false; _praesidien=null; _praesAt=0;
+  render();
+  if(msg) setLoginError(msg);
+}
+
+/* ── Phase 6.12 (D6.12-02): persönliche Anmeldung — eine Identität für Feld, FLZ und Verwaltung ──
+ * Nur FLZ-Seite, NICHT geteilt. Persönliche Codes laufen über rpc/argus_anmelden
+ * (p_oberflaeche 'flz', Migration 0040); Alt-Codes (Beobachter, FLZ-Zugang,
+ * MasterToken) und Server-Stände < 40 gehen unverändert den bisherigen Weg
+ * (D6.12-21). Rechte und Bereich entscheidet ausschließlich der Server. */
+/* Geräte-Kennung dieser Seite für die Fehlversuchs-Begrenzung je Gerät (D6.12-14):
+ * zufällig, dauerhaft in localStorage, bewusst NICHT in SESS_KEYS (überlebt „Abmelden“). */
+function flzGeraetId(){
+  var v='', b=new Uint8Array(8), i;
+  try{ v=localStorage.getItem('arguslg_geraet')||''; }catch(e){}
+  if(/^[0-9a-f]{16}$/.test(v)) return v;
+  try{ crypto.getRandomValues(b); }catch(e){ for(i=0;i<8;i++) b[i]=Math.floor(Math.random()*256); }
+  v='';
+  for(i=0;i<8;i++) v+=(b[i]+256).toString(16).slice(1);
+  try{ localStorage.setItem('arguslg_geraet', v); }catch(e){}
+  return v;
+}
+/* rein: Antwort von argus_anmelden → 'ident' (persönliche Sitzung), 'alt' (bisheriger
+ * Weg: Alt-Code, Server ohne FLZ-Zweig/ohne RPC, unklare Antwort) oder 'fehler'
+ * (Server-Meldung zeigen, kein Rückfall — z. B. gedrosselt, alt_code_aus).
+ * 'abgelaufen' geht den bisherigen Weg mit: der Beobachter-Weg kennt kein Ablaufdatum (D6.12-21). */
+function anmeldeKlasseFlz(d, status){
+  if(d && typeof d==='object' && d.ok===true && d.jwt) return 'ident';
+  if(status===404 || !(status>=200 && status<300)) return 'alt';
+  if(!d || typeof d!=='object' || d.ok!==false || typeof d.fehler!=='string') return 'alt';
+  if(d.fehler==='alt_code' || d.fehler==='oberflaeche' || d.fehler==='abgelaufen') return 'alt';
+  return 'fehler';
+}
+/* rein: Klartext zur Antwort — Server-Meldung, sonst fester Text */
+function anmeldeMeldungFlz(d){
+  return (d && typeof d.meldung==='string' && d.meldung) ? d.meldung : 'Anmeldung fehlgeschlagen.';
+}
+/* rein: Präsidienliste der Antwort → [{id,name,schulung}] (nur Einträge mit id) */
+function identListe(l){
+  return (Array.isArray(l) ? l : []).filter(function(p){
+    return !!p && typeof p==='object' && typeof p.id==='string' && !!p.id;
+  }).map(function(p){ return {id:p.id, name:String(p.name==null ? '' : p.name), schulung:!!p.schulung}; });
+}
+/* Persönliche Sitzung speichern — dieselben Schlüssel wie bisher (Ablauf in ms), dazu
+ * arguslg_ident/_kuerzel/_rolle/_praesidien. Globale Auswahl-Form → arguslg_global,
+ * Präsidiums-Form → arguslg_admin (wie FLZ-Zugang: eigenes Präsidium, Lagen verwalten). */
+function identSitzungSpeichern(d){
+  sessionStorage.setItem('arguslg_jwt', d.jwt);
+  sessionStorage.setItem('arguslg_jwt_exp', String((+d.exp||0)*1000));
+  sessionStorage.setItem('arguslg_ident', '1');
+  sessionStorage.setItem('arguslg_kuerzel', String(d.kuerzel==null ? '' : d.kuerzel));
+  sessionStorage.setItem('arguslg_rolle', String(d.rolle==null ? '' : d.rolle));
+  sessionStorage.setItem('arguslg_praesidien', JSON.stringify(identListe(d.praesidien)));
+  sessionStorage.setItem('arguslg_global', d.global ? '1' : '');
+  sessionStorage.setItem('arguslg_admin', d.global ? '' : '1');
+  sessionStorage.setItem('arguslg_pid', d.praesidium_id||'');
+  sessionStorage.setItem('arguslg_pname', d.praesidium_name||'');
+}
+/* Persönliche Sitzung? Bestandssitzungen (ohne arguslg_ident) bleiben beim bisherigen Verhalten. */
+function isIdent(){ try{ return sessionStorage.getItem('arguslg_ident')==='1'; }catch(e){ return false; } }
+/* Erlaubte Präsidien der persönlichen Sitzung; Müll im Speicher → [] */
+function identPraesidien(){
+  try{ return identListe(JSON.parse(sessionStorage.getItem('arguslg_praesidien')||'[]')); }catch(e){ return []; }
+}
+function identMehrere(){ return identPraesidien().length>1; }
+/* rein: Rolle → Anzeigetext */
+function rolleText(r){
+  if(r==='administrator') return 'Administrator';
+  if(r==='trainer') return 'Trainer';
+  return 'Sachbearbeiter';
+}
+/* rein: Kopfzeile der persönlichen Sitzung „<Kürzel> · <Rolle>“ (escaped) */
+function identKopfHtml(kuerzel, rolle){
+  return '<span class="ident">'+esc(kuerzel==null ? '' : kuerzel)+' · '+esc(rolleText(rolle))+'</span>';
+}
+/* Präsidien der Auswahl: persönliche Sitzung → nur die erlaubten (Bedienung; der Server
+ * filtert argus_lage und argus_sitzung_wechseln selbst, T-06.12-0801); sonst wie bisher. */
+function auswahlDaten(ccps, praesidien){
+  if(!isIdent()) return lageAuswahl(ccps, praesidien);
+  var erlaubt=identPraesidien(), ids={};
+  erlaubt.forEach(function(p){ ids['k'+p.id]=true; });
+  return lageAuswahl((ccps||[]).filter(function(c){ return !!c && ids['k'+(c.praesidium_id||'')]===true; }), erlaubt);
+}
+/* Präsidium wechseln ohne Code-Eingabe (rpc/argus_sitzung_wechseln, 0040): pid → Sitzung
+ * dieses Präsidiums, null → zurück zur Auswahl. Gleiche Sitzung (jti), keine Verlängerung. */
+var _identBusy=false;
+async function identWechsel(pid){
+  if(_identBusy) return;
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  _identBusy=true;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_sitzung_wechseln',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify({ p_praesidium_id:pid||null, p_oberflaeche:'flz' })
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    var d=null; try{ d=await resp.json(); }catch(e){}
+    if(!d || d.ok!==true || !d.jwt){
+      /* Sitzung serverseitig beendet (z. B. Person gesperrt) → abmelden wie bei 401 */
+      if(d && d.fehler==='sitzung'){ doLogout(anmeldeMeldungFlz(d)); return; }
+      flash((d && typeof d.meldung==='string' && d.meldung) ? d.meldung : 'Präsidium wechseln fehlgeschlagen'+(resp.ok ? '.' : ' (HTTP '+resp.status+').'));
+      return;
+    }
+    sessionStorage.setItem('arguslg_jwt', d.jwt);
+    sessionStorage.setItem('arguslg_jwt_exp', String((+d.exp||0)*1000));
+    sessionStorage.setItem('arguslg_global', d.global ? '1' : '');
+    sessionStorage.setItem('arguslg_admin', d.global ? '' : '1');
+    sessionStorage.setItem('arguslg_pid', d.praesidium_id||'');
+    sessionStorage.setItem('arguslg_pname', d.praesidium_name||'');
+    if(Array.isArray(d.praesidien)) sessionStorage.setItem('arguslg_praesidien', JSON.stringify(identListe(d.praesidien)));
+    pselSet('');
+    /* Zahlen des vorigen Präsidiums nie unter dem neuen zeigen */
+    _data=null; _lastOkAt=null; _offline=false;
+    render();
+    poll();
+  }catch(e){
+    flash('Keine Verbindung — bitte erneut versuchen.');
+  }finally{
+    _identBusy=false;
+  }
+}
+/* Phase 6.12 (D6.12-25, Migration 0047): persönliche Sitzungen laufen 30 Tage und verlängern
+ * sich still, solange die Seite genutzt wird — wie die Feld-App: Restlaufzeit < 7 Tage → nach
+ * einem erfolgreichen Abruf rpc/argus_sitzung_erneuern (gleiche Sitzung/jti, gleiche Form,
+ * frische Laufzeit). Höchstens ein Versuch je 10 min. 401 bzw. fehler 'sitzung' (Person oder
+ * Code gesperrt) → abmelden; sonst (Netz, Server ohne 0047) still weiter — die Sitzung läuft
+ * dann wie bisher zu ihrem Ablauf aus. „Abmelden“ beendet sie wie bisher. Bestandssitzungen
+ * (Beobachter, FLZ-Zugang, MasterToken) erneuern sich nicht. */
+var ERNEUERN_VOR_MS=7*24*3600*1000, ERNEUERN_PAUSE_MS=600000, _erneuertAt=0, _erneuerBusy=false;
+/* rein: Erneuerung fällig? (Ablauf in ms bekannt und Restlaufzeit unter 7 Tagen) */
+function erneuernFaellig(expMs, jetzt){
+  return typeof expMs==='number' && expMs>0 && expMs-jetzt<ERNEUERN_VOR_MS;
+}
+async function identErneuern(){
+  if(!isIdent() || _identBusy || _erneuerBusy) return;
+  var jwt=sessionJwt();
+  if(!jwt) return;
+  var exp=parseInt(sessionStorage.getItem('arguslg_jwt_exp')||'0',10);
+  if(!erneuernFaellig(exp, nowMs()) || nowMs()-_erneuertAt<ERNEUERN_PAUSE_MS) return;
+  _erneuertAt=nowMs();
+  _erneuerBusy=true;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_sitzung_erneuern',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:'{}'
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    var d=null; try{ d=await resp.json(); }catch(e){}
+    if(!d || d.ok!==true || !d.jwt){
+      if(d && d.fehler==='sitzung') doLogout(anmeldeMeldungFlz(d));
+      return;
+    }
+    /* inzwischen gewechselt oder abgemeldet → Antwort verwerfen */
+    if(sessionStorage.getItem('arguslg_jwt')!==jwt) return;
+    var pidVorher=sessionStorage.getItem('arguslg_pid')||'';
+    sessionStorage.setItem('arguslg_jwt', d.jwt);
+    sessionStorage.setItem('arguslg_jwt_exp', String((+d.exp||0)*1000));
+    sessionStorage.setItem('arguslg_global', d.global ? '1' : '');
+    sessionStorage.setItem('arguslg_admin', d.global ? '' : '1');
+    sessionStorage.setItem('arguslg_pid', d.praesidium_id||'');
+    sessionStorage.setItem('arguslg_pname', d.praesidium_name||'');
+    if(Array.isArray(d.praesidien)) sessionStorage.setItem('arguslg_praesidien', JSON.stringify(identListe(d.praesidien)));
+    if((d.praesidium_id||'')!==pidVorher){
+      /* Präsidium nicht mehr im Bereich → Auswahl: Zahlen des vorigen Präsidiums nie weiter zeigen */
+      pselSet('');
+      _data=null; _lastOkAt=null; _offline=false;
+      render();
+      poll();
+    }
+  }catch(e){
+    /* still — nächster Versuch frühestens in 10 min */
+  }finally{
+    _erneuerBusy=false;
+  }
+}
+
+/* ── Login: persönlicher Code (6.12) → sonst Beobachter-Code → Observer-JWT ──
+ * Phase 6.12 (D6.12-02/-21): zuerst rpc/argus_anmelden (p_oberflaeche 'flz');
+ * Alt-Code, HTTP 404 oder Server < 40 → bisherige Kette unverändert.
+ * rpc/argus_exchange_observer_code weist MasterToken und normale
+ * Feld-Codes serverseitig ab ('Kein Beobachter-Code'). */
+async function doLogin(raw){
+  if(_configError){ setLoginError('Konfiguration fehlt (config.js) — kein Backend verbunden.'); return; }
+  var clean=(raw||'').replace(/[\s\-]/g,'').toUpperCase();
+  if(clean.length<8){ setLoginError('Bitte vollständigen Code eingeben.'); return; }
+  setLoginError('');
+  /* Opt-in „Angemeldet bleiben": Flag in der Sitzung; sessionJwt() spiegelt dann
+   * nach localStorage. Ohne Häkchen: evtl. alte persistierte Sitzung löschen. */
+  var keep=!!($('keepme') && $('keepme').checked);
+  try{ sessionStorage.setItem('arguslg_keep', keep?'1':''); }catch(e){}
+  if(!keep) sessWipeLocal();
+  var btn=$('loginbtn'); if(btn){ btn.disabled=true; btn.textContent='Prüfe…'; }
+  try{
+    /* Phase 6.12: persönlicher Code mit Geräte-Kennung dieser Seite (Fehlversuchs-Begrenzung je Gerät, D6.12-14) */
+    var resp0=await fetch(SUPA_URL+'/rest/v1/rpc/argus_anmelden',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ p_code:clean, p_oberflaeche:'flz', p_praesidium_id:null, p_scope:'echt', p_geraet:flzGeraetId() })
+    });
+    var data0=null; try{ data0=await resp0.json(); }catch(e){}
+    var klasse=anmeldeKlasseFlz(data0, resp0.status);
+    if(klasse==='ident'){ identSitzungSpeichern(data0); render(); startPolling(); return; }
+    if(klasse==='fehler'){ setLoginError(anmeldeMeldungFlz(data0)); return; }
+    /* 'alt': bisherige Kette — ein abgelaufener persönlicher Code behält seine Meldung */
+    var altMeldung=(data0 && data0.fehler==='abgelaufen') ? anmeldeMeldungFlz(data0) : '';
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_observer_code',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+      body:JSON.stringify({ code:clean })
+    });
+    var data=await resp.json();   /* ungültiger Code = HTTP 200 + {error:…} */
+    var isAdm=false;
+    if(!data || !data.jwt){
+      /* FLZ-Zugang (0023, = Admin-Rolle): denselben Code gegen
+       * argus_exchange_admin_code versuchen → Lage des eigenen Präsidiums
+       * (argus_lage hat seit 0013 einen Admin-Zweig). Erst wenn auch das
+       * scheitert, den ursprünglichen Fehler zeigen. */
+      var firstErr=(data && data.error) ? data.error : 'Ungültiger oder verbrauchter Code.';
+      var resp2=await fetch(SUPA_URL+'/rest/v1/rpc/argus_exchange_admin_code',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+SUPA_KEY },
+        body:JSON.stringify({ code:clean })
+      });
+      var data2=null; try{ data2=await resp2.json(); }catch(e){}
+      if(!data2 || !data2.jwt){ setLoginError(altMeldung || firstErr); return; }
+      data=data2; isAdm=true;
+    }
+    sessionStorage.setItem('arguslg_jwt', data.jwt);
+    sessionStorage.setItem('arguslg_jwt_exp', String(data.exp*1000));
+    sessionStorage.setItem('arguslg_pname', data.praesidium_name||'');
+    /* Phase 6.8 (D6.8-01): Umgebung über praesidien.schulung — dazu die
+     * praesidium_id der Sitzung merken (Master: leer, er wählt selbst). */
+    sessionStorage.setItem('arguslg_pid', data.praesidium_id||'');
+    /* Master-Login (0021): flz=true → präsidienübergreifender Global-Modus. */
+    sessionStorage.setItem('arguslg_global', data.flz ? '1' : '');
+    /* FLZ-Zugang: eigenes Präsidium, read-only; Ort-Korrektur (observer-only RPC) aus. */
+    sessionStorage.setItem('arguslg_admin', isAdm ? '1' : '');
+    render();
+    startPolling();
+  }catch(e){
+    setLoginError('Keine Verbindung — bitte erneut versuchen.');
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='Anmelden'; }
+  }
+}
+function setLoginError(msg){ var e=$('loginerr'); if(e) e.textContent=msg||''; }
+
+/* ── Polling: rpc/argus_lage ────────────────────────────────────
+ * Erfolg → Zahlen + „Stand HH:MM:SS"; Fehler → letzte Zahlen
+ * WEITER anzeigen + roter Punkt „Keine Verbindung". 401/abgelaufene
+ * Sitzung → zurück zum Login. */
+async function poll(){
+  if(_polling) return;
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+  /* Präsidienliste fehlt noch (Abruf gescheitert) → höchstens einmal je Minute neu versuchen */
+  if(_praesidien===null && nowMs()-_praesAt>60000) loadPraesidien();
+  _polling=true;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:'{}'
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    /* Phase 6.12 (T-06.12-0803): Sitzung serverseitig beendet (Person/Code gesperrt) → abmelden statt „Keine Verbindung“ */
+    if(resp.status===400){
+      var fe=null; try{ fe=await resp.json(); }catch(e2){}
+      if(fe && typeof fe.message==='string' && fe.message.indexOf('Nur mit Beobachter-, Admin- oder FLZ-Zugang')>=0){
+        doLogout('Zugang beendet — bitte neu anmelden.'); return;
+      }
+    }
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var data=await resp.json();
+    if(!data || !Array.isArray(data.ccps)) throw new Error('Unerwartete Antwort');
+    /* Präsidium inzwischen gewechselt (6.12): Antwort der vorigen Sitzung verwerfen, neu abfragen */
+    if(sessionJwt()!==jwt){ _pollNeu=true; return; }
+    _data=data; _lastOkAt=nowMs(); _offline=false;
+    identErneuern();   /* D6.12-25: still verlängern, wenn fällig (nicht abwarten) */
+  }catch(e){
+    _offline=true;
+  }finally{
+    _polling=false;
+    render();
+    if(_pollNeu){ _pollNeu=false; poll(); }
+  }
+}
+function startPolling(){
+  if(_timer) clearInterval(_timer);
+  loadPraesidien();   /* nicht awaiten — die Lage kommt unabhängig davon */
+  poll();
+  _timer=setInterval(poll, POLL_MS);
+}
+window.addEventListener('online', function(){ if(sessionJwt()) poll(); });
+document.addEventListener('visibilitychange', function(){
+  if(document.visibilityState==='visible' && sessionJwt()) poll();
+  /* D6.8-05: Der Browser gibt die Wake-Lock-Sperre bei verdecktem Tab frei →
+   * beim Zurückkehren neu anfordern. Scheitert das ohne Nutzergeste (Safari, A3),
+   * bleibt „nicht möglich“ mit Knopf „Wachhalten wieder aktivieren“ stehen. */
+  if(document.visibilityState==='visible' && _wlWanted && !_wl) wachAn();
+});
+
+/* ── Präsidienliste (Phase 6.8, D6.8-01) ─────────────────────────
+ * GET praesidien (id, name, schulung) mit dem Sitzungs-JWT — RLS anon_read,
+ * genau wie die Feld-App. Grundlage für Echtbetrieb/Schulung und für Kacheln
+ * auch ohne offene CCPs. Fehler → _praesidien bleibt null (Fallback über die
+ * Namen aus den Lagedaten), NIE Logout. */
+var _praesidien = null, _praesAt = 0;
+async function loadPraesidien(){
+  var jwt=sessionJwt(); if(!jwt) return;
+  _praesAt=nowMs();
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/praesidien?select=id,name,schulung&order=name',{
+      headers:{ 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt }
+    });
+    if(!resp.ok) throw new Error('HTTP '+resp.status);
+    var d=await resp.json();
+    if(Array.isArray(d) && sessionJwt()===jwt){ _praesidien=d; render(); }
+  }catch(e){ /* bleibt null — nächster Versuch im Poll */ }
+}
+
+/* ── Großbild (Phase 6.8, D6.8-05) ─────────────────────────────────
+ * Umschalter „Großbild“ für Leitstand-Bildschirm/Beamer: gedämpftes Off-White, große
+ * Zahlen, breites Raster (CSS-Block 6.8-GROSSBILD) und Bildschirm-Wachhalten per
+ * Screen Wake Lock, wo verfügbar. Die Vorliebe liegt als Anzeige-Einstellung in
+ * localStorage (arguslg_gross) und ist NICHT Teil der Sitzung: Anmeldedauer
+ * unverändert, kein Eingriff in JWT, Ablauf, Abmelden oder Polling.
+ * Wake Lock nur im sicheren Kontext (HTTPS); fehlt die API oder scheitert die
+ * Anforderung, sagt die Kopfzeile es sichtbar — der Modus selbst läuft weiter.
+ * Nach dem Neuladen wird NICHT automatisch angefordert (keine Nutzergeste):
+ * Zustand „aus“ mit Knopf „Wachhalten aktivieren“. */
+var _wl=null, _wlWanted=false, _wlZustand='', _wlBusy=false;
+/* rein: Zustand → Hinweistext in der Kopfzeile */
+function wachText(z){
+  if(z==='an') return 'Bildschirm bleibt an';
+  if(z==='nicht verfügbar' || z==='nicht möglich') return 'Bildschirm bleibt nicht automatisch an — Energiesparen am Rechner prüfen';
+  if(z==='unterbrochen') return 'Wachhalten unterbrochen';
+  if(z==='aus') return 'Wachhalten aus';
+  return '';
+}
+/* rein: Zustand → Knopf (nur feste Texte) */
+function wachKnopf(z){
+  if(z==='unterbrochen' || z==='nicht möglich') return '<button class="wachbtn" data-action="wachan">Wachhalten wieder aktivieren</button>';
+  if(z==='aus') return '<button class="wachbtn" data-action="wachan">Wachhalten aktivieren</button>';
+  return '';
+}
+function grossVorliebe(){ try{ return localStorage.getItem('arguslg_gross')==='1'; }catch(e){ return false; } }
+/* Farbschema des Großbilds: nur 'hell' oder 'gedaempft' (Standard), ebenfalls Anzeige-Vorliebe.
+ * Der frühere gespeicherte Wert 'dunkel' (und jeder andere) wird als 'gedaempft' gelesen. */
+function grossThema(){ try{ return localStorage.getItem('arguslg_gross_thema')==='hell' ? 'hell' : 'gedaempft'; }catch(e){ return 'gedaempft'; } }
+function grossThemaSetzen(t){
+  t = (t==='hell') ? 'hell' : 'gedaempft';
+  try{ localStorage.setItem('arguslg_gross_thema', t); }catch(e){}
+  grossAnwenden(true);
+}
+/* Zustandsanzeige in der Kopfzeile — Text escaped, Knopf aus festen Texten */
+function wachZeigen(){
+  var w=$('wachtxt'); if(!w) return;
+  var t=wachText(_wlZustand);
+  var cls=(_wlZustand==='an') ? ' ok' : ((_wlZustand==='aus' || !_wlZustand) ? '' : ' warn');
+  w.innerHTML=(t ? '<span class="wt'+cls+'">'+esc(t)+'</span>' : '')+wachKnopf(_wlZustand);
+  w.title=t;
+}
+function wachSetzen(z){ _wlZustand=z||''; wachZeigen(); }
+/* Großbild anwenden (Start/render). Nur angemeldet: Login-Maske bleibt hell. */
+function grossAnwenden(angemeldet){
+  var an=!!angemeldet && grossVorliebe();
+  var th=grossThema();
+  document.body.classList.toggle('gross', an);
+  document.body.classList.toggle('ggedaempft', an && th==='gedaempft');
+  var tw=$('gthema'), td=$('gtgedaempft'), thl=$('gthell');
+  if(tw) tw.style.display=an ? '' : 'none';
+  if(td) td.setAttribute('aria-pressed', th==='gedaempft' ? 'true' : 'false');
+  if(thl) thl.setAttribute('aria-pressed', th==='hell' ? 'true' : 'false');
+  var b=$('grossbtn');
+  if(b){ b.style.display=angemeldet ? '' : 'none'; b.textContent=an ? 'Normalansicht' : 'Großbild'; }
+  if(an && !_wlWanted && !_wlZustand) _wlZustand='aus';
+  if(!an && !_wlWanted) _wlZustand='';
+  wachZeigen();
+}
+/* Klick „Großbild“/„Normalansicht“ (Nutzergeste → Wake Lock darf angefordert werden) */
+function grossUmschalten(){
+  var an=!grossVorliebe();
+  try{ if(an) localStorage.setItem('arguslg_gross','1'); else localStorage.removeItem('arguslg_gross'); }catch(e){}
+  if(an) wachAn(); else wachAus();
+  grossAnwenden(true);
+}
+/* MDN-Muster: anfordern, release beobachten, bei visibilitychange neu anfordern */
+async function wachAn(){
+  _wlWanted=true;
+  if(!('wakeLock' in navigator)){ wachSetzen('nicht verfügbar'); return; }
+  if(_wl){ wachSetzen('an'); return; }
+  if(_wlBusy) return;
+  _wlBusy=true;
+  try{
+    var sperre=await navigator.wakeLock.request('screen');
+    if(!_wlWanted){ sperre.release(); return; }   /* inzwischen ausgeschaltet */
+    _wl=sperre;
+    sperre.addEventListener('release', function(){
+      if(_wl===sperre) _wl=null;
+      if(_wlWanted) wachSetzen('unterbrochen');
+    });
+    wachSetzen('an');
+  }catch(e){
+    if(_wlWanted) wachSetzen('nicht möglich');
+  }finally{
+    _wlBusy=false;
+  }
+}
+function wachAus(){
+  _wlWanted=false;
+  var sperre=_wl; _wl=null;
+  if(sperre){ try{ sperre.release(); }catch(e){} }
+  wachSetzen('');
+}
+
+/* ── Lageskizze (Phase 6.8, D6.8-06) ───────────────────────────────
+ * Schlichte SVG-Skizze der CCP-Standorte aus den erfassten Koordinaten
+ * (argus_lage lat/lng, seit 0009). Die Skizze selbst ruft nichts ab; sie ist der
+ * Rückfall des Kartenmoduls (unten), wenn keine Passform eingetragen ist oder der
+ * Kartendienst nicht erreichbar ist. Keine automatische Ausreißer-Entfernung (würde die Lage
+ * verfälschen); die Maßstabsleiste macht Ausreißer sichtbar. Alles rein/testbar. */
+/* rein: Lagefarbe einer Gruppe — veraltet grau, sonst schwerste Kategorie */
+function lageFarbe(s, alt){
+  s=s||{};
+  if(alt) return 'grau';
+  if((+s.t1||0)>0) return 't1';
+  if((+s.t2||0)>0) return 't2';
+  if((+s.t3||0)>0) return 't3';
+  if((+s.t5||0)>0) return 't5';
+  return 'leer';
+}
+/* rein: Koordinate als Zahl — Zahl oder numerischer Text (numeric kommt je nach
+ * Backend/Proxy auch als Text an), sonst null. */
+function koordZahl(v){
+  if(typeof v==='number') return isFinite(v) ? v : null;
+  if(typeof v==='string' && v.trim()!=='' && isFinite(+v)) return +v;
+  return null;
+}
+/* rein: Luftlinie in Metern (Haversine) */
+function distanzM(la1, ln1, la2, ln2){
+  var R=6371000, r=Math.PI/180;
+  var a=Math.sin((la2-la1)*r/2), b=Math.sin((ln2-ln1)*r/2);
+  var h=a*a+Math.cos(la1*r)*Math.cos(la2*r)*b*b;
+  return 2*R*Math.asin(Math.min(1, Math.sqrt(h)));
+}
+/* rein: Entfernung als Text — auf 10 m gerundet, ab 1 km mit Komma */
+function distText(m){
+  m=+m;
+  if(!isFinite(m) || m<0) return '';
+  if(m<10) return '< 10 m';
+  var r=Math.round(m/10)*10;
+  if(r>=1000) return (m/1000).toFixed(1).replace('.',',')+' km';
+  return r+' m';
+}
+/* rein: äquirektangulär um die mittlere Breite, Norden oben, gleichmäßiger
+ * Maßstab, Mindestausdehnung 0.0009° (~100 m), 12 % Rand, zentriert. */
+function skizzeProjektion(pts, W, H, pad){
+  var ok=[];
+  (pts||[]).forEach(function(p){
+    if(!p) return;
+    var la=koordZahl(p.lat), ln=koordZahl(p.lng);
+    if(la===null || ln===null || Math.abs(la)>90 || Math.abs(ln)>180 || (la===0 && ln===0)) return;
+    ok.push({lat:la, lng:ln, ref:p});
+  });
+  if(!ok.length) return {punkte:[], meterProPx:null};
+  var lat0=ok.reduce(function(s,p){ return s+p.lat; },0)/ok.length;
+  var k=Math.cos(lat0*Math.PI/180), MIN=0.0009;
+  var xs=ok.map(function(p){ return p.lng*k; }), ys=ok.map(function(p){ return -p.lat; });
+  var x0=Math.min.apply(null,xs), x1=Math.max.apply(null,xs), y0=Math.min.apply(null,ys), y1=Math.max.apply(null,ys);
+  var sx=Math.max(x1-x0, MIN)*1.12, sy=Math.max(y1-y0, MIN)*1.12;
+  var s=Math.min((W-2*pad)/sx, (H-2*pad)/sy), cx=(x0+x1)/2, cy=(y0+y1)/2;
+  return {
+    punkte: ok.map(function(p,i){ return {x:W/2+(xs[i]-cx)*s, y:H/2+(ys[i]-cy)*s, lat:p.lat, lng:p.lng, ref:p.ref}; }),
+    meterProPx: 111320/s
+  };
+}
+/* rein: größte „runde“ Länge, die in maxPx passt */
+function massstab(meterProPx, maxPx){
+  var mpp=+meterProPx;
+  if(meterProPx===null || !isFinite(mpp) || !(mpp>0)) return null;
+  var stufen=[10,20,50,100,200,500,1000,2000,5000,10000], m=null, i;
+  for(i=0;i<stufen.length;i++){ if(stufen[i]/mpp<=(+maxPx||0)) m=stufen[i]; }
+  if(m===null) return {m:10, px:10/mpp, text:'10 m'};
+  return {m:m, px:m/mpp, text: m>=1000 ? (m/1000)+' km' : m+' m'};
+}
+/* rein (nur Lage, NICHT geteilt): Punkte für Lageskizze und Straßenkarte.
+ * D6.9-10: je Verbund genau ein Punkt am Haupt-CCP (lageHaupt); frühere Orte der
+ * Mitglieder nicht als Punkt. Einzel-CCPs: je Mitglied ein Punkt. {c, gi, name} in
+ * Gruppenreihenfolge; name roh („CCP A+B“), der Aufrufer escaped.
+ * D6.11-08: trägt die Gruppe lageName (Ansicht „Alle“ mit mehreren Lagen), steht der
+ * Lagename (gekürzt auf 18 Zeichen) davor: „LebEL XY-Schule · CCP A“. */
+function lagePunkte(gruppen){
+  var out=[];
+  (gruppen||[]).forEach(function(g, gi){
+    var m=(g && g.members) || [], pre='';
+    if(g && g.lageName){
+      pre=String(g.lageName);
+      if(pre.length>18) pre=pre.slice(0,17)+'…';
+      pre+=' · ';
+    }
+    if(g && g.verbund){
+      if(!m.length) return;
+      out.push({c:lageHaupt(m)||m[0]||{}, gi:gi, name:pre+'CCP '+m.map(function(c){ return kennungKurz((c||{}).kennung); }).join('+')});
+      return;
+    }
+    m.forEach(function(c){ c=c||{}; out.push({c:c, gi:gi, name:pre+'CCP '+kennungKurz(c.kennung)}); });
+  });
+  return out;
+}
+/* rein: Skizze als HTML. Punkte aus lagePunkte (D6.9-10: je Verbund genau ein Punkt am
+ * Haupt-CCP; frühere Orte der Mitglieder nicht als Punkt), nur mit gültigen Koordinaten,
+ * Farbe je Gruppe, grau bei veraltetem Stand. Jede
+ * Zeichenkette über esc(), jede Zahl über toFixed(1); kein img/foreignObject/Verweis. */
+function skizzeSvg(gruppen, akts, W, H){
+  gruppen=gruppen||[]; akts=akts||[]; W=+W||640; H=+H||360;
+  function n(v){ return (+v||0).toFixed(1); }
+  var pts=[], farben=[];
+  gruppen.forEach(function(g, gi){
+    var m=(g && g.members) || [];
+    farben[gi]=lageFarbe(lageSummen(m), !!(akts[gi] && akts[gi].alt));
+  });
+  lagePunkte(gruppen).forEach(function(lp){ pts.push({lat:lp.c.lat, lng:lp.c.lng, c:lp.c, gi:lp.gi, name:lp.name}); });
+  var pr=skizzeProjektion(pts, W, H, 28);
+  if(!pr.punkte.length){
+    var nc=pts.length;
+    return '<div class="skleer skwarn"><b>Keine Koordinaten erfasst</b> — '+
+      (nc ? 'bei '+nc+(nc===1 ? ' CCP' : ' CCPs')+' liegt kein Standort vor. ' : 'es gibt keine offenen CCPs. ')+
+      'Die Feld-App speichert den Standort einmalig beim Eröffnen eines CCP, und nur wenn das Gerät den Standort freigibt (iPhone: Einstellungen › ARGUS › Standort). '+
+      'Die Skizze erscheint, sobald ein CCP mit Standort eröffnet wird.</div>';
+  }
+  var drin=pr.punkte.map(function(p){ return p.ref; });
+  var ohne=pts.filter(function(p){ return drin.indexOf(p)<0; });
+  var P=pr.punkte, kanten=[], gesehen={};
+  /* Abstandslinie je Punkt zum nächsten CCP (ohne Doppelte); nur wo Platz für die Beschriftung ist */
+  P.forEach(function(a, i){
+    var best=-1, bd=Infinity;
+    P.forEach(function(b, k){
+      if(i===k) return;
+      var d=distanzM(a.lat, a.lng, b.lat, b.lng);
+      if(d>=1 && d<bd){ bd=d; best=k; }
+    });
+    if(best<0) return;
+    var key=Math.min(i,best)+'-'+Math.max(i,best);
+    if(gesehen[key]) return;
+    gesehen[key]=1;
+    var b2=P[best];
+    if(Math.sqrt((a.x-b2.x)*(a.x-b2.x)+(a.y-b2.y)*(a.y-b2.y))>=60) kanten.push({a:a, b:b2, m:bd});
+  });
+  var h='<svg class="skizze" viewBox="0 0 '+n(W)+' '+n(H)+'" role="img" aria-label="Lageskizze">';
+  h+='<rect class="skrahmen" x="0.5" y="0.5" width="'+n(W-1)+'" height="'+n(H-1)+'" rx="8.0"/>';
+  h+='<text class="sknord" x="'+n(W-14)+'" y="'+n(24)+'" text-anchor="end">N ↑</text>';
+  kanten.forEach(function(k){
+    h+='<g class="skdist"><line x1="'+n(k.a.x)+'" y1="'+n(k.a.y)+'" x2="'+n(k.b.x)+'" y2="'+n(k.b.y)+'"/>'+
+      '<text class="skdl" x="'+n((k.a.x+k.b.x)/2)+'" y="'+n((k.a.y+k.b.y)/2-5)+'" text-anchor="middle">'+esc(distText(k.m))+'</text></g>';
+  });
+  P.forEach(function(p){
+    var c=p.ref.c, f=farben[p.ref.gi]||'leer';
+    h+='<g class="skp sk-'+f+'"><title>'+esc(p.ref.name)+(c.ort?' · '+esc(c.ort):'')+'</title>'+
+      '<circle cx="'+n(p.x)+'" cy="'+n(p.y)+'" r="11.0"/>'+
+      '<text x="'+n(p.x)+'" y="'+n(p.y+4)+'" text-anchor="middle">'+esc(String(c.kennung||'').slice(0,2))+'</text></g>';
+  });
+  /* Beschriftung direkt am Punkt („CCP A · Ort“): rechts, bei Platzmangel links;
+   * übereinanderliegende Labels werden um je 14 px nach unten versetzt. */
+  var platziert=[];
+  P.slice().sort(function(a, b){ return a.y-b.y; }).forEach(function(p){
+    var c=p.ref.c, ort=String(c.ort||'');
+    if(ort.length>24) ort=ort.slice(0,23)+'…';
+    var t=p.ref.name+(ort ? ' · '+ort : '');
+    var w=t.length*7, platzR=W-6-(p.x+16), platzL=p.x-16-6;
+    var rechts=(w<=platzR) || (platzR>=platzL);
+    var x0=rechts ? p.x+16 : p.x-16-w, x1=x0+w, y=p.y+4, guard=0, kollidiert;
+    do{
+      kollidiert=false;
+      platziert.forEach(function(q){ if(Math.abs(q.y-y)<14 && q.x0<x1 && x0<q.x1) kollidiert=true; });
+      if(kollidiert) y+=14;
+    }while(kollidiert && ++guard<40);
+    if(y>H-6) y=H-6;
+    platziert.push({x0:x0, x1:x1, y:y});
+    h+='<text class="sklab" x="'+n(rechts ? p.x+16 : p.x-16)+'" y="'+n(y)+'" text-anchor="'+(rechts ? 'start' : 'end')+'">'+esc(t)+'</text>';
+  });
+  var ms=massstab(pr.meterProPx, W/4);
+  if(ms){
+    var mx=16, my=H-16;
+    h+='<g class="skmass">'+
+      '<line x1="'+n(mx)+'" y1="'+n(my)+'" x2="'+n(mx+ms.px)+'" y2="'+n(my)+'"/>'+
+      '<line x1="'+n(mx)+'" y1="'+n(my-6)+'" x2="'+n(mx)+'" y2="'+n(my+1)+'"/>'+
+      '<line x1="'+n(mx+ms.px)+'" y1="'+n(my-6)+'" x2="'+n(mx+ms.px)+'" y2="'+n(my+1)+'"/>'+
+      '<text x="'+n(mx)+'" y="'+n(my-10)+'">'+esc(ms.text)+'</text></g>';
+  }
+  h+='</svg>';
+  h+='<div class="skhinw"><strong>Schematische Lageskizze</strong> — keine Straßenkarte. Norden oben, Abstände maßstäblich (Luftlinie nach den erfassten Standorten)'+
+    (kanten.length ? '; gestrichelt: Entfernung zum jeweils nächsten CCP' : '')+'.</div>';
+  if(ohne.length){
+    h+='<div class="skohne skwarn">Ohne Koordinaten: '+ohne.map(function(p){ return esc(p.name); }).join(', ')+' — nicht auf der Skizze.</div>';
+  }
+  return h;
+}
+
+/* ── Kartenmodul „Passform“ (Owner-Entscheid 19.10.2026, ändert D6.8-06) ──────────
+ * Echte Straßenkarte als austauschbares Modul: ../karte-config.js setzt
+ * window.ARGUS_KARTE (Kachel-Adresse, Quellenhinweis, maxZoom). Die Seite selbst
+ * enthält KEINE Kachel-Adresse. Leaflet kommt lokal aus ../vendor/leaflet/.
+ * Rückfall auf die SVG-Lageskizze: Passform fehlt/null/ungültig, keine
+ * Koordinaten, Leaflet nicht geladen, Wahl „Skizze“ oder Dienst nicht erreichbar.
+ * Datenschutz: Der Kartendienst sieht IP und Ausschnitt, nie Zahlen/Kennungen/Orte —
+ * Punkte und Beschriftungen zeichnet die Seite selbst. */
+var KARTE_N = 4;             /* scheitern die ersten N Kacheln alle → Lageskizze */
+var KARTE_WARTE_MS = 8000;   /* bis dahin muss mindestens eine Kachel geladen sein */
+/* rein: Passform prüfen und normalisieren — null, wenn unbrauchbar. Kachel-Adresse
+ * nur https:// oder Pfad auf demselben Server, mit {z}/{x}/{y}, ohne Leer-/Steuerzeichen;
+ * Quellenhinweis ist Pflicht. Referrer: nur Origin oder keiner (nie der Seitenname, D-06). */
+function karteKonfig(k){
+  if(!k || typeof k!=='object' || Array.isArray(k)) return null;
+  var u=k.kachelUrl, q=k.quelle;
+  if(typeof u!=='string' || typeof q!=='string' || !q.trim()) return null;
+  if(!/^(https:\/\/[^\/\s"'<>]+|\/(?!\/))[^\s"'<>]*$/.test(u)) return null;
+  if(u.indexOf('{z}')<0 || u.indexOf('{x}')<0 || u.indexOf('{y}')<0) return null;
+  var qu=(typeof k.quelleUrl==='string' && /^https:\/\/[^\s"'<>]+$/.test(k.quelleUrl)) ? k.quelleUrl : '';
+  var mz=(typeof k.maxZoom==='number' && k.maxZoom%1===0 && k.maxZoom>=1 && k.maxZoom<=22) ? k.maxZoom : 19;
+  return {kachelUrl:u, quelle:q.trim(), quelleUrl:qu, maxZoom:mz, referrerPolicy: k.referrerPolicy==='no-referrer' ? 'no-referrer' : 'origin'};
+}
+/* rein: Karte oder Skizze? */
+function karteModus(konfig, nKoord, wahl, fehler, bibliothekDa){
+  return (konfig && nKoord>0 && wahl!=='skizze' && !fehler && bibliothekDa) ? 'karte' : 'skizze';
+}
+/* rein: Rückfall-Zustand aus Kachel-Ereignissen ('start' | 'load' | 'fehler' | 'zeit').
+ * Eine geladene Kachel entscheidet für die Karte; alle ersten n fehlerhaft oder
+ * Zeitablauf ohne Kachel → aus (Lageskizze). Entschieden bleibt entschieden. */
+function kachelRueckfall(z, ereignis, n){
+  if(!z || ereignis==='start') return {ok:false, fehler:0, aus:false};
+  if(z.ok || z.aus) return {ok:z.ok, fehler:z.fehler, aus:z.aus};
+  if(ereignis==='load') return {ok:true, fehler:0, aus:false};
+  if(ereignis==='fehler'){ var f=z.fehler+1; return {ok:false, fehler:f, aus:f>=(+n||1)}; }
+  if(ereignis==='zeit') return {ok:false, fehler:z.fehler, aus:true};
+  return {ok:false, fehler:z.fehler, aus:false};
+}
+/* rein: Kartenpunkte wie die Skizze — Punkte aus lagePunkte (D6.9-10: je Verbund genau
+ * ein Punkt am Haupt-CCP, frühere Orte der Mitglieder nicht als Punkt; nach einem
+ * Haupt-Wechsel neuer key → karteMarkerSetzen versetzt den Punkt), nur gültige
+ * Koordinaten, Lagefarbe je Gruppe (grau bei veraltet), Label „CCP A+B · Ort“ (gekürzt,
+ * escaped: Leaflet setzt Tooltips als HTML). ohne = escapte Namen ohne Koordinaten. */
+function karteMarker(gruppen, akts){
+  var punkte=[], ohne=[], farben=[];
+  akts=akts||[];
+  (gruppen||[]).forEach(function(g, gi){
+    var m=(g && g.members) || [];
+    farben[gi]=lageFarbe(lageSummen(m), !!(akts[gi] && akts[gi].alt));
+  });
+  lagePunkte(gruppen).forEach(function(lp){
+    var c=lp.c, la=koordZahl(c.lat), ln=koordZahl(c.lng), name=lp.name;
+    if(la===null || ln===null || Math.abs(la)>90 || Math.abs(ln)>180 || (la===0 && ln===0)){ ohne.push(esc(name)); return; }
+    var ort=String(c.ort||'');
+    if(ort.length>24) ort=ort.slice(0,23)+'…';
+    punkte.push({key:(c.praesidium_id||'')+'-'+c.kennung, lat:la, lng:ln, farbe:farben[lp.gi], label:esc(name+(ort ? ' · '+ort : ''))});
+  });
+  return {punkte:punkte, ohne:ohne};
+}
+/* rein: Lagefarbe → Kreisfarben (Werte wie die Palette in :root) */
+function karteFarbe(f){
+  var t={t1:'#C62828', t2:'#F2B600', t3:'#2E7D32', t5:'#1b1d20', grau:'#9aa1a8'};
+  return t[f] ? {fuell:t[f], rand:'#ffffff'} : {fuell:'#ffffff', rand:'#5d6368'};
+}
+/* rein: Ausschnitt — ein Punkt (oder alle gleich) → Mitte mit Zoom ≤ 16, sonst
+ * Grenzen für fitBounds mit Max-Zoom ≤ 17 (nie über maxZoom des Dienstes). */
+function karteAusschnitt(punkte, maxZoom){
+  var p=punkte||[], mz=(+maxZoom>0) ? +maxZoom : 19;
+  if(!p.length) return null;
+  var la0=Infinity, la1=-Infinity, ln0=Infinity, ln1=-Infinity;
+  p.forEach(function(q){
+    la0=Math.min(la0, q.lat); la1=Math.max(la1, q.lat);
+    ln0=Math.min(ln0, q.lng); ln1=Math.max(ln1, q.lng);
+  });
+  if(la0===la1 && ln0===ln1) return {mitte:[la0, ln0], zoom:Math.min(16, mz)};
+  return {grenzen:[[la0, ln0], [la1, ln1]], maxZoom:Math.min(17, mz)};
+}
+/* rein: Quellenhinweis der Passform als Leaflet-Attribution (escaped) */
+function karteQuelleHtml(k){
+  k=k||{};
+  var q=esc(k.quelle||'');
+  return k.quelleUrl ? '<a href="'+esc(k.quelleUrl)+'" target="_blank" rel="noopener noreferrer">'+q+'</a>' : q;
+}
+/* rein: kleiner Schalter „Karte / Skizze“ neben der Überschrift */
+function karteSchalter(aktiv){
+  function b(w, t){ return '<button data-action="kartewahl" data-wahl="'+w+'" aria-pressed="'+(aktiv===w ? 'true' : 'false')+'">'+t+'</button>'; }
+  return '<span class="kschalter" role="group" aria-label="Darstellung">'+b('karte', 'Karte')+b('skizze', 'Skizze')+'</span>';
+}
+/* rein: Kartenabschnitt — leerer Halter, in den karteNachRender() die (bestehende)
+ * Leaflet-Karte einhängt; Legende; CCPs ohne Koordinaten namentlich. */
+function karteAbschnitt(km, schalter){
+  km=km||{punkte:[], ohne:[]};
+  var h='<section class="skab"><div class="skkopf"><h3>Lagekarte</h3>'+(schalter||'')+'</div>';
+  h+='<div id="kartehalter" class="kartehalter" aria-label="Lagekarte"></div>';
+  h+='<div class="sklegende"><span><i class="lg-t1"></i>T1</span><span><i class="lg-t2"></i>T2</span>'+
+    '<span><i class="lg-t3"></i>T3</span><span><i class="lg-t5"></i>T5</span><span><i class="lg-leer"></i>leer</span>'+
+    '<span><i class="lg-grau"></i>grau = veraltet</span><span>Maßstab unten links · Kartenquelle unten rechts</span></div>';
+  if(km.ohne && km.ohne.length) h+='<div class="skohne skwarn">Ohne Koordinaten: '+km.ohne.join(', ')+' — nicht auf der Karte.</div>';
+  return h+'</section>';
+}
+
+/* Kartenzustand: die Leaflet-Karte wird EINMAL erzeugt und beim Polling nur in den
+ * neuen Halter umgehängt (kein Flackern, kein Neuladen der Kacheln); Marker werden
+ * aktualisiert, der Ausschnitt nur beim ersten Mal bzw. bei Präsidiumswechsel gesetzt. */
+var _karte=null, _karteFehler=false, _karteSoll=null;
+function karteWahlGet(){ try{ return sessionStorage.getItem('arguslg_kartewahl')||''; }catch(e){ return ''; } }
+function karteWahlSet(w){ try{ sessionStorage.setItem('arguslg_kartewahl', w==='skizze' ? 'skizze' : 'karte'); }catch(e){} }
+function karteAbbauen(){
+  var k=_karte; _karte=null;
+  if(!k) return;
+  if(k.timer) clearTimeout(k.timer);
+  if(k.ro){ try{ k.ro.disconnect(); }catch(e){} }
+  try{ k.map.remove(); }catch(e){}
+  if(k.el.parentNode) k.el.parentNode.removeChild(k.el);
+}
+function karteMarkerSetzen(punkte){
+  var alt=_karte.marker, neu={};
+  punkte.forEach(function(p){
+    var f=karteFarbe(p.farbe), m=alt[p.key];
+    var stil={radius:10, weight:3, color:f.rand, fillColor:f.fuell, fillOpacity:1, opacity:1};
+    if(m){
+      m.setLatLng([p.lat, p.lng]);
+      m.setStyle(stil);
+      if(m.getTooltip() && m.getTooltip().getContent()!==p.label) m.setTooltipContent(p.label);
+    }else{
+      stil.interactive=false;
+      m=L.circleMarker([p.lat, p.lng], stil).bindTooltip(p.label, {permanent: true, direction:'right', offset:[12, 0], className:'kartelab', opacity:1});
+      m.addTo(_karte.map);
+    }
+    neu[p.key]=m;
+  });
+  Object.keys(alt).forEach(function(key){ if(!neu[key]) _karte.map.removeLayer(alt[key]); });
+  _karte.marker=neu;
+}
+function karteEinpassen(punkte){
+  var a=karteAusschnitt(punkte, _karte.maxZoom);
+  if(!a) return;
+  if(a.mitte) _karte.map.setView(a.mitte, a.zoom, {animate:false});
+  else _karte.map.fitBounds(a.grenzen, {paddingTopLeft:[40, 40], paddingBottomRight:[190, 40], maxZoom:a.maxZoom, animate:false});
+  _karte.eingepasst=true;
+}
+/* nach jedem render(): Karte in #kartehalter einhängen (bzw. einmalig erzeugen) */
+function karteNachRender(){
+  var halter=$('kartehalter'), s=_karteSoll;
+  if(!halter || !s || !window.L) return;
+  var k=s.konfig;
+  if(_karte && _karte.url!==k.kachelUrl) karteAbbauen();
+  if(!_karte){
+    var el=document.createElement('div');
+    el.className='karte';
+    halter.appendChild(el);
+    var map=L.map(el, {scrollWheelZoom:false});
+    map.attributionControl.setPrefix(false);
+    L.control.scale({imperial:false}).addTo(map);
+    var schicht=L.tileLayer(k.kachelUrl, {maxZoom:k.maxZoom, attribution: karteQuelleHtml(k), referrerPolicy: k.referrerPolicy});
+    var neu={map:map, el:el, url:k.kachelUrl, maxZoom:k.maxZoom, marker:{}, pid:null, eingepasst:false, timer:null, ro:null};
+    var z=kachelRueckfall(null, 'start', KARTE_N);
+    var ereignis=function(e){
+      if(_karte!==neu) return;
+      z=kachelRueckfall(z, e, KARTE_N);
+      if(z.ok && neu.timer){ clearTimeout(neu.timer); neu.timer=null; }
+      if(z.aus){ _karteFehler=true; karteAbbauen(); render(); }
+    };
+    schicht.on('tileload', function(){ ereignis('load'); });
+    schicht.on('tileerror', function(){ ereignis('fehler'); });
+    neu.timer=setTimeout(function(){ neu.timer=null; ereignis('zeit'); }, KARTE_WARTE_MS);
+    if(window.ResizeObserver){ neu.ro=new ResizeObserver(function(){ map.invalidateSize({pan:false}); }); neu.ro.observe(el); }
+    schicht.addTo(map);
+    _karte=neu;
+  }else if(_karte.el.parentNode!==halter){
+    halter.appendChild(_karte.el);
+    _karte.map.invalidateSize({pan:false});
+  }
+  karteMarkerSetzen(s.punkte);
+  if(_karte.pid!==s.pid || !_karte.eingepasst){ karteEinpassen(s.punkte); _karte.pid=s.pid; }
+}
+
+/* ── Rendering — Bausteine 1:1 aus dem Mockup ──────────────────── */
+function viewLogin(){
+  var h='<div class="loginwrap"><div class="loginbox">';
+  h+='<div class="arg-logo">ARGUS</div>';
+  h+='<h1>FLZ · Lageübersicht</h1>';
+  h+='<div class="hint">Read-only Ansicht für FLZ/ILS — anonyme Zahlen je CCP. Anmeldung mit persönlichem Code, FLZ-Zugang oder Beobachter-Code.</div>';
+  if(_configError) h+='<div class="lerr">Konfiguration fehlt (config.js) — kein Backend verbunden.</div>';
+  h+='<label class="fieldlab" for="logininp">Zugangscode</label>';
+  h+='<input id="logininp" placeholder="XXXX-XXXX" autocomplete="off" spellcheck="false" style="font-family:var(--mono);letter-spacing:2px;text-transform:uppercase">';
+  h+='<label class="keeprow"><input type="checkbox" id="keepme"> Angemeldet bleiben — nur auf diesem Gerät (bis „Abmelden" oder zum Ablauf des Zugangs; persönliche Anmeldung verlängert sich bei Nutzung selbst)</label>';
+  h+='<div style="display:flex;gap:8px;margin-top:14px">';
+  h+='<button class="btn" id="loginbtn" data-action="login" style="flex:2">Anmelden</button>';
+  h+='</div>';
+  h+='<div class="lerr" id="loginerr"></div>';
+  h+='</div></div>';
+  return h;
+}
+/* Verbindungs-/Offline-Hinweis über jeder Ansicht */
+function verbindungsNote(){
+  if(_offline && _lastOkAt) return '<div class="note err">Keine Verbindung — letzte Zahlen von '+fmtHM(_lastOkAt)+'. Es wird weiter versucht…</div>';
+  if(_offline) return '<div class="note err">Keine Verbindung — Zahlen können nicht geladen werden. Es wird weiter versucht…</div>';
+  return '';
+}
+/* Phase 6.8 (D6.8-01): Master ohne Auswahl → Auswahlbildschirm; sonst genau
+ * EIN Präsidium. Eine gemischte Ansicht über mehrere Präsidien gibt es nicht. */
+function viewLage(){
+  if(isGlobal() && !pselGet()) return viewAuswahl();
+  return viewPraesidium(isGlobal() ? pselGet() : '');
+}
+/* Auswahl (nur Master): Kacheln aus der Präsidienliste, Zahlen aus der Lage. */
+function viewAuswahl(){
+  var h='<div class="ubar"><div class="uband u-wahl">Auswahl · Präsidium wählen</div></div>';
+  h+='<div class="main">'+verbindungsNote();
+  if(_data){
+    h+=auswahlKacheln(auswahlDaten(_data.ccps, _praesidien));
+    if(_praesidien===null && !isIdent()) h+='<div class="note">Präsidienliste noch nicht geladen — gezeigt werden nur Präsidien mit offenen CCPs. Es wird weiter versucht…</div>';
+    h+='<div class="note">Je Präsidium eine eigene Ansicht — Echtbetrieb und Schulung werden nie gemischt. Anonyme Übersichtszahlen — keine Personendaten.</div>';
+  }else if(!_offline){
+    h+='<div class="empty">Wird geladen…</div>';
+  }
+  return h+'</div>';
+}
+/* Präsidiumsansicht. Master: gewähltes Präsidium (bleibt gewählt, auch ohne
+ * offene CCPs) + „Präsidium wechseln“. FLZ-Zugang/Beobachter: eigenes Präsidium,
+ * Server liefert ohnehin nur dieses; Umgebung über die gespeicherte praesidium_id. */
+function viewPraesidium(pid){
+  var glob=isGlobal(), all=_data ? _data.ccps : [], list, sp, i;
+  if(glob){
+    list=ccpsFuer(all, pid);
+    var pn='';
+    for(i=0;i<list.length;i++){ if(list[i].praesidium_name){ pn=list[i].praesidium_name; break; } }
+    sp=sitzungsPraesidium(pid, pn, _praesidien);
+  }else{
+    list=all;
+    var spid='', spn='';
+    try{ spid=sessionStorage.getItem('arguslg_pid')||''; spn=sessionStorage.getItem('arguslg_pname')||''; }catch(e){}
+    sp=sitzungsPraesidium(spid, spn || (_data && _data.praesidium_name) || '', _praesidien);
+  }
+  var h='<div class="ubar">'+umgebungsBand(sp.umgebung, sp.name);
+  if(glob || (isIdent() && identMehrere())) h+='<button class="btn" data-action="pwechsel">Präsidium wechseln</button>';
+  h+='</div>';
+  h+='<div class="main">'+verbindungsNote();
+  if(_data){
+    var ohneAkt=false;
+    /* Phase 6.11 (D6.11-08/-09/-10): Lagen nur, wenn die Lage-Antwort sie liefert
+     * (Migration 0035). Ohne einsatzlagen bleibt die Ansicht wie in 0.35.9. */
+    var faehig=!!(_data && Array.isArray(_data.einsatzlagen));
+    var lagenP=faehig ? lagenFuer(_data.einsatzlagen, glob ? pid : '') : [];
+    /* D6.11-01/-07: Lagen verwalten — nur FLZ-Zugang/Master, nicht im Großbild; der Server entscheidet */
+    var verw=lageVerwaltbar(faehig, isGlobal(), isAdminSess(), grossVorliebe());
+    var neuKnopf='<button class="btn lgneu" data-action="lageneu">＋ Lage anlegen</button>';
+    if(list.length || lagenP.length){
+      var gruppenAlle=lageGruppen(list), gruppen=gruppenAlle, abAlle=null, ab=null, mehr=false, lwahl='alle';
+      if(faehig){
+        abAlle=lagenAbschnitte(gruppenAlle, lagenP);
+        mehr=abAlle.length>=2;
+        lwahl=mehr ? lageWahlGueltig(lageWahlGet(glob ? pid : lagePidKey()), abAlle) : 'alle';
+        if(lwahl!=='alle'){
+          gruppen=[];
+          abAlle.forEach(function(a){ if(a.key===lwahl) a.gis.forEach(function(gi){ gruppen.push(gruppenAlle[gi]); }); });
+        }
+        ab=lagenAbschnitte(gruppen, lagenP);
+        if(lwahl!=='alle') ab=ab.filter(function(a){ return a.key===lwahl; });
+        h+=verw ? '<div class="lgleiste">'+lageReiter(abAlle, lwahl)+neuKnopf+'</div>' : lageReiter(abAlle, lwahl);
+        if(mehr && lwahl==='alle'){
+          h+='<div class="lgesamt">Alle Lagen</div>'+summenLeiste(lageSummen(list));
+          /* Kartenpunkte tragen den Lagenamen als Präfix („LebEL XY · CCP A · Ort“) */
+          ab.forEach(function(a){ a.gis.forEach(function(gi){ gruppen[gi].lageName=a.lage ? a.lage.name : 'Ohne Lage'; }); });
+        }
+      }else{
+        h+=summenLeiste(lageSummen(list));
+      }
+      /* D6.8-04: Alter = Server-stand + Zeit seit dem letzten erfolgreichen Poll
+       * (nicht die PC-Uhr); grau erst ab LAGE_SCHWELLE_MS und nur mit 0032-Feld. */
+      var vn=0, seitPoll=_lastOkAt ? nowMs()-_lastOkAt : 0;
+      gruppen.forEach(function(g){ if(g.verbund) vn++; });
+      list.forEach(function(c){ if(!('zuletzt_gesehen' in c)) ohneAkt=true; });
+      /* Ort-Korrektur nur für Alt-Beobachter (argus_lage_set_ort ist observer-only;
+       * beim Master wäre die Kennung präsidienübergreifend mehrdeutig). */
+      var opts={ortEdit: !isGlobal() && !isAdminSess(), geoKlick:true, vnTotal:vn};
+      /* einmal berechnet — Karten und Lageskizze zeigen dieselbe Aktualität */
+      var akts=gruppen.map(function(g){ return gruppenAktualitaet(g.members, _data.stand, seitPoll, LAGE_SCHWELLE_MS); });
+      if(ab){
+        /* je Lage ein Abschnitt: Kopf, eigene Summenleiste, CCP-Karten (D6.11-08) */
+        ab.forEach(function(a){
+          h+='<section class="labschnitt" data-lage="'+esc(a.key)+'">'+lageKopf(a)+(verw && a.lage ? lageAktionen(a.lage) : '')+summenLeiste(a.s)+'<div class="lgrid">';
+          a.gis.forEach(function(gi){
+            var g=gruppen[gi];
+            h+=karteA(g, akts[gi], opts);
+          });
+          if(!a.gis.length) h+='<div class="empty">Noch kein CCP in dieser Lage.</div>';
+          h+='</div></section>';
+        });
+      }else{
+        h+='<div class="lgrid">';
+        gruppen.forEach(function(g, gi){
+          h+=karteA(g, akts[gi], opts);
+        });
+        h+='</div>';
+      }
+      if(gruppen.length){
+        /* Kartenmodul (Owner-Entscheid 19.10., ändert D6.8-06): Straßenkarte nur über die
+         * Passform karte-config.js. Leer/ungültig, ohne Koordinaten, ohne Leaflet, bei Wahl
+         * „Skizze“ oder nicht erreichbarem Dienst → SVG-Lageskizze aus den Koordinaten. */
+        var kk=karteKonfig(window.ARGUS_KARTE), km=karteMarker(gruppen, akts), wahl=karteWahlGet();
+        var kartenFaehig=!!(kk && km.punkte.length && window.L);
+        var modus=karteModus(kk, km.punkte.length, wahl, _karteFehler, !!window.L);
+        var schalter=kartenFaehig ? karteSchalter(modus) : '';
+        var praefix=mehr && lwahl==='alle';
+        if(modus==='karte'){
+          h+=karteAbschnitt(km, schalter);
+          /* anderer Reiter → anderer Schlüssel → Ausschnitt neu einpassen */
+          _karteSoll={pid:((glob ? pid : sp.id)||'')+(lwahl!=='alle' ? '|'+lwahl : ''), konfig:kk, punkte:km.punkte};
+        }else{
+          var sk=skizzeSvg(gruppen, akts, 640, 360);
+          h+='<section class="skab"><div class="skkopf"><h3>Lageskizze</h3>'+schalter+'</div>';
+          if(kartenFaehig && _karteFehler && wahl!=='skizze') h+='<div class="kfehl">Karte nicht erreichbar — Lageskizze</div>';
+          h+=sk;
+          if(sk.indexOf('<svg')>=0){
+            h+='<div class="sklegende"><span><i class="lg-t1"></i>T1</span><span><i class="lg-t2"></i>T2</span>'+
+              '<span><i class="lg-t3"></i>T3</span><span><i class="lg-t5"></i>T5</span><span><i class="lg-leer"></i>leer</span>'+
+              '<span><i class="lg-grau"></i>grau = veraltet</span><span>Norden oben · Maßstab unten links</span>'+
+              (praefix ? '<span>Beschriftung: Lage · CCP</span>' : '')+'</div>';
+          }
+          h+='</section>';
+        }
+      }
+    }else{
+      h+='<div class="empty">Keine offenen CCPs in diesem Präsidium.</div>';
+      if(verw) h+='<div class="lgleer">'+neuKnopf+'<span class="hint">Regelfall: Die FLZ legt die Lage an, bevor vor Ort ein CCP eröffnet wird.</span></div>';
+    }
+    h+='<div class="note">Anonyme Übersichtszahlen — keine Personendaten. Keine Patientendetails, keine Namen/Fotos, nur Zahlen je Kategorie. Aktualisiert sich automatisch.'+
+      (ohneAkt ? ' Aktualitätsanzeige folgt nach dem Server-Update — bis dahin zeigt jede Karte die letzte Änderung.' : '')+'</div>';
+  }else if(!_offline){
+    h+='<div class="empty">Wird geladen…</div>';
+  }
+  return h+'</div>';
+}
+/* Global-Modus = MasterToken-Login (0021): alle Präsidien lesbar, read-only, Kennungen
+ * NICHT präsidiumseindeutig → Auswahl je Präsidium (Phase 6.8), kein Ort-Editieren. */
+function isGlobal(){ try{ return sessionStorage.getItem('arguslg_global')==='1'; }catch(e){ return false; } }
+/* FLZ-Zugang-Sitzung (0023): eigenes Präsidium, read-only — kein argus_lage_set_ort (observer-only). */
+function isAdminSess(){ try{ return sessionStorage.getItem('arguslg_admin')==='1'; }catch(e){ return false; } }
+/* Präsidiums-Auswahl im Global-Modus ('' = noch keine Auswahl → Auswahlbildschirm) — Sitzungsmerker, nicht persistiert. */
+function pselGet(){ try{ return sessionStorage.getItem('arguslg_psel')||''; }catch(e){ return ''; } }
+function pselSet(pid){ try{ sessionStorage.setItem('arguslg_psel', pid||''); }catch(e){} }
+function render(){
+  var loggedIn=!!sessionJwt();
+  var lb=$('logoutbtn'); if(lb) lb.style.display=loggedIn?'':'none';
+  grossAnwenden(loggedIn);   /* D6.8-05: Anzeige-Vorliebe, unabhängig von der Sitzungsdauer */
+  /* Topbar: ARGUS · FLZ · Rolle — Umgebung und Präsidium stehen im Band darunter (D6.8-01) */
+  var tt=$('toptitle');
+  if(tt){
+    tt.textContent='ARGUS · FLZ'+(loggedIn && !isIdent()?(isGlobal()?' · Master':(isAdminSess()?' · FLZ-Zugang':' · Beobachter')):'');
+  }
+  /* Phase 6.12: persönliche Sitzung → „<Kürzel> · <Rolle>“ neben „Abmelden“ */
+  var it=$('identtxt');
+  if(it){
+    var ik='', ir='';
+    try{ ik=sessionStorage.getItem('arguslg_kuerzel')||''; ir=sessionStorage.getItem('arguslg_rolle')||''; }catch(e){}
+    it.innerHTML=(loggedIn && isIdent()) ? identKopfHtml(ik, ir) : '';
+  }
+  var dot=$('statdot'), txt=$('stattxt');
+  if(dot && txt){
+    if(!loggedIn){ dot.className='dot'; txt.textContent=''; }
+    else if(_offline){ dot.className='dot off'; txt.textContent=_lastOkAt?('letzte Zahlen '+fmtHM(_lastOkAt)):'keine Verbindung'; }
+    else if(_lastOkAt){ dot.className='dot ok'; txt.textContent='Stand: '+fmtClock(_lastOkAt); }
+    else { dot.className='dot'; txt.textContent='lädt…'; }
+  }
+  /* Band-Bereich klebt direkt unter der Topbar → deren Höhe als Abstand */
+  var tb=document.querySelector('.topbar');
+  if(tb) document.documentElement.style.setProperty('--toph', tb.offsetHeight+'px');
+  _karteSoll=null;   /* setzt viewPraesidium(), wenn die Karte gezeigt wird */
+  $('app').innerHTML = loggedIn ? viewLage() : viewLogin();
+  karteNachRender();
+  if(!loggedIn){ var li=$('logininp'); if(li) li.focus(); }
+}
+
+/* ── Events ────────────────────────────────────────────────────── */
+/* Mini-Feedback (kein natives alert) für den Koordinaten-Klick */
+function flash(msg){
+  var f=document.createElement('div');
+  f.textContent=msg;
+  f.style.cssText='position:fixed;left:50%;bottom:60px;transform:translateX(-50%);background:var(--acc);color:#fff;border-radius:9px;padding:9px 16px;font-size:13px;z-index:99;box-shadow:0 4px 18px rgba(0,0,0,.25)';
+  document.body.appendChild(f);
+  setTimeout(function(){ if(f.parentNode)f.parentNode.removeChild(f); },2200);
+}
+/* Ort-Eingabe (Migration 0010): Mini-Modal, kein natives prompt */
+function ortPrompt(kennung, current){
+  return new Promise(function(resolve){
+    var ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(22,24,26,.45);z-index:98;display:flex;align-items:center;justify-content:center;padding:16px';
+    ov.innerHTML='<div style="background:#fff;color:#16181a;border-radius:14px;padding:18px;max-width:360px;width:100%;box-shadow:0 10px 40px rgba(0,0,0,.25)">'+
+      '<div style="font-weight:600;margin-bottom:10px">Ort/Objekt für CCP '+esc(kennungKurz(kennung))+'</div>'+
+      '<input id="ortinp" value="'+esc(current||'')+'" maxlength="120" placeholder="z. B. Stadthalle, Halle 2" style="margin-bottom:12px;background:#fff;color:#16181a">'+
+      '<div style="display:flex;gap:8px"><button class="btn" data-m="ok" style="flex:1">Speichern</button>'+
+      '<button class="btn" data-m="no" style="flex:1;background:var(--surf2);color:var(--tx)">Abbrechen</button></div>'+
+      '<p class="hint" style="margin:10px 0 0">Wird protokolliert und erscheint auf allen Geräten dieses Einsatzes.</p></div>';
+    document.body.appendChild(ov);
+    var inp=ov.querySelector('#ortinp'); inp.focus(); inp.select();
+    function done(v){ if(ov.parentNode)ov.parentNode.removeChild(ov); resolve(v); }
+    ov.addEventListener('click',function(e){
+      var m=e.target.closest('[data-m]');
+      if(m){ done(m.getAttribute('data-m')==='ok'?inp.value:null); }
+      else if(e.target===ov){ done(null); }
+    });
+    inp.addEventListener('keydown',function(e){ if(e.key==='Enter') done(inp.value); });
+  });
+}
+async function setOrt(kennung, current){
+  var jwt=sessionJwt(); if(!jwt) return;
+  var v=await ortPrompt(kennung, current);
+  if(v===null) return;
+  try{
+    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage_set_ort',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify({ p_kennung:kennung, p_ort:v })
+    });
+    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+    var d=await resp.json();
+    if(resp.ok && d && d.ok){ flash('Ort gespeichert ✓ (protokolliert)'); poll(); }
+    else flash('Speichern fehlgeschlagen'+(d&&d.message?': '+d.message:''));
+  }catch(e){ flash('Keine Verbindung — Ort nicht gespeichert'); }
+}
+document.addEventListener('click', function(e){
+  var b=e.target.closest('[data-action]');
+  if(!b) return;
+  var a=b.getAttribute('data-action');
+  if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
+  /* Phase 6.12: persönliche Sitzung wechselt das Präsidium serverseitig (ohne Code-Eingabe) */
+  if(a==='pselect'){ if(isIdent()){ identWechsel(b.getAttribute('data-pid')||''); window.scrollTo(0,0); return; } pselSet(b.getAttribute('data-pid')||''); render(); window.scrollTo(0,0); return; }
+  if(a==='pwechsel'){ if(isIdent()){ identWechsel(null); window.scrollTo(0,0); return; } pselSet(''); loadPraesidien(); render(); window.scrollTo(0,0); return; }
+  if(a==='logout'){ doLogout(); }
+  if(a==='gross'){ grossUmschalten(); render(); return; }   /* sofort neu zeichnen: Verwaltungsknöpfe nie im Großbild */
+  if(a==='gthema'){ grossThemaSetzen(b.getAttribute('data-thema')); return; }
+  if(a==='wachan'){ wachAn(); return; }
+  if(a==='lagewahl'){ lageWahlSet(lagePidKey(), b.getAttribute('data-lage')||'alle'); render(); return; }
+  /* D6.11-07: Lagen verwalten (Master: gewähltes Präsidium; FLZ-Zugang: das der Sitzung) */
+  if(a==='lageneu'){
+    var lpid='';
+    if(isGlobal()) lpid=pselGet();
+    else{ try{ lpid=sessionStorage.getItem('arguslg_pid')||''; }catch(err){} }
+    lageAnlegen(lpid); return;
+  }
+  if(a==='lageumben' || a==='lageabschl'){
+    var lid=b.getAttribute('data-lage')||'', lz=null;
+    lagenFuer(_data && _data.einsatzlagen, '').forEach(function(l){ if(l.id===lid) lz=l; });
+    if(!lz){ flash('Lage nicht mehr vorhanden'); return; }
+    if(a==='lageumben') lageUmbenennen(lz); else lageAbschliessen(lz);
+    return;
+  }
+  if(a==='kartewahl'){
+    var kw=b.getAttribute('data-wahl')==='skizze' ? 'skizze' : 'karte';
+    karteWahlSet(kw);
+    if(kw==='karte') _karteFehler=false;
+    render(); return;
+  }
+  if(a==='editort'){ setOrt(b.getAttribute('data-kennung'), b.getAttribute('data-ort')||''); }
+  if(a==='copygeo'){
+    var txt=b.getAttribute('data-lat')+', '+b.getAttribute('data-lng');
+    try{
+      navigator.clipboard.writeText(txt).then(function(){ flash('Koordinaten kopiert: '+txt); },
+        function(){ flash('Koordinaten: '+txt); });
+    }catch(err){ flash('Koordinaten: '+txt); }
+  }
+});
+document.addEventListener('keydown', function(e){
+  if(e.key==='Enter' && document.activeElement && document.activeElement.id==='logininp'){
+    doLogin(document.activeElement.value);
+  }
+});
+
+/* Start: vorhandene gültige Sitzung → direkt Lage + Polling, sonst Login */
+render();
+if(sessionJwt()) startPolling();
+</script>
+</body>
+</html>
