@@ -3,6 +3,19 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HDWWkTMopq2htvzqSOVKatHsBFK96HmuvFqOc8Zt4sg=' 'sha256-ggnVODJyQBP8En05OOFvpYu5fvOaL55UwsAGyMidd/g='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://sehuosjyjmrpzcqrelej.supabase.co wss://sehuosjyjmrpzcqrelej.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+<script>
+/* Rahmen-Schutz (Clickjacking, Sicherheitsprüfung 26.10.2026, Befund 6): Inhalt nur als oberstes Fenster sichtbar.
+ * In der iOS-Hülle (WKWebView) und als PWA ist top===self → sofort sichtbar, kein Flackern. Eingebettet (iframe,
+ * auch sandboxed MIT Skript): Laden abbrechen, nichts anzeigen. Sandboxed OHNE Skript: bleibt per CSS unsichtbar.
+ * Das eigene Update-Sheet-Overlay bettet nur die UPDATE-Seiten ein (ohne diesen Schutz) — nie diese Seite selbst.
+ * Der CSS-Standard html{visibility:hidden} steht als erste Regel im Stylesheet unten. */
+(function(){
+  var oben=false; try{ oben=(window.top===window.self); }catch(e){ oben=false; }
+  if(oben){ document.documentElement.style.visibility='visible'; return; }
+  try{ window.stop(); }catch(e){}
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ARGUS · Verwaltung</title>
 <meta name="robots" content="noindex, nofollow, noarchive">
@@ -12,6 +25,7 @@
 <link rel="apple-touch-icon" href="../assets/icon-verwaltung-180.png">
 <meta name="apple-mobile-web-app-title" content="ARGUS Verwaltung">
 <style>
+  html{visibility:hidden} /* Rahmen-Schutz (Befund 6): nur das Skript im Kopf hebt dies bei top===self auf */
   /* Selbst gehostete Schriften (kein externes CDN) */
   @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/ibm-plex-sans-400.woff2) format('woff2')}
   @font-face{font-family:'IBM Plex Sans';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/ibm-plex-sans-500.woff2) format('woff2')}
@@ -840,7 +854,9 @@ function sitzungsPraesidium(pid, pname, praesidien){
 function lageGruppen(ccps){
   var idx={}, out=[], vn=0;
   (ccps||[]).forEach(function(c){
-    var key=c.verbund_gruppe || ('solo-'+(c.praesidium_id||'')+'-'+c.kennung);
+    /* Gerätetest 29.10.2026: Einzel-CCP über die id (ab 0033 geliefert) — zwei offene CCPs mit derselben Kennung
+     * (Kollision nach Eröffnen ohne Netz, wird nie umbenannt) fielen sonst in EINE Karte, der neuere verschwand. */
+    var key=c.verbund_gruppe || ('solo-'+(c.id ? c.id : (c.praesidium_id||'')+'-'+c.kennung));
     var g=idx['k'+key];
     if(!g){ g={key:key, verbund:!!c.verbund_gruppe, n:0, members:[]}; idx['k'+key]=g; out.push(g); }
     g.members.push(c);
@@ -2285,7 +2301,11 @@ function tokenRows(list){
   list.forEach(function(t){
     h+='<tr>';
     if(mk) h+='<td style="width:30px">'+codeMarkBox(t)+'</td>';
-    h+='<td class="mono" style="font-weight:600;white-space:nowrap">'+esc(t.short_code||'—')+'</td>';
+    /* Sicherheitshärtung 0050 (D6.12-29): persönliche Codes liefert der Server nie im Klartext —
+     * sichtbar nur einmalig bei der Ausgabe (Anlegen / „Neuer Code“). Sperren, neuer Code und
+     * Löschen laufen über die Person (Reiter „Personen“). Monats-Codes ohne Code wie bisher „—“. */
+    var persCode=!t.short_code && (t.art==='persoenlich' || t.art==='person_alt');
+    h+='<td class="mono" style="font-weight:600;white-space:nowrap">'+(t.short_code ? esc(t.short_code) : (persCode ? '•••• <span class="hint" style="font-weight:400">(nur bei Ausgabe sichtbar)</span>' : '—'))+'</td>';
     h+='<td>'+esc(tokenArt(t))+'</td>';
     h+='<td>'+(t.kuerzel ? '<b>'+esc(t.kuerzel)+'</b> ' : '')+esc(t.label||'')+'</td>';
     h+='<td>'+tokenStatus(t)+'</td>';
@@ -2293,7 +2313,7 @@ function tokenRows(list){
       /* Selbstaussperrung verhindern: MasterToken-Zeilen sind hier NICHT sperrbar. */
       h+='<td class="hint">MasterToken — Sperrung nur direkt in der Datenbank'+(codeAktionenAn()?'<div style="margin-top:6px">'+codeKnoepfe(t)+'</div>':'')+'</td>';
     }else if(!t.short_code){
-      h+='<td></td>';
+      h+='<td class="hint">'+(persCode ? 'Sperren · Neuer Code · Löschen: über die Person' : '')+'</td>';
     }else if(t.art==='praesidiums_code' || t.art==='fremdkraefte_code'){
       /* Phase 6.12: Monats-Codes erneuert man oben unter „Zugangscodes“ */
       h+='<td><div style="display:flex;gap:6px;flex-wrap:wrap">'+codeKnoepfe(t)+'</div></td>';
@@ -4809,17 +4829,21 @@ function personenListeHtml(liste, sicht){
   });
   return h+'</tbody></table></div>'+mehrKnopf('personen', teil.rest);
 }
-/* Rein: offene Phase-5-Personen-Codes (nur instanzweit, D6.12-15) mit „Bestand übertragen“. */
+/* Rein: offene Phase-5-Personen-Codes (nur instanzweit, D6.12-15) mit „Bestand übertragen“.
+ * Seit Server 0051 (D6.12-29) liefert die Liste statt des Codes einen opaken handle;
+ * der Code wird nie angezeigt. Ein älterer Server (bis 0050) liefert noch short_code —
+ * dann dient der Code selbst als Schlüssel. */
+function offenHandle(o){ return (o && typeof o==='object') ? String(o.handle || o.short_code || '') : ''; }
 function offenUebertragungHtml(offen){
-  var l=(Array.isArray(offen) ? offen : []).filter(function(o){ return !!o && typeof o==='object' && o.short_code; });
+  var l=(Array.isArray(offen) ? offen : []).filter(function(o){ return !!offenHandle(o); });
   if(!l.length) return '';
   var h='<div class="sech">Bestand übertragen (Phase-5-Personen-Codes)</div>';
   h+='<div class="hint" style="margin:-4px 0 8px">Bisherige Personen-Codes ohne Identität. Übertragen legt die Person an bzw. verknüpft sie; der Code arbeitet unverändert weiter.</div>';
   h+='<div class="tablewrap"><table><thead><tr><th>Kürzel</th><th>Rolle (alt)</th><th>Präsidium</th><th>Code</th><th>Hinweis</th><th></th></tr></thead><tbody>';
   l.forEach(function(o){
     h+='<tr><td><b>'+esc(o.usbnk||'—')+'</b></td><td>'+rolleLabel(o.role)+'</td><td>'+esc(o.praesidium_name||'—')+'</td>';
-    h+='<td class="mono" style="white-space:nowrap">'+esc(o.short_code)+'</td><td class="hint">'+esc(o.grund||'')+'</td>';
-    h+='<td><button class="btn ghost" data-action="personuebertragen" data-sc="'+esc(o.short_code)+'">Bestand übertragen</button></td></tr>';
+    h+='<td class="mono" style="white-space:nowrap">'+(o.short_code ? esc(o.short_code) : '•••• <span class="hint" style="font-weight:400">(nicht sichtbar)</span>')+'</td><td class="hint">'+esc(o.grund||'')+'</td>';
+    h+='<td><button class="btn ghost" data-action="personuebertragen" data-handle="'+esc(offenHandle(o))+'">Bestand übertragen</button></td></tr>';
   });
   return h+'</tbody></table></div>';
 }
@@ -5071,7 +5095,8 @@ async function doPersonLoeschen(id){
 /* Phase-5-Code übertragen (nur instanzweit): normal → Sachbearbeiter, admin →
  * Trainer, master → Administrator „alle“ als Vorschlag (D6.12-15). */
 async function doPersonUebertragen(sc){
-  var o=((_pers && _pers.offen_uebertragung) || []).filter(function(x){ return x && x.short_code===sc; })[0];
+  /* sc = opaker handle (Server ab 0051) bzw. Code (älterer Server); der Server nimmt beides an. */
+  var o=((_pers && _pers.offen_uebertragung) || []).filter(function(x){ return !!sc && offenHandle(x)===sc; })[0];
   if(!o){ toast('Code nicht gefunden — bitte aktualisieren.'); return; }
   var rolle=o.role==='master' ? 'administrator' : (o.role==='admin' ? 'trainer' : 'sachbearbeiter');
   var w=await personRolleDialog('Bestand übertragen: '+(o.usbnk||'?')+' (bisher '+rolleLabel(o.role)+')',
@@ -5456,6 +5481,8 @@ function purgeReasonLabel(r){
   if(r==='foto_72h') return 'Foto-72-h-Löschung';
   /* Phase 6.12 (0045, D6.12-06): abgeschlossene Lage ohne Einsatzprotokoll entfernt */
   if(r==='lage') return 'Lage entfernt (kein Einsatzprotokoll mehr)';
+  /* Sicherheitshärtung 0050 (D6.12-29): argus_ccp_loeschen (Feld-App „CCP/Verbund endgültig löschen“, nur MasterToken) */
+  if(r==='master') return 'Vom MasterToken endgültig gelöscht';
   return r ? esc(String(r)) : '?';
 }
 
@@ -5781,7 +5808,7 @@ document.addEventListener('click', async function(e){
   if(a==='personnotiz'){ await doPersonNotiz(el.getAttribute('data-id')); return; }
   if(a==='personcode'){ await doPersonCode(el.getAttribute('data-id')); return; }
   if(a==='personloeschen'){ await doPersonLoeschen(el.getAttribute('data-id')); return; }
-  if(a==='personuebertragen'){ await doPersonUebertragen(el.getAttribute('data-sc')); return; }
+  if(a==='personuebertragen'){ await doPersonUebertragen(el.getAttribute('data-handle')); return; }
   /* ── Audit-Log-Aktionen (Plan 05-03) ── */
   if(a==='auditreload'){
     _audit=null; _auditErr=null;
