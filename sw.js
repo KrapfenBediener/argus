@@ -15,7 +15,7 @@
  * CACHE_NAME wird je Release vom Release-Skript erhöht (consistency.test.cjs). Keine Log-Ausgaben.
  */
 
-const CACHE_NAME = 'ccp-shell-v105';
+const CACHE_NAME = 'ccp-shell-v106';
 
 const PRECACHE_URLS = [
   './',

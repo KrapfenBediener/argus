@@ -1,6 +1,6 @@
 <!-- © 2026 Gabor Szeman – Alle Rechte vorbehalten. Proprietär, Nutzung nur mit Genehmigung. -->
 <meta charset="UTF-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HDWWkTMopq2htvzqSOVKatHsBFK96HmuvFqOc8Zt4sg=' 'sha256-3+3R+ZjP0seVoMiZeCST8iWuPbaBZgdEsLXwncfzzsY=' 'sha256-tpKN46GLOv1MhVPDAEpZCJVia0/75YYu1RsQiSzcxqk='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://sehuosjyjmrpzcqrelej.supabase.co wss://sehuosjyjmrpzcqrelej.supabase.co; frame-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HDWWkTMopq2htvzqSOVKatHsBFK96HmuvFqOc8Zt4sg=' 'sha256-3+3R+ZjP0seVoMiZeCST8iWuPbaBZgdEsLXwncfzzsY=' 'sha256-TY/ErKOvevem0xpJuhdY6Uz09OC2shg7UgyWnAHNvPI='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://sehuosjyjmrpzcqrelej.supabase.co wss://sehuosjyjmrpzcqrelej.supabase.co; frame-src 'self'; manifest-src 'self'; worker-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <script>
 /* Rahmen-Schutz (Clickjacking, Sicherheitsprüfung 26.10.2026, Befund 6): Inhalt nur als oberstes Fenster sichtbar.
  * In der iOS-Hülle (WKWebView) und als PWA ist top===self → sofort sichtbar, kein Flackern. Eingebettet (iframe,
@@ -134,7 +134,7 @@
  * Mehrgeräte-fähig: Patientendaten in der Cloud, Echtzeit-Sync.
  * localStorage bleibt als Offline-Buffer.
  * ============================================================ */
-var APP_VERSION = '0.37.0';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
+var APP_VERSION = '0.37.1';   /* Sichtbare App-Version (für Tester-Feedback). Siehe CHANGELOG.md
                               * WICHTIG: bei jedem Release auch version.json gleich setzen! */
 /* Datenschutz-Kontakt (Art. 13) — ZENTRALE Pflege-Stelle: Vor dem Echtbetrieb
  * Verantwortlichen und DSB-Kontakt HIER eintragen; die Ansicht „Datenschutz"
@@ -164,6 +164,9 @@ var UPDATE_SHEETS = {
   '0.26.0': 'docs/UPDATE_v0.26.html'           /* A-12-Nummern, TQ-Dialog, Abschluss vereinfacht, Export über Leitung */
 };
 var WHATS_NEW = {
+  '0.37.1': [
+    'Ein MasterMedic je Verbund — wie im echten Einsatz: Nach dem Zusammenführen ist der MasterMedic des Haupt-CCP für alle CCPs des Verbunds zuständig, mit und ohne Netz. Der bisherige MasterMedic des hinzugekommenen CCP sieht einen Hinweis; das Hauptmenü zeigt „MasterMedic: X · CCP A“. Wer die Rolle übernimmt, übernimmt sie für den ganzen Verbund.'
+  ],
   '0.37.0': [
     'Wichtig: Alle iPhones gemeinsam auf 0.37.0 aktualisieren — ältere Versionen werden erkannt, gleichen ohne Netz aber nicht mehr ab.',
     'Abgleich ohne Netz (ARGUS-App): Die Geräte eines CCP verbinden sich jetzt untereinander statt über eine Nabe — kein „Stern voll“ mehr, auch große CCPs. Die Pille zeigt „Mesh: N Geräte · k direkt“.',
@@ -894,6 +897,7 @@ function applyMeta(row){
       _mmGemerkt=sv;
       try{ sSet('ccp_mastermedic', sv).then(null, function(){}); }catch(e){}
     }
+    if(sv!==masterMedic) mmVerbundHinweis(masterMedic, sv, row.merge_group_id||_mergeGroupId);   /* 0.37.1 */
     masterMedic=sv;
   }
   /* T1 Foto-Schalter: synct über die ccps-Row (Realtime-UPDATE + loadMeta).
@@ -4353,7 +4357,11 @@ function flushPendingMm(ohneBedingung){
       if(!p || p.alt===null) return 'netz';
     }
     var e=await mmServerSchreiben(p.neu, ohneBedingung ? null : p.alt);
-    if(e==='ok'){ _mmServer=p.neu; mmPendingLoeschen(); }
+    if(e==='ok'){
+      _mmServer=p.neu; mmPendingLoeschen();
+      /* 0.37.1: im Verbund auch die übrigen Zeilen (bewusste Übernahme ohne Bedingung, Nachreichen per CAS auf alt) */
+      if(_mergeGroupId){ try{ mmVerbundSchreiben(_mergeGroupId, p.neu, ohneBedingung ? null : p.alt).then(null, function(){}); }catch(x){} }
+    }
     else if(e==='konflikt'){
       mmPendingLoeschen();   /* Server gilt (D6.10-12) — Hinweis nur bei eigener Übernahme, Serverstand sofort holen */
       if(operator && p.neu===operator){ try{ toast('MasterMedic-Übernahme nicht übernommen — Serverstand gilt'); }catch(x){} }
@@ -4377,6 +4385,63 @@ async function setMasterMedic(v){
      * Bewusste Übernahme mit Netz: ohne Bedingung (wie bisher); Erfolg löscht den Merker. */
     try{ await flushPendingMm(true); }catch(e){}
   }
+}
+/* ── 0.37.1 (Owner 29.10.2026): ein MasterMedic je Verbund — der des Haupt-CCP, „wie in echt“ ──
+ * Alle CCP-Zeilen eines Verbunds tragen denselben master_medic (RLS argus_ccps_write erlaubt jedem Gerät des Präsidiums
+ * die offenen Zeilen; keine Migration). Mit Netz schreibt das wechselnde Gerät alle Zeilen der Gruppe (bewusste Übernahme
+ * ohne Bedingung, Nachreichen per CAS auf den alten Wert); jedes Gerät erfährt den Wechsel über seine eigene Zeile. Ohne
+ * Netz gilt der Wechsel aus dem hb jedes CCP des Verbunds (LWW über mmAt); der Merker reicht die eigene Zeile nach. */
+function verbundHauptKennung(grp){
+  var g=grp||_mergeGroupId; if(!g) return '';
+  if(g===_ccpId) return _ccpKennung||'';
+  try{ return meshKennungVon(g)||''; }catch(e){ return ''; }
+}
+/* Hinweis auf allen Geräten des CCP, wenn im Verbund ein anderer MasterMedic gilt (nicht beim eigenen Wechsel). */
+function mmVerbundHinweisText(alt, neu, grp){
+  if(_training || !(grp||_mergeGroupId) || !neu || !alt || neu===alt || (operator && neu===operator)) return '';
+  var k=verbundHauptKennung(grp);
+  return 'MasterMedic im Verbund: '+neu+(k ? ' (CCP '+k+')' : '');
+}
+function mmVerbundHinweis(alt, neu, grp){
+  var t=mmVerbundHinweisText(alt, neu, grp);
+  if(t){ try{ toast(t); }catch(e){} }
+  return t;
+}
+/* Alle offenen Zeilen der Gruppe auf v setzen; alt (String) = nur Zeilen mit diesem Wert (CAS). true = ohne Fehler. */
+async function mmVerbundSchreiben(grp, v, alt){
+  var client=sb(); if(!client || !grp || !v || _training) return false;
+  var q=client.from('ccps').update({master_medic:String(v).slice(0,40)}).eq('merge_group_id', grp).is('closed_at', null);
+  if(typeof alt==='string') q=q.eq('master_medic', alt);
+  try{ var r=await qt(q, 4000); return !!(r && !r.error); }catch(e){ return false; }
+}
+/* Verbund-MasterMedic lokal übernehmen (ohne Netz bzw. Schreiben fehlgeschlagen): Zeit des Wechsels jetzt (hb mmAt),
+ * Merker für die eigene Zeile (flushPendingMm per CAS). still = kein eigener Hinweis (Aufrufer meldet). true = geändert. */
+function mmVerbundUebernehmen(v, grp, still){
+  v=String(v||'').slice(0,40);
+  if(!v || v===masterMedic) return false;
+  var alt=masterMedic, now=nowMs(), srv=mmServerWert();
+  masterMedic=v;
+  try{ sSet('ccp_mastermedic', v).then(null, function(){}); }catch(e){}
+  try{ if(_mesh && _mesh.mm) _mesh.mm={v:v, at:now}; }catch(e){}
+  try{ if(!_training && _ccpId) mmPendingMerken(v, srv, now); }catch(e){}
+  if(!still) mmVerbundHinweis(alt, v, grp);
+  return true;
+}
+/* Nach dem Zusammenführen mit Netz: MasterMedic des Haupt-CCP (Zeile id = grp) auf alle Zeilen; lokal übernehmen.
+ * Haupt ohne MasterMedic oder nicht lesbar → nichts erzwingen. Rückgabe: neuer Wert, wenn er sich hier geändert hat. */
+async function mmVerbundAngleichen(grp){
+  var client=sb(); if(!client || !grp || _training) return '';
+  var v='';
+  if(grp===_ccpId) v=String(masterMedic||'');
+  else{ try{ var r=await qt(client.from('ccps').select('master_medic').eq('id', grp).maybeSingle()); if(r && !r.error && r.data) v=String(r.data.master_medic||''); }catch(e){} }
+  if(!v) return '';
+  var ok=await mmVerbundSchreiben(grp, v, null);
+  if(v===masterMedic) return '';
+  if(!ok){ mmVerbundUebernehmen(v, grp, true); return v; }
+  masterMedic=v; _mmServer=v; _mmGemerkt=v;
+  try{ sSet('ccp_mastermedic', v).then(null, function(){}); }catch(e){}
+  try{ if(_mesh && _mesh.mm) _mesh.mm={v:v, at:nowMs()}; }catch(e){}
+  return v;
 }
 /* Demo-CCPs: realistisch befüllte Beispiel-CCPs für Präsentations- und Testzwecke.
  * Jede CCP hat 8 Patienten mit variierenden Kategorien, Vitalwerten und Verletzungen.
@@ -4854,6 +4919,7 @@ async function realMergeDirect(targetId){
   /* Gruppenzuordnung beider Zeilen in EINEM Update (keine Selbstheilung dazwischen) */
   try{await client.from('ccps').update({merge_group_id:grp,merged:true}).in('id', neu ? [_ccpId,targetId] : [targetId]);}catch(e){}
   _mergeGroupId=grp;
+  try{ await mmVerbundAngleichen(grp); }catch(e){}   /* 0.37.1: ein MasterMedic je Verbund */
   return true;
 }
 async function realMergeAccept(fromId){
@@ -4892,6 +4958,7 @@ async function realMergeAccept(fromId){
   try{await client.from('ccps').update({merge_request_from:null,merge_request_at:null}).eq('id',_ccpId);}catch(e){}
   /* Gruppenzuordnung: eigene Zeile und (bei Einzel-CCP) die des Anfragenden in EINEM Update */
   try{await client.from('ccps').update({merge_group_id:grp,merged:true}).in('id', src.merge_group_id ? [_ccpId] : [_ccpId, fromId]);}catch(e){}
+  try{ await mmVerbundAngleichen(grp); }catch(e){}   /* 0.37.1: MasterMedic des Haupt-CCP für den ganzen Verbund */
   return true;
 }
 async function realMergeDecline(){
@@ -4952,7 +5019,7 @@ async function checkIncomingMergeRequest(){
   var client=sb(); var fromK='?';
   try{ var s=(await client.from('ccps').select('kennung').eq('id',_mergeReqFrom).single()).data; if(s&&s.kennung) fromK=s.kennung; }catch(e){}
   var ok=await confirmModal("CCP "+fromK+" möchte mit deinem CCP zusammenführen.\n\nDanach seht ihr eine gemeinsame Patientenliste (Nummern mit Präfix). Zusammenführen?","Zusammenführen");
-  if(ok){ var fid=_mergeReqFrom; var okA=await realMergeAccept(fid); _mergeReqFrom=null; await loadMeta(); await loadPatients(); render(); if(okA) toast("Zusammengeführt mit CCP "+fromK); }   /* Ablehnung (Verbund/Lage) behält ihren Hinweis */
+  if(ok){ var fid=_mergeReqFrom; var okA=await realMergeAccept(fid); _mergeReqFrom=null; await loadMeta(); await loadPatients(); render(); if(okA) toast("Zusammengeführt mit CCP "+fromK+((masterMedic && masterMedic!==operator) ? ' · MasterMedic im Verbund: '+masterMedic : '')); }   /* Ablehnung (Verbund/Lage) behält ihren Hinweis */
   else { await realMergeDecline(); }
   _mergeReqHandling=false;
 }
@@ -7735,16 +7802,26 @@ function meshAnklopfBody(pub){
 }
 /* Anfrage an CCP ccpId (D6.10-22): Ziel = MasterMedic-Gerät laut Kurzinfo, direkt per Präsidiums-Link (≤ 8 s), Einmalschlüssel,
  * anklopfen. Löst mit '' (gesendet, wartet) oder dem Hinweistext auf; wirft nie. Antwort in meshAnklopfAntwort. */
+/* 0.37.1: Ziel des Anklopfens = Gerät des Verbund-MasterMedic — steckt es in einem anderen CCP des Verbunds, die
+ * frischeste Kurzinfo derselben Gruppe mit mmDev (zielCcp = dessen CCP, Transkript wie beim Ziel). Rein; null = keins. */
+function meshAnklopfZiel(infos, ccpId){
+  var i=infos && infos[ccpId]; if(!i) return null;
+  if(i.mmDev>=1) return i;
+  if(!i.grp) return null;
+  var best=null;
+  Object.keys(infos).forEach(function(k){ var x=infos[k]; if(x && x.grp===i.grp && x.mmDev>=1 && (!best || (Number(x.at)||0)>(Number(best.at)||0))) best=x; });
+  return best;
+}
 function meshAnklopfen(ccpId){
   return new Promise(function(resolve){
     var fertig=false, FEHL='Anfrage fehlgeschlagen — bitte erneut versuchen.';
     function done(t){ if(fertig) return; fertig=true; resolve(typeof t==='string' ? t : ''); }
     try{
-      var N=_mesh.native, i=_mesh.infos[ccpId], now=nowMs(), kn=(i && i.kennung) || '?';
+      var N=_mesh.native, i0=_mesh.infos[ccpId], i=meshAnklopfZiel(_mesh.infos, ccpId), now=nowMs(), kn=(i0 && i0.kennung) || '?';
       var FERN='MasterMedic-Gerät von CCP '+kn+' nicht in Reichweite — näher herangehen.';
       /* Gerätetest 29.10.2026: kein Abbruch mehr, nur weil die Kurzinfo > 90 s alt ist (Liste lange offen, Präsidiums-Link
        * inzwischen getrennt) — Verbindung neu aufbauen; erreichbar ist das Ziel, wenn der Link binnen 8 s steht. */
-      if(!N || !_mesh.on || !i || !(i.mmDev>=1)){ done(FERN); return; }
+      if(!N || !_mesh.on || !i0 || !i){ done(FERN); return; }
       if(_mesh.knock){ done('Anfrage läuft bereits — bitte auf die Antwort warten.'); return; }
       var target=i.ccpHash+':'+i.mmDev, hint=_mesh.praesLinks[target] || _mesh.praesFund[target] || '';
       if(hint==='notweg'){ done('Dieses Gerät hat den aktuellen Präsidiums-Schlüssel noch nicht — einmal mit Netz öffnen.'); return; }
@@ -7874,13 +7951,17 @@ function verbundUebernehmenOffline(pkg){
   try{ localStorage.setItem('argus_ccp_ids_'+_ccpId, JSON.stringify(_ccpIdsKnown)); }catch(e){}
   _mesh.verbundStand=pkg.stand; _mesh.verbundStandCcp=_ccpId;
   _mesh.verbundFeld={grp:pkg.grp, stand:pkg.stand, hauptK:zielK};
+  /* 0.37.1: MasterMedic des Haupt-CCP gilt für den ganzen Verbund (Eintrag des Haupt-CCP, sonst der erste mit Kürzel) */
+  var vmm=''; pkg.ccps.forEach(function(c){ if(!vmm && c && c.ccpId===pkg.haupt.ccpId && c.mm) vmm=c.mm; });
+  if(!vmm) pkg.ccps.forEach(function(c){ if(!vmm && c && c.mm) vmm=c.mm; });
+  var mmNeu=mmVerbundUebernehmen(vmm, pkg.grp, true) ? vmm : '';
   verbundPendingMerken(pkg.grp, pkg.ids, pkg.stand, String(masterMedic||''));
   try{ meshSetKeys(); meshSchluesselWartendeAnwenden(); }catch(e){}
   try{
     meshVerbundFeldSenden('links'); meshSchluesselSenden('links');
     pkg.ccps.forEach(function(c){ if(c.vorlaeufig) meshSendCcpFuer(c.ccpId, 'links'); });
   }catch(e){}
-  try{ toast('Zusammengelegt (ohne Netz) — Haupt-CCP '+zielK+(dup ? ' · Kennung '+_ccpKennung+' doppelt — per Funk klären; Patientenlabels bleiben' : '')); }catch(e){}
+  try{ toast('Zusammengelegt (ohne Netz) — Haupt-CCP '+zielK+(mmNeu ? ' · MasterMedic im Verbund: '+mmNeu : '')+(dup ? ' · Kennung '+_ccpKennung+' doppelt — per Funk klären; Patientenlabels bleiben' : '')); }catch(e){}
   _mesh.knock=null; meshKnockLinksTrennen(null);
   try{ render(); }catch(e){}
   return '';
@@ -7896,7 +7977,7 @@ function meshAnklopfStand(grp, ids, xId){
     var eigen=(id===_ccpId);
     ccps.push({ccpId:id, joinToken:tok, kennung:eigen ? _ccpKennung : meshKennungVon(id), ort:eigen ? (_ccpOrt||'') : ((e && e.ort) || ''),
       vorlaeufig:!!e, eroeffnetAt:e ? (Number(e.eroeffnet_at)||null) : null, lageId:eigen ? lid : ((e && e.einsatzlage_id) || null),
-      lageName:eigen ? ln : ((e && e.einsatzlage_name) || null), mm:eigen ? String(masterMedic||'') : String((e && e.master_medic) || '')});
+      lageName:eigen ? ln : ((e && e.einsatzlage_name) || null), mm:String(masterMedic||'')});   /* 0.37.1: ein MasterMedic je Verbund */
   });
   return {grp:grp, ids:ids.concat([xId]), haupt:{ccpId:grp, kennung:(grp===_ccpId) ? _ccpKennung : meshKennungVon(grp)}, ccps:ccps,
     lage:lid ? {id:lid, name:ln||''} : null, lageWartet:(lid && ln && lagePendingLesen().some(function(x){ return x && x.id===lid; })) ? {id:lid, name:ln} : null,
@@ -8076,6 +8157,7 @@ function meshHandleVerbund(msg, key){
   _mesh.verbundStand=msg.stand; _mesh.verbundStandCcp=_ccpId;
   if(e!=='anwenden') return;
   var vorher=_mergeGroupId;
+  var vmmT='';   /* 0.37.1: Verbund-MasterMedic in der Meldung */
   var vorIds=meshVerbundIds();
   _mergeGroupId=msg.grp;
   _ccpIdsKnown=f.ids.slice();
@@ -8083,23 +8165,20 @@ function meshHandleVerbund(msg, key){
   ccpMerged=true;
   if(eigen){
     _ccpKennung=f.kennung;
-    if(f.mm && f.mm!==mm0){
-      masterMedic=f.mm;
-      try{ sSet('ccp_mastermedic', masterMedic).then(null, function(){}); }catch(err){}
-    }
+    if(f.mm && f.mm!==mm0 && mmVerbundUebernehmen(f.mm, msg.grp, true) && f.mm!==operator) vmmT=' · MasterMedic im Verbund: '+f.mm;   /* 0.37.1: mit Merker (eigene Zeile), Zeit des Wechsels; Hinweis in der Meldung unten */
   }
   if(feld) _mesh.verbundFeld={grp:msg.grp, stand:msg.stand, hauptK:String(msg.hauptK||'')};
   try{ meshSetKeys(); meshSchluesselWartendeAnwenden(); }catch(err){}   /* D6.10-10: Schlüsselbund folgt dem Verbund */
   if(feld){
     var ki=null;   /* Ziel-CCP (06.10-09, PE-3): Geräte des anfragenden CCP sind mit dem übergebenen Schlüssel verbunden → jetzt übernommen */
     f.ids.forEach(function(x){ if(!ki && vorIds.indexOf(x)<0 && _mesh.knockIn[x]){ ki=_mesh.knockIn[x]; delete _mesh.knockIn[x]; } });
-    toast(ki ? 'Zusammengelegt (ohne Netz) — CCP '+(ki.kennung||'?')+' ist dem Verbund beigetreten' : 'Zusammengelegt (ohne Netz) — Haupt-CCP '+(msg.hauptK||'?'));
+    toast(ki ? 'Zusammengelegt (ohne Netz) — CCP '+(ki.kennung||'?')+' ist dem Verbund beigetreten' : 'Zusammengelegt (ohne Netz) — Haupt-CCP '+(msg.hauptK||'?')+vmmT);
     /* Weitergabe im eigenen Mesh mit eigenem Umschlag: Geräte ohne den Schlüssel des Absender-CCP lassen dessen Umschlag
      * nicht zu (PE-4) — so erreicht der Verbund-Stand samt Schlüsselbund jedes Gerät. Nie Patientendaten. */
     try{ meshVerbundFeldSenden('links'); meshSchluesselSenden('links'); }catch(err){}
   }
-  else if(meshVerbundHinweis(vorher)==='geaendert') toast('Verbund geändert — Haupt-CCP '+(msg.hauptK||'?')+'; gemeinsame Liste, sobald Netz besteht');
-  else toast('Zusammengeführt — Haupt-CCP '+(msg.hauptK||'?')+'; gemeinsame Liste, sobald Netz besteht');
+  else if(meshVerbundHinweis(vorher)==='geaendert') toast('Verbund geändert — Haupt-CCP '+(msg.hauptK||'?')+vmmT+'; gemeinsame Liste, sobald Netz besteht');
+  else toast('Zusammengeführt — Haupt-CCP '+(msg.hauptK||'?')+vmmT+'; gemeinsame Liste, sobald Netz besteht');
   render();
 }
 /* Pillenzustand (D6.7-11, v3): off (auch Hintergrund/Training) | denied | seeking (läuft, kein Link) | on;
@@ -8678,6 +8757,8 @@ async function meshOnResource(ev){
 }
 /* MasterMedic-Stand nachführen: ein lokaler Wechsel (Übernahme, Server) bekommt die Zeit des Bemerkens; der beim Start
  * schon bekannte bzw. ein leerer Stand zählt 0. So überschreibt der hb des bisherigen MasterMedic keinen jüngeren Wechsel. */
+/* 0.37.1: MasterMedic-Wechsel aus dem hb gelten aus dem eigenen CCP und — im Verbund — aus jedem CCP des Bunds. */
+function meshMmQuelle(h){ return !!h && (h===_mesh.ccpHash || !!(_mergeGroupId && _mesh.bund && _mesh.bund[h])); }
 function meshMmStand(now){
   var v=String(masterMedic||'');
   if(_mesh.mm.v===null) _mesh.mm={v:v, at:0};
@@ -8721,8 +8802,9 @@ function meshHandleHb(msg, key){
   /* Messrunde 1 (Befund MM): auch MIT Netz übernehmen, wenn der Wechsel jünger ist als der hier bekannte Stand (Gateway:
    * per CAS auf den Server, bei 0 Zeilen gilt der Server); ohne Netz wie bisher (nicht älter) — in beiden Fällen Merker,
    * damit das nächste Gerät mit Netz den Wechsel nachreicht und applyMeta den alten Serverwert nicht zurückdreht. */
-  if(msg.ccp===_mesh.ccpHash && typeof msg.mm==='string' && msg.mm && msg.mm!==masterMedic && (online ? at>cur2.at : at>=cur2.at)){
+  if(meshMmQuelle(msg.ccp) && typeof msg.mm==='string' && msg.mm && msg.mm!==masterMedic && (online ? at>cur2.at : at>=cur2.at)){
     var alt=mmServerWert();
+    if(msg.ccp!==_mesh.ccpHash) mmVerbundHinweis(masterMedic, msg.mm, _mergeGroupId);   /* 0.37.1: Wechsel in einem anderen CCP des Verbunds */
     masterMedic=msg.mm; _mesh.mm={v:msg.mm, at:at};
     try{ sSet('ccp_mastermedic', masterMedic).then(null, function(){}); }catch(e){}
     try{
@@ -8927,11 +9009,11 @@ function countbar(){
 }
 function navbtn(view,ic,t,s){return '<button class="navbtn" data-action="nav" data-view="'+view+'"><span class="ic">'+ic+'</span><span><span class="t">'+t+'</span><br><span class="s">'+s+'</span></span></button>';}
 function vHome(){
-  var mmLine;
+  var mmLine, mmVb=!!(_mergeGroupId && !_training), mmVk=mmVb ? verbundHauptKennung() : '';   /* 0.37.1: ein MasterMedic je Verbund */
   if(masterMedic&&operator&&masterMedic===operator){
-    mmLine='<span class="pill" style="background:var(--acc);color:#fff;margin-top:7px;display:inline-block">★ Du bist MasterMedic</span>';
+    mmLine='<span class="pill" style="background:var(--acc);color:#fff;margin-top:7px;display:inline-block">★ Du bist MasterMedic'+(mmVb ? ' des Verbunds' : '')+'</span>';
   }else if(masterMedic){
-    mmLine='<span class="hint" style="display:inline-block;margin-top:6px">MasterMedic: '+esc(masterMedic)+' · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
+    mmLine='<span class="hint" style="display:inline-block;margin-top:6px">MasterMedic: '+esc(masterMedic)+(mmVk ? ' · CCP '+esc(mmVk) : '')+' · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }else{
     mmLine='<span class="hint" style="display:inline-block;margin-top:6px">Noch kein MasterMedic · <a href="#" data-action="claimmm" style="color:var(--mut)">übernehmen</a></span>';
   }
@@ -8971,9 +9053,17 @@ function offenText(list){
 }
 /* Geräte im CCP (D6.5-01/-15/-16): nur MasterMedic, nicht im Training, nur mit Geräteliste.
  * Je Gerät ein großer Knopf: Statuspunkt + devLabel (alle Server-Texte über esc, T-06.5-50). */
+/* Gerätetest 29.10.2026: Server-Geräteliste nur für die CCPs, in denen das Gerät gerade ist — nach einem CCP-Wechsel ohne
+ * „verlassen“ (MasterToken ‹, neuer CCP ohne Netz, dort noch kein Abruf) stand sonst die Liste des alten Verbunds da
+ * (zweites ★). null bleibt null (nie geladen). */
+function devicesFuerCcp(list){
+  if(!Array.isArray(list)) return list;
+  var ids=(_ccpIdsKnown && _ccpIdsKnown.length) ? _ccpIdsKnown : (_ccpId ? [_ccpId] : []);
+  return list.filter(function(d){ return d && ids.indexOf(d.ccp_id)>=0; });
+}
 function devicesCard(){
   if(_training || !isMasterMedic()) return '';
-  var online=netLikelyUp(), now=nowMs(), myDev=deviceNoSync();
+  var online=netLikelyUp(), now=nowMs(), myDev=deviceNoSync(), sdev=devicesFuerCcp(_devices);
   /* Phase 6.7 (D6.7-08) / 6.10 (06.10-05): Mesh-Geräteliste (hello/hb je Knoten-id, inkl. eigenem Gerät) mit der Server-Liste
    * je (Kennung, Gerätenummer) zusammenführen — frischer Mesh-Eintrag gewinnt, „(Mesh)/(Server)“ kommt aus d.via; auch offline,
    * solange Mesh-Zeilen existieren. Einträge des eigenen CCP ohne Kennung bekommen die eigene. */
@@ -8981,11 +9071,11 @@ function devicesCard(){
   if(meshNative() && _mesh.native && Object.keys(_mesh.devs).length){
     var md={}; Object.keys(_mesh.devs).forEach(function(k){ var x=_mesh.devs[k]; md[k]=Object.assign({}, x, {kn:(x && x.kn) || ((x && x.ccp===_mesh.ccpHash) ? (_ccpKennung||'') : '')}); });
     if(myDev>=1 && meshActive()){ var openN=0; try{ openN=patients.filter(function(p){return p._dirty;}).length; }catch(e){} md[_mesh.nodeKey||String(myDev)]={dev:myDev, kn:_ccpKennung||'', op:operator||'', last:now, open:openN, online:online}; }
-    rows=meshDeviceRows(md, _devices||[], now);
+    rows=meshDeviceRows(md, sdev||[], now);
   }
-  if(!rows && (!_devices || !_devices.length)){
+  if(!rows && (!sdev || !sdev.length)){
     /* Nie geladen: ohne Verbindung ehrlich „unbekannt“ (nur mit Geräte-Schema), sonst still bis zum ersten Abruf. */
-    if(!_devices && _schemaV>=26 && !online)
+    if(!sdev && _schemaV>=26 && !online)
       return '<div class="sech">Geräte im CCP</div><div class="card" style="padding:10px"><div class="hint" style="padding:10px 12px;min-height:48px;display:flex;align-items:center">Gerätestand unbekannt (keine Verbindung)</div></div>';
     return '';
   }
@@ -8994,7 +9084,7 @@ function devicesCard(){
     return '<div class="sech">Geräte im CCP</div><div class="card" style="padding:10px"><div class="hint" style="padding:10px 12px;min-height:48px;display:flex;align-items:center">Gerätestand unbekannt'+(online?' (veraltet)':' (keine Verbindung)')+(_devicesAt?' · zuletzt aktualisiert '+esc(hhmm(_devicesAt)):'')+'</div></div>';
   }
   var merged=(_ccpIdsKnown||[]).length>1;
-  if(!rows) rows=_devices;
+  if(!rows) rows=sdev;
   var col={verbunden:'var(--t3)', ausser_reichweite:'var(--t2)', abgemeldet:'var(--t1)', verlassen:'var(--mut)'};
   /* D6.9-03: Normalfall eine Zeile „Geräte im CCP: N“; Auffälliges ergänzt und hervorgehoben (abgemeldet rot, sonst amber).
    * Antippen klappt die bisherige Liste auf/zu — alle MasterMedic-Eingriffe (devtap) bleiben dort erreichbar. */
@@ -9603,13 +9693,13 @@ function vHelp(){
   var h='<button class="ghost" data-action="showintro" style="margin-bottom:8px">▶ Einführung erneut ansehen</button>';
   h+='<button class="ghost" data-action="nav" data-view="datenschutz" style="margin-bottom:14px">🛡 Datenschutzhinweis</button>';
   h+='<div class="card"><div class="sech" style="margin-top:0">Kurzanleitung</div>'+
-    kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>. Nach dem Präsidium wählst du die <b>Lage</b> im Menü „Lage auswählen“ (eine offene Lage = ein Tipp; sonst „Neue Lage eröffnen“). Die gewählte Lage steht auf der Startseite, ARGUS merkt sie sich je Präsidium; „Lage wechseln“ führt zurück ins Menü, solange du keinem CCP angehörst. Neue CCPs entstehen in dieser Lage. <b>CCP beitreten</b> zeigt zuerst die CCPs deiner Lage mit Entfernung („Alle Lagen anzeigen“ für die übrigen). Zusammenführen geht nur innerhalb derselben Lage. Kennung und Funkspruch bleiben wie gewohnt.')+
+    kb('CCP eröffnen / beitreten','<b>Neue CCP eröffnen</b> legt eine Sammelstelle an (Kennung A, B…). <b>CCP beitreten</b>, wenn schon eine offen ist — gleiche Patientenliste. Zusammengeführte CCPs erscheinen als <b>Verbund</b>; im Verbund gibt es <b>einen MasterMedic</b> — den des Haupt-CCP. Nach dem Präsidium wählst du die <b>Lage</b> im Menü „Lage auswählen“ (eine offene Lage = ein Tipp; sonst „Neue Lage eröffnen“). Die gewählte Lage steht auf der Startseite, ARGUS merkt sie sich je Präsidium; „Lage wechseln“ führt zurück ins Menü, solange du keinem CCP angehörst. Neue CCPs entstehen in dieser Lage. <b>CCP beitreten</b> zeigt zuerst die CCPs deiner Lage mit Entfernung („Alle Lagen anzeigen“ für die übrigen). Zusammenführen geht nur innerhalb derselben Lage. Kennung und Funkspruch bleiben wie gewohnt.')+
     kb('Patient erfassen','<b>Patient erfassen</b> → <b>tacSTART</b> (geführt) oder direkt eine <b>Kategorie</b> (T-1…T-5). Nummer kommt automatisch — auf die Haut notieren. Unten am zuletzt Angelegten: Prio · TQ · öffnen · Verwerfen.')+
     kb('Patient verwalten','Über <b>Patientenübersicht</b> (Kacheln, PRIO/gPA, „Alle Patienten") oder <b>öffnen</b>. Im Detail: Vitalwerte (+ Verlauf), Maßnahmen A–E, Verletzungen, <b>Foto</b> (antippen = Vollbild), Kategorie, Prio, TQ-Timer.')+
     kb('Abtransport','Im Patienten <b>Abtransport → gPA</b>, oder in der Kategorieliste alle transportfertigen sammeln. Ausgecheckte (gPA) lassen sich zurückholen.')+
     kb('Mehrere Geräte','Wer einen Patienten bearbeitet, <b>sperrt</b> ihn kurz für andere. Beim Verlassen / nach 45 s gibt die Sperre automatisch frei. <b>MasterMedic</b> kann übernehmen.')+
     kb('Gerätestatus & CCP verlassen','Der <b>MasterMedic</b> sieht auf der Startseite die <b>Geräte im CCP</b> mit drei Zuständen (aktiv · außer Reichweite · abgemeldet). App im <b>Vordergrund</b> halten — ein gesperrtes Display erscheint als „außer Reichweite". <b>‹ im Hauptmenü</b> = CCP bewusst verlassen (mit Rückfrage). Wiederbeitreten über die Startseite mit der <b>gleichen Gerätenummer</b> — kein neuer Code.')+
-    kb('Abgleich ohne Netz (Mesh)','Nur in der <b>ARGUS-App</b> (iPhone): Geräte eines CCP (und eines Verbunds) gleichen Patienten <b>ohne Mobilfunk</b> direkt untereinander ab. Jedes Gerät hält Verbindung zu wenigen Nachbarn, die Daten wandern von Gerät zu Gerät weiter — Stand in der Pille <b>„Mesh: N Geräte · k direkt“</b> im Hauptmenü, Tippen zeigt die Diagnose. App im <b>Vordergrund</b> lassen (gesperrtes Display = außer Reichweite). <b>WLAN-Schalter an</b> — ein WLAN-Netz ist nicht nötig; <b>Bluetooth allein reicht nicht</b>. Beim ersten Start <b>„Lokales Netzwerk“ erlauben</b> (nachträglich: <b>Einstellungen → Datenschutz &amp; Sicherheit → Lokales Netzwerk → ARGUS</b>). Sobald ein Gerät Netz hat, lädt es als <b>Gateway</b> alles hoch, auch für die anderen (am besten über Mobilfunk). <b>Fotos</b> kommen erst beim Öffnen des Patienten, direkt vom Gerät, das sie aufgenommen hat. <b>Ohne Netz eröffnen oder beitreten:</b> Das Gerät muss einmal mit Netz angemeldet gewesen sein — die Startseite sagt, ob es ohne Netz einsatzbereit ist. <b>„CCP beitreten“</b> zeigt die CCPs in der Nähe; die Liste bleibt offen und sucht weiter, bis der CCP erscheint. Beitreten geht ohne Rückfrage (Gerätenummer ab 50), der MasterMedic sieht „Neues Gerät beigetreten“. Fehlt einem Gerät der aktuelle Präsidiums-Schlüssel, fragt der MasterMedic „zulassen?“. <b>Zusammenlegen ohne Netz:</b> Der MasterMedic fragt unter „CCPs zusammenführen“ einen CCP in Reichweite an; nur dessen MasterMedic bestätigt. <b>Aktualisieren:</b> alle Geräte gemeinsam — ältere Versionen erscheinen mit Hinweis und gleichen nicht ab. <b>Akku:</b> der Bildschirm bleibt an, solange das Mesh ohne Netz läuft.')+
+    kb('Abgleich ohne Netz (Mesh)','Nur in der <b>ARGUS-App</b> (iPhone): Geräte eines CCP (und eines Verbunds) gleichen Patienten <b>ohne Mobilfunk</b> direkt untereinander ab. Jedes Gerät hält Verbindung zu wenigen Nachbarn, die Daten wandern von Gerät zu Gerät weiter — Stand in der Pille <b>„Mesh: N Geräte · k direkt“</b> im Hauptmenü, Tippen zeigt die Diagnose. App im <b>Vordergrund</b> lassen (gesperrtes Display = außer Reichweite). <b>WLAN-Schalter an</b> — ein WLAN-Netz ist nicht nötig; <b>Bluetooth allein reicht nicht</b>. Beim ersten Start <b>„Lokales Netzwerk“ erlauben</b> (nachträglich: <b>Einstellungen → Datenschutz &amp; Sicherheit → Lokales Netzwerk → ARGUS</b>). Sobald ein Gerät Netz hat, lädt es als <b>Gateway</b> alles hoch, auch für die anderen (am besten über Mobilfunk). <b>Fotos</b> kommen erst beim Öffnen des Patienten, direkt vom Gerät, das sie aufgenommen hat. <b>Ohne Netz eröffnen oder beitreten:</b> Das Gerät muss einmal mit Netz angemeldet gewesen sein — die Startseite sagt, ob es ohne Netz einsatzbereit ist. <b>„CCP beitreten“</b> zeigt die CCPs in der Nähe; die Liste bleibt offen und sucht weiter, bis der CCP erscheint. Beitreten geht ohne Rückfrage (Gerätenummer ab 50), der MasterMedic sieht „Neues Gerät beigetreten“. Fehlt einem Gerät der aktuelle Präsidiums-Schlüssel, fragt der MasterMedic „zulassen?“. <b>Zusammenlegen ohne Netz:</b> Der MasterMedic fragt unter „CCPs zusammenführen“ einen CCP in Reichweite an; nur dessen MasterMedic bestätigt und ist danach MasterMedic des ganzen Verbunds. <b>Aktualisieren:</b> alle Geräte gemeinsam — ältere Versionen erscheinen mit Hinweis und gleichen nicht ab. <b>Akku:</b> der Bildschirm bleibt an, solange das Mesh ohne Netz läuft.')+
     kb('Funkspruch','Nur <b>MasterMedic</b>: Hauptmenü → <b>📻 Funkspruch</b>. Fertige Lagemeldung zum Vorlesen (Kennung, Ort, Uhrzeit, Zahlen — keine Patientendaten) plus Kurzzeile fürs spätere SDS. Nach dem Durchsagen <b>„Meldung abgesetzt"</b> tippen — erst dann zählt die Meldungsnummer weiter.')+
     kb('Offline & Updates',updateHintText(isNativeShell()))+
     '</div>';
@@ -10762,7 +10852,7 @@ document.addEventListener("click",async function(e){
   if(a==="claimmm"){
     e.preventDefault();
     if(!operator){var vo=await promptModal("Erst dein Kürzel angeben:",operator||"");if(vo==null||!vo.trim())return;operator=vo.trim();await setOperatorStore(operator);}
-    var okm=await confirmModal(masterMedic?("MasterMedic-Rolle von "+masterMedic+" übernehmen?"):"MasterMedic-Rolle übernehmen?","Übernehmen");
+    var okm=await confirmModal((masterMedic?("MasterMedic-Rolle von "+masterMedic+" übernehmen?"):"MasterMedic-Rolle übernehmen?")+((_mergeGroupId && !_training) ? "\n\nDie Rolle gilt für den ganzen Verbund." : ""),"Übernehmen");   /* 0.37.1 */
     if(!okm)return;
     await setMasterMedic(operator);
     try{ meshSendHb(); }catch(e){}   /* Messrunde 1 (Befund A2): Wechsel sofort ins Mesh, nicht erst im Heartbeat-Takt */
