@@ -3,7 +3,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HDWWkTMopq2htvzqSOVKatHsBFK96HmuvFqOc8Zt4sg=' 'sha256-ggnVODJyQBP8En05OOFvpYu5fvOaL55UwsAGyMidd/g='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://sehuosjyjmrpzcqrelej.supabase.co wss://sehuosjyjmrpzcqrelej.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HDWWkTMopq2htvzqSOVKatHsBFK96HmuvFqOc8Zt4sg=' 'sha256-2JMC/J7vM7fIxChrLzZfoFFzZgCPHqmc3UVzxHzsQTs='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://sehuosjyjmrpzcqrelej.supabase.co wss://sehuosjyjmrpzcqrelej.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
 <script>
 /* Rahmen-Schutz (Clickjacking, Sicherheitsprüfung 26.10.2026, Befund 6): Inhalt nur als oberstes Fenster sichtbar.
  * In der iOS-Hülle (WKWebView) und als PWA ist top===self → sofort sichtbar, kein Flackern. Eingebettet (iframe,
@@ -116,6 +116,7 @@
   .mpdoc .mp-titel{font-weight:700;font-size:16px;margin:0 0 2px}
   .mpdoc .mp-meta{font-size:10.5px;color:var(--mut);margin:0 0 2px}
   .mpdoc .mp-hinw{font-size:10.5px;font-weight:700;margin:0 0 8px}
+  .mpdoc .mp-abg{font-size:11px;font-weight:700;margin:0 0 6px}   /* 06.12-21 (D6.12-38): Vermerk „Abgegeben: …“ im Druck */
   .mpdoc .mp-anh{font-size:14px;font-weight:700;margin:0 0 8px;padding:0 0 4px;border-bottom:2px solid var(--acc);break-after:avoid;page-break-after:avoid}
   .mpdoc .mp-anh .mp-meta{font-weight:400;margin:2px 0 0}
   .mpdoc .mp-h{font-size:11px;font-weight:700;color:var(--acc);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 5px;break-after:avoid;page-break-after:avoid}
@@ -1381,13 +1382,16 @@ async function sitzungErneuernVw(){
  * Server (argus_darf) — für persönliche Sitzungen wie für den MasterToken.
  * Phase 6.12 (Plan 06.12-11, 0045): + argus_einsatzmappe_liste/argus_einsatzmappe
  * (Einsatzmappe je Lage; Pflicht-Log beim Öffnen einer Mappe) und argus_vw_nachweis/
- * argus_vw_nachweis_export (0044, Nachweis mit Filtern; Export pflichtprotokolliert). */
+ * argus_vw_nachweis_export (0044, Nachweis mit Filtern; Export pflichtprotokolliert).
+ * Phase 6.12 (Plan 06.12-21, 0053 Teil 2, D6.12-43): + argus_vw_fremdkraft_sitzungen_beenden
+ * (alle laufenden Fremdkraft-Sitzungen eines Präsidiums sofort beenden; pflichtprotokolliert). */
 var VW_RPCS=['argus_vw_personen','argus_vw_person_anlegen','argus_vw_person_aendern','argus_vw_person_notiz',
   'argus_vw_person_sperren','argus_vw_person_code_neu','argus_vw_person_loeschen','argus_vw_person_code_uebertragen',
   'argus_vw_codes','argus_vw_code_sperren','argus_vw_code_notiz','argus_vw_code_loeschen','argus_vw_codes_loeschen_alle',
   'argus_vw_code_ausgeben','argus_vw_zugangscode','argus_vw_zugangscode_erneuern','argus_vw_anmeldesperren',
   'argus_vw_anmeldesperre_freigeben','argus_vw_praesidien','argus_vw_praesidium_anlegen',
-  'argus_einsatzmappe_liste','argus_einsatzmappe','argus_vw_nachweis','argus_vw_nachweis_export'];
+  'argus_einsatzmappe_liste','argus_einsatzmappe','argus_vw_nachweis','argus_vw_nachweis_export',
+  'argus_vw_fremdkraft_sitzungen_beenden'];
 async function vwRpc(fn, args){
   if(VW_RPCS.indexOf(fn)<0) return { ok:false, fehler:'aktion', meldung:'Unbekannte Aktion.' };
   var ab='Sitzung abgelaufen — bitte neu anmelden.';
@@ -2409,6 +2413,9 @@ function zugangscodesHtml(liste, sicht, fk, f){
         +(fkN[p.id] ? ' · '+fkN[p.id]+' laufende Fremdkraft-Sitzung'+(fkN[p.id]===1 ? '' : 'en') : '')+'</div>';
       h+='<div class="zakt"><button class="btn ghost sm" title="Fremdkräfte-Code anzeigen" data-action="zugcodezeigen" data-pid="'+pid+'" data-art="fremdkraefte_code">Anzeigen</button>';
       if(r.fremdNeu) h+='<button class="btn leise sm" title="Fremdkräfte-Code erneuern" data-action="zugcodeerneuern" data-pid="'+pid+'" data-art="fremdkraefte_code" data-pname="'+pn+'">Erneuern</button>';
+      /* Phase 6.12 (06.12-21, D6.12-43): Erneuern beendet keine Sitzungen mehr — Notfall-Knopf (gleiches Recht,
+       * nur ab Server 53 und bei laufenden Sitzungen); Rückfrage und Pflichtprotokoll serverseitig */
+      if(r.fremdNeu && fkN[p.id]>0 && fkLaufzeitAn()) h+='<button class="btn leise sm" title="Alle laufenden Fremdkraft-Sitzungen dieses Präsidiums sofort beenden (wird protokolliert)" data-action="fkbeenden" data-pid="'+pid+'" data-pname="'+pn+'" data-n="'+fkN[p.id]+'">Alle Fremdkraft-Sitzungen beenden</button>';
       h+='</div>';
     }else{
       h+='<span class="hint">—</span>';
@@ -2429,8 +2436,50 @@ function zugcodeDialog(d){
     z.push('Selbstregistrierungen der letzten 30 Tage: '+(+d.registrierungen_30t||0));
     z.push('Neue Geräte registrieren sich damit einmal mit Kürzel; registrierte Geräte brauchen ihn danach nicht mehr.');
   }
-  if(d.beendete_sitzungen!=null) z.push('Beim Erneuern beendete Fremdkraft-Sitzungen: '+(+d.beendete_sitzungen||0));
+  var fz=fkErneuernZeile(d);
+  if(fz) z.push(fz);
   return codeDialog({ titel:(fremd ? 'Fremdkräfte-Code' : 'Präsidiums-Code')+(d.praesidium_name ? ' · '+d.praesidium_name : ''), code:d.short_code, zeilen:z });
+}
+/* ── Fremdkräfte-Code nach D6.12-43 (Phase 6.12, Plan 06.12-21; Server 0053 Teil 2) ──
+ * Erneuern sperrt nur neue Freischaltungen mit dem alten Code; laufende Fremdkraft-Sitzungen
+ * laufen bis zu ihrem 72-h-Ende weiter. Für den Notfall ein eigener Knopf „Alle Fremdkraft-
+ * Sitzungen beenden“ (In-App-Rückfrage, Pflichtprotokoll serverseitig). Älterer Server (< 53):
+ * bisheriges Verhalten und bisherige Texte (D6.12-21). Alle Bausteine rein, Texte Klartext
+ * (confirmModal/codeDialog escapen selbst). */
+function fkLaufzeitAn(){ return (+_serverV||0)>=53; }
+/* Rückfrage vor dem Erneuern des Fremdkräfte-Codes; neu = Server ab 53. */
+function fkErneuernFrage(pname, neu){
+  var k='Fremdkräfte-Code'+(pname ? ' von „'+pname+'“' : '')+' jetzt erneuern?\n';
+  if(!neu) return k+'Laufende Fremdkraft-Sitzungen dieses Codes enden sofort.';
+  return k+'Neue Freischaltungen nur noch mit dem neuen Code — laufende Fremdkraft-Sitzungen laufen bis zu ihrem Ende weiter. Zum sofortigen Beenden: „Alle Fremdkraft-Sitzungen beenden“.';
+}
+/* Zeile im Anzeige-Dialog nach dem Erneuern (Antwort von argus_vw_zugangscode_erneuern). */
+function fkErneuernZeile(d){
+  d=d || {};
+  if(d.laufende_sitzungen!=null) return 'Laufende Fremdkraft-Sitzungen laufen weiter: '+(+d.laufende_sitzungen||0);
+  if(d.beendete_sitzungen!=null) return 'Beim Erneuern beendete Fremdkraft-Sitzungen: '+(+d.beendete_sitzungen||0);
+  return '';
+}
+function fkBeendenFrage(pname, n){
+  return 'Alle '+(+n||0)+' laufenden Fremdkraft-Sitzungen von „'+(pname||'')+'“ jetzt beenden?\n'
+    +'Die Geräte arbeiten lokal weiter, gleichen aber erst wieder ab, wenn sie einen gültigen Fremdkräfte-Code eingeben. Der Fremdkräfte-Code selbst bleibt gültig. Wird protokolliert.';
+}
+function fkBeendenText(d){
+  d=d || {};
+  if(d.ok){ var n=+d.beendet||0; return n+' Fremdkraft-Sitzung'+(n===1 ? '' : 'en')+' beendet.'; }
+  return 'Nicht beendet: '+(d.meldung || 'unbekannter Fehler');
+}
+var _fkBeendenLauf=false;   /* Doppeltipp-Sperre */
+async function beendeFremdkraftSitzungen(pid, pname, n){
+  if(_fkBeendenLauf) return;
+  _fkBeendenLauf=true;
+  try{
+    var ok=await confirmModal(fkBeendenFrage(pname, n), 'Beenden');
+    if(!ok) return;
+    var r=await vwRpc('argus_vw_fremdkraft_sitzungen_beenden', { p_praesidium_id:pid });
+    toast(fkBeendenText(r));
+    if(r.ok) loadZugaenge();
+  }finally{ _fkBeendenLauf=false; }
 }
 async function zeigeZugcode(pid, art){
   var r=await vwRpc('argus_vw_zugangscode', { p_praesidium_id:pid, p_art:art });
@@ -2439,8 +2488,8 @@ async function zeigeZugcode(pid, art){
 }
 async function erneuereZugcode(pid, art, pname){
   var fremd=art==='fremdkraefte_code';
-  var ok=await confirmModal((fremd ? 'Fremdkräfte-Code' : 'Präsidiums-Code')+(pname ? ' von „'+pname+'“' : '')+' jetzt erneuern?\n'
-    +(fremd ? 'Laufende Fremdkraft-Sitzungen dieses Codes enden sofort.' : 'Bereits registrierte Geräte bleiben angemeldet. Der bisherige Code gilt nicht mehr für neue Registrierungen.'), 'Erneuern');
+  var ok=await confirmModal(fremd ? fkErneuernFrage(pname, fkLaufzeitAn())
+    : 'Präsidiums-Code'+(pname ? ' von „'+pname+'“' : '')+' jetzt erneuern?\nBereits registrierte Geräte bleiben angemeldet. Der bisherige Code gilt nicht mehr für neue Registrierungen.', 'Erneuern');
   if(!ok) return;
   var r=await vwRpc('argus_vw_zugangscode_erneuern', { p_praesidium_id:pid, p_art:art });
   if(!r.ok){ toast('Nicht erneuert: '+r.meldung); return; }
@@ -3656,6 +3705,8 @@ function lageKarteVw(lage, now){
   h+='<div class="kbody">';
   h+='<div><b class="mono">'+n+'</b> '+(n===1?'Einsatz':'Einsätze')+' · <b class="mono">'+np+'</b> '+(np===1?'Protokoll':'Protokolle')+' · <b class="mono">'+ng+'</b> gelöscht'+(no?' · <b class="mono">'+no+'</b> offen':'')+'</div>';
   h+='<div class="hint" style="margin-top:4px">eröffnet '+esc(mappeZeitKurz(l.eroeffnet_at))+(l.vor_ort===true?' (vor Ort)':'')+'</div>';
+  /* Phase 6.12 (06.12-21, D6.12-38): Vermerk des abgebenden Präsidiums auch in der Lagen-Liste (fehlt → nichts) */
+  if(Array.isArray(l.abgegeben) && l.abgegeben.length) h+='<div style="margin-top:6px">'+mappeAbgegebenHtml(l, false)+'</div>';
   if(wieder) h+='<div class="hint" style="margin-top:6px;color:var(--t1);font-weight:600">Wiedervorlage — ein Einsatzprotokoll dieser Lage erreicht in ≤ 24 h seine Löschfrist.</div>';
   h+='</div>';
   h+='<div class="kakt">';
@@ -3804,6 +3855,15 @@ function mappeZeitleisteText(e){
   if(a==='ccp_offline_eroeffnet'){
     return (e && typeof e==='object' && /doppelt/i.test(String(e.text||''))) ? 'Offline eröffnet (Kennung doppelt)' : 'Offline eröffnet';
   }
+  /* Phase 6.12 (06.12-21, D6.12-38; 0053 Teil 2): Übernahme in beiden Präsidien — Präsidiumsname nur, wenn das Ereignis ihn trägt */
+  if(a==='ccp_uebernommen'){
+    var von=(e && typeof e==='object' && e.von_praesidium_name!=null && e.von_praesidium_name!=='') ? String(e.von_praesidium_name) : '';
+    return 'CCP übernommen'+(von ? ' von '+von : '');
+  }
+  if(a==='ccp_abgegeben'){
+    var nach=(e && typeof e==='object' && e.nach_praesidium_name!=null && e.nach_praesidium_name!=='') ? String(e.nach_praesidium_name) : '';
+    return 'CCP abgegeben'+(nach ? ' an '+nach : '');
+  }
   var T={
     einsatzlage_angelegt:'Lage eröffnet', einsatzlage_umbenannt:'Lage umbenannt', einsatzlage_abgeschlossen:'Lage abgeschlossen',
     flz_merge:'Zusammengelegt (FLZ)', verbund_vor_ort:'Vor Ort zusammengelegt (ohne Netz)',
@@ -3829,9 +3889,11 @@ function mappeModell(d){
     if(!g){
       g={ key:k, verbund:!!e.verbund, ccp_id:e.ccp_id, kennungen:[], n:0, status:'geloescht', _prot:false, _offen:false,
         einsatz_typ:e.einsatz_typ, closed_at:null, purge_after:null, photo_purge_after:null, exported_at:null,
-        patienten_n:0, geraete_n:0, kollision:false, offline:false, vor_ort:false };
+        patienten_n:0, geraete_n:0, kollision:false, offline:false, vor_ort:false, uebernommen:null };
       gr[k]=g; order.push(k);
     }
+    /* Phase 6.12 (06.12-21, D6.12-38): jüngste Übernahme des CCP/Verbunds {at, von_praesidium_name, durch} (0053; fehlt → null) */
+    if(e.uebernommen && typeof e.uebernommen==='object' && (!g.uebernommen || (+e.uebernommen.at||0)>(+g.uebernommen.at||0))) g.uebernommen=e.uebernommen;
     g.n++;
     if(e.kennung!=null && e.kennung!=='' && g.kennungen.indexOf(String(e.kennung))<0) g.kennungen.push(String(e.kennung));
     if(e.status==='protokoll' && !g._prot){ g._prot=true; g.ccp_id=e.ccp_id; }
@@ -3865,10 +3927,13 @@ function mappeModell(d){
   geraete.forEach(function(b){ b.geraete.sort(function(a, z){ return (+a.device_no||0)-(+z.device_no||0); }); });
   var loe=(Array.isArray(x.loeschungen)?x.loeschungen:[]).filter(function(e){ return e && typeof e==='object'; }).slice();
   loe.sort(function(a, z){ return (+a.at||0)-(+z.at||0); });
+  /* Phase 6.12 (06.12-21, D6.12-38): Vermerke des abgebenden Präsidiums [{at, kennungen, nach_praesidium_name, durch}] (0053; fehlt → leer) */
+  var abg=(Array.isArray(lage.abgegeben)?lage.abgegeben:[]).filter(function(a){ return a && typeof a==='object'; }).slice();
+  abg.sort(function(a, z){ return (+a.at||0)-(+z.at||0); });
   return {
     kopf:{ id:lage.id, name:lage.name, praesidium_name:lage.praesidium_name, schulung:lage.schulung===true, vor_ort:lage.vor_ort===true,
       eroeffnet_at:lage.eroeffnet_at, abgeschlossen_at:lage.abgeschlossen_at, wiedervorlage:lage.wiedervorlage===true,
-      n:ein.length, protokolle:np, geloescht:ng, offen:no },
+      n:ein.length, protokolle:np, geloescht:ng, offen:no, abgegeben:abg },
     einsaetze:einsaetze, zeitleiste:zeit, geraete:geraete, loeschungen:loe
   };
 }
@@ -3879,6 +3944,38 @@ function mappeStatusPill(s){
 }
 function mappeKennung(g){
   return (g && Array.isArray(g.kennungen) && g.kennungen.length) ? g.kennungen.map(function(k){ return esc(kennungKurz(k)); }).join(' + ') : '?';
+}
+/* ── Übernahme eines CCP in ein anderes Präsidium (Phase 6.12, Plan 06.12-21, D6.12-38; 0053 Teil 2) ──
+ * Übernehmendes Präsidium: Pille „übernommen“ am Einsatz („von <Präsidium> am … (durch)“).
+ * Abgebendes Präsidium: nur der Vermerk „Abgegeben: CCP <Kennungen> an <Präsidium> am … (durch)“ —
+ * Kennungen, Ziel, Zeit, durch; nie Patientenzahlen (Patientendaten und Protokoll liegen danach
+ * nur beim übernehmenden Präsidium). Alle Bausteine rein, Ausgabe escaped; fehlende Felder → ''. */
+function mappeUebernommenText(u){
+  var x=(u && typeof u==='object') ? u : {};
+  var t=[];
+  if(x.von_praesidium_name!=null && x.von_praesidium_name!=='') t.push('von '+String(x.von_praesidium_name));
+  if(x.at!=null) t.push('am '+fmtDruck(x.at));
+  if(x.durch!=null && x.durch!=='') t.push('('+String(x.durch)+')');
+  return t.join(' ');
+}
+function mappeUebernommenPill(e){
+  var u=(e && typeof e==='object' && e.uebernommen && typeof e.uebernommen==='object') ? e.uebernommen : null;
+  if(!u) return '';
+  var t=mappeUebernommenText(u);
+  return '<span class="pill" style="background:var(--acc)">übernommen</span>'+(t ? ' <span class="hint">'+esc(t)+'</span>' : '');
+}
+function mappeAbgegebenHtml(lage, druck){
+  var l=(lage && typeof lage==='object' && Array.isArray(lage.abgegeben)) ? lage.abgegeben : [];
+  l=l.filter(function(a){ return a && typeof a==='object'; });
+  if(!l.length) return '';
+  var h='';
+  l.forEach(function(a){
+    var kenn=(Array.isArray(a.kennungen) ? a.kennungen : []).map(function(k){ return kennungKurz(k); }).filter(function(k){ return k!==''; }).join(', ');
+    var t='Abgegeben: CCP '+(kenn || '?')+' an '+(a.nach_praesidium_name==null || a.nach_praesidium_name==='' ? '?' : String(a.nach_praesidium_name))
+      +' am '+fmtDruck(a.at)+(a.durch!=null && a.durch!=='' ? ' ('+String(a.durch)+')' : '');
+    h+=druck ? '<p class="mp-abg">'+esc(t)+'</p>' : '<div class="hint vabg" style="margin:0;font-weight:600">'+esc(t)+'</div>';
+  });
+  return h;
 }
 /* Rein: Zeitleiste, Geräteregister, Lösch-Läufe — gleich für Bildschirm und Druck (ohne Knöpfe).
  * druck (Quick 261024-mappe-druck): schmale Zeitangaben, „durch“/Hinweis ohne Anmelde-Codes,
@@ -3956,8 +4053,11 @@ function mappeHtml(m){
   h+='<div class="hint" style="margin-top:6px">Verzeichnis ohne Patientendaten — dieser Abruf wurde mit Kürzel und Zeitpunkt protokolliert. Patientendaten nur im Einsatzprotokoll (jeder Abruf wird protokolliert).</div>';
   h+='</div>';
   h+='<div class="sech">Einsätze ('+ein.length+')</div>';
+  /* Phase 6.12 (06.12-21, D6.12-38): Vermerk des abgebenden Präsidiums — bleibt auch ohne Einsätze sichtbar */
+  var abg=Array.isArray(k.abgegeben) ? k.abgegeben : [];
+  if(abg.length) h+='<div class="card" style="border-left:5px solid var(--acc)">'+mappeAbgegebenHtml(k, false)+'</div>';
   if(!ein.length){
-    h+='<div class="card"><p class="hint" style="margin:0">Noch kein CCP in dieser Lage.</p></div>';
+    if(!abg.length) h+='<div class="card"><p class="hint" style="margin:0">Noch kein CCP in dieser Lage.</p></div>';
   }else{
     h+='<div class="eliste">';
     ein.forEach(function(g){
@@ -3965,6 +4065,7 @@ function mappeHtml(m){
       var st=prot ? fristStatus(g.purge_after, now) : null;
       h+='<div class="ka"><div class="'+('kb'+((st==='abgelaufen'||st==='bald')?' rot':''))+'"><span class="kbl">CCP '+mappeKennung(g)+'</span><span class="kbr">';
       h+=mappeStatusPill(g.status)+(g.verbund ? ' <span class="pill gray">Verbund</span>' : '')+' <span class="pill gray">'+typLabel(g.einsatz_typ)+'</span>';
+      if(g.uebernommen) h+=' '+mappeUebernommenPill(g);
       if(prot) h+=' '+(g.exported_at ? '<span class="pill green">exportiert '+esc(fmtMs(g.exported_at))+'</span>' : '<span class="pill" style="background:var(--prio)">noch nicht exportiert</span>');
       h+='</span></div><div class="kbody">';
       h+='<div><b class="mono">'+(+g.patienten_n||0)+'</b> Patient(en) · <b class="mono">'+(+g.geraete_n||0)+'</b> Gerät(e)'+(g.closed_at!=null ? ' <span class="hint">· abgeschlossen: '+esc(fmtMs(g.closed_at))+'</span>' : '')+'</div>';
@@ -4111,13 +4212,17 @@ function mappeDruckHtml(m, protokolle){
   h+='<tr><th>Einsätze</th><td>'+(+k.n||0)+' · '+(+k.protokolle||0)+' mit Protokoll · '+(+k.geloescht||0)+' gelöscht'+(k.offen ? ' · '+(+k.offen)+' offen' : '')+'</td></tr>';
   h+='</tbody></table></div>';
   h+='<div class="mp-h">Einsätze ('+ein.length+')</div>';
+  /* Phase 6.12 (06.12-21, D6.12-38): Vermerk des abgebenden Präsidiums (ohne Patientenzahlen), auch ohne Einsätze */
+  var abg=Array.isArray(k.abgegeben) ? k.abgegeben : [];
+  if(abg.length) h+=mappeAbgegebenHtml(k, true);
   if(!ein.length){
-    h+='<p class="hint">Noch kein CCP in dieser Lage.</p>';
+    if(!abg.length) h+='<p class="hint">Noch kein CCP in dieser Lage.</p>';
   }else{
     h+='<div class="tablewrap"><table><thead><tr><th>CCP</th><th>Status</th><th>Typ</th><th>Patienten</th><th>Geräte</th><th>Abgeschlossen</th><th>Protokoll-Frist</th><th>Export</th><th>Hinweise</th></tr></thead><tbody>';
     ein.forEach(function(g){
       var fl=[];
       if(g.verbund) fl.push('Verbund');
+      if(g.uebernommen) fl.push('übernommen '+mappeUebernommenText(g.uebernommen));
       if(g.kollision) fl.push('Kennung doppelt');
       if(g.offline) fl.push('offline eröffnet');
       if(g.vor_ort) fl.push('vor Ort zusammengelegt');
@@ -4859,7 +4964,8 @@ function personFelderHtml(px, w, praes, sicht, opt){
   var rolle=w.rolle||'sachbearbeiter';
   var h='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:end">';
   h+='<div><label class="fieldlab" for="'+px+'rolle">Rolle</label><select id="'+px+'rolle" data-rollewahl="'+px+'" style="width:100%;padding:9px 11px;font-size:14px">';
-  [['sachbearbeiter','Sachbearbeiter'],['trainer','Trainer'],['administrator','Administrator']].forEach(function(o){
+  /* Phase 6.12 (06.12-21, D6.12-36): vierte Rolle FLZ — Lagen verwalten und CCP übernehmen; vergibt der Server (0052) */
+  [['sachbearbeiter','Sachbearbeiter'],['flz','FLZ'],['trainer','Trainer'],['administrator','Administrator']].forEach(function(o){
     h+='<option value="'+o[0]+'"'+(rolle===o[0] ? ' selected' : '')+'>'+o[1]+'</option>';
   });
   h+='</select></div>';
@@ -4925,7 +5031,7 @@ function personenAbschnittHtml(){
   var pf={ k:_persFilter.k, rolle:_persFilter.rolle||'alle', status:_vwf.pstatus||'alle', praes:sel, wurzel:pw.wurzel, mehr:mehrOffen('personen') };
   var alleP=(_pers && Array.isArray(_pers.personen)) ? _pers.personen : [];
   var ex='<select id="pers-filter-rolle" title="Rolle" aria-label="Rolle">';
-  [['alle','Alle Rollen'],['administrator','Administrator'],['trainer','Trainer'],['sachbearbeiter','Sachbearbeiter']].forEach(function(o){
+  [['alle','Alle Rollen'],['administrator','Administrator'],['flz','FLZ'],['trainer','Trainer'],['sachbearbeiter','Sachbearbeiter']].forEach(function(o){
     ex+='<option value="'+o[0]+'"'+(pf.rolle===o[0] ? ' selected' : '')+'>'+o[1]+'</option>';
   });
   ex+='</select>';
@@ -5092,13 +5198,21 @@ async function doPersonLoeschen(id){
   toast('Person gelöscht ('+(+r.codes_geloescht||0)+' Codes)');
   personenNeuLaden();
 }
-/* Phase-5-Code übertragen (nur instanzweit): normal → Sachbearbeiter, admin →
- * Trainer, master → Administrator „alle“ als Vorschlag (D6.12-15). */
+/* Rein: Vorschlag der neuen Rolle beim Übertragen eines Phase-5-Codes — master → Administrator,
+ * admin → Trainer, flz → FLZ (06.12-21, D6.12-36), sonst Sachbearbeiter (D6.12-15). */
+function uebertragVorschlag(role){
+  if(role==='master') return 'administrator';
+  if(role==='admin')  return 'trainer';
+  if(role==='flz')    return 'flz';
+  return 'sachbearbeiter';
+}
+/* Phase-5-Code übertragen (nur instanzweit): Vorschlag aus uebertragVorschlag,
+ * master → Administrator „alle“ (D6.12-15). */
 async function doPersonUebertragen(sc){
   /* sc = opaker handle (Server ab 0051) bzw. Code (älterer Server); der Server nimmt beides an. */
   var o=((_pers && _pers.offen_uebertragung) || []).filter(function(x){ return !!sc && offenHandle(x)===sc; })[0];
   if(!o){ toast('Code nicht gefunden — bitte aktualisieren.'); return; }
-  var rolle=o.role==='master' ? 'administrator' : (o.role==='admin' ? 'trainer' : 'sachbearbeiter');
+  var rolle=uebertragVorschlag(o.role);
   var w=await personRolleDialog('Bestand übertragen: '+(o.usbnk||'?')+' (bisher '+rolleLabel(o.role)+')',
     { rolle:rolle, stamm:o.praesidium_id||'', alle:o.role==='master', bereiche:[] }, { ohneBereiche:true });
   if(!w) return;
@@ -5271,12 +5385,13 @@ async function loadProtokoll(){
   try{ await pz; }catch(e){}
   if(state.section==='protokoll') render();
 }
-/* Rein: Gruppe je Aktion — gleiche Liste wie argus_intern.nachweis_gruppe (0049). */
+/* Rein: Gruppe je Aktion — gleiche Liste wie argus_intern.nachweis_gruppe (0049; 0053 Teil 2:
+ * ccp_uebernommen als Zugriff, fremdkraft_sitzungen_beendet als Sperrung — D6.12-28, Plan 06.12-21). */
 var NACHWEIS_GRUPPEN={
   protokoll:{ protokoll_view:'zugriffe', foto_view:'zugriffe', einsatzmappe_view:'zugriffe', protokoll_export:'zugriffe',
-    nachweis_export:'zugriffe', frist_verlaengert:'zugriffe',
+    nachweis_export:'zugriffe', frist_verlaengert:'zugriffe', ccp_uebernommen:'zugriffe',
     code_gesperrt:'sperrungen', code_entsperrt:'sperrungen', admin_code_revoke:'sperrungen', admin_gast_revoke:'sperrungen',
-    anmeldung_gedrosselt:'sperrungen', anmeldesperre_freigegeben:'sperrungen' },
+    anmeldung_gedrosselt:'sperrungen', anmeldesperre_freigegeben:'sperrungen', fremdkraft_sitzungen_beendet:'sperrungen' },
   audit:{ ident_gesperrt:'sperrungen', ident_entsperrt:'sperrungen', person_revoke:'sperrungen' }
 };
 /* Rein: nur relevante Zeilen, einheitliche Form {…, quelle, gruppe, kuerzel, begruendung};
@@ -5473,6 +5588,10 @@ function actionLabel(a){
   if(a==='admin_code_revoke') return 'Code gesperrt (FLZ-Zugang)';
   if(a==='anmeldung_gedrosselt') return 'Gerät nach Fehlversuchen gesperrt';
   if(a==='anmeldesperre_freigegeben') return 'Gesperrtes Gerät freigegeben';
+  /* Phase 6.12 (06.12-21, D6.12-38/-43; 0053 Teil 2): Übernahme (Zugriff), Vermerk des abgebenden Präsidiums, alle Fremdkraft-Sitzungen beendet (Sperrung) */
+  if(a==='ccp_uebernommen') return 'CCP übernommen (anderes Präsidium)';
+  if(a==='ccp_abgegeben') return 'CCP abgegeben (an anderes Präsidium)';
+  if(a==='fremdkraft_sitzungen_beendet') return 'Alle Fremdkraft-Sitzungen beendet';
   return a ? esc(String(a)) : '?';
 }
 function purgeReasonLabel(r){
@@ -5728,6 +5847,8 @@ document.addEventListener('click', async function(e){
   /* Phase 6.12 (06.12-10, D6.12-13/-14): Monats-Codes anzeigen/erneuern, Anmeldesperre freigeben */
   if(a==='zugcodezeigen'){ await zeigeZugcode(el.getAttribute('data-pid'), el.getAttribute('data-art')); return; }
   if(a==='zugcodeerneuern'){ await erneuereZugcode(el.getAttribute('data-pid'), el.getAttribute('data-art'), el.getAttribute('data-pname')||''); return; }
+  /* Phase 6.12 (06.12-21, D6.12-43): alle laufenden Fremdkraft-Sitzungen eines Präsidiums beenden (Rückfrage in der Funktion) */
+  if(a==='fkbeenden'){ await beendeFremdkraftSitzungen(el.getAttribute('data-pid'), el.getAttribute('data-pname')||'', +el.getAttribute('data-n')||0); return; }
   if(a==='sperrefreigeben'){ await gebeSperreFrei(el.getAttribute('data-schluessel'), el.getAttribute('data-kurz')||''); return; }
   if(a==='provision'){ await makeProvision(); return; }
   /* Phase 6.12 (06.12-10, D6.12-10): Präsidium anlegen (nur instanzweit) */

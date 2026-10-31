@@ -3,7 +3,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HDWWkTMopq2htvzqSOVKatHsBFK96HmuvFqOc8Zt4sg=' 'sha256-U67hlnidhldjd1BvftgN/Nhz0yum/dt93Kzkl3C6HX4='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; font-src 'self'; connect-src 'self' https://sehuosjyjmrpzcqrelej.supabase.co wss://sehuosjyjmrpzcqrelej.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'sha256-HDWWkTMopq2htvzqSOVKatHsBFK96HmuvFqOc8Zt4sg=' 'sha256-2M/0O9eXHBQD3i3bSMTlCZthaUW/jcofDPEYH30Rkbs='; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tile.openstreetmap.org; font-src 'self'; connect-src 'self' https://sehuosjyjmrpzcqrelej.supabase.co wss://sehuosjyjmrpzcqrelej.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'">
 <script>
 /* Rahmen-Schutz (Clickjacking, Sicherheitsprüfung 26.10.2026, Befund 6): Inhalt nur als oberstes Fenster sichtbar.
  * In der iOS-Hülle (WKWebView) und als PWA ist top===self → sofort sichtbar, kein Flackern. Eingebettet (iframe,
@@ -224,6 +224,21 @@
   .lgdlg-kn{display:flex;gap:8px}
   .lgdlg-kn .btn{flex:1}
   .lgdlg .lgdlg-no{background:var(--surf2);color:var(--tx)}
+  /* 6.12-SICHT */
+  /* Plan 06.12-20 (nur FLZ-Seite): Hülle je Karte mit MasterMedic-Zeile (D6.12-37) und Übernahme-Knopf
+   * (D6.12-33/-38) unter der unveränderten Karte; Dialog „ins eigene Präsidium übernehmen“ im Muster lgdlg. */
+  .kh{display:flex;flex-direction:column;min-width:0}
+  .kh > .ka{flex:1 1 auto}
+  .kmm{font-size:12px;color:var(--mut);padding:4px 2px 0}
+  .kmm b{color:var(--tx)}
+  .ubbtn{align-self:flex-start;margin:6px 0 0;background:var(--bg);color:var(--acc);border:1px solid var(--acc);border-radius:7px;padding:5px 11px;font-size:12px;font-weight:600}
+  .ubsel{font-family:var(--sans);font-size:14px;border:1px solid var(--line);border-radius:8px;padding:9px 11px;background:#fff;color:var(--tx);width:100%}
+  .ublagen{display:flex;flex-direction:column;gap:4px;margin:0 0 6px}
+  .ubopt{display:flex;align-items:center;gap:8px;font-size:13px}
+  .ubopt input{width:16px;height:16px;margin:0}
+  .ubliste{margin:0 0 8px;padding-left:18px;font-size:13px}
+  .ubfehl{margin:0 0 8px;min-height:0}
+  .ubfehl:empty{display:none}
   /* 6.8-GROSSBILD */
   /* D6.8-05 Großbild für Leitstand-Bildschirm/Beamer. Zwei Teile: body.gross = Größen
    * (große Zahlen, breites Raster) in beiden Farbschemata; body.gross.ggedaempft = gedämpftes
@@ -877,6 +892,315 @@ function lageAktionen(lage){
     '<button class="lgbtn" data-action="lageabschl" data-lage="'+id+'">Abschließen</button></span>';
 }
 
+/* ── Phase 6.12, Plan 20 (Migrationen 0052/0053, nur FLZ-Seite, NICHT geteilt) ──────
+ * D6.12-33/-37: Jede FLZ-berechtigte Sitzung (persönlich jeder Rolle, FLZ-Zugang, MasterToken)
+ * sieht in der Auswahl alle Präsidien der Installation und öffnet jedes lesend — gezeigt wird
+ * immer genau eines (Echtbetrieb und Schulung nie gemischt). Lagebild über rpc/argus_lage_sicht
+ * (0052); HTTP 404 (Server < 52) oder fehlendes FLZ-Recht → für diese Sitzung der bisherige Weg
+ * (argus_lage) zeichengleich (D6.12-21). Beobachter (Leitstand-Beamer) gehen nie diesen Weg.
+ * D6.12-36/-40: Lagen-Knöpfe nur, wenn der Server darf.lagen meldet. D6.12-33/-38/-41/-42:
+ * „Ins eigene Präsidium übernehmen“ nur nach darf.uebernehmen des Servers (FLZ-Zugang mit
+ * gemeinsamem Code nie, Echtbetrieb erst nach dem Schalter uebernahme_echt — die Seite kennt
+ * keinen der beiden Fälle). Konflikt kenntlich: D6.9-11 („rein lesend“) wird durch D6.12-33 nur
+ * für diese eine organisatorische Aktion überholt; Zusammenführen/Herauslösen bleibt dem Feld.
+ * Sitzungsmerker (nicht in SESS_KEYS, flüchtig): arguslg_sicht_alt ('1' = bisheriger Weg),
+ * arguslg_sicht ('' = Sitzungsform, 'auswahl' oder die id des angezeigten Präsidiums). */
+/* rein: Antwortklasse von argus_lage_sicht — 'ok', 'alt' (404: Funktion fehlt → bisheriger Weg),
+ * 'keine' (kein FLZ-Recht, z. B. Beobachter → bisheriger Weg), 'abmelden' (401), sonst 'fehler'. */
+function sichtFaehigKlasse(status, d){
+  if(status===401) return 'abmelden';
+  if(status===404) return 'alt';
+  if(!(status>=200 && status<300) || !d || typeof d!=='object') return 'fehler';
+  if(d.ok===true) return 'ok';
+  if(d.ok===false && d.fehler==='berechtigung') return 'keine';
+  return 'fehler';
+}
+/* rein: Welche Ansicht gilt? z = {ident, global, admin, sitzungPid, wahl, faehig, beobachter}.
+ * Nicht fähig oder Beobachter → 'alt' (bisheriger Weg). Sonst: Wahl 'auswahl' → Auswahl aller
+ * Präsidien; Wahl = id → dieses Präsidium (eigen = Präsidium der aktuellen Sitzungsform);
+ * ohne Wahl: Präsidiums-Form → deren Präsidium (eigen), globale Form → Auswahl. */
+function sichtWahl(z){
+  z=z||{};
+  if(!z.faehig || z.beobachter) return {modus:'alt'};
+  var eigen=String(z.sitzungPid||''), w=String(z.wahl||'');
+  if(w==='auswahl') return {modus:'auswahl'};
+  if(w) return {modus:'praesidium', pid:w, eigen:w===eigen};
+  if(eigen && !z.global) return {modus:'praesidium', pid:eigen, eigen:true};
+  return {modus:'auswahl'};
+}
+/* rein: praesidien/ccps der Auswahl-Antwort → {echt, schulung} genau im Eingabeformat von
+ * auswahlKacheln (je Eintrag id, name, ccps, t1; Zusatz lagen_n, ccps_n). Serverreihenfolge; die
+ * Umgebung liefert der Server (kein Block „unbekannt“). ccps zählt offene CCPs aus der Liste,
+ * ohne Liste ccps_n des Servers. */
+function sichtPraesidienBloecke(praesidien, ccps){
+  var out={echt:[], schulung:[]}, idx={}, liste=Array.isArray(ccps) ? ccps : null;
+  (Array.isArray(praesidien) ? praesidien : []).forEach(function(p){
+    if(!p || typeof p!=='object' || typeof p.id!=='string' || !p.id || idx['k'+p.id]) return;
+    var e={id:p.id, name:String(p.name==null ? '' : p.name), ccps:liste ? 0 : (+p.ccps_n||0), t1:0, lagen_n:+p.lagen_n||0, ccps_n:+p.ccps_n||0};
+    idx['k'+p.id]=e;
+    out[p.schulung===true ? 'schulung' : 'echt'].push(e);
+  });
+  (liste||[]).forEach(function(c){
+    var e=c && typeof c==='object' ? idx['k'+(c.praesidium_id||'')] : null;
+    if(!e) return;
+    e.ccps++; e.t1+=(+c.t1||0);
+  });
+  return out;
+}
+/* rein (W4): Hülle um das unveränderte auswahlKacheln — nur der Lesehinweis kommt dazu. */
+function sichtAuswahlHtml(bloecke){
+  return auswahlKacheln(bloecke)+'<div class="note">Präsidien außerhalb Ihres Bereichs öffnen sich lesend — ohne Lagen-Knöpfe.</div>';
+}
+/* rein: Rechte aus der Präsidiums-Antwort — nur was der Server meldet; übernehmen nur mit Zielen. */
+function sichtDarf(d){
+  var darf=(d && typeof d==='object' && d.darf && typeof d.darf==='object') ? d.darf : {};
+  return {lagen:!!darf.lagen, uebernehmen:!!darf.uebernehmen && Array.isArray(d.ziele) && d.ziele.length>0};
+}
+/* rein: Antwort von argus_lage_sicht für ein Präsidium? Nur sie trägt darf — argus_lage nie. */
+function sichtAntwort(d){
+  return !!(d && typeof d==='object' && d.darf && typeof d.darf==='object');
+}
+/* rein (D6.12-37): „MasterMedic: <Kürzel>“ des Haupt-CCP (seitenspezifisch unter der Karte; karteA bleibt geteilt). */
+function mmZeileHtml(members){
+  var hp=lageHaupt(members), mm=hp ? hp.master_medic : null;
+  if(mm==null || String(mm).trim()==='') return '';
+  return '<div class="kmm">MasterMedic: '+esc(String(mm).trim())+'</div>';
+}
+/* rein: Ziele der Präsidiums-Antwort → [{praesidium_id, praesidium_name, neue_lage, lagen:[{id,name}]}] */
+function uebernahmeZielListe(d){
+  return ((d && typeof d==='object' && Array.isArray(d.ziele)) ? d.ziele : []).filter(function(z){
+    return !!z && typeof z==='object' && typeof z.praesidium_id==='string' && !!z.praesidium_id;
+  }).map(function(z){
+    return {praesidium_id:z.praesidium_id, praesidium_name:String(z.praesidium_name==null ? '' : z.praesidium_name), neue_lage:z.neue_lage===true,
+      lagen:(Array.isArray(z.lagen) ? z.lagen : []).filter(function(l){ return !!l && typeof l==='object' && typeof l.id==='string' && !!l.id; })
+        .map(function(l){ return {id:l.id, name:String(l.name==null ? '' : l.name)}; })};
+  });
+}
+/* rein: Dialog „CCP <Kennung> ins eigene Präsidium übernehmen“ — Ziel-Präsidium (ein Ziel vorgewählt),
+ * offene Lagen des Ziels + „Neue Lage …“ (nur mit neue_lage). Alles escaped; keine data-action. */
+function uebernahmeDialogHtml(cfg){
+  cfg=cfg||{};
+  var ziele=Array.isArray(cfg.ziele) ? cfg.ziele : [], zid=String(cfg.zielId||(ziele.length===1 ? ziele[0].praesidium_id : '')), ziel=null, i;
+  for(i=0;i<ziele.length;i++){ if(ziele[i] && ziele[i].praesidium_id===zid){ ziel=ziele[i]; break; } }
+  var h='<div class="lgdlg-box ubdlg" role="dialog" aria-modal="true">'+
+    '<div class="lgdlg-t">CCP '+esc(cfg.verbund ? cfg.verbund : kennungKurz(cfg.kennung))+' ins eigene Präsidium übernehmen</div>';
+  h+='<label class="fieldlab" for="ubziel">Ziel-Präsidium</label><select id="ubziel" class="ubsel">';
+  if(ziele.length!==1) h+='<option value=""'+(zid ? '' : ' selected')+'>Bitte wählen …</option>';
+  ziele.forEach(function(z){
+    h+='<option value="'+esc(z.praesidium_id)+'"'+(z.praesidium_id===zid ? ' selected' : '')+'>'+esc(z.praesidium_name)+'</option>';
+  });
+  h+='</select>';
+  if(ziel){
+    var lagen=Array.isArray(ziel.lagen) ? ziel.lagen : [];
+    h+='<div class="fieldlab">Lage im Ziel-Präsidium</div><div class="ublagen">';
+    lagen.forEach(function(l, j){
+      h+='<label class="ubopt"><input type="radio" name="ublage" value="'+esc(l.id)+'"'+(j===0 ? ' checked' : '')+'> '+esc(l.name)+'</label>';
+    });
+    if(ziel.neue_lage){
+      h+='<label class="ubopt"><input type="radio" name="ublage" value="neu"'+(lagen.length ? '' : ' checked')+'> Neue Lage …</label>'+
+        '<input class="lgdlg-in ubneu" maxlength="80" autocomplete="off" placeholder="Name der neuen Lage — nur Anlass oder Objekt" value="">';
+    }
+    if(!lagen.length && !ziel.neue_lage) h+='<p class="hint">Keine offene Lage im Ziel-Präsidium — bitte dort zuerst eine Lage anlegen.</p>';
+    h+='</div>';
+  }
+  h+='<p class="hint lgdlg-hw">Der ganze Verbund geht mit; Echtbetrieb und Schulung werden nie gemischt.</p>';
+  h+='<p class="lerr ubfehl"></p>';
+  h+='<div class="lgdlg-kn"><button class="btn lgdlg-ok">Weiter</button><button class="btn lgdlg-no">Abbrechen</button></div>';
+  return h+'</div>';
+}
+/* rein (T-06.12-2005): Vorschau — CCPs des Verbunds (Kennung, Ort, Pille „Kennung doppelt“), Geräte,
+ * MasterMedic, Patienten NUR als Anzahl (patienten_n), Ziel und der Hinweis auf die Folgen. Alles escaped. */
+function uebernahmeVorschauHtml(v, quelleName){
+  v=(v && typeof v==='object') ? v : {};
+  var von=(v.von && typeof v.von==='object') ? v.von : {}, nach=(v.nach && typeof v.nach==='object') ? v.nach : {};
+  var lage=(nach.lage && typeof nach.lage==='object') ? nach.lage : {};
+  var q=String(von.praesidium_name||quelleName||''), z=String(nach.praesidium_name||''), mm=[];
+  var ccps=(Array.isArray(v.ccps) ? v.ccps : []).filter(function(c){ return !!c && typeof c==='object'; });
+  var h='<div class="lgdlg-box ubdlg" role="dialog" aria-modal="true"><div class="lgdlg-t">Übernahme prüfen</div><ul class="ubliste">';
+  ccps.forEach(function(c){
+    h+='<li>CCP '+esc(kennungKurz(c.kennung))+(c.ort ? ' · '+esc(c.ort) : '')+(c.kollision===true ? ' <span class="kdop">Kennung doppelt</span>' : '')+'</li>';
+    if(c.master_medic!=null && String(c.master_medic).trim()!=='' && mm.indexOf(String(c.master_medic).trim())<0) mm.push(String(c.master_medic).trim());
+  });
+  h+='</ul>';
+  h+='<p class="lgdlg-tx">Geräte: <b>'+(+v.geraete_n||0)+'</b> · MasterMedic: <b>'+(mm.length ? esc(mm.join(', ')) : '—')+'</b> · Patienten: <b>'+(+v.patienten_n||0)+'</b> (nur Anzahl)</p>';
+  h+='<p class="lgdlg-tx">Ziel: <b>'+esc(z)+' · Lage '+esc(lage.name||'')+(lage.neu===true ? ' (neu)' : '')+'</b></p>';
+  h+='<p class="hint lgdlg-hw">Patientendaten und Geräte gehen mit — die Geräte arbeiten 72 Stunden als Fremdkräfte von '+esc(z)+' weiter; '+esc(q)+' behält nur einen Vermerk.</p>';
+  h+='<div class="lgdlg-kn"><button class="btn lgdlg-ok">Übernehmen</button><button class="btn lgdlg-no">Abbrechen</button></div>';
+  return h+'</div>';
+}
+/* rein: Meldung nach der Ausführung (roh — flash/Dialog escapen); Ablehnung → Server-Meldung. */
+function uebernahmeErgebnisText(d){
+  if(!d || typeof d!=='object' || d.ok!==true) return (d && typeof d.meldung==='string' && d.meldung) ? d.meldung : 'Übernahme fehlgeschlagen.';
+  var nach=(d.nach && typeof d.nach==='object') ? d.nach : {}, lage=(nach.lage && typeof nach.lage==='object') ? nach.lage : {};
+  var kenn=(Array.isArray(d.ccps) ? d.ccps : []).map(function(c){ return kennungKurz(c && c.kennung); }).filter(function(k){ return !!k; }).join('+');
+  return 'CCP '+kenn+' übernommen in '+String(lage.name||'')+' ('+String(nach.praesidium_name||'')+') — die Geräte arbeiten 72 Stunden als Fremdkräfte weiter.';
+}
+/* Sitzungsmerker der Sicht (flüchtig, nicht in SESS_KEYS — „Abmelden“ und ein neuer Tab beginnen frisch) */
+function sichtAlt(){ try{ return sessionStorage.getItem('arguslg_sicht_alt')==='1'; }catch(e){ return false; } }
+function sichtAltSetzen(){ try{ sessionStorage.setItem('arguslg_sicht_alt', '1'); }catch(e){} }
+function sichtWahlGet(){ try{ return sessionStorage.getItem('arguslg_sicht')||''; }catch(e){ return ''; } }
+function sichtWahlSet(w){ try{ sessionStorage.setItem('arguslg_sicht', w||''); }catch(e){} }
+/* Beobachter-Sitzung (Leitstand-Beamer): weder Master noch FLZ-Zugang noch persönlich → immer bisheriger Weg */
+function sichtBeobachter(){ return !isGlobal() && !isAdminSess() && !isIdent(); }
+/* Welche Ansicht gilt jetzt? (aus der Sitzungsablage; vor dem ersten Poll gilt der Server als fähig) */
+function sichtAktuell(){
+  var pid=''; try{ pid=sessionStorage.getItem('arguslg_pid')||''; }catch(e){}
+  return sichtWahl({ident:isIdent(), global:isGlobal(), admin:isAdminSess(), sitzungPid:pid, wahl:sichtWahlGet(), faehig:!sichtAlt(), beobachter:sichtBeobachter()});
+}
+/* Präsidium im eigenen Bereich der Sitzung? persönlich: erlaubte Liste; Master: alle; FLZ-Zugang: eigenes */
+function sichtEigen(pid){
+  if(isIdent()) return identPraesidien().some(function(p){ return p.id===pid; });
+  if(isGlobal()) return true;
+  var own=''; try{ own=sessionStorage.getItem('arguslg_pid')||''; }catch(e){}
+  return !!own && own===pid;
+}
+/* Präsidium anzeigen (fähiger Weg): eigener Bereich einer persönlichen Sitzung → Präsidiumswechsel wie
+ * bisher (Sitzungsform dieses Präsidiums); sonst Lesemodus ohne Sitzungswechsel. Master führt seinen
+ * bisherigen Merker mit (Lagen-Knöpfe, Reiterwahl). Zahlen des vorigen Präsidiums nie weiter zeigen. */
+function sichtZeigen(pid){
+  if(isIdent() && sichtEigen(pid)){ sichtWahlSet(''); identWechsel(pid); return; }
+  if(isGlobal()) pselSet(pid);
+  sichtWahlSet(pid);
+  _data=null; _lastOkAt=null; _offline=false;
+  render();
+  poll();
+}
+/* Zurück zur Auswahl aller Präsidien — die persönliche Sitzung bleibt in ihrer Form */
+function sichtAuswahlZeigen(){
+  if(isGlobal()) pselSet('');
+  sichtWahlSet('auswahl');
+  _data=null; _lastOkAt=null; _offline=false;
+  render();
+  poll();
+}
+/* Server ohne argus_ccp_uebernehmen (0053 noch nicht eingespielt): nach dem ersten 404 für die Sitzung gemerkt → kein Knopf mehr */
+function uebernahmeAlt(){ try{ return sessionStorage.getItem('arguslg_ueb_alt')==='1'; }catch(e){ return false; } }
+function uebernahmeAltSetzen(){ try{ sessionStorage.setItem('arguslg_ueb_alt', '1'); }catch(e){} }
+/* rein: Knopf unter der Karte — am Haupt-CCP des Verbunds (der Server übernimmt immer den ganzen Verbund, D6.12-38) */
+function uebernahmeKnopfHtml(hp){
+  return (hp && hp.id) ? '<button class="ubbtn" data-action="uebernehmen" data-ccp="'+esc(hp.id)+'">Ins eigene Präsidium übernehmen</button>' : '';
+}
+/* rein: seitenspezifischer Zusatz unter der (geteilten, unveränderten) Karte: MasterMedic-Zeile, ggf. Übernahme-Knopf */
+function kartenZusatz(g, ueb){
+  var m=(g && g.members) || [];
+  return mmZeileHtml(m)+(ueb ? uebernahmeKnopfHtml(lageHaupt(m)||m[0]) : '');
+}
+/* In-Page-Dialog mit eigenem Inhalt (Muster lageDialog, Overlay an document.body): OK → opt.lesen(ov)
+ * (undefined = Eingabe unvollständig, Dialog bleibt) bzw. true; Abbrechen/Escape/Hintergrund → null;
+ * opt.aenderung(ov, e) bei change (Ziel gewechselt → Lagen neu zeichnen). */
+function uebDialog(html, opt){
+  opt=opt||{};
+  return new Promise(function(resolve){
+    var ov=document.createElement('div'), fertig=false;
+    ov.className='lgdlg';
+    ov.innerHTML=html;
+    document.body.appendChild(ov);
+    function done(v){
+      if(fertig) return;
+      fertig=true;
+      document.removeEventListener('keydown', taste, true);
+      if(ov.parentNode) ov.parentNode.removeChild(ov);
+      resolve(v);
+    }
+    function ja(){
+      var v=opt.lesen ? opt.lesen(ov) : true;
+      if(v===undefined) return;
+      done(v);
+    }
+    function taste(e){
+      if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); done(null); }
+      else if(e.key==='Enter' && !(e.target && e.target.tagName==='SELECT')){ e.preventDefault(); e.stopPropagation(); ja(); }
+    }
+    document.addEventListener('keydown', taste, true);
+    ov.addEventListener('click', function(e){
+      var t=e.target;
+      if(t && t.closest && t.closest('.lgdlg-ok')) ja();
+      else if(t && t.closest && t.closest('.lgdlg-no')) done(null);
+      else if(t===ov) done(null);
+    });
+    if(opt.aenderung) ov.addEventListener('change', function(e){ opt.aenderung(ov, e); });
+    var f=ov.querySelector('.ubsel') || ov.querySelector('.lgdlg-ok');
+    if(f && f.focus) f.focus();
+  });
+}
+/* rein: Wahl aus dem Dialog lesen → {ok:true, wahl:{zielId, lageId, neuName}} | {ok:false, meldung} */
+function uebernahmeWahlLesen(ov){
+  var sel=ov.querySelector('#ubziel'), zid=sel ? String(sel.value||'') : '';
+  var r=ov.querySelector('input[name="ublage"]:checked'), lid=r ? String(r.value||'') : '';
+  if(!zid) return {ok:false, meldung:'Bitte das Ziel-Präsidium wählen.'};
+  if(!lid) return {ok:false, meldung:'Bitte eine Lage wählen.'};
+  if(lid==='neu'){
+    var neu=ov.querySelector('.ubneu');
+    if(!neu || !lageNameOk(neu.value)) return {ok:false, meldung:'Bitte einen Namen der Lage angeben (höchstens 80 Zeichen).'};
+    return {ok:true, wahl:{zielId:zid, lageId:'', neuName:lageNameNorm(neu.value)}};
+  }
+  return {ok:true, wahl:{zielId:zid, lageId:lid, neuName:''}};
+}
+/* Schreibaufruf nur an argus_ccp_uebernehmen (0053). 401 → Abmeldung (null); 404 → Server ohne 0053
+ * (Klartext, für die Sitzung gemerkt); HTTP-/Netzfehler → {ok:false, meldung}; sonst die Server-Antwort. */
+async function uebernahmeRpc(args){
+  var jwt=sessionJwt();
+  if(!jwt){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+  var resp, d;
+  try{
+    resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_ccp_uebernehmen',{
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+      body:JSON.stringify(args||{})
+    });
+  }catch(e){
+    return {ok:false, meldung:'Keine Verbindung — bitte erneut versuchen.'};
+  }
+  if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return null; }
+  if(resp.status===404){ uebernahmeAltSetzen(); return {ok:false, meldung:'Übernahme ist auf diesem Server noch nicht verfügbar.'}; }
+  if(!resp.ok) return {ok:false, meldung:'Server-Fehler (HTTP '+resp.status+').'};
+  try{ d=await resp.json(); }catch(e){ d=null; }
+  return (d && typeof d==='object') ? d : {ok:false, meldung:'Unerwartete Antwort.'};
+}
+/* D6.12-33/-38: „CCP ins eigene Präsidium übernehmen“ — Ziel und Lage wählen → Vorschau vom Server
+ * (p_ausfuehren false, keine Schreibwirkung) → ausdrückliche Bestätigung → Ausführung → Meldung →
+ * Ansicht des Ziels. Doppeltipp-Sperre; nie im Großbild. Ob die Übernahme erlaubt ist, entscheidet
+ * allein der Server (berechtigung/freigabe/… als Klartext). */
+var _uebBusy=false;
+async function uebernahmeDialog(ccpId){
+  if(_uebBusy || grossVorliebe()) return;
+  var d=_data, ziele=uebernahmeZielListe(d), g=null, hp;
+  if(!sichtDarf(d).uebernehmen || !ziele.length){ flash('Übernahme hier nicht möglich'); return; }
+  lageGruppen(d.ccps).forEach(function(x){ if(!g && x.members.some(function(c){ return !!c && c.id===ccpId; })) g=x; });
+  if(!g){ flash('CCP nicht mehr vorhanden'); return; }
+  hp=lageHaupt(g.members)||g.members[0];
+  _uebBusy=true;
+  try{
+    var cfg={kennung:hp.kennung, verbund:g.verbund ? g.members.map(function(c){ return kennungKurz(c.kennung); }).join('+') : '', ziele:ziele};
+    var w=await uebDialog(uebernahmeDialogHtml(cfg), {
+      lesen:function(ov){
+        var r=uebernahmeWahlLesen(ov);
+        if(!r.ok){ var f=ov.querySelector('.ubfehl'); if(f) f.textContent=r.meldung; return undefined; }
+        return r.wahl;
+      },
+      aenderung:function(ov, e){
+        if(e && e.target && e.target.id==='ubziel'){ cfg.zielId=e.target.value; ov.innerHTML=uebernahmeDialogHtml(cfg); }
+      }
+    });
+    if(!w) return;
+    var args={p_ccp_id:hp.id, p_ziel_praesidium_id:w.zielId, p_ausfuehren:false};
+    if(w.lageId) args.p_einsatzlage_id=w.lageId;
+    else{ args.p_neue_lage_name=w.neuName; args.p_neue_lage_id=lageNeueId(); }
+    var v=await uebernahmeRpc(args);
+    if(!v) return;
+    if(v.ok!==true){ await lageHinweis('CCP übernehmen', uebernahmeErgebnisText(v)); return; }
+    var ja=await uebDialog(uebernahmeVorschauHtml(v, d.praesidium_name));
+    if(ja!==true) return;
+    var r=await uebernahmeRpc(Object.assign({}, args, {p_ausfuehren:true}));
+    if(!r) return;
+    if(r.ok!==true){ await lageHinweis('CCP übernehmen', uebernahmeErgebnisText(r)); return; }
+    flash(uebernahmeErgebnisText(r));
+    sichtZeigen(w.zielId);
+  }finally{
+    _uebBusy=false;
+  }
+}
+
 /* ── Sitzung: sessionStorage (Standard, flüchtig) + Opt-in „Angemeldet bleiben" ──
  * Schlüssel arguslg_jwt / arguslg_jwt_exp / arguslg_pname / arguslg_pid / arguslg_global / arguslg_admin.
  * Standard: Tab zu = Sitzung weg. Opt-in (Owner 2026-10-14): mit gesetztem
@@ -984,6 +1308,7 @@ function identMehrere(){ return identPraesidien().length>1; }
 /* rein: Rolle → Anzeigetext */
 function rolleText(r){
   if(r==='administrator') return 'Administrator';
+  if(r==='flz') return 'FLZ';   /* D6.12-36: vierte Rolle (0052) */
   if(r==='trainer') return 'Trainer';
   return 'Sachbearbeiter';
 }
@@ -1178,24 +1503,48 @@ async function poll(){
   if(_praesidien===null && nowMs()-_praesAt>60000) loadPraesidien();
   _polling=true;
   try{
-    var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage',{
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
-      body:'{}'
-    });
-    if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
-    /* Phase 6.12 (T-06.12-0803): Sitzung serverseitig beendet (Person/Code gesperrt) → abmelden statt „Keine Verbindung“ */
-    if(resp.status===400){
-      var fe=null; try{ fe=await resp.json(); }catch(e2){}
-      if(fe && typeof fe.message==='string' && fe.message.indexOf('Nur mit Beobachter-, Admin- oder FLZ-Zugang')>=0){
-        doLogout('Zugang beendet — bitte neu anmelden.'); return;
+    /* Phase 6.12 (D6.12-33/-37, Migration 0052): Lagebild über rpc/argus_lage_sicht — Auswahl: p_praesidium_id null,
+     * Präsidium: dessen id. 404 (Server < 52) oder kein FLZ-Recht → für diese Sitzung der bisherige Weg (D6.12-21);
+     * Beobachter gehen ihn immer. Störungen (5xx, Netz) bleiben „Keine Verbindung“ ohne Rückfall-Merker. */
+    var sw=sichtAktuell(), wahl0=sichtWahlGet(), data=null;
+    if(sw.modus!=='alt'){
+      var rs=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage_sicht',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+        body:JSON.stringify({ p_praesidium_id: sw.modus==='praesidium' ? sw.pid : null })
+      });
+      var ds=null; try{ ds=await rs.json(); }catch(e3){}
+      var kl=sichtFaehigKlasse(rs.status, ds);
+      if(kl==='abmelden'){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+      if(kl==='ok'){
+        if(!Array.isArray(ds.ccps)) throw new Error('Unerwartete Antwort');
+        data=ds;
+      }else if(kl==='fehler'){
+        throw new Error('HTTP '+rs.status);
+      }else{
+        sichtAltSetzen();   /* 'alt' oder 'keine': ab jetzt wie bisher */
       }
     }
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    var data=await resp.json();
-    if(!data || !Array.isArray(data.ccps)) throw new Error('Unerwartete Antwort');
-    /* Präsidium inzwischen gewechselt (6.12): Antwort der vorigen Sitzung verwerfen, neu abfragen */
-    if(sessionJwt()!==jwt){ _pollNeu=true; return; }
+    if(!data){
+      var resp=await fetch(SUPA_URL+'/rest/v1/rpc/argus_lage',{
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPA_KEY, 'Authorization':'Bearer '+jwt },
+        body:'{}'
+      });
+      if(resp.status===401){ doLogout('Sitzung abgelaufen — bitte neu anmelden.'); return; }
+      /* Phase 6.12 (T-06.12-0803): Sitzung serverseitig beendet (Person/Code gesperrt) → abmelden statt „Keine Verbindung“ */
+      if(resp.status===400){
+        var fe=null; try{ fe=await resp.json(); }catch(e2){}
+        if(fe && typeof fe.message==='string' && fe.message.indexOf('Nur mit Beobachter-, Admin- oder FLZ-Zugang')>=0){
+          doLogout('Zugang beendet — bitte neu anmelden.'); return;
+        }
+      }
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      data=await resp.json();
+      if(!data || !Array.isArray(data.ccps)) throw new Error('Unerwartete Antwort');
+    }
+    /* Präsidium oder Ansicht inzwischen gewechselt (6.12): Antwort der vorigen Sitzung verwerfen, neu abfragen */
+    if(sessionJwt()!==jwt || sichtWahlGet()!==wahl0){ _pollNeu=true; return; }
     _data=data; _lastOkAt=nowMs(); _offline=false;
     identErneuern();   /* D6.12-25: still verlängern, wenn fällig (nicht abwarten) */
   }catch(e){
@@ -1721,16 +2070,25 @@ function verbindungsNote(){
 /* Phase 6.8 (D6.8-01): Master ohne Auswahl → Auswahlbildschirm; sonst genau
  * EIN Präsidium. Eine gemischte Ansicht über mehrere Präsidien gibt es nicht. */
 function viewLage(){
+  /* Phase 6.12 (D6.12-33/-37): fähiger Weg — Auswahl aller Präsidien oder genau eines; sonst wie bisher */
+  var sw=sichtAktuell();
+  if(sw.modus==='auswahl') return viewAuswahl();
+  if(sw.modus==='praesidium') return viewPraesidium(sw.pid);
   if(isGlobal() && !pselGet()) return viewAuswahl();
   return viewPraesidium(isGlobal() ? pselGet() : '');
 }
-/* Auswahl (nur Master): Kacheln aus der Präsidienliste, Zahlen aus der Lage. */
+/* Auswahl: fähiger Weg (Antwort der Lagesicht 0052 mit praesidien) → alle Präsidien der Installation über die
+ * Hülle sichtAuswahlHtml (W4); bisheriger Weg (Master/persönlich, argus_lage) → Kacheln wie bisher. */
 function viewAuswahl(){
   var h='<div class="ubar"><div class="uband u-wahl">Auswahl · Präsidium wählen</div></div>';
   h+='<div class="main">'+verbindungsNote();
   if(_data){
-    h+=auswahlKacheln(auswahlDaten(_data.ccps, _praesidien));
-    if(_praesidien===null && !isIdent()) h+='<div class="note">Präsidienliste noch nicht geladen — gezeigt werden nur Präsidien mit offenen CCPs. Es wird weiter versucht…</div>';
+    if(Array.isArray(_data.praesidien)){
+      h+=sichtAuswahlHtml(sichtPraesidienBloecke(_data.praesidien, _data.ccps));
+    }else{
+      h+=auswahlKacheln(auswahlDaten(_data.ccps, _praesidien));
+      if(_praesidien===null && !isIdent()) h+='<div class="note">Präsidienliste noch nicht geladen — gezeigt werden nur Präsidien mit offenen CCPs. Es wird weiter versucht…</div>';
+    }
     h+='<div class="note">Je Präsidium eine eigene Ansicht — Echtbetrieb und Schulung werden nie gemischt. Anonyme Übersichtszahlen — keine Personendaten.</div>';
   }else if(!_offline){
     h+='<div class="empty">Wird geladen…</div>';
@@ -1742,19 +2100,26 @@ function viewAuswahl(){
  * Server liefert ohnehin nur dieses; Umgebung über die gespeicherte praesidium_id. */
 function viewPraesidium(pid){
   var glob=isGlobal(), all=_data ? _data.ccps : [], list, sp, i;
+  /* Phase 6.12 (Plan 20): Antwort der Lagesicht (0052)? Dann Präsidium, Umgebung und Rechte aus der Antwort. */
+  var sicht=sichtAntwort(_data), darf=sichtDarf(_data);
   if(glob){
     list=ccpsFuer(all, pid);
     var pn='';
     for(i=0;i<list.length;i++){ if(list[i].praesidium_name){ pn=list[i].praesidium_name; break; } }
+    if(!pn && sicht) pn=String(_data.praesidium_name||'');
     sp=sitzungsPraesidium(pid, pn, _praesidien);
   }else{
     list=all;
     var spid='', spn='';
-    try{ spid=sessionStorage.getItem('arguslg_pid')||''; spn=sessionStorage.getItem('arguslg_pname')||''; }catch(e){}
+    if(sicht && _data.praesidium_id){ spid=String(_data.praesidium_id); spn=String(_data.praesidium_name||''); }
+    else{ try{ spid=sessionStorage.getItem('arguslg_pid')||''; spn=sessionStorage.getItem('arguslg_pname')||''; }catch(e){} }
     sp=sitzungsPraesidium(spid, spn || (_data && _data.praesidium_name) || '', _praesidien);
   }
-  var h='<div class="ubar">'+umgebungsBand(sp.umgebung, sp.name);
-  if(glob || (isIdent() && identMehrere())) h+='<button class="btn" data-action="pwechsel">Präsidium wechseln</button>';
+  if(sicht && sp.umgebung==='unbekannt' && typeof _data.schulung==='boolean') sp.umgebung=_data.schulung ? 'schulung' : 'echt';
+  /* D6.12-37: ohne Lagen- und Übernahme-Recht ist die Ansicht rein lesend (Sachbearbeiter, fremdes Präsidium) */
+  var lesend=sicht && !darf.lagen && !darf.uebernehmen;
+  var h='<div class="ubar">'+umgebungsBand(sp.umgebung, (sp.name||'')+(lesend ? (sp.name ? ' · ' : '')+'nur lesend' : ''));
+  if(glob || (isIdent() && identMehrere()) || sicht) h+='<button class="btn" data-action="pwechsel">Präsidium wechseln</button>';
   h+='</div>';
   h+='<div class="main">'+verbindungsNote();
   if(_data){
@@ -1765,6 +2130,10 @@ function viewPraesidium(pid){
     var lagenP=faehig ? lagenFuer(_data.einsatzlagen, glob ? pid : '') : [];
     /* D6.11-01/-07: Lagen verwalten — nur FLZ-Zugang/Master, nicht im Großbild; der Server entscheidet */
     var verw=lageVerwaltbar(faehig, isGlobal(), isAdminSess(), grossVorliebe());
+    /* D6.12-36/-40: mit Antwort der Lagesicht zusätzlich nur, wenn der Server darf.lagen meldet */
+    if(sicht && !darf.lagen) verw=false;
+    /* D6.12-33/-41/-42: Übernahme-Knopf allein nach Server-Recht (Ziele vorhanden), nie im Großbild, nicht ohne 0053 */
+    var ueb=sicht && darf.uebernehmen && !grossVorliebe() && !uebernahmeAlt();
     var neuKnopf='<button class="btn lgneu" data-action="lageneu">＋ Lage anlegen</button>';
     if(list.length || lagenP.length){
       var gruppenAlle=lageGruppen(list), gruppen=gruppenAlle, abAlle=null, ab=null, mehr=false, lwahl='alle';
@@ -1794,7 +2163,7 @@ function viewPraesidium(pid){
       list.forEach(function(c){ if(!('zuletzt_gesehen' in c)) ohneAkt=true; });
       /* Ort-Korrektur nur für Alt-Beobachter (argus_lage_set_ort ist observer-only;
        * beim Master wäre die Kennung präsidienübergreifend mehrdeutig). */
-      var opts={ortEdit: !isGlobal() && !isAdminSess(), geoKlick:true, vnTotal:vn};
+      var opts={ortEdit: !isGlobal() && !isAdminSess() && !sicht, geoKlick:true, vnTotal:vn};   /* T-06.12-2003: nie im Sicht-Weg */
       /* einmal berechnet — Karten und Lageskizze zeigen dieselbe Aktualität */
       var akts=gruppen.map(function(g){ return gruppenAktualitaet(g.members, _data.stand, seitPoll, LAGE_SCHWELLE_MS); });
       if(ab){
@@ -1802,8 +2171,10 @@ function viewPraesidium(pid){
         ab.forEach(function(a){
           h+='<section class="labschnitt" data-lage="'+esc(a.key)+'">'+lageKopf(a)+(verw && a.lage ? lageAktionen(a.lage) : '')+summenLeiste(a.s)+'<div class="lgrid">';
           a.gis.forEach(function(gi){
-            var g=gruppen[gi];
+            var g=gruppen[gi], zus=kartenZusatz(g, ueb);
+            if(zus) h+='<div class="kh">';
             h+=karteA(g, akts[gi], opts);
+            if(zus) h+=zus+'</div>';
           });
           if(!a.gis.length) h+='<div class="empty">Noch kein CCP in dieser Lage.</div>';
           h+='</div></section>';
@@ -1811,7 +2182,10 @@ function viewPraesidium(pid){
       }else{
         h+='<div class="lgrid">';
         gruppen.forEach(function(g, gi){
+          var zus=kartenZusatz(g, ueb);   /* D6.12-37: MasterMedic-Zeile (und Übernahme-Knopf) unter der unveränderten Karte */
+          if(zus) h+='<div class="kh">';
           h+=karteA(g, akts[gi], opts);
+          if(zus) h+=zus+'</div>';
         });
         h+='</div>';
       }
@@ -1946,8 +2320,10 @@ document.addEventListener('click', function(e){
   var a=b.getAttribute('data-action');
   if(a==='login'){ var li=$('logininp'); doLogin(li?li.value:''); }
   /* Phase 6.12: persönliche Sitzung wechselt das Präsidium serverseitig (ohne Code-Eingabe) */
-  if(a==='pselect'){ if(isIdent()){ identWechsel(b.getAttribute('data-pid')||''); window.scrollTo(0,0); return; } pselSet(b.getAttribute('data-pid')||''); render(); window.scrollTo(0,0); return; }
-  if(a==='pwechsel'){ if(isIdent()){ identWechsel(null); window.scrollTo(0,0); return; } pselSet(''); loadPraesidien(); render(); window.scrollTo(0,0); return; }
+  /* Phase 6.12 (D6.12-33): fähiger Weg → Präsidium zeigen (eigener Bereich: Sitzungswechsel; sonst lesend) / Auswahl aller; sonst wie bisher */
+  if(a==='pselect'){ var ppid=b.getAttribute('data-pid')||''; if(sichtAktuell().modus!=='alt'){ sichtZeigen(ppid); window.scrollTo(0,0); return; } if(isIdent()){ identWechsel(ppid); window.scrollTo(0,0); return; } pselSet(ppid); render(); window.scrollTo(0,0); return; }
+  if(a==='pwechsel'){ if(sichtAktuell().modus!=='alt'){ sichtAuswahlZeigen(); window.scrollTo(0,0); return; } if(isIdent()){ identWechsel(null); window.scrollTo(0,0); return; } pselSet(''); loadPraesidien(); render(); window.scrollTo(0,0); return; }
+  if(a==='uebernehmen'){ uebernahmeDialog(b.getAttribute('data-ccp')||''); return; }
   if(a==='logout'){ doLogout(); }
   if(a==='gross'){ grossUmschalten(); render(); return; }   /* sofort neu zeichnen: Verwaltungsknöpfe nie im Großbild */
   if(a==='gthema'){ grossThemaSetzen(b.getAttribute('data-thema')); return; }
